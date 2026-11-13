@@ -169,7 +169,11 @@ function buildMineshaftChunk(world, c) {
     const r = _up.apply(this, arguments); const P = player; if (P.dead || P.riding || P.flying || S.mode === 'spectator') return r;
     const at = (dy) => BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + dy), Math.floor(P.pos.z))];
     const feet = at(0.1), head = at(1.2);
-    if ((feet && feet.climb) || (head && head.climb)) { const up = !S.uiOpen && (kd('jump') || kd('forward')); P.vel.y = up ? 2.35 : kd('sneak') ? 0 : Math.max(P.vel.y, -3); P.peak = null; }
+    const climbing = (feet && feet.climb) || (head && head.climb);
+    if (climbing) { const up = !S.uiOpen && (kd('jump') || kd('forward')); P.vel.y = up ? 2.35 : kd('sneak') ? 0 : Math.max(P.vel.y, -3); P.peak = null; }
+    // at the top of a ladder, keep walking forward to step off onto the block it leans on
+    else if (P.wasClimbing && P.hitH && !S.uiOpen && kd('forward') && P.vel.y < 1) { P.vel.y = 5.2; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); P.vel.x += fx * 1.5; P.vel.z += fz * 1.5; }
+    P.wasClimbing = !!climbing;
     if ((feet && feet.web) || (head && head.web)) { P.vel.x *= 0.25; P.vel.z *= 0.25; P.vel.y = Math.max(P.vel.y * 0.05, -0.8); P.peak = null; }
     if (feet === undefined) { }
     const below = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z))]; if (below && below.slippery && P.onGround) { P.slip = true; } else P.slip = false;

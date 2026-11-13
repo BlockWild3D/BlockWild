@@ -529,6 +529,7 @@ makeTile('spruce_leaves', (set, r) => pLeaves(set, r, [44, 92, 56]));
 makeTile('jungle_side', (set, r) => pLogSide(set, r, [94, 72, 34], [66, 50, 22])); makeTile('jungle_top', (set, r) => pLogTop(set, r, [170, 124, 78], [150, 106, 64], [94, 72, 34])); makeTile('jungle_leaves', (set, r) => pLeaves(set, r, [48, 150, 30]));
 makeTile('dark_oak_side', (set, r) => pLogSide(set, r, [62, 46, 28], [40, 30, 16])); makeTile('dark_oak_top', (set, r) => pLogTop(set, r, [96, 70, 40], [78, 56, 32], [62, 46, 28])); makeTile('dark_oak_leaves', (set, r) => pLeaves(set, r, [40, 110, 28]));
 makeTile('acacia_side', (set, r) => pLogSide(set, r, [112, 104, 96], [84, 78, 70])); makeTile('acacia_top', (set, r) => pLogTop(set, r, [186, 96, 52], [160, 80, 40], [112, 104, 96])); makeTile('acacia_leaves', (set, r) => pLeaves(set, r, [92, 140, 36]));
+makeTile('ladder', (set, r) => { clear(set); for (let y = 0; y < 16; y++) for (const x of [2, 3, 12, 13]) set(x, y, vary(x === 2 || x === 13 ? [104, 78, 44] : [134, 100, 58], r, 8)); for (const y0 of [1, 5, 9, 13]) for (let x = 4; x < 12; x++) { set(x, y0, vary([150, 112, 66], r, 8)); set(x, y0 + 1, vary([108, 80, 46], r, 6)); } });
 makeTile('vine', (set, r) => { clear(set); for (let k = 0; k < 7; k++) { let x = 1 + (r() * 14 | 0); for (let y = 0; y < 16; y++) { if (r() < 0.85) set(x, y, vary([56, 120, 32], r, 18)); if (r() < 0.35) set(Math.min(15, x + 1), y, vary([70, 140, 40], r, 14)); x = Math.max(0, Math.min(15, x + (r() < 0.3 ? (r() < 0.5 ? 1 : -1) : 0))); } } });
 makeTile('lily_pad', (set, r) => { clear(set); each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); const notch = Math.abs(x - 7.5) < 1.5 && y > 8; if (d < 7.2 && !notch) set(x, y, vary(d > 6 ? [36, 100, 30] : [56, 140, 46], r, 10)); }); });
 makeTile('cobweb', (set, r) => { clear(set); for (let a = 0; a < 8; a++) { const t = a / 8 * Math.PI * 2; for (let d = 0; d < 8; d++) set(Math.round(7.5 + Math.cos(t) * d), Math.round(7.5 + Math.sin(t) * d), [226, 226, 230]); } for (const R of [2.5, 4.5, 6.5]) for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; set(Math.round(7.5 + Math.cos(t) * R), Math.round(7.5 + Math.sin(t) * R), [210, 210, 214]); } });
@@ -536,6 +537,12 @@ makeTile('ice', (set, r) => each((x, y) => set(x, y, vary([150, 190, 250], r, 8)
 makeTile('cauldron_side', (set, r) => each((x, y) => { let c = vary([62, 62, 66], r, 5); if (y < 2) c = [80, 80, 84]; if (y > 12 && (x < 3 || x > 12)) c = [44, 44, 48]; set(x, y, c); }));
 makeTile('fence', (set, r) => pPlanks(set, r, [162, 130, 78]));
 const brickTile = (base, mortar, h = 4, w = 8) => (set, r) => each((x, y) => { const row = Math.floor(y / h); const off = row % 2 ? w / 2 : 0; const m = y % h === h - 1 || (x + off) % w === w - 1; set(x, y, m ? vary(mortar, r, 4) : vary(base, r, 7)); });
+makeTile('purpur_block', (set, r) => each((x, y) => { const e = x % 8 === 0 || y % 8 === 0; set(x, y, e ? vary([150, 100, 150], r, 5) : vary([172, 122, 172], r, 7)); }));
+makeTile('purpur_pillar', (set, r) => each((x, y) => set(x, y, (x === 0 || x === 15 || x === 7) ? vary([140, 92, 140], r, 5) : vary([176, 126, 176], r, 6))));
+makeTile('chorus_plant', (set, r) => each((x, y) => { const q = r(); set(x, y, q < 0.15 ? vary([70, 44, 74], r, 6) : q < 0.3 ? vary([138, 104, 140], r, 6) : vary([98, 66, 104], r, 8)); }));
+makeTile('chorus_flower', (set, r) => each((x, y) => { const e = x < 2 || x > 13 || y < 2 || y > 13; set(x, y, e ? vary([120, 88, 126], r, 6) : vary([196, 168, 204], r, 10)); if (!e && (x + y) % 5 === 0) set(x, y, [226, 206, 232]); }));
+makeTile('end_stone_bricks', (set, r) => each((x, y) => { const row = Math.floor(y / 8), off = row % 2 ? 4 : 0; const m = y % 8 === 7 || (x + off) % 8 === 7; set(x, y, m ? vary([196, 196, 150], r, 4) : vary([226, 226, 172], r, 6)); }));
+makeTile('end_rod', (set, r) => { clear(set); for (let y = 0; y < 16; y++) { set(7, y, [250, 248, 240]); set(8, y, [230, 226, 214]); } for (let x = 5; x <= 10; x++) { set(x, 15, [160, 120, 170]); set(x, 14, [180, 140, 190]); } });
 makeTile('tuff_bricks', brickTile([108, 110, 100], [80, 82, 74])); makeTile('trial_spawner', (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15 || x === 7 || y === 7; set(x, y, e ? vary([60, 66, 70], r, 5) : vary([28, 30, 36], r, 5)); if (!e && (x + y) % 5 === 0) set(x, y, [230, 140, 50]); }));
 makeTile('vault', (set, r) => each((x, y) => { const e = x < 2 || y < 2 || x > 13 || y > 13; set(x, y, e ? vary([70, 74, 80], r, 5) : (x > 5 && x < 10 && y > 5 && y < 10) ? [240, 200, 90] : vary([40, 42, 48], r, 5)); }));
 makeTile('prismarine', (set, r) => each((x, y) => set(x, y, vary(((x >> 2) + (y >> 2)) % 3 ? [98, 160, 144] : [86, 140, 150], r, 10)))); makeTile('prismarine_bricks', brickTile([100, 170, 152], [70, 120, 110], 8, 8));
@@ -706,12 +713,21 @@ defBlock('dark_oak_leaves', 'Dark Oak Leaves', { tex: 'dark_oak_leaves', opaque:
 defBlock('acacia_log', 'Acacia Log', { tex: { s: 'acacia_side', t: 'acacia_top' }, hardness: 2, snd: 'wood' });
 defBlock('acacia_leaves', 'Acacia Leaves', { tex: 'acacia_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
 defBlock('vine', 'Vines', { tex: 'vine', solid: false, opaque: false, render: 'cross', hardness: 0.2, snd: 'grass', plant: true, drop: null, climb: true });
+// ladders: a thin board against the wall they were placed on (ladder = wall to the north; _s/_e/_w the others)
+for (const [k, bx] of [['ladder', [0, 0, 0, 16, 16, 1]], ['ladder_s', [0, 0, 15, 16, 16, 16]], ['ladder_w', [0, 0, 0, 1, 16, 16]], ['ladder_e', [15, 0, 0, 16, 16, 16]]])
+  defBlock(k, 'Ladder', { tex: 'ladder', render: 'boxes', boxes: [bx], solid: false, opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', climb: true, drop: 'ladder', hidden: k !== 'ladder', flatIcon: true, ladder: true });
 defBlock('lily_pad', 'Lily Pad', { tex: 'lily_pad', solid: false, opaque: false, render: 'flat', hardness: 0, snd: 'grass' });
 defBlock('cobweb', 'Cobweb', { tex: 'cobweb', solid: false, opaque: false, render: 'cross', hardness: 4, snd: 'wool', drop: 'string', web: true });
 defBlock('ice', 'Ice', { tex: 'ice', opaque: false, render: 'cutout', cullSame: true, hardness: 0.5, snd: 'glass', drop: null, slippery: true });
 defBlock('packed_ice', 'Packed Ice', { tex: 'packed_ice', hardness: 0.5, snd: 'glass', drop: null, slippery: true });
 defBlock('cauldron', 'Cauldron', { tex: { s: 'cauldron_side', t: 'cauldron_side', b: 'cauldron_side' }, opaque: false, render: 'boxes', boxes: [[0, 3, 0, 16, 16, 2], [0, 3, 14, 16, 16, 16], [0, 3, 2, 2, 16, 14], [14, 3, 2, 16, 16, 14], [2, 3, 2, 14, 4, 14], [0, 0, 0, 4, 3, 4], [12, 0, 0, 16, 3, 4], [0, 0, 12, 4, 3, 16], [12, 0, 12, 16, 3, 16]], hardness: 2, tool: 'pick', tier: 1 });
 defBlock('oak_fence', 'Oak Fence', { tex: 'fence', opaque: false, render: 'boxes', boxes: [[6, 0, 6, 10, 16, 10]], hardness: 2, snd: 'wood', fence: true });
+defBlock('purpur_block', 'Purpur Block', { tex: 'purpur_block', hardness: 1.5, tool: 'pick', tier: 1 }); defBlock('purpur_pillar', 'Purpur Pillar', { tex: 'purpur_pillar', hardness: 1.5, tool: 'pick', tier: 1 });
+defBlock('end_stone_bricks', 'End Stone Bricks', { tex: 'end_stone_bricks', hardness: 3, tool: 'pick', tier: 1 });
+defBlock('end_rod', 'End Rod', { tex: 'end_rod', solid: false, opaque: false, render: 'torch', hardness: 0, light: 0.9, snd: 'wood' });
+defBlock('chorus_plant', 'Chorus Plant', { tex: 'chorus_plant', render: 'boxes', boxes: [[3, 0, 3, 13, 16, 13]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', drop: (q) => q < 0.5 ? 'chorus_fruit' : null, chorus: true });
+defBlock('chorus_flower', 'Chorus Flower', { tex: 'chorus_flower', render: 'boxes', boxes: [[1, 0, 1, 15, 14, 15]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', chorus: true });
+defBlock('end_gateway', 'End Gateway', { tex: 'end_portal', solid: false, opaque: false, render: 'cutout', hardness: -1, drop: null, light: 1, noTarget: true });
 defBlock('tuff_bricks', 'Tuff Bricks', { tex: 'tuff_bricks', hardness: 1.5, tool: 'pick', tier: 1 });
 defBlock('trial_spawner', 'Trial Spawner', { tex: 'trial_spawner', opaque: false, render: 'cutout', hardness: 50, tool: 'pick', tier: 1, drop: null, light: 0.2 });
 defBlock('vault', 'Vault', { tex: 'vault', hardness: 50, tool: 'pick', tier: 1, drop: null, light: 0.4, use: 'vault' });
@@ -857,7 +873,7 @@ M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1,
 M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
 M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
 M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('totem_of_undying', 'Totem of Undying', { kind: 'totem', stack: 1 });
-M('minecart', 'Minecart', { kind: 'minecart', stack: 1 }); M('trial_key', 'Trial Key', { kind: 'key' }); M('ominous_trial_key', 'Ominous Trial Key', { kind: 'key' }); M('prismarine_shard', 'Prismarine Shard'); M('prismarine_crystals', 'Prismarine Crystals'); M('echo_shard', 'Echo Shard'); M('enchanted_golden_apple', 'Enchanted Golden Apple', { kind: 'food' }); M('chest_minecart', 'Minecart with Chest', { kind: 'minecart', stack: 1, chest: true });
+M('minecart', 'Minecart', { kind: 'minecart', stack: 1 }); M('trial_key', 'Trial Key', { kind: 'key' }); M('elytra', 'Elytra', { kind: 'armor', slot: 'chest', def: 0, stack: 1, dur: 432, elytra: true }); M('shulker_shell', 'Shulker Shell'); M('chorus_fruit', 'Chorus Fruit', { kind: 'food' }); M('popped_chorus_fruit', 'Popped Chorus Fruit'); M('firework_rocket', 'Firework Rocket', { kind: 'firework', stack: 64 }); M('ominous_trial_key', 'Ominous Trial Key', { kind: 'key' }); M('prismarine_shard', 'Prismarine Shard'); M('prismarine_crystals', 'Prismarine Crystals'); M('echo_shard', 'Echo Shard'); M('enchanted_golden_apple', 'Enchanted Golden Apple', { kind: 'food' }); M('chest_minecart', 'Minecart with Chest', { kind: 'minecart', stack: 1, chest: true });
 M('cod', 'Raw Cod', { kind: 'food' }); M('cooked_cod', 'Cooked Cod', { kind: 'food' }); M('salmon', 'Raw Salmon', { kind: 'food' }); M('cooked_salmon', 'Cooked Salmon', { kind: 'food' });
 M('tropical_fish', 'Tropical Fish', { kind: 'food' }); M('pufferfish', 'Pufferfish', { kind: 'food' }); M('ink_sac', 'Ink Sac'); M('glow_ink_sac', 'Glow Ink Sac');
 M('rabbit', 'Raw Rabbit', { kind: 'food' }); M('cooked_rabbit', 'Cooked Rabbit', { kind: 'food' }); M('rabbit_hide', 'Rabbit Hide'); M('rabbit_foot', "Rabbit's Foot");
@@ -984,6 +1000,11 @@ Object.assign(ICONP, {
   honeycomb: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) { const hx = ((x + (Math.floor(y / 3) % 2) * 2) % 4 === 0) || y % 3 === 0; s(x, y, hx ? [200, 130, 20] : [250, 190, 50]); } },
   minecart: (s, r) => { for (let y = 6; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 6 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); s(x - 1, 12, [70, 70, 74]); s(x + 1, 12, [70, 70, 74]); } },
   chest_minecart: (s, r) => { for (let y = 3; y <= 7; y++) for (let x = 4; x <= 11; x++) s(x, y, y === 5 ? [60, 40, 20] : [170, 120, 60]); s(7, 5, [200, 200, 200]); for (let y = 7; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 7 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); } },
+  elytra: (s, r) => { for (const sgn of [-1, 1]) for (let y = 2; y <= 14; y++) { const w = y < 6 ? y - 1 : 14 - y + 2; for (let k = 0; k < Math.min(5, w); k++) s(8 + sgn * (1 + k), y, k === Math.min(5, w) - 1 ? [110, 90, 130] : [160, 150, 180]); } },
+  chorus_fruit: (s, r) => { blob(s, 8, 9, 5, 5, [150, 100, 160], r, [96, 60, 104]); for (const [x, y] of [[6, 7], [10, 8], [8, 11], [7, 10]]) s(x, y, [200, 170, 210]); s(8, 3, [90, 60, 80]); s(8, 4, [90, 60, 80]); },
+  popped_chorus_fruit: (s, r) => { blob(s, 8, 9, 5.5, 5.5, [180, 140, 190], r, [120, 84, 130]); for (const [x, y] of [[5, 7], [9, 6], [11, 9], [7, 11], [9, 12], [6, 9]]) s(x, y, [236, 220, 240]); },
+  shulker_shell: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 3; x <= 12; x++) { const e = y === 4 || x === 3 || x === 12; s(x, y, e ? [130, 80, 130] : y === 8 ? [90, 50, 90] : [170, 110, 170]); } },
+  firework_rocket: (s, r) => { for (let y = 5; y <= 13; y++) for (let x = 6; x <= 9; x++) s(x, y, y < 7 ? [200, 40, 40] : [240, 230, 210]); pLine(s, 8, 1, 8, 4, [220, 220, 220]); s(7, 14, [120, 90, 60]); },
   trial_key: (s, r) => { for (let a = 0; a < 20; a++) { const t = a / 20 * Math.PI * 2; s(Math.round(5 + Math.cos(t) * 3), Math.round(5 + Math.sin(t) * 3), [200, 130, 70]); } pLine(s, 7, 7, 13, 13, [200, 130, 70]); s(12, 14, [200, 130, 70]); s(14, 12, [200, 130, 70]); },
   ominous_trial_key: (s, r) => { for (let a = 0; a < 20; a++) { const t = a / 20 * Math.PI * 2; s(Math.round(5 + Math.cos(t) * 3), Math.round(5 + Math.sin(t) * 3), [60, 120, 140]); } pLine(s, 7, 7, 13, 13, [60, 120, 140]); s(12, 14, [60, 120, 140]); s(14, 12, [60, 120, 140]); },
   prismarine_shard: (s, r) => { pLine(s, 4, 12, 11, 3, [110, 180, 160]); pLine(s, 5, 12, 12, 3, [80, 150, 140]); pLine(s, 6, 13, 11, 6, [150, 220, 200]); },
@@ -1033,7 +1054,7 @@ Object.assign(ICONP, {
 function tileCanvas(t) { const c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); return c; }
 function blockIconCanvas(id) {
   const d = BL[id]; const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-  if (d.render === 'cross' || d.render === 'torch') { x.drawImage(tileCanvas(d.texIds[0]), 0, 0, 48, 48); return c; }
+  if (d.render === 'cross' || d.render === 'torch' || d.flatIcon) { x.drawImage(tileCanvas(d.texIds[0]), 0, 0, 48, 48); return c; }
   const face = (t, a, b, cc, dd, e, f, dark) => {
     const tc = tileCanvas(t); x.setTransform(a, b, cc, dd, e, f); x.drawImage(tc, 0, 0);
     if (dark) { x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(0,0,0,' + dark + ')'; x.fillRect(0, 0, 16, 16); x.globalCompositeOperation = 'source-over'; }
@@ -1138,7 +1159,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
   RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
   RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
   RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
@@ -1176,7 +1197,7 @@ function gridMatch(grid, n) {
   }
   return null;
 }
-const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'], ['potato', 'baked_potato'], ['cod', 'cooked_cod'], ['salmon', 'cooked_salmon'], ['rabbit', 'cooked_rabbit'], ['mutton', 'cooked_mutton'],
+const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['chorus_fruit', 'popped_chorus_fruit'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'], ['potato', 'baked_potato'], ['cod', 'cooked_cod'], ['salmon', 'cooked_salmon'], ['rabbit', 'cooked_rabbit'], ['mutton', 'cooked_mutton'],
   ['deepslate_iron_ore', 'iron_ingot'], ['deepslate_gold_ore', 'gold_ingot'], ['deepslate_copper_ore', 'copper_ingot'], ['deepslate_coal_ore', 'coal'], ['deepslate_diamond_ore', 'diamond'], ['deepslate_lapis_ore', 'lapis_lazuli'], ['deepslate_redstone_ore', 'redstone'], ['deepslate_emerald_ore', 'emerald'], ['redstone_ore', 'redstone'], ['emerald_ore', 'emerald']]) SMELT[IT[a]] = IT[b];
 const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60], ['wooden_spear', 10], ['smithing_table', 15]]) FUEL[IT[a]] = t;
 const COOK_TIME = 5;
@@ -4055,7 +4076,7 @@ function updatePlayer(dt) {
   P.eyeH = (P.eyeH || 1.62) + ((P.riding ? BOAT.eye : P.sneaking ? 1.27 : 1.62) - (P.eyeH || 1.62)) * Math.min(1, dt * 12);
   P.hurtCD -= dt;
   if (!world.loaded(Math.floor(P.pos.x), Math.floor(P.pos.z))) return;
-  if (P.riding) rideUpdate(P, dt); else {
+  if (P.gliding && glideUpdate(P, dt)) { /* elytra flight (40_end.js) */ } else if (P.riding) rideUpdate(P, dt); else {
   let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
@@ -6309,10 +6330,10 @@ const HARD = { grass: 0.6, dirt: 0.5, stone: 1.5, sand: 0.5, log: 2, leaves: 0.2
   crimson_nylium: 0.4, warped_nylium: 0.4, crimson_stem: 2, warped_stem: 2, nether_wart_block: 1, warped_wart_block: 1, shroomlight: 1, end_stone: 3, dragon_egg: 3, quartz_block: 0.8,
   lapis_ore: 3, lapis_block: 3, enchanting_table: 5, deepslate: 3, cobbled_deepslate: 3.5, tuff: 1.5, granite: 1.5, diorite: 1.5, andesite: 1.5, copper_ore: 3, redstone_ore: 3, emerald_ore: 3,
   deepslate_coal_ore: 4.5, deepslate_iron_ore: 4.5, deepslate_gold_ore: 4.5, deepslate_diamond_ore: 4.5, deepslate_lapis_ore: 4.5, deepslate_copper_ore: 4.5, deepslate_redstone_ore: 4.5, deepslate_emerald_ore: 4.5, copper_block: 3,
-  ancient_debris: 30, netherite_block: 50, jungle_log: 2, dark_oak_log: 2, acacia_log: 2, jungle_leaves: 0.2, dark_oak_leaves: 0.2, acacia_leaves: 0.2, vine: 0.2, cobweb: 4, ice: 0.5, packed_ice: 0.5, cauldron: 2, oak_fence: 2, lily_pad: 0, iron_block: 5, gold_block: 3, diamond_block: 5, emerald_block: 5, coal_block: 5, redstone_block: 5, anvil: 5, anvil_x: 5, chipped_anvil: 5, chipped_anvil_x: 5, damaged_anvil: 5, damaged_anvil_x: 5, smithing_table: 2.5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
+  ancient_debris: 30, netherite_block: 50, jungle_log: 2, dark_oak_log: 2, acacia_log: 2, jungle_leaves: 0.2, dark_oak_leaves: 0.2, acacia_leaves: 0.2, vine: 0.2, ladder: 0.4, chorus_plant: 0.4, chorus_flower: 0.4, ladder_s: 0.4, ladder_w: 0.4, ladder_e: 0.4, cobweb: 4, ice: 0.5, packed_ice: 0.5, cauldron: 2, oak_fence: 2, lily_pad: 0, iron_block: 5, gold_block: 3, diamond_block: 5, emerald_block: 5, coal_block: 5, redstone_block: 5, anvil: 5, anvil_x: 5, chipped_anvil: 5, chipped_anvil_x: 5, damaged_anvil: 5, damaged_anvil_x: 5, smithing_table: 2.5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
 const MINE_WITH = {
   pick: ['iron_block', 'gold_block', 'diamond_block', 'emerald_block', 'coal_block', 'redstone_block', 'anvil', 'anvil_x', 'chipped_anvil', 'chipped_anvil_x', 'damaged_anvil', 'damaged_anvil_x', 'stone', 'cobblestone', 'brick', 'coal_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'mossy_cobblestone', 'sandstone', 'furnace', 'spawner', 'stone_bricks', 'obsidian', 'netherrack', 'quartz_ore', 'nether_gold_ore', 'nether_bricks', 'magma_block', 'crimson_nylium', 'warped_nylium', 'end_stone', 'quartz_block', 'lapis_ore', 'lapis_block', 'enchanting_table', 'deepslate', 'cobbled_deepslate', 'tuff', 'granite', 'diorite', 'andesite', 'copper_ore', 'redstone_ore', 'emerald_ore', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_gold_ore', 'deepslate_diamond_ore', 'deepslate_lapis_ore', 'deepslate_copper_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'copper_block', 'ancient_debris', 'netherite_block'],
-  axe: ['jungle_log', 'dark_oak_log', 'acacia_log', 'oak_fence', 'log', 'planks', 'crafting_table', 'chest', 'bookshelf', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem', 'bed_head', 'bed_foot', 'smithing_table'],
+  axe: ['chorus_plant', 'chorus_flower', 'ladder', 'ladder_s', 'ladder_w', 'ladder_e', 'jungle_log', 'dark_oak_log', 'acacia_log', 'oak_fence', 'log', 'planks', 'crafting_table', 'chest', 'bookshelf', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem', 'bed_head', 'bed_foot', 'smithing_table'],
   shovel: ['grass', 'dirt', 'sand', 'gravel', 'snowy_grass', 'snow_block', 'soul_sand', 'dirt_path', 'farmland'],
   hoe: ['jungle_leaves', 'dark_oak_leaves', 'acacia_leaves', 'vine', 'leaves', 'birch_leaves', 'spruce_leaves', 'nether_wart_block', 'warped_wart_block', 'shroomlight', 'hay_block'],
 };
@@ -6735,7 +6756,7 @@ const FOOD = { // [food points, saturation, effect chance list]
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
   enchanted_golden_apple: [4, 9.6, [['regeneration', 20, 1, 1], ['absorption', 120, 3, 1], ['resistance', 300, 0, 1], ['fire_resistance', 300, 0, 1]], true],
   carrot: [3, 3.6], potato: [1, 0.6], cod: [2, 0.4], cooked_cod: [5, 6], salmon: [2, 0.4], cooked_salmon: [6, 9.6], tropical_fish: [1, 0.2], pufferfish: [1, 0.2, [['poison', 60, 3, 1], ['hunger', 15, 2, 1]]],
-  rabbit: [3, 1.8], cooked_rabbit: [5, 6], mutton: [2, 1.2], cooked_mutton: [6, 9.6], spider_eye: [2, 3.2, [['poison', 5, 0, 1]]], baked_potato: [5, 6], golden_carrot: [6, 14.4], milk_bucket: [0, 0, null, true],
+  rabbit: [3, 1.8], cooked_rabbit: [5, 6], mutton: [2, 1.2], cooked_mutton: [6, 9.6], spider_eye: [2, 3.2, [['poison', 5, 0, 1]]], baked_potato: [5, 6], golden_carrot: [6, 14.4], chorus_fruit: [4, 2.4, null, true], milk_bucket: [0, 0, null, true],
 };
 for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kind = 'food'; it.food = FOOD[k][0]; it.sat = FOOD[k][1]; it.eatFx = FOOD[k][2] || null; it.alwaysEat = !!FOOD[k][3]; }
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
@@ -6812,6 +6833,7 @@ function updateEating(dt) {
     H.eatT = 0; S.eating = 0; mouseR = false;
     if (isSurv()) { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
+    if (typeof onEatItem === 'function') onEatItem(h.id);
     if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
     Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
   }
@@ -9190,7 +9212,11 @@ function buildMineshaftChunk(world, c) {
     const r = _up.apply(this, arguments); const P = player; if (P.dead || P.riding || P.flying || S.mode === 'spectator') return r;
     const at = (dy) => BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + dy), Math.floor(P.pos.z))];
     const feet = at(0.1), head = at(1.2);
-    if ((feet && feet.climb) || (head && head.climb)) { const up = !S.uiOpen && (kd('jump') || kd('forward')); P.vel.y = up ? 2.35 : kd('sneak') ? 0 : Math.max(P.vel.y, -3); P.peak = null; }
+    const climbing = (feet && feet.climb) || (head && head.climb);
+    if (climbing) { const up = !S.uiOpen && (kd('jump') || kd('forward')); P.vel.y = up ? 2.35 : kd('sneak') ? 0 : Math.max(P.vel.y, -3); P.peak = null; }
+    // at the top of a ladder, keep walking forward to step off onto the block it leans on
+    else if (P.wasClimbing && P.hitH && !S.uiOpen && kd('forward') && P.vel.y < 1) { P.vel.y = 5.2; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); P.vel.x += fx * 1.5; P.vel.z += fz * 1.5; }
+    P.wasClimbing = !!climbing;
     if ((feet && feet.web) || (head && head.web)) { P.vel.x *= 0.25; P.vel.z *= 0.25; P.vel.y = Math.max(P.vel.y * 0.05, -0.8); P.peak = null; }
     if (feet === undefined) { }
     const below = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z))]; if (below && below.slippery && P.onGround) { P.slip = true; } else P.slip = false;
@@ -9403,6 +9429,195 @@ function updateSculk(dt) {
     }
     return _lc.call(this, a, ctx);
   }; }
+
+// ================= OUTER END, END CITIES, SHULKERS, ELYTRA (Minecraft) =================
+// After the dragon falls an End Gateway appears near the island's edge; jump in to reach the outer islands 1000
+// blocks out. End cities there are purpur towers with loot chests and shulkers, and some have an End Ship with an
+// Elytra. Shulkers hide in their shells and shoot homing bullets that make you float (Levitation). Elytra: wear
+// one as a chestplate and press jump while falling to glide; look down to gain speed, up to climb; fireworks
+// boost you. Flying into a wall too fast hurts.
+// ---------- ladders: placed on the side of a block, facing out from it; they need that wall to stay ----------
+function ladderFor(nx, nz) { return nx > 0 ? B.LADDER_W : nx < 0 ? B.LADDER_E : nz > 0 ? B.LADDER : B.LADDER_S; }
+function ladderWall(id) { return id === B.LADDER ? [0, -1] : id === B.LADDER_S ? [0, 1] : id === B.LADDER_W ? [-1, 0] : [1, 0]; }
+{ const _pb = placeBlock; placeBlock = function (t, id) {
+    if (BL[id] && BL[id].ladder) { if (t.ny !== 0 && !BL[t.id].ladder) return false; id = BL[t.id].ladder && t.ny !== 0 ? t.id : ladderFor(t.nx, t.nz); const [wx, wz] = ladderWall(id); if (!SOLID[world.get(t.x + t.nx + wx, t.y + t.ny, t.z + t.nz + wz)]) return false; }
+    return _pb.call(this, t, id);
+  }; }
+// ---------- outer islands ----------
+{ const _col = EndGen.prototype.column; EndGen.prototype.column = function (x, z) {
+    const dd = Math.hypot(x, z); if (dd < 800) return _col.call(this, x, z);
+    const n = this.n.n2(x / 70, z / 70) + this.n2.n2(x / 23, z / 23) * 0.25; if (n < 0.28) return { h: 0, b: 0, bottom: 0 };
+    const top = 54 + Math.round(this.n2.n2(x / 40, z / 40) * 6); const th = Math.round((n - 0.28) * 40); return { h: top, b: 0, bottom: top - Math.max(2, th) };
+  }; }
+PLACE.end_city = { spacing: 20, sep: 11, salt: 10387313 };
+Object.assign(STRUCT_NAMES, { end_city: 'end_city' });
+LOOT.end_city = [['diamond', 2, 7, 0.3], ['iron_ingot', 4, 8, 0.5], ['gold_ingot', 2, 7, 0.5], ['emerald', 2, 6, 0.3], ['diamond_sword', 1, 1, 0.1], ['diamond_chestplate', 1, 1, 0.08], ['diamond_pickaxe', 1, 1, 0.08], ['iron_sword', 1, 1, 0.1], ['saddle', 1, 1, 0.15], ['diamond_horse_armor', 1, 1, 0.08], ['enchanted_book', 1, 1, 0.25]];
+LOOT.end_ship = [['elytra', 1, 1, 1], ['diamond', 2, 5, 0.4], ['emerald', 2, 6, 0.3], ['enchanted_book', 1, 1, 0.3], ['iron_ingot', 2, 6, 0.4]];
+{ const _es = endStructures; endStructures = function (world, cx, cz) {
+    const S = _es(world, cx, cz); if (S.endCity || Math.hypot(cx * 16, cz * 16) < 900) return S; S.endCity = true;
+    const st = startNear(world, 'end_city', cx, cz, 0); if (!st) return S; const g = world.gen; const xc = cx * 16 + 8, zc = cz * 16 + 8; const base = g.column(xc, zc); if (!base.h) return S;
+    const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }; const r = mulberry32(st.seed); let y = base.h;
+    const floors = 3 + (r() * 3 | 0);
+    for (let f = 0; f < floors; f++) { const half = f === 0 ? 4 : 3; const H = 5;
+      for (let x = -half; x <= half; x++) for (let z = -half; z <= half; z++) for (let h = 0; h <= H; h++) { if (x === 0 && z === 0 && !(f === 0 && h === 0)) continue; const edge = Math.abs(x) === half || Math.abs(z) === half; const corner = Math.abs(x) === half && Math.abs(z) === half; hard(xc + x, y + h, zc + z, h === 0 || h === H ? (f === 0 && h === 0 ? B.END_STONE_BRICKS : B.PURPUR_BLOCK) : corner ? B.PURPUR_PILLAR : edge ? ((h === 2 || h === 3) && (x === 0 || z === 0) ? 0 : B.PURPUR_BLOCK) : 0); }
+      hard(xc + half - 1, y + 3, zc + half - 1, B.END_ROD); hard(xc - half + 1, y + 3, zc - half + 1, B.END_ROD);
+      if (f > 0 && r() < 0.6) { hard(xc + 1, y + 1, zc + 1, B.CHEST); S.kinds.push(['chest:end_city', xc + 1, zc + 1, y + 1]); }
+      if (r() < 0.8) S.mobs.push(['shulker', xc - half + 1.5, y + 1, zc + 0.5]);
+      for (let h = 1; h <= H; h++) { hard(xc, y + h, zc, 0); hard(xc, y + h, zc - 1, B.PURPUR_PILLAR); hard(xc, y + h, zc, B.LADDER); } if (f === 0) hard(xc, y, zc, B.END_STONE_BRICKS); y += H;
+    }
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) { if (x === 0 && z === 0) continue; hard(xc + x, y, zc + z, B.PURPUR_BLOCK); if (Math.abs(x) === 3 || Math.abs(z) === 3) hard(xc + x, y + 1, zc + z, (x + z) % 2 ? B.PURPUR_PILLAR : 0); } for (let h = 1; h <= 3; h++) hard(xc + 2, y + h, zc + 2, B.PURPUR_PILLAR); hard(xc + 2, y + 4, zc + 2, B.END_ROD);
+    // a bridge from the second floor to a side house with loot and shulkers
+    { const dirs = [[-1, 0], [0, 1], [0, -1]]; const [dx, dz] = dirs[r() * 3 | 0]; const px = -dz, pz = dx; const yf = base.h + 5; const at = (a, b) => [xc + dx * a + px * b, zc + dz * a + pz * b];
+      for (let h = 1; h <= 3; h++) { const [x, z] = at(3, 0); hard(x, yf + h, z, 0); }
+      for (let a = 4; a <= 9; a++) for (let b = -2; b <= 2; b++) { const [x, z] = at(a, b); hard(x, yf, z, Math.abs(b) === 2 ? B.PURPUR_BLOCK : B.END_STONE_BRICKS); if (Math.abs(b) === 2) hard(x, yf + 1, z, a % 2 ? B.PURPUR_PILLAR : 0); for (let h = 1; h <= 3; h++) if (Math.abs(b) < 2) hard(x, yf + h, z, 0); }
+      const R = 4, c0 = 14, Hh = 6;
+      for (let a = c0 - R; a <= c0 + R; a++) for (let b = -R; b <= R; b++) for (let h = 0; h <= Hh; h++) { const [x, z] = at(a, b); const ea = Math.abs(a - c0) === R, eb = Math.abs(b) === R; const corner = ea && eb;
+        let id = h === 0 ? B.END_STONE_BRICKS : h === Hh ? B.PURPUR_BLOCK : corner ? B.PURPUR_PILLAR : (ea || eb) ? B.PURPUR_BLOCK : 0;
+        if ((ea || eb) && !corner && h >= 2 && h <= 4 && (Math.abs(a - c0) === 2 || Math.abs(b) === 2) && h !== 4) id = 0; // windows
+        if (a === c0 - R && Math.abs(b) <= 1 && h >= 1 && h <= 3) id = 0; // doorway
+        hard(x, yf + h, z, id); }
+      // a peaked roof and a little turret
+      for (let k = 1; k <= 2; k++) for (let a = c0 - R + k; a <= c0 + R - k; a++) for (let b = -R + k; b <= R - k; b++) { const [x, z] = at(a, b); hard(x, yf + Hh + k, z, k === 2 && Math.abs(a - c0) < 1 && Math.abs(b) < 1 ? B.PURPUR_PILLAR : B.PURPUR_BLOCK); }
+      { const [x, z] = at(c0, 0); hard(x, yf + Hh + 3, z, B.END_ROD); }
+      for (const [a, b] of [[c0 - R + 1, -R + 1], [c0 + R - 1, R - 1], [c0 + R - 1, -R + 1], [c0 - R + 1, R - 1]]) { const [x, z] = at(a, b); hard(x, yf + 4, z, B.END_ROD); }
+      { const [x, z] = at(c0 + R - 1, 0); hard(x, yf + 1, z, B.CHEST); S.kinds.push(['chest:end_city', x, z, yf + 1]); }
+      if (r() < 0.6) { const [x, z] = at(c0 + R - 1, 2); hard(x, yf + 1, z, B.CHEST); S.kinds.push(['chest:end_city', x, z, yf + 1]); }
+      for (const b of [-2, 2]) { const [x, z] = at(c0 + 1, b); S.mobs.push(['shulker', x + 0.5, yf + 1, z + 0.5]); }
+      { const [x, z] = at(c0, 0); S.mobs.push(['shulker', x + 0.5, yf + 1, z + 0.5]); }
+    }
+    // an End Ship floating beside some cities, reached by a gangway from the third floor, with an elytra inside
+    if (r() < 0.5) { const sx = xc + 14, sy = base.h + 10, sz = zc; for (let h = 1; h <= 3; h++) hard(xc + 3, sy + h, zc, 0); for (let j = -1; j <= 1; j++) hard(xc + 4, sy, zc + j, B.END_STONE_BRICKS); for (let i = -9; i <= 9; i++) { const w = Math.max(0, 3 - Math.floor(Math.abs(i) / 3)); for (let j = -w; j <= w; j++) { hard(sx + i, sy, sz + j, B.PURPUR_BLOCK); if (Math.abs(j) === w && i > -8) for (let h = 1; h <= 2; h++) hard(sx + i, sy + h, sz + j, B.PURPUR_BLOCK); } }
+      for (let h = 1; h <= 9; h++) hard(sx, sy + h, sz, B.PURPUR_PILLAR); hard(sx + 3, sy + 1, sz, B.CHEST); S.kinds.push(['chest:end_ship', sx + 3, sz, sy + 1]); hard(sx - 4, sy + 1, sz, B.CHEST); S.kinds.push(['chest:end_city', sx - 4, sz, sy + 1]); S.mobs.push(['shulker', sx + 6.5, sy + 1, sz + 0.5]); }
+    S.kinds.push(['end_city', xc, zc]); return S;
+  }; }
+// chorus trees on the outer islands: a trunk that branches out and up, tipped with flowers
+function chorusTree(hard, r, x, y, z) {
+  const grow = (x, y, z, len, depth) => { for (let i = 0; i < len; i++) hard(x, y + i, z, B.CHORUS_PLANT); const ty = y + len;
+    if (depth >= 3 || r() < 0.15) { hard(x, ty, z, B.CHORUS_FLOWER); return; }
+    hard(x, ty, z, B.CHORUS_PLANT); const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => r() - 0.5); const n = 1 + (r() * 3 | 0);
+    for (let k = 0; k < n; k++) { const [dx, dz] = dirs[k]; const L = 1 + (r() * 2 | 0); for (let j = 1; j <= L; j++) hard(x + dx * j, ty, z + dz * j, B.CHORUS_PLANT); grow(x + dx * L, ty + 1, z + dz * L, 1 + (r() * 3 | 0), depth + 1); } };
+  grow(x, y, z, 2 + (r() * 3 | 0), 0);
+}
+{ const _es = endStructures; endStructures = function (world, cx, cz) {
+    const S = _es(world, cx, cz); if (S.chorusDone) return S; S.chorusDone = true;
+    if (Math.hypot(cx * 16, cz * 16) < 800) return S; const r = mulberry32(ihash(cx, cz, 4417, world.seed)); const g = world.gen;
+    const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
+    const n = r() < 0.45 ? 1 + (r() * 3 | 0) : 0;
+    for (let i = 0; i < n; i++) { const x = cx * 16 + 3 + (r() * 10 | 0), z = cz * 16 + 3 + (r() * 10 | 0); const col = g.column(x, z); if (!col.h) continue; if (S.kinds.some(k => k[0] === 'end_city' && Math.abs(k[1] - x) < 12 && Math.abs(k[2] - z) < 12)) continue; chorusTree(hard, r, x, col.h, z); }
+    return S;
+  }; }
+// chorus fruit: eating it teleports you up to 8 blocks away, onto solid ground
+function onEatItem(id) {
+  if (id !== IT.chorus_fruit) return; const P = player;
+  for (let t = 0; t < 16; t++) { const x = Math.floor(P.pos.x + (Math.random() - 0.5) * 16), z = Math.floor(P.pos.z + (Math.random() - 0.5) * 16); const y0 = Math.floor(P.pos.y + (Math.random() - 0.5) * 16);
+    for (let y = clamp(y0 + 8, 2, WH - 3); y > Math.max(1, y0 - 8); y--) if (world.solid(x, y - 1, z) && !world.solid(x, y, z) && !world.solid(x, y + 1, z) && !BL[world.get(x, y, z)].fluid) {
+      Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 16, [[0.6, 0.2, 0.9]], 2, 0.8, -1, 1); P.pos.set(x + 0.5, y + 0.01, z + 0.5); P.vel.set(0, 0, 0); P.peak = null; P.gliding = false; if (P.riding && typeof dismount === 'function') dismount(); Sfx.play('vwoop', 0.9); Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 16, [[0.6, 0.2, 0.9]], 2, 0.8, -1, 1); return; }
+  }
+}
+// chests in End structures get loot
+{ const _oc = openChest; openChest = function (x, y, z) {
+    const k = x + ',' + y + ',' + z; if (world.dim === 'end' && !world.chestInv.has(k)) for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const S2 = structuresFor(world, (x >> 4) + dx, (z >> 4) + dz); for (const kk of (S2.kinds || [])) if (String(kk[0]).startsWith('chest:') && kk[1] === x && kk[2] === z && kk[3] === y) { world.chestInv.set(k, rollLoot(kk[0].slice(6), ihash(x, y, z, world.seed))); break; } }
+    return _oc.apply(this, arguments);
+  }; }
+// ---------- end gateway: appears when the dragon is dead ----------
+const GATEWAY = [0, 75, 96];
+function updateGateway(dt) {
+  if (!world || world.dim !== 'end' || !S.dragonDead) return; const [gx, gy, gz] = GATEWAY; if (!world.loaded(gx, gz)) return;
+  if (!isClientMP() && world.get(gx, gy, gz) !== B.END_GATEWAY) { for (let dx = -1; dx <= 1; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -1; dz <= 1; dz++) { const id = (dx === 0 && dy === 0 && dz === 0) ? B.END_GATEWAY : (Math.abs(dy) === 1 && dx === 0 && dz === 0) ? B.BEDROCK : (Math.abs(dy) === 1 && Math.abs(dx) + Math.abs(dz) === 1) ? B.BEDROCK : 0; if (Math.abs(dy) === 2 && !(dx === 0 && dz === 0)) continue; world.set(gx + dx, gy + dy, gz + dz, id); mpBlock(gx + dx, gy + dy, gz + dz, id); } Sfx.play('boom', 0.3, 0.6); }
+  const P = player; if (P.dead) return;
+  const near = (x, y, z) => P.pos.distanceTo(new V3(x + 0.5, y + 0.5, z + 0.5)) < 30; if (Math.random() < dt * 12 && near(gx, gy, gz)) Particles.emit(gx + 0.5, gy + 0.5, gz + 0.5, 1, [[0.6, 0.3, 0.9], [0.3, 0.9, 0.8]], 1, 0.8, -1, 0.6);
+  // touch a gateway block: near the main island it sends you 1000 blocks out, out there it brings you back
+  const id = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z)), id2 = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.5), Math.floor(P.pos.z));
+  if ((id === B.END_GATEWAY || id2 === B.END_GATEWAY) && !(S.gwCD > 0)) { S.gwCD = 2;
+    const out = Math.hypot(P.pos.x, P.pos.z) < 500; const tx = out ? 1000 : 0, tz = out ? 96 : 92;
+    if (P.riding) dismount && dismount(); P.gliding = false; P.pos.set(tx + 0.5, 120, tz + 0.5); P.vel.set(0, 0, 0); P.peak = null; S.tpGround = { x: tx, z: tz, t: 30, end: true, out }; Sfx.play('vwoop', 1, 0.6); world.lastCenter = null; }
+  if (S.gwCD > 0) S.gwCD -= dt;
+}
+{ const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updateGateway(dt); return r; }; }
+// arriving through a gateway: land on the nearest ground, building a small platform (and a gateway home) if the
+// outer islands have none there
+{ const _st = settleTeleport; settleTeleport = function (dt) {
+    const T2 = S.tpGround; if (!T2 || !T2.end || !world || world.dim !== 'end') return _st(dt);
+    const x = Math.floor(T2.x), z = Math.floor(T2.z); if (!world.loaded(x, z)) { player.vel.set(0, 0, 0); T2.t -= dt; if (T2.t <= 0) S.tpGround = null; return; }
+    let y = -1; for (let yy = 110; yy > 20; yy--) if (world.solid(x, yy, z)) { y = yy + 1; break; }
+    if (y < 0) { y = 61; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { world.set(x + dx, 60, z + dz, B.END_STONE); mpBlock(x + dx, 60, z + dz, B.END_STONE); } }
+    if (T2.out && !isClientMP()) { const gx = x + 3; let has = false; for (let dy = -3; dy <= 6; dy++) if (world.get(gx, y + dy, z) === B.END_GATEWAY) has = true;
+      if (!has) { const set = (a, b, c, id) => { world.set(a, b, c, id); mpBlock(a, b, c, id); }; set(gx, y + 1, z, B.END_GATEWAY); set(gx, y, z, B.BEDROCK); set(gx, y + 2, z, B.BEDROCK); } }
+    player.pos.set(x + 0.5, y + 0.01, z + 0.5); player.vel.set(0, 0, 0); player.peak = null; S.tpGround = null; S.gwCD = 2;
+  }; }
+// /locate end_city
+{ const _lc = CMDS.locate.run; CMDS.locate.run = function (a, ctx) {
+    if (a[0] === 'structure' && STRUCT_NAMES[String(a[1] || '').toLowerCase()] === 'end_city') { if (world.dim !== 'end') throw new CmdError('End cities are in the End'); const P = player.pos; const sp = PLACE.end_city.spacing; const prx = Math.floor(P.x / 16 / sp), prz = Math.floor(P.z / 16 / sp); let best = null;
+      for (let rr = 0; rr <= 40 && !best; rr++) for (let rx = prx - rr; rx <= prx + rr; rx++) for (let rz = prz - rr; rz <= prz + rr; rz++) { if (Math.max(Math.abs(rx - prx), Math.abs(rz - prz)) !== rr) continue; const st = regionStart(world, 'end_city', rx, rz); if (!st || Math.hypot(st.cx * 16, st.cz * 16) < 900 || !world.gen.column(st.cx * 16 + 8, st.cz * 16 + 8).h) continue; const x = st.cx * 16 + 8, z = st.cz * 16 + 8; if (!best || Math.hypot(x - P.x, z - P.z) < Math.hypot(best[0] - P.x, best[1] - P.z)) best = [x, z]; }
+      if (!best) throw new CmdError('Could not find an end city within reasonable distance'); chatPrint('The nearest end_city is at [' + best[0] + ', ~, ' + best[1] + '] (' + Math.round(Math.hypot(best[0] - P.x, best[1] - P.z)) + ' blocks away)', '#7ef'); return; }
+    return _lc.call(this, a, ctx);
+  }; }
+// ---------- shulkers ----------
+MOBS.shulker = { name: 'Shulker', hp: 30, w: 1, h: 1, speed: 0, kind: 'hostile', snd: 'squish', persist: true, egg: [[148, 100, 148], [77, 54, 82]], drops: [['shulker_shell', 0, 1, 0.5]],
+  build(m, r) { const PU = [160, 104, 160]; sbox(m, r, 1, 0.5, 1, 0, 0.25, 0, 'shk_base', fur(PU, 5, { extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) set(x, 0, [120, 74, 120]); } })); m.lid = pivot(r, 0, 0.5, 0); sbox(m, m.lid, 1, 0.5, 1, 0, 0.25, 0, 'shk_lid', fur(PU, 5, { extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) set(x, fh - 1, [120, 74, 120]); } }));
+    const h = pivot(r, 0, 0.45, 0); m.head = h; sbox(m, h, 0.4, 0.4, 0.4, 0, 0, 0, 'shk_head', fur([230, 220, 150], 4, { extra: (f, set, fw) => { if (f === 'front') { set(1, 1, [30, 30, 30]); set(fw - 2, 1, [30, 30, 30]); } } })); } };
+MOB_XP.shulker = [5, 5];
+PROJ.shulker = { grav: 0, size: 0.3, color: 0xf0f0e0, trail: [[0.9, 0.9, 0.8]] };
+MOBS.shulker.tick = function (m, dt) {
+  m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.light = 1; m.lightT = 9; m.vel.set(0, 0, 0); const P = hostileTarget(m, 16);
+  m.open = clamp((m.open || 0) + (P ? dt * 2 : -dt * 2), 0, 1); if (m.lid) m.lid.position.y = 0.5 + m.open * 0.35; if (m.head) m.head.visible = m.open > 0.2;
+  m.shootT = (m.shootT == null ? 2 : m.shootT) - dt;
+  if (P && m.shootT <= 0 && m.open > 0.8) { m.shootT = 1 + Math.random() * 5; const p = spawnProj('shulker', m.pos.clone().add(new V3(0, 0.8, 0)), new V3(0, 3, 0), 'mob', 4, m); p.homing = true; p.life = 10; p.cause = 'a Shulker'; p.effect = ['levitation', 10, 0]; Sfx.at('vwoop', m.pos, 0.4, 1.6); }
+  m.root.position.copy(m.pos); m.colorize(); return true;
+};
+// shulker bullets home in on you; a hit gives Levitation
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    for (const a of G.projectiles) if (a.homing && !a.done) { const to = player.eye().add(new V3(0, -0.6, 0)).sub(a.pos); const L = to.length(); if (L > 0.01) a.vel.lerp(to.multiplyScalar(6 / L), Math.min(1, dt * 2.5)); }
+    return _up.apply(this, arguments);
+  }; }
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) { if (this.type === 'shulker') { kb = 0; if ((this.open || 0) < 0.5) dmg *= 0.2; } return _h.call(this, dmg, src, kb, na); }; }
+// ---------- elytra ----------
+function elytraOK() { const s = player.inv[38]; return !!(s && s.id === IT.elytra && (maxDur(s.id) - (s.dmg || 0)) > 1); }
+// start gliding: press jump while falling with an elytra on
+{ const _up = updatePlayer; updatePlayer = function (dt) {
+    const P = player; const r = _up.apply(this, arguments);
+    const jumpNow = !S.uiOpen && kd('jump');
+    if (!P.gliding && jumpNow && !S.prevJump && !P.onGround && !P.flying && !P.riding && !P.dead && P.vel.y < 0 && elytraOK() && !inWater(P, 0.4) && S.mode !== 'spectator') { P.gliding = true; P.glideT = 0; Sfx.play('vwoop', 0.25, 0.7); }
+    S.prevJump = jumpNow; return r;
+  }; }
+// Minecraft's elytra flight, worked in 20 Hz steps (velocities in blocks per tick). Called from updatePlayer.
+function glideUpdate(P, dt) {
+  if (P.onGround || inWater(P, 0.4) || inLava(P, 0.3) || P.flying || P.riding || !elytraOK() || S.mode === 'spectator') { P.gliding = false; P.boostT = 0; return false; }
+  if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
+  const ld = lookDir(); const f = -P.pitch; // Minecraft's pitch is positive looking down
+  const v = new V3(P.vel.x / 20, P.vel.y / 20, P.vel.z / 20); const before = Math.hypot(v.x, v.z);
+  P.glideAcc = (P.glideAcc || 0) + dt; let n = 0;
+  while (P.glideAcc >= 0.05 && n < 4) { P.glideAcc -= 0.05; n++;
+    const d1 = Math.hypot(ld.x, ld.z), d3 = Math.hypot(v.x, v.z); let c = Math.cos(f); c = c * c * Math.min(1, ld.length() / 0.4);
+    v.y += 0.08 * (-1 + c * 0.75);
+    if (v.y < 0 && d1 > 0) { const d5 = v.y * -0.1 * c; v.x += ld.x * d5 / d1; v.y += d5; v.z += ld.z * d5 / d1; }
+    if (f < 0 && d1 > 0) { const d9 = d3 * -Math.sin(f) * 0.04; v.x -= ld.x * d9 / d1; v.y += d9 * 3.2; v.z -= ld.z * d9 / d1; }
+    if (d1 > 0) { v.x += (ld.x / d1 * d3 - v.x) * 0.1; v.z += (ld.z / d1 * d3 - v.z) * 0.1; }
+    if (P.boostT > 0) { v.x += ld.x * 0.1 + (ld.x * 1.5 - v.x) * 0.5; v.y += ld.y * 0.1 + (ld.y * 1.5 - v.y) * 0.5; v.z += ld.z * 0.1 + (ld.z * 1.5 - v.z) * 0.5; P.boostT -= 0.05; if (Math.random() < 0.5) Particles.emit(P.pos.x, P.pos.y + 0.6, P.pos.z, 2, [[1, 0.85, 0.5], [1, 1, 1]], 0.5, 0.5, 0, 0.4); }
+    v.x *= 0.99; v.y *= 0.98; v.z *= 0.99;
+  }
+  P.vel.set(v.x * 20, v.y * 20, v.z * 20); moveEntity(P, dt);
+  // flying into a wall hurts: Minecraft takes (speed lost * 10 - 3)
+  if (P.hitH && isSurv()) { const after = Math.hypot(P.vel.x, P.vel.z) / 20; const dmg = Math.floor((before - after) * 10 - 3); if (dmg > 0) { P.hurtCD = 0; P.hurt(dmg, null, 'flying into a wall', 0); } }
+  // a hard landing at speed also hurts; otherwise gliding resets the fall
+  if (P.onGround) { const dmg = Math.floor(-v.y * 20 / 4 - 3); if (dmg > 0 && isSurv() && S.rules.fallDamage) P.hurt(dmg, null, 'fall damage'); P.gliding = false; P.boostT = 0; }
+  P.peak = null; P.sprinting = false; P.sneaking = false;
+  P.glideT = (P.glideT || 0) + dt; if (P.glideT >= 1) { P.glideT -= 1; damageSlot(38, 1); if (!elytraOK()) { toast('Your elytra is broken', 2); } }
+  if (P.pos.y < -64 && isSurv()) { P.health = 0; P.die('the void'); }
+  return true;
+}
+// a firework rocket: boost while gliding, otherwise a burst of colour where you aim
+{ const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id];
+    if (hd && hd.kind === 'firework') { mouseR = false;
+      if (player.gliding) { player.boostT = 1.1 + Math.random() * 0.4; if (S.mode !== 'creative') useHeld(1); Sfx.play('vwoop', 0.5, 0.5); S.swing = 1; return; }
+      if (target) { if (S.mode !== 'creative') useHeld(1); S.swing = 1; const x = target.x + 0.5, z = target.z + 0.5, y = target.y + 1; G.fireworks = G.fireworks || []; G.fireworks.push({ x, y, z, t: 0, hue: Math.random() }); Sfx.play('vwoop', 0.4, 0.6); }
+      return; }
+    return _ua(eye, dir); }; }
+function updateFireworks(dt) { if (!G.fireworks || !G.fireworks.length) return;
+  for (const fw of G.fireworks) { fw.t += dt; if (fw.t < 1.2) { if (Math.random() < 0.7) Particles.emit(fw.x, fw.y + fw.t * 12, fw.z, 1, [[1, 0.9, 0.6]], 0.3, 0.3, 0, 0.3); }
+    else if (!fw.done) { fw.done = true; const c = new THREE.Color().setHSL(fw.hue, 1, 0.6), c2 = new THREE.Color().setHSL((fw.hue + 0.15) % 1, 1, 0.7); Particles.emit(fw.x, fw.y + 14, fw.z, 70, [[c.r, c.g, c.b], [c2.r, c2.g, c2.b]], 9, 1.4, 3, 1.6); Sfx.play('boom', 0.25, 1.8); } }
+  G.fireworks = G.fireworks.filter(f => !f.done); }
+{ const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updateFireworks(dt); return r; }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

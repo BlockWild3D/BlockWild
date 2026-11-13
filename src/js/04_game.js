@@ -604,7 +604,7 @@ function updatePlayer(dt) {
   P.eyeH = (P.eyeH || 1.62) + ((P.riding ? BOAT.eye : P.sneaking ? 1.27 : 1.62) - (P.eyeH || 1.62)) * Math.min(1, dt * 12);
   P.hurtCD -= dt;
   if (!world.loaded(Math.floor(P.pos.x), Math.floor(P.pos.z))) return;
-  if (P.riding) rideUpdate(P, dt); else {
+  if (P.gliding && glideUpdate(P, dt)) { /* elytra flight (40_end.js) */ } else if (P.riding) rideUpdate(P, dt); else {
   let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
