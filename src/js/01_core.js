@@ -925,7 +925,9 @@ const LOOT = {
 };
 function rollLoot(type, seed) {
   const r = mulberry32(seed); const inv = new Array(27).fill(null); const T = LOOT[type] || LOOT.house;
-  for (const [k, a, b, p] of T) if (IT[k] && r() < p) { let slot = r() * 27 | 0; for (let t = 0; t < 27 && inv[slot]; t++) slot = (slot + 1) % 27; inv[slot] = { id: IT[k], count: a + Math.floor(r() * (b - a + 1)) }; }
+  const put = (s) => { let slot = r() * 27 | 0; for (let t = 0; t < 27 && inv[slot]; t++) slot = (slot + 1) % 27; if (!inv[slot]) inv[slot] = s; };
+  // like Minecraft, a stack is often spread over a few slots
+  for (const [k, a, b, p] of T) if (IT[k] && r() < p) { let n = a + Math.floor(r() * (b - a + 1)); const piles = n > 2 && r() < 0.6 ? 1 + Math.floor(r() * 3) : 1; for (let i = 0; i < piles && n > 0; i++) { const c = i === piles - 1 ? n : Math.max(1, Math.floor(n / (piles - i) * (0.5 + r()))); put({ id: IT[k], count: Math.min(c, n) }); n -= c; } }
   return inv;
 }
 

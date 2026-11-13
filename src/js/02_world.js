@@ -256,7 +256,7 @@ function buildPyramid(S, g, cx, cz, hard, r, world) {
   hard(cx, by + R + 1, cz, B.GLOWSTONE);
   hard(cx, by, cz, B.GLOWSTONE);
   for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) hard(cx + dx, by - 2, cz + dz, B.TNT);
-  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) if (r() < 0.75) { hard(cx + dx, by + 1, cz + dz, B.CHEST); world.chestLoot.set((cx + dx) + ',' + (by + 1) + ',' + (cz + dz), 'pyramid'); }
+  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) if (true) { /* Minecraft: always 4 chests */ hard(cx + dx, by + 1, cz + dz, B.CHEST); world.chestLoot.set((cx + dx) + ',' + (by + 1) + ',' + (cz + dz), 'pyramid'); }
   hard(cx - 3, by + 1, cz, B.TORCH); hard(cx + 3, by + 1, cz, B.TORCH);
 }
 function buildTower(S, g, x0, z0, hard, r, world) {

@@ -1304,7 +1304,9 @@ const LOOT = {
 };
 function rollLoot(type, seed) {
   const r = mulberry32(seed); const inv = new Array(27).fill(null); const T = LOOT[type] || LOOT.house;
-  for (const [k, a, b, p] of T) if (IT[k] && r() < p) { let slot = r() * 27 | 0; for (let t = 0; t < 27 && inv[slot]; t++) slot = (slot + 1) % 27; inv[slot] = { id: IT[k], count: a + Math.floor(r() * (b - a + 1)) }; }
+  const put = (s) => { let slot = r() * 27 | 0; for (let t = 0; t < 27 && inv[slot]; t++) slot = (slot + 1) % 27; if (!inv[slot]) inv[slot] = s; };
+  // like Minecraft, a stack is often spread over a few slots
+  for (const [k, a, b, p] of T) if (IT[k] && r() < p) { let n = a + Math.floor(r() * (b - a + 1)); const piles = n > 2 && r() < 0.6 ? 1 + Math.floor(r() * 3) : 1; for (let i = 0; i < piles && n > 0; i++) { const c = i === piles - 1 ? n : Math.max(1, Math.floor(n / (piles - i) * (0.5 + r()))); put({ id: IT[k], count: Math.min(c, n) }); n -= c; } }
   return inv;
 }
 
@@ -1642,25 +1644,18 @@ MAT.wooden = MAT.wood; MAT.gold = MAT.golden;
 const STICK = { c: [138, 100, 54], l: [176, 134, 80], d: [92, 64, 32] };
 // the handle every tool shares: from the bottom-left corner up to (tx, ty)
 function icHandle(g, tx = 9, ty = 6, S = STICK) { for (let i = 0; ; i++) { const x = 2 + i, y = 13 - i; if (x > tx) break; g.set(x, y, S.c); g.set(x + 1, y, S.d); if (i % 3 === 1) g.set(x, y, S.l); } g.set(1, 14, S.d); g.set(2, 14, S.d); }
-const TOOL = {
-  pickaxe(g, M) { icHandle(g, 8, 7); // the head: an arch across the top-right, perpendicular to the handle
-    const pts = [[3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [8, 3], [9, 3], [10, 4], [11, 5], [12, 6], [12, 7], [13, 8], [13, 9], [13, 10], [13, 11]];
-    pts.forEach(([x, y], i) => { g.set(x, y, M.l); g.set(x, y + 1, M.c); if (i > 6) g.set(x - 1, y + 1, M.d); }); g.set(3, 3, M.d); g.set(4, 3, M.d); g.set(12, 12, M.d); g.set(13, 12, M.d); g.set(9, 4, M.c); g.set(10, 5, M.c); g.set(8, 4, M.d); g.set(9, 6, M.d); },
-  axe(g, M) { icHandle(g, 9, 6); // a broad blade on the upper-left of the handle top
-    const blade = ['..LLL..', '.LCCCL.', 'LCCCCCd', 'LCCCCdd', '.LCCdd.', '..Cdd..', '...d...'];
-    IC.art(g, blade, { L: M.l, C: M.c, d: M.d }, 5, 1); g.set(10, 5, M.d); g.set(11, 4, M.c); g.set(11, 5, M.d); g.set(10, 4, M.c); },
-  shovel(g, M) { icHandle(g, 9, 6); // a rounded spade at the end of the handle
-    const s = ['...LL', '..LCC', '.LCCC', 'LCCCd', 'LCCdd', '.Cdd.']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 9, 1); g.set(14, 1, M.l); g.set(13, 0, null); g.set(10, 6, M.d); },
-  hoe(g, M) { icHandle(g, 9, 6); // a flat blade sticking out to the upper-left
-    const s = ['LLLLC.', 'CCCCCd', '...dd.', '...d..']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 5, 3); g.set(10, 5, M.c); g.set(11, 4, M.c); g.set(10, 4, M.l); },
-  sword(g, M) { // blade from the guard to the top-right tip, a crossguard and a short grip
-    for (let i = 0; i < 9; i++) { const x = 5 + i, y = 10 - i; g.set(x, y - 1, M.l); g.set(x, y, M.c); g.set(x + 1, y, M.d); } g.set(14, 1, M.l); g.set(14, 0, null);
-    const guard = M === MAT.wood ? STICK.d : M === MAT.golden || M === MAT.diamond || M === MAT.netherite ? IC.sh(M.d, -0.15) : [78, 56, 36];
-    IC.line(g, 2, 8, 6, 12, guard); g.set(3, 8, IC.sh(guard, 0.3)); g.set(2, 8, IC.sh(guard, 0.15));
-    IC.line(g, 4, 11, 2, 13, STICK.c); g.set(3, 13, STICK.d); g.set(1, 14, [70, 50, 30]); },
-  spear(g, M) { for (let i = 0; i < 10; i++) { const x = 1 + i, y = 14 - i; g.set(x, y, i % 3 ? STICK.c : STICK.l); g.set(x + 1, y, STICK.d); }
-    const s = ['....LL', '...LCC', '..LCCd', '.LCCd.', '.CCd..', '..d...']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 9, 0); },
+// tool shapes (H highlight, L light, C base, D dark of the material; w/S/s handle; G/g crossguard)
+const TOOL_ART = {
+  pickaxe: ['................', '....LLLLL.......', '...LHHHHHLC.....', '..DCCCCCCLLC....', '...DDDDDDCLLC...', '.........wsCLC..', '........wSsDCLD.', '.......wSs..DCL.', '......wSs...DCL.', '.....wSs....DCL.', '....wSs......DC.', '...wSs.......D..', '..wSs...........', '.wSs............', '.Ss.............', '................'],
+  axe: ['................', '......LLL.......', '.....LHHLC......', '....LHLLCCD.....', '...LHLCCCCDw....', '...LLCCCCDwSs...', '...CCCCCDwSs....', '....DCCDwSs.....', '.....DDwSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '................'],
+  shovel: ['................', '...........LL...', '..........LHHC..', '.........LHLCCD.', '........LHLCCD..', '........CLCCD...', '.........DCDs...', '........wSs.D...', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '................'],
+  hoe: ['................', '.....LLLLC......', '....LHHHHCD.....', '....DCCDDLCD....', '........wDCD....', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '.Ss.............', '................', '................', '................'],
+  sword: ['................', '............LLH.', '...........LHHC.', '..........LHHCD.', '.........LHHCD..', '........LHHCD...', '.......LHHCD....', '......LHHCD.....', '..g..LHHCD......', '..gGLHHCD.......', '...gGHCD........', '....wGg.........', '...wSsGg........', '..wSs..gg.......', '.wSs............', '.ss.............'],
+  spear: ['...........LLH..', '..........LHHC..', '.........LHHCD..', '.........HHCD...', '.........LCD....', '........wSD.....', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '.Ss.............', '................', '................'],
+  trident: ['..........L..L.L', '.........LC.LCLC', '........LCD.LCD.', '........LCDLCD..', '.........CCCD...', '........LCCD....', '.......LCD......', '......LCD.......', '.....LCD........', '....LCD.........', '...LCD..........', '..LCD...........', '.LCD............', '.CD.............', '................', '................'],
 };
+function toolPal(M) { return { H: IC.sh(M.l, 0.45), L: M.l, C: M.c, D: M.d, w: STICK.l, S: STICK.c, s: STICK.d, G: M === MAT.netherite ? [70, 60, 66] : [110, 84, 58], g: M === MAT.netherite ? [44, 36, 42] : [70, 52, 34] }; }
+const TOOL = {}; for (const k in TOOL_ART) TOOL[k] = (g, M) => IC.art(g, TOOL_ART[k], toolPal(M));
 // ---------- armour (front views, filling the slot) ----------
 const ARMOR_ART = {
   helmet: ['..LLLLLLLLLL..', '.LCCCCCCCCCCd.', '.LCCCCCCCCCCd.', '.LCdddddddCCd.', '.LCd......dCd.', '.LCd......dCd.', '..d........d..'],
@@ -1734,7 +1729,7 @@ const ICONS2 = {
   breeze_rod: (g) => { for (let i = 0; i < 11; i++) { const x = 3 + i, y = 13 - i; g.set(x, y, i % 2 ? [200, 220, 255] : [150, 180, 240]); g.set(x + 1, y, [100, 120, 190]); } for (const [x, y] of [[5, 9], [9, 5], [7, 4], [11, 8]]) g.set(x, y, [230, 240, 255]); },
   shears: (g) => { IC.art(g, ['LL.......', 'LCL......', '.LCL.....', '..LCL..LL', '...LCLLCd', '....LCCd.', '...LCddL.', '..LCd.LCL', '.Ld....LC'], { L: [240, 240, 244], C: [190, 190, 200], d: [120, 120, 130] }, 2, 2); IC.ball(g, 4, 12, 2.2, 2.2, [150, 40, 40]); IC.ball(g, 12, 12, 2.2, 2.2, [150, 40, 40]); g.set(4, 12, null); g.set(12, 12, null); },
   flint_and_steel: (g) => { IC.art(g, ['.LLLL.', 'LCCCCd', 'LCdddd', 'LCd...', 'LCd...', '.d....'], { L: [230, 230, 236], C: [180, 180, 190], d: [110, 110, 120] }, 2, 3); IC.art(g, ['..LL..', '.LCCd.', 'LCCCCd', '.CCCd.', '..dd..'], { L: [110, 110, 116], C: [70, 70, 76], d: [44, 44, 48] }, 8, 8); },
-  trident: (g) => { for (let i = 0; i < 9; i++) { const x = 2 + i, y = 13 - i; g.set(x, y, [60, 150, 140]); g.set(x + 1, y, [30, 100, 96]); } IC.art(g, ['...L..L', '..LC.LC', '.LC.LCd', 'LCCCCd.', '.LCCd..', 'LCdd...', 'Cd.....'], { L: [170, 240, 220], C: [80, 190, 170], d: [40, 120, 110] }, 8, 1); },
+  trident: (g) => IC.art(g, TOOL_ART.trident, { L: [170, 240, 220], C: [80, 190, 170], D: [40, 120, 110] }),
   mace: (g) => { for (let i = 0; i < 7; i++) { const x = 2 + i, y = 13 - i; g.set(x, y, [70, 60, 60]); g.set(x + 1, y, [40, 34, 34]); } IC.ball(g, 10.5, 5.5, 3.6, 3.6, [120, 110, 110], { k: 0.4 }); for (const [x, y] of [[10, 1], [14, 5], [7, 3], [13, 2], [14, 8], [11, 9]]) g.set(x, y, [200, 196, 190]); },
   crossbow: (g) => { IC.line(g, 3, 12, 12, 3, STICK.c); IC.line(g, 4, 12, 13, 3, STICK.d); IC.art(g, ['LLLLL...', 'LCCCCd..', '.....Cd.', '......Cd', '.......C'], { L: [170, 170, 176], C: [130, 130, 136], d: [90, 90, 96] }, 2, 3); IC.line(g, 3, 4, 10, 11, [230, 230, 230]); IC.line(g, 7, 3, 12, 8, [120, 120, 126]); },
   quartz: (g) => IC.art(g, ['....L....', '...LCd...', '..LCCCd..', '.LCCCCCd.', 'LCCCLCCCd', '.LCCCCCd.', '..LCCCd..', '...LCd...', '....d....'], { L: [255, 255, 255], C: [236, 228, 222], d: [190, 176, 170] }, 3, 3),
@@ -2017,7 +2012,7 @@ function buildPyramid(S, g, cx, cz, hard, r, world) {
   hard(cx, by + R + 1, cz, B.GLOWSTONE);
   hard(cx, by, cz, B.GLOWSTONE);
   for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) hard(cx + dx, by - 2, cz + dz, B.TNT);
-  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) if (r() < 0.75) { hard(cx + dx, by + 1, cz + dz, B.CHEST); world.chestLoot.set((cx + dx) + ',' + (by + 1) + ',' + (cz + dz), 'pyramid'); }
+  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) if (true) { /* Minecraft: always 4 chests */ hard(cx + dx, by + 1, cz + dz, B.CHEST); world.chestLoot.set((cx + dx) + ',' + (by + 1) + ',' + (cz + dz), 'pyramid'); }
   hard(cx - 3, by + 1, cz, B.TORCH); hard(cx + 3, by + 1, cz, B.TORCH);
 }
 function buildTower(S, g, x0, z0, hard, r, world) {
@@ -11410,6 +11405,29 @@ function tryRespawnDragon() {
     EndFight.enter(); }, 5000);
 }
 { const _p = Player.prototype.hurt; } // (dragon contact and breath damage are in the base fight code)
+
+// ================= RICHER LOOT (closer to Minecraft's tables) =================
+// More kinds of items in every structure's chests, and gear found in dungeons, pyramids, temples and strongholds is
+// sometimes enchanted (like Minecraft's "enchant randomly" loot). Enchanted books get a random enchantment.
+const L = (k, a, b, p) => [k, a, b, p];
+const addLoot = (t, list) => { LOOT[t] = (LOOT[t] || []).concat(list.filter(e => IT[e[0]] != null)); };
+addLoot('dungeon', [L('bread', 1, 3, 0.4), L('wheat', 1, 4, 0.4), L('bucket', 1, 1, 0.15), L('redstone', 1, 4, 0.3), L('name_tag', 1, 1, 0.12), L('enchanted_book', 1, 1, 0.25), L('rotten_flesh', 1, 8, 0.4), L('enchanted_golden_apple', 1, 1, 0.03)]);
+addLoot('pyramid', [L('emerald', 1, 3, 0.4), L('enchanted_book', 1, 1, 0.3), L('sand', 1, 8, 0.4), L('spider_eye', 1, 3, 0.4), L('enchanted_golden_apple', 1, 1, 0.04), L('string', 1, 8, 0.4), L('egg', 0, 0, 0)]);
+addLoot('jungle_temple', [L('bamboo', 1, 3, 0), L('emerald', 1, 3, 0.3), L('enchanted_book', 1, 1, 0.2), L('saddle', 1, 1, 0.12), L('iron_horse_armor', 1, 1, 0.08), L('golden_horse_armor', 1, 1, 0.06), L('diamond_horse_armor', 1, 1, 0.04)]);
+addLoot('stronghold', [L('enchanted_book', 1, 1, 0.15), L('redstone', 4, 9, 0.25), L('iron_sword', 1, 1, 0.12), L('iron_chestplate', 1, 1, 0.1), L('gold_ingot', 1, 3, 0.25)]);
+addLoot('ruined_portal', [L('fire_charge', 1, 2, 0), L('golden_sword', 1, 1, 0.15), L('golden_axe', 1, 1, 0.15), L('golden_pickaxe', 1, 1, 0.12), L('golden_helmet', 1, 1, 0.12), L('golden_boots', 1, 1, 0.12), L('golden_carrot', 4, 12, 0.25), L('clock', 1, 1, 0.1), L('enchanted_golden_apple', 1, 1, 0.015), L('gold_block', 1, 2, 0.05)]);
+addLoot('fortress', [L('nether_wart', 3, 7, 0.4), L('gold_nugget', 2, 8, 0.3)]);
+addLoot('house', [L('emerald', 1, 2, 0.2), L('bread', 1, 3, 0.3), L('book', 1, 1, 0.1), L('compass', 1, 1, 0.05), L('feather', 1, 3, 0.2), L('egg', 1, 2, 0.15)]);
+addLoot('smithy', [L('iron_nugget', 2, 8, 0.3), L('chainmail_chestplate', 1, 1, 0.08), L('chainmail_helmet', 1, 1, 0.08), L('iron_axe', 1, 1, 0.15)]);
+addLoot('shipwreck', [L('emerald', 1, 5, 0.3), L('diamond', 1, 1, 0.12), L('gold_nugget', 1, 10, 0.4), L('iron_nugget', 1, 10, 0.4), L('lapis_lazuli', 1, 10, 0.3), L('experience_bottle', 1, 1, 0.15), L('compass', 1, 1, 0.1), L('paper', 1, 10, 0.3), L('feather', 1, 5, 0.3), L('book', 1, 5, 0.2), L('leather_chestplate', 1, 1, 0.1), L('leather_helmet', 1, 1, 0.1), L('carrot', 4, 8, 0.3), L('potato', 2, 6, 0.3), L('wheat', 8, 21, 0.3)]);
+addLoot('mineshaft', [L('name_tag', 1, 1, 0.12), L('enchanted_book', 1, 1, 0.12), L('lapis_lazuli', 4, 9, 0.25), L('redstone', 4, 9, 0.25), L('melon_slice', 2, 4, 0), L('rail', 4, 8, 0.4), L('powered_rail', 1, 4, 0.2), L('iron_pickaxe', 1, 1, 0.08)]);
+addLoot('igloo', [L('golden_apple', 1, 1, 0.5), L('coal', 1, 4, 0.5), L('apple', 1, 3, 0.4), L('wheat', 2, 3, 0.3), L('emerald', 1, 1, 0.3), L('stone_axe', 1, 1, 0.3), L('rotten_flesh', 1, 1, 0.3), L('gold_nugget', 1, 3, 0.3)]);
+addLoot('end_city', [L('iron_helmet', 1, 1, 0.12), L('iron_chestplate', 1, 1, 0.12), L('diamond_leggings', 1, 1, 0.06), L('diamond_boots', 1, 1, 0.06), L('iron_shovel', 1, 1, 0.1), L('diamond_shovel', 1, 1, 0.05), L('beetroot_seeds', 1, 10, 0), L('golden_horse_armor', 1, 1, 0.06), L('iron_horse_armor', 1, 1, 0.06)]);
+// gear in these chests is sometimes enchanted
+const ENCH_LOOT = { dungeon: 0.4, pyramid: 0.5, jungle_temple: 0.5, stronghold: 0.4, stronghold_corridor: 0.4, end_city: 1, ruined_portal: 0.3, shipwreck: 0.3, ancient_city: 0.8, outpost: 0.2, trial_vault: 0.6, ominous_vault: 1 };
+{ const _rl = rollLoot; rollLoot = function (type, seed) { const inv = _rl(type, seed); const p = ENCH_LOOT[type]; if (!p) return inv; const r = mulberry32((seed ^ 0xe7c4) >>> 0);
+    for (const s of inv) { if (!s || s.ench || s.id === IT.enchanted_book || !maxDur(s.id) || r() > p) continue; const lv = type === 'end_city' ? 20 + Math.floor(r() * 20) : 5 + Math.floor(r() * 25); const L2 = rollEnchants(s.id, lv, (r() * 1e9) | 0); if (L2.length) { s.ench = {}; for (const [e, l] of L2) s.ench[e] = l; } if (r() < 0.5) s.dmg = Math.floor(maxDur(s.id) * r() * 0.5) || undefined; }
+    return inv; }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

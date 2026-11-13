@@ -37,25 +37,18 @@ MAT.wooden = MAT.wood; MAT.gold = MAT.golden;
 const STICK = { c: [138, 100, 54], l: [176, 134, 80], d: [92, 64, 32] };
 // the handle every tool shares: from the bottom-left corner up to (tx, ty)
 function icHandle(g, tx = 9, ty = 6, S = STICK) { for (let i = 0; ; i++) { const x = 2 + i, y = 13 - i; if (x > tx) break; g.set(x, y, S.c); g.set(x + 1, y, S.d); if (i % 3 === 1) g.set(x, y, S.l); } g.set(1, 14, S.d); g.set(2, 14, S.d); }
-const TOOL = {
-  pickaxe(g, M) { icHandle(g, 8, 7); // the head: an arch across the top-right, perpendicular to the handle
-    const pts = [[3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [8, 3], [9, 3], [10, 4], [11, 5], [12, 6], [12, 7], [13, 8], [13, 9], [13, 10], [13, 11]];
-    pts.forEach(([x, y], i) => { g.set(x, y, M.l); g.set(x, y + 1, M.c); if (i > 6) g.set(x - 1, y + 1, M.d); }); g.set(3, 3, M.d); g.set(4, 3, M.d); g.set(12, 12, M.d); g.set(13, 12, M.d); g.set(9, 4, M.c); g.set(10, 5, M.c); g.set(8, 4, M.d); g.set(9, 6, M.d); },
-  axe(g, M) { icHandle(g, 9, 6); // a broad blade on the upper-left of the handle top
-    const blade = ['..LLL..', '.LCCCL.', 'LCCCCCd', 'LCCCCdd', '.LCCdd.', '..Cdd..', '...d...'];
-    IC.art(g, blade, { L: M.l, C: M.c, d: M.d }, 5, 1); g.set(10, 5, M.d); g.set(11, 4, M.c); g.set(11, 5, M.d); g.set(10, 4, M.c); },
-  shovel(g, M) { icHandle(g, 9, 6); // a rounded spade at the end of the handle
-    const s = ['...LL', '..LCC', '.LCCC', 'LCCCd', 'LCCdd', '.Cdd.']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 9, 1); g.set(14, 1, M.l); g.set(13, 0, null); g.set(10, 6, M.d); },
-  hoe(g, M) { icHandle(g, 9, 6); // a flat blade sticking out to the upper-left
-    const s = ['LLLLC.', 'CCCCCd', '...dd.', '...d..']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 5, 3); g.set(10, 5, M.c); g.set(11, 4, M.c); g.set(10, 4, M.l); },
-  sword(g, M) { // blade from the guard to the top-right tip, a crossguard and a short grip
-    for (let i = 0; i < 9; i++) { const x = 5 + i, y = 10 - i; g.set(x, y - 1, M.l); g.set(x, y, M.c); g.set(x + 1, y, M.d); } g.set(14, 1, M.l); g.set(14, 0, null);
-    const guard = M === MAT.wood ? STICK.d : M === MAT.golden || M === MAT.diamond || M === MAT.netherite ? IC.sh(M.d, -0.15) : [78, 56, 36];
-    IC.line(g, 2, 8, 6, 12, guard); g.set(3, 8, IC.sh(guard, 0.3)); g.set(2, 8, IC.sh(guard, 0.15));
-    IC.line(g, 4, 11, 2, 13, STICK.c); g.set(3, 13, STICK.d); g.set(1, 14, [70, 50, 30]); },
-  spear(g, M) { for (let i = 0; i < 10; i++) { const x = 1 + i, y = 14 - i; g.set(x, y, i % 3 ? STICK.c : STICK.l); g.set(x + 1, y, STICK.d); }
-    const s = ['....LL', '...LCC', '..LCCd', '.LCCd.', '.CCd..', '..d...']; IC.art(g, s, { L: M.l, C: M.c, d: M.d }, 9, 0); },
+// tool shapes (H highlight, L light, C base, D dark of the material; w/S/s handle; G/g crossguard)
+const TOOL_ART = {
+  pickaxe: ['................', '....LLLLL.......', '...LHHHHHLC.....', '..DCCCCCCLLC....', '...DDDDDDCLLC...', '.........wsCLC..', '........wSsDCLD.', '.......wSs..DCL.', '......wSs...DCL.', '.....wSs....DCL.', '....wSs......DC.', '...wSs.......D..', '..wSs...........', '.wSs............', '.Ss.............', '................'],
+  axe: ['................', '......LLL.......', '.....LHHLC......', '....LHLLCCD.....', '...LHLCCCCDw....', '...LLCCCCDwSs...', '...CCCCCDwSs....', '....DCCDwSs.....', '.....DDwSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '................'],
+  shovel: ['................', '...........LL...', '..........LHHC..', '.........LHLCCD.', '........LHLCCD..', '........CLCCD...', '.........DCDs...', '........wSs.D...', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '................'],
+  hoe: ['................', '.....LLLLC......', '....LHHHHCD.....', '....DCCDDLCD....', '........wDCD....', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '.Ss.............', '................', '................', '................'],
+  sword: ['................', '............LLH.', '...........LHHC.', '..........LHHCD.', '.........LHHCD..', '........LHHCD...', '.......LHHCD....', '......LHHCD.....', '..g..LHHCD......', '..gGLHHCD.......', '...gGHCD........', '....wGg.........', '...wSsGg........', '..wSs..gg.......', '.wSs............', '.ss.............'],
+  spear: ['...........LLH..', '..........LHHC..', '.........LHHCD..', '.........HHCD...', '.........LCD....', '........wSD.....', '.......wSs......', '......wSs.......', '.....wSs........', '....wSs.........', '...wSs..........', '..wSs...........', '.wSs............', '.Ss.............', '................', '................'],
+  trident: ['..........L..L.L', '.........LC.LCLC', '........LCD.LCD.', '........LCDLCD..', '.........CCCD...', '........LCCD....', '.......LCD......', '......LCD.......', '.....LCD........', '....LCD.........', '...LCD..........', '..LCD...........', '.LCD............', '.CD.............', '................', '................'],
 };
+function toolPal(M) { return { H: IC.sh(M.l, 0.45), L: M.l, C: M.c, D: M.d, w: STICK.l, S: STICK.c, s: STICK.d, G: M === MAT.netherite ? [70, 60, 66] : [110, 84, 58], g: M === MAT.netherite ? [44, 36, 42] : [70, 52, 34] }; }
+const TOOL = {}; for (const k in TOOL_ART) TOOL[k] = (g, M) => IC.art(g, TOOL_ART[k], toolPal(M));
 // ---------- armour (front views, filling the slot) ----------
 const ARMOR_ART = {
   helmet: ['..LLLLLLLLLL..', '.LCCCCCCCCCCd.', '.LCCCCCCCCCCd.', '.LCdddddddCCd.', '.LCd......dCd.', '.LCd......dCd.', '..d........d..'],
@@ -129,7 +122,7 @@ const ICONS2 = {
   breeze_rod: (g) => { for (let i = 0; i < 11; i++) { const x = 3 + i, y = 13 - i; g.set(x, y, i % 2 ? [200, 220, 255] : [150, 180, 240]); g.set(x + 1, y, [100, 120, 190]); } for (const [x, y] of [[5, 9], [9, 5], [7, 4], [11, 8]]) g.set(x, y, [230, 240, 255]); },
   shears: (g) => { IC.art(g, ['LL.......', 'LCL......', '.LCL.....', '..LCL..LL', '...LCLLCd', '....LCCd.', '...LCddL.', '..LCd.LCL', '.Ld....LC'], { L: [240, 240, 244], C: [190, 190, 200], d: [120, 120, 130] }, 2, 2); IC.ball(g, 4, 12, 2.2, 2.2, [150, 40, 40]); IC.ball(g, 12, 12, 2.2, 2.2, [150, 40, 40]); g.set(4, 12, null); g.set(12, 12, null); },
   flint_and_steel: (g) => { IC.art(g, ['.LLLL.', 'LCCCCd', 'LCdddd', 'LCd...', 'LCd...', '.d....'], { L: [230, 230, 236], C: [180, 180, 190], d: [110, 110, 120] }, 2, 3); IC.art(g, ['..LL..', '.LCCd.', 'LCCCCd', '.CCCd.', '..dd..'], { L: [110, 110, 116], C: [70, 70, 76], d: [44, 44, 48] }, 8, 8); },
-  trident: (g) => { for (let i = 0; i < 9; i++) { const x = 2 + i, y = 13 - i; g.set(x, y, [60, 150, 140]); g.set(x + 1, y, [30, 100, 96]); } IC.art(g, ['...L..L', '..LC.LC', '.LC.LCd', 'LCCCCd.', '.LCCd..', 'LCdd...', 'Cd.....'], { L: [170, 240, 220], C: [80, 190, 170], d: [40, 120, 110] }, 8, 1); },
+  trident: (g) => IC.art(g, TOOL_ART.trident, { L: [170, 240, 220], C: [80, 190, 170], D: [40, 120, 110] }),
   mace: (g) => { for (let i = 0; i < 7; i++) { const x = 2 + i, y = 13 - i; g.set(x, y, [70, 60, 60]); g.set(x + 1, y, [40, 34, 34]); } IC.ball(g, 10.5, 5.5, 3.6, 3.6, [120, 110, 110], { k: 0.4 }); for (const [x, y] of [[10, 1], [14, 5], [7, 3], [13, 2], [14, 8], [11, 9]]) g.set(x, y, [200, 196, 190]); },
   crossbow: (g) => { IC.line(g, 3, 12, 12, 3, STICK.c); IC.line(g, 4, 12, 13, 3, STICK.d); IC.art(g, ['LLLLL...', 'LCCCCd..', '.....Cd.', '......Cd', '.......C'], { L: [170, 170, 176], C: [130, 130, 136], d: [90, 90, 96] }, 2, 3); IC.line(g, 3, 4, 10, 11, [230, 230, 230]); IC.line(g, 7, 3, 12, 8, [120, 120, 126]); },
   quartz: (g) => IC.art(g, ['....L....', '...LCd...', '..LCCCd..', '.LCCCCCd.', 'LCCCLCCCd', '.LCCCCCd.', '..LCCCd..', '...LCd...', '....d....'], { L: [255, 255, 255], C: [236, 228, 222], d: [190, 176, 170] }, 3, 3),
