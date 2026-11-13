@@ -29,7 +29,7 @@ function updateAvatars(dt) {
     if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
-    swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
+    swimPose(av.model, { swimming: av.swim, gliding: av.glide, chestElytra: av.elytra, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
     sitPose(av.model, av.ride > 0, av.ride === 3 ? 'horse' : av.ride > 1);
     if (av.sleeping) { av.model.body.rotation.x = -Math.PI / 2; av.model.body.position.y = 0.25; }
     const l = Math.max(G.minLight || 0, world.lightAt(av.pos.x, av.pos.y + 1, av.pos.z, G.daylight)); av.model.mat.color.multiplyScalar(clamp(l, 0.1, 1)); av.model.omat.color.copy(av.model.mat.color);
@@ -40,7 +40,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
+function myState() { const P = player; const h = P.held(); return { glide: P.gliding ? 1 : 0, ely: P.inv[38] && P.inv[38].id === IT.elytra ? 1 : 0, t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -73,7 +73,7 @@ function onPeerMsg(peer, m) {
     case 'hello': return hostWelcome(peer, m);
     case 'welcome': return clientWelcome(m);
     case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
-      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.glide = m.glide; av.elytra = m.ely; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
       if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
       if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
       return; }
