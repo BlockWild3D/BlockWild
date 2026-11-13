@@ -449,7 +449,7 @@ defBlock('end_stone', 'End Stone', { tex: 'end_stone', hardness: 3, tool: 'pick'
 defBlock('end_portal_frame', 'End Portal Frame', { tex: { s: 'end_frame_side', t: 'end_frame_top', b: 'end_stone' }, hardness: -1, drop: null });
 defBlock('end_portal_frame_eye', 'End Portal Frame (Eye)', { tex: { s: 'end_frame_side', t: 'end_frame_top_eye', b: 'end_stone' }, hardness: -1, drop: null, light: 0.3, hidden: true });
 defBlock('end_portal', 'End Portal', { tex: 'end_portal', solid: false, opaque: false, render: 'endportal', hardness: -1, drop: null, light: 0.8, noTarget: true });
-defBlock('dragon_egg', 'Shadow Dragon Egg', { tex: 'dragon_egg', hardness: 3, light: 0.15 });
+defBlock('dragon_egg', 'Ender Dragon Egg', { tex: 'dragon_egg', hardness: 3, light: 0.15 });
 defBlock('quartz_block', 'Block of Quartz', { tex: 'quartz_block', hardness: 0.8, tool: 'pick', tier: 1 });
 defBlock('sugar_cane', 'Sugar Cane', { tex: 'sugar_cane', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
 defBlock('lapis_ore', 'Lapis Lazuli Ore', { tex: 'lapis_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['lapis_lazuli', 4 + (r * 6 | 0)] });

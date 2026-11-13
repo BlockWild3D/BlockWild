@@ -639,7 +639,7 @@ function updateProjectiles(dt) {
       }
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
-          const cause = a.cause || (a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball');
+          const cause = a.cause || (a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Ender Dragon' : 'a Ghast fireball');
           if (isSurv()) { P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause); if (a.effect && typeof giveEffect === 'function') giveEffect(a.effect[0], a.effect[1], a.effect[2] || 0); }
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
@@ -665,7 +665,7 @@ function updateClouds(dt) {
   for (const c of G.clouds) {
     c.life -= dt; c.tick -= dt;
     if (Math.random() < dt * 40) { const a = Math.random() * 6.28, rr = Math.random() * c.r; Particles.emit(c.x + Math.cos(a) * rr, c.y + 0.3, c.z + Math.sin(a) * rr, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 0.4, 1, -0.8, 0.2); }
-    if (c.tick <= 0 && !P.dead) { c.tick = 0.5; if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < c.r && Math.abs(P.pos.y - c.y) < 2.2) { P.hurtCD = 0; P.hurt(3, null, "the Shadow Dragon's breath", 0); } }
+    if (c.tick <= 0 && !P.dead) { c.tick = 0.5; if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < c.r && Math.abs(P.pos.y - c.y) < 2.2) { P.hurtCD = 0; P.hurt(3, null, "the Ender Dragon's breath", 0); } }
   }
   G.clouds = G.clouds.filter(c => c.life > 0);
 }

@@ -828,7 +828,7 @@ defBlock('end_stone', 'End Stone', { tex: 'end_stone', hardness: 3, tool: 'pick'
 defBlock('end_portal_frame', 'End Portal Frame', { tex: { s: 'end_frame_side', t: 'end_frame_top', b: 'end_stone' }, hardness: -1, drop: null });
 defBlock('end_portal_frame_eye', 'End Portal Frame (Eye)', { tex: { s: 'end_frame_side', t: 'end_frame_top_eye', b: 'end_stone' }, hardness: -1, drop: null, light: 0.3, hidden: true });
 defBlock('end_portal', 'End Portal', { tex: 'end_portal', solid: false, opaque: false, render: 'endportal', hardness: -1, drop: null, light: 0.8, noTarget: true });
-defBlock('dragon_egg', 'Shadow Dragon Egg', { tex: 'dragon_egg', hardness: 3, light: 0.15 });
+defBlock('dragon_egg', 'Ender Dragon Egg', { tex: 'dragon_egg', hardness: 3, light: 0.15 });
 defBlock('quartz_block', 'Block of Quartz', { tex: 'quartz_block', hardness: 0.8, tool: 'pick', tier: 1 });
 defBlock('sugar_cane', 'Sugar Cane', { tex: 'sugar_cane', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
 defBlock('lapis_ore', 'Lapis Lazuli Ore', { tex: 'lapis_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['lapis_lazuli', 4 + (r * 6 | 0)] });
@@ -3626,7 +3626,7 @@ function updateProjectiles(dt) {
       }
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
-          const cause = a.cause || (a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball');
+          const cause = a.cause || (a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Ender Dragon' : 'a Ghast fireball');
           if (isSurv()) { P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause); if (a.effect && typeof giveEffect === 'function') giveEffect(a.effect[0], a.effect[1], a.effect[2] || 0); }
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
@@ -3652,7 +3652,7 @@ function updateClouds(dt) {
   for (const c of G.clouds) {
     c.life -= dt; c.tick -= dt;
     if (Math.random() < dt * 40) { const a = Math.random() * 6.28, rr = Math.random() * c.r; Particles.emit(c.x + Math.cos(a) * rr, c.y + 0.3, c.z + Math.sin(a) * rr, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 0.4, 1, -0.8, 0.2); }
-    if (c.tick <= 0 && !P.dead) { c.tick = 0.5; if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < c.r && Math.abs(P.pos.y - c.y) < 2.2) { P.hurtCD = 0; P.hurt(3, null, "the Shadow Dragon's breath", 0); } }
+    if (c.tick <= 0 && !P.dead) { c.tick = 0.5; if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < c.r && Math.abs(P.pos.y - c.y) < 2.2) { P.hurtCD = 0; P.hurt(3, null, "the Ender Dragon's breath", 0); } }
   }
   G.clouds = G.clouds.filter(c => c.life > 0);
 }
@@ -3820,7 +3820,7 @@ class Player {
     if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
     if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
-    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
+    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Ender Dragon's breath": "You were consumed by the Ender Dragon's breath", 'the Ender Dragon': 'You were slain by the Ender Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
     if (S.uiOpen) closeInv(true);
     show('death', true); releaseLock();
@@ -4266,18 +4266,19 @@ function useAction(eye, dir) {
 }
 
 // ---- spawning ----
-function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (id) return SOLID[id] ? y + 1 : -1; } return -1; }
+// the ground under the open sky; tree leaves and logs are looked through, so animals spawn under trees, not on them
+function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } return y + 1; } return -1; }
 function onChunkGen(c, hints, cols, w) {
   if (w !== world) return;
   for (const [type, x, y, z] of hints) spawnMob(type, x, y, z);
   if (!cols) return;
   const passive = G.mobs.filter(m => m.t.kind === 'passive').length;
-  if (passive < 40 && Math.random() < 0.2) {
+  if (passive < 60 && Math.random() < 0.35) { // Minecraft: animals are placed with the chunk, in groups of 4
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx];
     if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < SEA + 30)) {
       // Minecraft spawn weights: plains also have horse herds (2-6); snowy plains mostly sheep
       const type = col.b === BIO.SNOWY ? pickWeighted({ sheep: 2, cow: 1 }) : col.b === BIO.PLAINS ? pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8, horse: 5 }) : pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8 });
-      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 2 + (Math.random() * 3 | 0);
+      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 4;
       for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS) && animalLightOk(x, y, z)) spawnMob(type, x + 0.5, y, z + 0.5); }
     }
   }
@@ -4736,7 +4737,7 @@ function handleArrival() {
   else if (a.type === 'end-spawn') {
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { world.set(100 + dx, 48, dz, B.OBSIDIAN); for (let y = 49; y <= 51; y++) world.set(100 + dx, y, dz, 0); }
     player.pos.set(100.5, 49.01, 0.5); player.yaw = Math.PI / 2; player.pitch = 0.05;
-    toast('Destroy the End Crystals on the pillars, then defeat the Shadow Dragon', 6);
+    toast('Destroy the End Crystals on the pillars, then defeat the Ender Dragon', 6);
   } else if (a.type === 'bed' && a.pos) { player.pos.set(a.pos.x, a.pos.y, a.pos.z); }
   else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
   player.vel.set(0, 0, 0); player.peak = null; S.portalLock = true;
@@ -4788,7 +4789,7 @@ function checkEndPortal(x, y, z) {
     let ok = true; for (let l = -1; l <= 1 && ok; l++) for (const [fx, fz] of [[cx + 2, cz + l], [cx - 2, cz + l], [cx + l, cz + 2], [cx + l, cz - 2]]) if (world.get(fx, y, fz) !== B.END_PORTAL_FRAME_EYE) { ok = false; break; }
     if (!ok) continue;
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) world.set(cx + i, y, cz + j, B.END_PORTAL);
-    Sfx.play('levelup', 1); Sfx.play('portal', 1); toast('The End Portal is open. Jump in to face the Shadow Dragon.', 5);
+    Sfx.play('levelup', 1); Sfx.play('portal', 1); toast('The End Portal is open. Jump in to face the Ender Dragon.', 5);
     Particles.emit(cx + 0.5, y + 1, cz + 0.5, 60, [[0.3, 0.9, 0.7], [0.7, 0.4, 1]], 4, 1.2, -1, 3); return true;
   }
   return false;
@@ -4860,10 +4861,10 @@ class Crystal {
   remove() { scene.remove(this.root); scene.remove(this.beam); this.beamGeo.dispose(); }
 }
 
-// ---- Shadow Dragon ----
+// ---- Ender Dragon ----
 class Dragon {
   constructor(hp) {
-    this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Shadow Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
+    this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Ender Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
     this.pos = new V3(0, 82, 46); this.vel = new V3(-12, 0, 0); this.hw = 3; this.h = 3; this.yaw = 0; this.pitch = 0; this.state = 'circle'; this.stateT = 12; this.ang = Math.PI / 2; this.dirSign = 1;
     this.mats = []; this.age = 0; this.hurtT = 0; this.hurtCD = 0; this.contactCD = 0; this.shootCD = 2; this.shots = 0; this.perchT = 0; this.roarT = 5; this.hist = [];
     this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); }); this.spheres = [];
@@ -4924,7 +4925,7 @@ class Dragon {
         if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('roar', 0.6); this.jawT = 0.5; }
         if (this.shots >= 3 || this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8 + Math.random() * 6; } break; }
       case 'charge': tgt = pe.clone(); speed = 26; turn = 3;
-        if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Shadow Dragon', 3); this.state = 'circle'; this.stateT = 9; }
+        if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Ender Dragon', 3); this.state = 'circle'; this.stateT = 9; }
         if (this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8; } break;
       case 'perch': { const pp = new V3(0, fy + 6, 0); const d = this.pos.distanceTo(pp);
         if (d > 3 && this.perchT === 0) { tgt = pp; speed = Math.max(6, Math.min(16, d)); }
@@ -4943,7 +4944,7 @@ class Dragon {
     this.pitch += (clamp(-Math.atan2(this.vel.y, hs + 0.01), -0.6, 0.6) - this.pitch) * Math.min(1, dt * 3);
     this.root.position.copy(this.pos); this.root.rotation.set(this.pitch, this.yaw, 0);
     this.calcSpheres();
-    if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Shadow Dragon', 2.2); break; } }
+    if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Ender Dragon', 2.2); break; } }
     if (Math.random() < dt * 12) { const p = this.spheres[0][0]; Particles.emit(p.x + (Math.random() - 0.5) * 3, p.y, p.z + (Math.random() - 0.5) * 3, 1, [[0.35, 0.1, 0.55], [0.1, 0.05, 0.15]], 1, 1.2, -0.5, 1); }
     this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('roar', Math.max(0.2, 1 - dist / 90)); }
     this.animate(dt, this.state === 'perch' && this.perchT > 0 ? 0.4 : 1); this.colorize(); this.updateBar();
@@ -4977,13 +4978,13 @@ const EndFight = {
     this.crystals = []; this.dragon = null;
     if (S.dragonDead) { this.openExit(); show('bossbar', false); return; }
     for (const p of world.gen.pillars) if (!S.crystalsGone.includes(p.i)) { const c = new Crystal(p); this.crystals.push(c); G.mobs.push(c); }
-    this.dragon = new Dragon(S.dragonHp || 200); G.mobs.push(this.dragon); show('bossbar', true); $('bossname').textContent = 'Shadow Dragon';
+    this.dragon = new Dragon(S.dragonHp || 200); G.mobs.push(this.dragon); show('bossbar', true); $('bossname').textContent = 'Ender Dragon';
   },
   update(dt) { if (world.dim !== 'end') { show('bossbar', false); return; } this.crystals = this.crystals.filter(c => !c.gone); if (this.dragon && this.dragon.gone) this.dragon = null; },
   openExit() { const fy = world.gen.fountainY(); for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const d2 = dx * dx + dz * dz; if (d2 <= 6 && (dx || dz)) world.set(dx, fy, dz, B.END_PORTAL); } if (world.get(0, fy + 4, 0) !== B.DRAGON_EGG && !S.eggTaken) world.set(0, fy + 4, 0, B.DRAGON_EGG); },
   victory() {
     S.dragonDead = true; S.dragonHp = 0; this.dragon = null; this.openExit(); show('bossbar', false);
-    toast('The Shadow Dragon has been defeated! The exit portal is open.', 8); Sfx.play('levelup', 1.2);
+    toast('The Ender Dragon has been defeated! The exit portal is open.', 8); Sfx.play('levelup', 1.2);
     const fy = world.gen.fountainY(); Particles.emit(0.5, fy + 2, 0.5, 120, [[0.9, 0.6, 1], [1, 1, 1], [0.4, 0.9, 0.7]], 10, 2, 2, 3);
     saveGame(false);
   },
@@ -8990,11 +8991,11 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
 { const _og = onChunkGen; onChunkGen = function (c, hints, cols, w) {
     _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
     if (hints.some(h => h[0] === 'villager') && Math.random() < 0.15) { const v = hints.find(h => h[0] === 'villager'); spawnMob('cat', v[1] - 1, v[2], v[3]); }
-    if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.08) return;
+    if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.05) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; let tab = null;
     if (col.b === BIO.SNOWY) tab = { rabbit: 3, fox: 3, polar_bear: 1, wolf: 1 };
     else if (col.b === BIO.DESERT) tab = { rabbit: 1, camel: 1 };
-    else if (col.b === BIO.FOREST) tab = { wolf: 1, rabbit: 2, fox: 1 };
+    else if (col.b === BIO.FOREST) tab = { wolf: 0.6, rabbit: 2, fox: 1 };
     else if (col.b === BIO.MOUNTAINS) tab = col.h > SEA + 40 ? { goat: 4, llama: 2 } : { llama: 2, rabbit: 1 };
     else if (col.b === BIO.PLAINS) tab = { donkey: 1, rabbit: 2 };
     else if (col.b === BIO.BEACH) tab = { turtle: 1 };
@@ -11369,6 +11370,46 @@ swimPose = function (model, P, dt) {
 { const _e = Player.prototype.eye; Player.prototype.eye = function () { if (this.gliding) return new V3(this.pos.x, this.pos.y + (this.eyeH || 0.4), this.pos.z); return _e.call(this); }; }
 // the elytra is not a chestplate on the model
 { const _am = armorMats; armorMats = function (inv) { const o = _am(inv); const s = inv && inv[38]; if (s && s.id === IT.elytra) o.chest = null; return o; }; }
+
+// ================= THE ENDER DRAGON: LANDING, PERCHING, BREATH, RESPAWNING (Minecraft) =================
+// Between flights the dragon lands on the exit portal's bedrock fountain: it settles on the portal, swings its head
+// toward the nearest player, roars, and breathes a cloud of dragon's breath along the ground (stand in it and it hurts;
+// fill bottles from it). While perched it takes a quarter damage except to the head, and it takes off again after a
+// few breaths or once it has lost 25% of its health there. It also strafes with dragon fireballs (which leave breath
+// clouds) and charges at you. Killing it gives 12000 experience the first time (500 after). Put four end crystals
+// on the edge of the exit portal to bring it back.
+{ const _u = Dragon.prototype.update; Dragon.prototype.update = function (dt) {
+    if (this.state !== 'perch' || this.dying) return _u.call(this, dt);
+    const fy = world.gen.fountainY(); const P = G.player; const land = new V3(0, fy + 2.6, 0); const d = this.pos.distanceTo(land);
+    if (!this.perchStart) { this.perchStart = true; this.perchHp = this.hp; this.breaths = 0; this.perchT = 0; }
+    // fly in, then settle on the portal
+    if (d > 1.2 && this.perchT === 0) { const want = land.clone().sub(this.pos); const L = want.length(); want.multiplyScalar(Math.min(16, Math.max(5, L)) / Math.max(L, 0.01)); this.vel.lerp(want, Math.min(1, dt * 2)); this.pos.addScaledVector(this.vel, dt); }
+    else { if (this.perchT === 0) { Sfx.play('roar', 1, 0.8); for (let i = 0; i < 6; i++) explodeFx(this.pos.x + (Math.random() - 0.5) * 6, fy + 1, this.pos.z + (Math.random() - 0.5) * 6); }
+      this.perchT += dt; this.vel.set(0, 0, 0); this.pos.lerp(land, Math.min(1, dt * 4));
+      const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); let df = want - this.yaw; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; this.yaw += df * Math.min(1, dt * 1.5);
+      this.shootCD -= dt; const active = isSurv() && !P.dead;
+      if (this.shootCD <= 0 && active && P.pos.distanceTo(this.pos) < 40) { this.shootCD = 3.2; this.breaths++; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); for (let k = 0; k < 3; k++) spawnBreathCloud(this.pos.x + f.x * (7 + k * 3), fy + 2, this.pos.z + f.z * (7 + k * 3)); this.jawT = 1.2; Sfx.play('roar', 0.8, 1.2); if (this.headPos) for (let i = 0; i < 40; i++) Particles.emit(this.headPos.x + f.x * i * 0.25, this.headPos.y - i * 0.05, this.headPos.z + f.z * i * 0.25, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 2, 1, 2, 0.6); }
+      if (this.breaths >= 3 || this.perchT > 18 || this.hp < this.perchHp - this.maxHp * 0.25 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; this.perchStart = false; this.vel.set(0, 10, 0); Sfx.play('roar', 1); } }
+    this.pitch += (0 - this.pitch) * Math.min(1, dt * 3); this.root.position.copy(this.pos); this.root.rotation.set(this.pitch, this.yaw, 0); this.calcSpheres();
+    this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.hurtCD -= dt; this.contactCD -= dt;
+    let healer = null, hd = 70; for (const c of EndFight.crystals) { if (c.dead) continue; const dd = c.pos.distanceTo(this.pos); if (dd < hd) { hd = dd; healer = c; } } this.healer = healer; if (healer && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + dt * 1.2);
+    for (const leg of this.legs) leg.rotation.x += (0 - leg.rotation.x) * Math.min(1, dt * 3);
+    this.animate(dt, 0.25); this.colorize(); this.updateBar();
+  }; }
+// perched: a quarter damage unless the hit is on the head
+{ const _h = Dragon.prototype.hurt; Dragon.prototype.hurt = function (dmg, src, kb, force) { if (this.state === 'perch' && this.perchT > 0 && !force && this.headPos && src && src.distanceTo && this.headPos.distanceTo(player.eye()) > 4) dmg *= 0.25; return _h.call(this, dmg, src, kb, force); }; }
+// the first kill is worth 12000 experience, later ones 500
+{ const _v = EndFight.victory; EndFight.victory = function () { const first = !S.dragonKilledOnce; S.dragonKilledOnce = true; const fy = world.gen.fountainY(); const xp = first ? 12000 : 500; for (let i = 0; i < 20; i++) setTimeout(() => spawnOrb((Math.random() - 0.5) * 6, fy + 4 + Math.random() * 4, (Math.random() - 0.5) * 6, xp / 20), i * 120); return _v.apply(this, arguments); }; }
+// respawning: four end crystals around the exit portal's edge
+function tryRespawnDragon() {
+  if (!S.dragonDead || EndFight.dragon || world.dim !== 'end') return; const fy = world.gen.fountainY();
+  const spots = [[0, -3], [0, 3], [-3, 0], [3, 0]]; const ok = spots.every(([x, z]) => G.mobs.some(m => m.placed && !m.dead && Math.abs(m.pos.x - (x + 0.5)) < 1.2 && Math.abs(m.pos.z - (z + 0.5)) < 1.2 && Math.abs(m.pos.y - fy - 1) < 2.5));
+  if (!ok) return; toast('The Ender Dragon is returning...', 4); Sfx.play('roar', 1.2, 0.7);
+  setTimeout(() => { for (const m of G.mobs) if (m.placed && !m.dead) { m.dead = true; m.gone = true; explodeFx(m.pos.x, m.pos.y + 1, m.pos.z); }
+    S.dragonDead = false; S.dragonHp = 200; S.crystalsGone = []; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (world.get(dx, fy, dz) === B.END_PORTAL) world.set(dx, fy, dz, 0);
+    EndFight.enter(); }, 5000);
+}
+{ const _p = Player.prototype.hurt; } // (dragon contact and breath damage are in the base fight code)
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

@@ -78,7 +78,7 @@ class Player {
     if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
     if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
-    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
+    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Ender Dragon's breath": "You were consumed by the Ender Dragon's breath", 'the Ender Dragon': 'You were slain by the Ender Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
     if (S.uiOpen) closeInv(true);
     show('death', true); releaseLock();
@@ -524,18 +524,19 @@ function useAction(eye, dir) {
 }
 
 // ---- spawning ----
-function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (id) return SOLID[id] ? y + 1 : -1; } return -1; }
+// the ground under the open sky; tree leaves and logs are looked through, so animals spawn under trees, not on them
+function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } return y + 1; } return -1; }
 function onChunkGen(c, hints, cols, w) {
   if (w !== world) return;
   for (const [type, x, y, z] of hints) spawnMob(type, x, y, z);
   if (!cols) return;
   const passive = G.mobs.filter(m => m.t.kind === 'passive').length;
-  if (passive < 40 && Math.random() < 0.2) {
+  if (passive < 60 && Math.random() < 0.35) { // Minecraft: animals are placed with the chunk, in groups of 4
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx];
     if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < SEA + 30)) {
       // Minecraft spawn weights: plains also have horse herds (2-6); snowy plains mostly sheep
       const type = col.b === BIO.SNOWY ? pickWeighted({ sheep: 2, cow: 1 }) : col.b === BIO.PLAINS ? pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8, horse: 5 }) : pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8 });
-      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 2 + (Math.random() * 3 | 0);
+      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 4;
       for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS) && animalLightOk(x, y, z)) spawnMob(type, x + 0.5, y, z + 0.5); }
     }
   }

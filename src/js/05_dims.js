@@ -23,7 +23,7 @@ function handleArrival() {
   else if (a.type === 'end-spawn') {
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { world.set(100 + dx, 48, dz, B.OBSIDIAN); for (let y = 49; y <= 51; y++) world.set(100 + dx, y, dz, 0); }
     player.pos.set(100.5, 49.01, 0.5); player.yaw = Math.PI / 2; player.pitch = 0.05;
-    toast('Destroy the End Crystals on the pillars, then defeat the Shadow Dragon', 6);
+    toast('Destroy the End Crystals on the pillars, then defeat the Ender Dragon', 6);
   } else if (a.type === 'bed' && a.pos) { player.pos.set(a.pos.x, a.pos.y, a.pos.z); }
   else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
   player.vel.set(0, 0, 0); player.peak = null; S.portalLock = true;
@@ -75,7 +75,7 @@ function checkEndPortal(x, y, z) {
     let ok = true; for (let l = -1; l <= 1 && ok; l++) for (const [fx, fz] of [[cx + 2, cz + l], [cx - 2, cz + l], [cx + l, cz + 2], [cx + l, cz - 2]]) if (world.get(fx, y, fz) !== B.END_PORTAL_FRAME_EYE) { ok = false; break; }
     if (!ok) continue;
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) world.set(cx + i, y, cz + j, B.END_PORTAL);
-    Sfx.play('levelup', 1); Sfx.play('portal', 1); toast('The End Portal is open. Jump in to face the Shadow Dragon.', 5);
+    Sfx.play('levelup', 1); Sfx.play('portal', 1); toast('The End Portal is open. Jump in to face the Ender Dragon.', 5);
     Particles.emit(cx + 0.5, y + 1, cz + 0.5, 60, [[0.3, 0.9, 0.7], [0.7, 0.4, 1]], 4, 1.2, -1, 3); return true;
   }
   return false;
@@ -147,10 +147,10 @@ class Crystal {
   remove() { scene.remove(this.root); scene.remove(this.beam); this.beamGeo.dispose(); }
 }
 
-// ---- Shadow Dragon ----
+// ---- Ender Dragon ----
 class Dragon {
   constructor(hp) {
-    this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Shadow Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
+    this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Ender Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
     this.pos = new V3(0, 82, 46); this.vel = new V3(-12, 0, 0); this.hw = 3; this.h = 3; this.yaw = 0; this.pitch = 0; this.state = 'circle'; this.stateT = 12; this.ang = Math.PI / 2; this.dirSign = 1;
     this.mats = []; this.age = 0; this.hurtT = 0; this.hurtCD = 0; this.contactCD = 0; this.shootCD = 2; this.shots = 0; this.perchT = 0; this.roarT = 5; this.hist = [];
     this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); }); this.spheres = [];
@@ -211,7 +211,7 @@ class Dragon {
         if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('roar', 0.6); this.jawT = 0.5; }
         if (this.shots >= 3 || this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8 + Math.random() * 6; } break; }
       case 'charge': tgt = pe.clone(); speed = 26; turn = 3;
-        if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Shadow Dragon', 3); this.state = 'circle'; this.stateT = 9; }
+        if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Ender Dragon', 3); this.state = 'circle'; this.stateT = 9; }
         if (this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8; } break;
       case 'perch': { const pp = new V3(0, fy + 6, 0); const d = this.pos.distanceTo(pp);
         if (d > 3 && this.perchT === 0) { tgt = pp; speed = Math.max(6, Math.min(16, d)); }
@@ -230,7 +230,7 @@ class Dragon {
     this.pitch += (clamp(-Math.atan2(this.vel.y, hs + 0.01), -0.6, 0.6) - this.pitch) * Math.min(1, dt * 3);
     this.root.position.copy(this.pos); this.root.rotation.set(this.pitch, this.yaw, 0);
     this.calcSpheres();
-    if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Shadow Dragon', 2.2); break; } }
+    if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Ender Dragon', 2.2); break; } }
     if (Math.random() < dt * 12) { const p = this.spheres[0][0]; Particles.emit(p.x + (Math.random() - 0.5) * 3, p.y, p.z + (Math.random() - 0.5) * 3, 1, [[0.35, 0.1, 0.55], [0.1, 0.05, 0.15]], 1, 1.2, -0.5, 1); }
     this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('roar', Math.max(0.2, 1 - dist / 90)); }
     this.animate(dt, this.state === 'perch' && this.perchT > 0 ? 0.4 : 1); this.colorize(); this.updateBar();
@@ -264,13 +264,13 @@ const EndFight = {
     this.crystals = []; this.dragon = null;
     if (S.dragonDead) { this.openExit(); show('bossbar', false); return; }
     for (const p of world.gen.pillars) if (!S.crystalsGone.includes(p.i)) { const c = new Crystal(p); this.crystals.push(c); G.mobs.push(c); }
-    this.dragon = new Dragon(S.dragonHp || 200); G.mobs.push(this.dragon); show('bossbar', true); $('bossname').textContent = 'Shadow Dragon';
+    this.dragon = new Dragon(S.dragonHp || 200); G.mobs.push(this.dragon); show('bossbar', true); $('bossname').textContent = 'Ender Dragon';
   },
   update(dt) { if (world.dim !== 'end') { show('bossbar', false); return; } this.crystals = this.crystals.filter(c => !c.gone); if (this.dragon && this.dragon.gone) this.dragon = null; },
   openExit() { const fy = world.gen.fountainY(); for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const d2 = dx * dx + dz * dz; if (d2 <= 6 && (dx || dz)) world.set(dx, fy, dz, B.END_PORTAL); } if (world.get(0, fy + 4, 0) !== B.DRAGON_EGG && !S.eggTaken) world.set(0, fy + 4, 0, B.DRAGON_EGG); },
   victory() {
     S.dragonDead = true; S.dragonHp = 0; this.dragon = null; this.openExit(); show('bossbar', false);
-    toast('The Shadow Dragon has been defeated! The exit portal is open.', 8); Sfx.play('levelup', 1.2);
+    toast('The Ender Dragon has been defeated! The exit portal is open.', 8); Sfx.play('levelup', 1.2);
     const fy = world.gen.fountainY(); Particles.emit(0.5, fy + 2, 0.5, 120, [[0.9, 0.6, 1], [1, 1, 1], [0.4, 0.9, 0.7]], 10, 2, 2, 3);
     saveGame(false);
   },
