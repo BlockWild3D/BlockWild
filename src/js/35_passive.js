@@ -234,7 +234,7 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
     if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.08) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; let tab = null;
     if (col.b === BIO.SNOWY) tab = { rabbit: 3, fox: 3, polar_bear: 1, wolf: 1 };
-    else if (col.b === BIO.DESERT) tab = { rabbit: 4, camel: 1 };
+    else if (col.b === BIO.DESERT) tab = { rabbit: 1, camel: 1 };
     else if (col.b === BIO.FOREST) tab = { wolf: 1, rabbit: 2, fox: 1 };
     else if (col.b === BIO.MOUNTAINS) tab = col.h > SEA + 40 ? { goat: 4, llama: 2 } : { llama: 2, rabbit: 1 };
     else if (col.b === BIO.PLAINS) tab = { donkey: 1, rabbit: 2 };
