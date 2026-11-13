@@ -432,10 +432,12 @@ function updateInteraction(dt) {
   target = raycast(eye, dir, reach);
   targetMob = null; let best = S.mode === 'creative' ? 6 : 3.8;
   for (const m of G.mobs) { if (m.dead) continue; const t = mobRay(m, eye, dir); if (t >= 0 && t < best && (!target || t < target.dist)) { best = t; targetMob = m; } }
-  if (target && !targetMob) { selBox.visible = true; selBox.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5); } else selBox.visible = false;
+  targetBoat = boatRay(eye, dir, best); if (targetBoat) targetMob = null;
+  if (target && !targetMob && !targetBoat) { selBox.visible = true; selBox.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5); } else selBox.visible = false;
   const tool = player.heldDef();
   if (mouseL && S.atkCD <= 0 && deflectProjectiles(eye, dir)) { S.atkCD = 0.45; S.swing = 1; }
-  if (mouseL && targetMob) {
+  if (mouseL && targetBoat) { hitBoat(targetBoat); S.mineT = 0; }
+  else if (mouseL && targetMob) {
     if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); S.atkCD = tool && tool.kind === 'tool' ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
     S.mineT = 0;
   } else if (mouseL && target) {
@@ -482,6 +484,8 @@ function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = kd('sneak');
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
+  if (targetBoat && !sneaking) { mouseR = false; mountBoat(targetBoat); return; }
+  if (hd && hd.kind === 'boat' && !(target && BL[target.id].use && !sneaking)) { mouseR = false; placeBoatItem(eye, dir); return; }
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
   if (hd && hd.kind === 'bed' && target && !(BL[target.id].use && !sneaking)) { mouseR = false; if (placeBed(target)) useHeld(1); S.swing = 1; return; }
   if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
@@ -591,9 +595,10 @@ function updateSpawning(dt) {
 // ---- player update ----
 function updatePlayer(dt) {
   const P = player; if (P.dead) return;
-  P.eyeH = (P.eyeH || 1.62) + ((P.sneaking ? 1.27 : 1.62) - (P.eyeH || 1.62)) * Math.min(1, dt * 12);
+  P.eyeH = (P.eyeH || 1.62) + ((P.riding ? BOAT.eye : P.sneaking ? 1.27 : 1.62) - (P.eyeH || 1.62)) * Math.min(1, dt * 12);
   P.hurtCD -= dt;
   if (!world.loaded(Math.floor(P.pos.x), Math.floor(P.pos.z))) return;
+  if (P.riding) rideUpdate(P, dt); else {
   let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
@@ -631,6 +636,7 @@ function updatePlayer(dt) {
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (S.mode === 'survival') { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
+  } // end of on-foot movement
   if (S.mode === 'survival' && S.rules.naturalRegeneration && P.health < 20 && performance.now() / 1000 - P.lastHurt > 6) { P.regenT += dt; if (P.regenT > 3) { P.regenT = 0; P.health = Math.min(20, P.health + 1); updateHearts(); } }
   const c = new V3(P.pos.x, P.pos.y + 0.8, P.pos.z);
   for (const it of G.items) {
@@ -809,7 +815,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, mpPlayers: MP.saved, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, mpPlayers: MP.saved, boats: boatList(), worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -820,7 +826,7 @@ function clearEntities() {
 function quitToTitle() {
   if (typeof MP !== 'undefined' && MP.active) mpShutdown();
   S.started = false; S.paused = false; show('pause', false); show('hud', false); show('crosshair', false); show('info', false); show('touch', false); show('death', false); show('inv', false); show('water', false); show('lavafx', false); $('portalfx').style.opacity = 0;
-  clearEntities();
+  clearEntities(); clearBoats();
   if (world) for (const c of [...world.chunks.values()]) world.unload(c); world = null; G.world = null; Dim.worlds = {};
   selBox.visible = false; crackMesh.visible = false; releaseLock(); refreshMenu(); show('menu', true);
 }
@@ -834,6 +840,7 @@ function startWorld(data) {
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
   REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
+  clearBoats(); loadBoats(data.boats);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
   for (let i = 0; i < 9; i++) craftGrid[i] = null;
@@ -898,7 +905,7 @@ function tick(dt) {
     for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
-    updateProjectiles(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
+    updateProjectiles(dt); updateBoats(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
     S.saveT += dt; if (S.saveT > 30) { S.saveT = 0; saveGame(false); }
   }
   if (typeof mpTick === 'function') mpTick(dt);

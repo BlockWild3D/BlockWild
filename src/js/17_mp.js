@@ -30,6 +30,7 @@ function updateAvatars(dt) {
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
     swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
+    sitPose(av.model, av.ride > 0, av.ride > 1);
     if (av.sleeping) { av.model.body.rotation.x = -Math.PI / 2; av.model.body.position.y = 0.25; }
     const l = Math.max(G.minLight || 0, world.lightAt(av.pos.x, av.pos.y + 1, av.pos.z, G.daylight)); av.model.mat.color.multiplyScalar(clamp(l, 0.1, 1)); av.model.omat.color.copy(av.model.mat.color);
   }
@@ -39,7 +40,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead }; }
+function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? 1 + (P.riding.rowing ? 1 : 0) : 0 }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -72,11 +73,13 @@ function onPeerMsg(peer, m) {
     case 'hello': return hostWelcome(peer, m);
     case 'welcome': return clientWelcome(m);
     case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
-      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; if (m.swing) av.swing = 1; av.seen = performance.now();
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; if (m.swing) av.swing = 1; av.seen = performance.now();
       if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
       if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
       return; }
     case 'b': return applyBlocks(m.l, peer.id);
+    case 'boat': return onBoatMsg(peer, m);
+    case 'boatdel': return onBoatDel(peer, m);
     case 'chat': { const t = m.raw || ('<' + m.from + '> ' + m.text); chatPrint(t, m.color); if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
     case 'chest': { const w = Dim.get(m.dim); w.chestInv.set(m.k, m.inv.map(slotIn)); if (S.chestKey === m.k && chestArr) { chestArr = w.chestInv.get(m.k); renderInvUI(); } if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
     case 'time': S.time = m.time; S.day = m.day; if (S.sleeping && timeTicks() < 12000) { S.sleeping = null; $('sleepfx').style.opacity = 0; show('sleepfx', false); } return;
@@ -133,7 +136,7 @@ function hostWelcome(peer, m) {
   const worlds = {}; for (const d in Dim.worlds) worlds[d] = Object.assign(packWorld(Dim.worlds[d]), { chests: Object.fromEntries([...Dim.worlds[d].chestInv].map(([k2, v]) => [k2, v.map(slotOut)])) });
   const saved = MP.saved[name];
   peer.link.send({ t: 'welcome', id: peer.id, name, seed: world.seed, mode: MP.joinMode, cheats: S.cheats, time: S.time, day: S.day, rules: S.rules, difficulty: S.difficulty,
-    worlds, keys: saveKeys(), dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, spawn: player.spawn.toArray(), you: saved || null, hostRD: S.renderDist, mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name),
+    worlds, keys: saveKeys(), dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, spawn: player.spawn.toArray(), boats: boatList(), you: saved || null, hostRD: S.renderDist, mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name),
     players: [{ id: 'host', name: myName(), skin: mySkinData() }, ...[...MP.peers.values()].filter(p => p.joined && p.id !== peer.id).map(p => ({ id: p.id, name: p.name, skin: p.skin }))] });
   mpSendAll({ t: 'join', id: peer.id, name, skin: m.skin }, false, peer.id);
   addAvatar(peer.id, name, m.skin); chatPrint(name + ' joined the game', '#ff5'); renderMpPanel();
@@ -261,7 +264,7 @@ async function joinWorld(code) {
 function clientWelcome(m) {
   MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
-  const data = { seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, worlds: {} };
+  const data = { seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
   const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
   show('mpScreen', false); startWorld(data);

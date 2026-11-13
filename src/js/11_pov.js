@@ -64,7 +64,7 @@ function applyPov(P, dt) {
       const sp = Math.hypot(P.vel.x, P.vel.z) * (P.onGround || P.flying ? 1 : 0.3); const h = P.held();
       myModel.setHeld(h ? h.id : 0); myModel.setArmor(armorMats(P.inv));
       myModel.animate(dt, sp, P.pitch, S.swing || 0, !!P.sneaking, performance.now() / 1000 - P.lastHurt < 0.3);
-      swimPose(myModel, P, dt);
+      swimPose(myModel, P, dt); sitPose(myModel, !!P.riding, P.riding && P.riding.rowing);
       const l = clamp(light, 0.08, 1); myModel.mat.color.multiplyScalar(l); myModel.omat.color.multiplyScalar(l);
     }
   }

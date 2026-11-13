@@ -325,6 +325,7 @@ M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender',
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
 M('bed', 'Bed', { kind: 'bed', stack: 1 });
+M('boat', 'Oak Boat', { kind: 'boat', stack: 1 });
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // axes (strong but slow hits, fast on wood) and shovels (fast on dirt, sand, gravel, snow); Minecraft damage values
@@ -385,6 +386,10 @@ for (const [k, , , , col, hi] of TOOLMATS) ICONP[k + '_hoe'] = (s) => { pLine(s,
 { const G0 = [240, 200, 50], G1 = [255, 246, 160]; const src = 'diamond'; ICONP.golden_pickaxe = pickIcon(G0, G1); ICONP.golden_sword = swordIcon(G0, G1);
   for (const k of ['axe', 'shovel', 'hoe']) { const base = ICONP[src + '_' + k]; ICONP['golden_' + k] = (s, r) => base((x, y, c, a) => s(x, y, (c && c[0] === 70 && c[1] === 220) ? G0 : (c && c[0] === 190 && c[1] === 255) ? G1 : c, a), r); } }
 Object.assign(ICONP, {
+  boat: (s, r) => { const P = [164, 132, 80], D = [104, 76, 40], L = [200, 166, 108];
+    pLine(s, 3, 2, 8, 8, [128, 96, 54]); pLine(s, 2, 2, 3, 2, [128, 96, 54]); s(2, 3, [128, 96, 54]);
+    for (let x = 1; x <= 14; x++) { const bot = x < 3 || x > 12 ? 10 : 11; for (let y = 7; y <= bot; y++) s(x, y, y === 7 ? L : (y === bot || x === 1 || x === 14) ? D : y === 9 ? [134, 108, 66] : vary(P, r, 6)); }
+    for (let x = 3; x <= 12; x++) s(x, 12, D); },
   bed: (s) => { for (let y = 6; y <= 11; y++) for (let x = 1; x <= 14; x++) s(x, y, y < 8 ? (x < 5 ? [236, 236, 230] : [196, 44, 44]) : y < 10 ? [176, 36, 36] : (x < 3 || x > 12 ? [130, 100, 60] : [0, 0, 0, 0])); for (let x = 1; x <= 14; x++) s(x, 10, [164, 132, 80]); },
   wheat_seeds: (s, r) => { for (let i = 0; i < 9; i++) { const x = 4 + r() * 8, y = 5 + r() * 7; s(x, y, [90, 150, 50]); s(x + 1, y, [60, 120, 30]); } },
   wheat: (s, r) => { for (const ox of [-2, 0, 2]) { pLine(s, 8 + ox, 14, 8 + ox * 1.5, 4, [170, 140, 50]); for (let y = 3; y < 9; y++) s(8 + ox * 1.5 + (y % 2 ? 1 : -1), y, [214, 186, 90]); } },
@@ -498,6 +503,7 @@ RECIPES.push(
   ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('bread', 1, ['WWW'], { W: 'wheat' }),
   RSH('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' }),
+  RSH('boat', 1, ['P P', 'PPP'], { P: 'planks' }),
   RSH('hay_block', 1, ['WWW', 'WWW', 'WWW'], { W: 'wheat' }), RSL('wheat', 9, ['hay_block']),
   RSH('golden_pickaxe', 1, ['MMM', ' S ', ' S '], { M: 'gold_ingot', S: 'stick' }), RSH('golden_sword', 1, ['M', 'M', 'S'], { M: 'gold_ingot', S: 'stick' }),
   RSH('golden_axe', 1, ['MM', 'MS', ' S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_shovel', 1, ['M', 'S', 'S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_hoe', 1, ['MM', ' S', ' S'], { M: 'gold_ingot', S: 'stick' }),
@@ -539,7 +545,7 @@ function gridMatch(grid, n) {
   return null;
 }
 const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz']]) SMELT[IT[a]] = IT[b];
-const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15]]) FUEL[IT[a]] = t;
+const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60]]) FUEL[IT[a]] = t;
 const COOK_TIME = 5;
 const LOOT = {
   ruined_portal: [['obsidian', 3, 7, 0.95], ['flint_and_steel', 1, 1, 0.7], ['gold_ingot', 2, 6, 0.6], ['flint', 1, 4, 0.5], ['golden_apple', 1, 1, 0.15], ['gold_nugget', 4, 12, 0.5]],
