@@ -4404,7 +4404,10 @@ function requestLock() {
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => onLockError()); } catch (e) { onLockError(); }
 }
 function releaseLock() { if (document.pointerLockElement) try { document.exitPointerLock(); } catch (e) { } }
-function onLockError() { if (!S.everLocked) { S.fallback = true; toast('Drag with the mouse to look around', 4); show('clickplay', false); } else if (S.started && !S.uiOpen && !S.paused && !player.dead) show('clickplay', true); }
+let lastGestureT = 0; for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => { lastGestureT = performance.now(); }, true);
+// a lock request that wasn't made right after a click or key press (joining a friend's world, returning from a portal) fails
+// in every browser: show "Click to play" for it instead of giving up on pointer lock and leaving the mouse cursor visible
+function onLockError() { if (!S.everLocked && performance.now() - lastGestureT < 1500) { S.fallback = true; toast('Drag with the mouse to look around', 4); show('clickplay', false); } else if (S.started && !S.uiOpen && !S.paused && !player.dead) show('clickplay', true); }
 document.addEventListener('pointerlockchange', () => {
   S.locked = document.pointerLockElement === canvas;
   if (S.locked) { S.everLocked = true; show('clickplay', false); }
@@ -4646,7 +4649,7 @@ function useAction(eye, dir) {
 
 // ---- spawning ----
 // the ground under the open sky; tree leaves and logs are looked through, so animals spawn under trees, not on them
-function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } return y + 1; } return -1; }
+function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } const at = (yy) => c.d[(yy * 16 + (z & 15)) * 16 + (x & 15)]; if (SOLID[at(y + 1)] || SOLID[at(y + 2)]) return -1; /* ground under a tree trunk */ return y + 1; } return -1; }
 function onChunkGen(c, hints, cols, w) {
   if (w !== world) return;
   for (const [type, x, y, z] of hints) spawnMob(type, x, y, z);
@@ -5095,6 +5098,7 @@ const Dim = {
   get(dim) { if (!this.worlds[dim]) { const w = new World(S.seed, scene, dim); w.onChunkGen = onChunkGen; this.worlds[dim] = w; } return this.worlds[dim]; },
 };
 function travelTo(dim, arrival) {
+  arrival = arrival || { type: dim === 'end' ? 'end-spawn' : 'spawn' };
   if (S.uiOpen) closeInv(true);
   saveGame(false);
   if (world) { for (const c of [...world.chunks.values()]) world.unload(c); world.lastCenter = null; }
@@ -11253,7 +11257,7 @@ buildMonumentChunk = function (world, c) {
         if (shell && h > 0 && h < 22 && ((ix % 7 === 3 && (iz === k || iz === 57 - k)) || (iz % 7 === 3 && (ix === k || ix === 57 - k))) && (h % 5 === 2 || h % 5 === 3)) id = B.WATER; // window holes guardians swim through
         W.set(x, y, z, id); }
       // guardians: about one per 60 water blocks around the monument, and the three elders in their rooms
-      if ((ix * 31 + iz * 17) % 97 === 0) W.mob('guardian', x + 0.5, y0 + 2 + ((ix + iz) % 15), z + 0.5);
+      if ((ix * 31 + iz * 17) % 97 === 0) { const gy = y0 + 2 + ((ix + iz) % 15); if (isWaterId(W.get(x, gy, z)) && isWaterId(W.get(x, gy + 1, z))) W.mob('guardian', x + 0.5, gy, z + 0.5); } // only in open water, never inside walls or pillars
     }
     for (const [ex, ez, eh] of [[10, 29, 2], [47, 29, 2], [29, 29, 15]]) { const x = ox + ex, z = oz + ez; if (W.inC(x, z)) W.mob('elder_guardian', x + 0.5, y0 + eh, z + 0.5); }
     if (W.inC(st.cx * 16 + 8, st.cz * 16 + 8)) { (world.monuments = world.monuments || []).push([st.cx * 16 + 8, y0, st.cz * 16 + 8]); }
@@ -12448,6 +12452,239 @@ pvpDeliver = function (m) { if (m.to === MP.myId || m.to === 'host') return pvpR
     if (r() < (type === 'bastion_treasure' ? 0.35 : 0.2)) put({ id: IT.enchanted_book, count: 1, ench: { soul_speed: 1 + ((r() * 3) | 0) } });
     if (r() < 0.12) put({ id: IT.iron_boots, count: 1, ench: { soul_speed: 1 + ((r() * 3) | 0) } });
     return inv; }; }
+
+// ================= MOB MODEL FIXES =================
+// Guardians: a big single eye that sticks out of the front, 12 long spikes on the edges that pull in while the
+// guardian swims (Minecraft's spikes retract when it moves), and a three-part tail that sways.
+// Squids: Minecraft's proportions (a tall body and eight tentacles longer than the body), with eyes on the sides.
+guardianModel = function (m, r, s, k) {
+  const elder = k === 'egd'; const GB = elder ? [206, 204, 190] : GUARD, GD = elder ? [168, 166, 158] : [72, 112, 100], GL = elder ? [228, 226, 214] : [150, 196, 176], GT = elder ? [218, 216, 204] : [120, 170, 152], GF = elder ? [176, 178, 206] : [86, 128, 116], GS = elder ? [150, 152, 186] : GUARD2;
+  const body = pivot(r, 0, 0.45 * s, 0); m.gbody = body;
+  sbox(m, body, 0.75 * s, 0.75 * s, 0.85 * s, 0, 0, 0, k + '_body2', fur(GB, 7, { speck: [GD, 0.22], topc: GT, extra: (f, set, fw, fh) => {
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if ((x + y * 2) % 7 === 0) set(x, y, GL); // pale scale lines
+    if (f === 'front') for (let y = 1; y < fh - 1; y++) for (let x = 1; x < fw - 1; x++) if (Math.abs(x - fw / 2 + 0.5) + Math.abs(y - fh / 2 + 0.5) < fw * 0.36) set(x, y, GF); } }));
+  // the eye: a white eyeball with an orange-brown pupil, standing out from the front
+  m.geye = sbox(m, body, 0.26 * s, 0.26 * s, 0.08 * s, 0, 0, 0.44 * s, k + '_eye', (f, set, fw, fh) => { for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) set(x, y, [236, 228, 218]); if (f === 'front') { const c = fw >> 1; for (let y = c - 1; y <= c; y++) for (let x = c - 1; x <= c; x++) set(x, y, [150, 64, 30]); set(c - 1, c - 1, [210, 120, 70]); } });
+  m.spikes = [];
+  const up = new V3(0, 1, 0);
+  for (const [x, y, z] of [[1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0], [0, 1, 1], [0, 1, -1], [0, -1, 1], [0, -1, -1], [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1]]) {
+    const d = new V3(x, y, z).normalize(); const p = pivot(body, x * 0.37 * s, y * 0.37 * s, z * 0.42 * s); p.quaternion.setFromUnitVectors(up, d);
+    sbox(m, p, 0.09 * s, 0.42 * s, 0.09 * s, 0, 0.12 * s, 0, k + '_spike2', fur(elder ? [236, 232, 220] : [238, 222, 196], 3, { topRows: [3, GS] })); m.spikes.push(p); }
+  m.tail = pivot(body, 0, 0, -0.42 * s); let prev = m.tail; m.tailParts = [];
+  for (let i = 0; i < 3; i++) { const seg = pivot(prev, 0, 0, i ? -0.3 * s * (1 - (i - 1) * 0.2) : 0); const w = 0.26 * s * (1 - i * 0.25);
+    sbox(m, seg, w, w, 0.32 * s * (1 - i * 0.15), 0, 0, -0.16 * s, k + '_tail2' + i, fur(i === 2 ? GS : GB, 5, { speck: [GD, 0.2] })); m.tailParts.push(seg); prev = seg; }
+  sbox(m, prev, 0.04 * s, 0.3 * s, 0.24 * s, 0, 0, -0.42 * s, k + '_fin', fur(GS, 3));
+};
+for (const k of ['guardian', 'elder_guardian']) { const prev = MOBS[k].tick; MOBS[k].tick = function (m, dt) {
+  const r = prev ? prev(m, dt) : false;
+  if (m.spikes && m.spikes.length) { const moving = Math.hypot(m.vel.x, m.vel.y, m.vel.z) > 0.4; m.spikeOut = (m.spikeOut == null ? 1 : m.spikeOut) + ((moving ? 0.35 : 1) - (m.spikeOut == null ? 1 : m.spikeOut)) * Math.min(1, dt * 4);
+    for (const p of m.spikes) p.scale.set(1, m.spikeOut, 1); }
+  if (m.tailParts) { const t = (m.age || 0) * 4; m.tailParts.forEach((p, i) => { p.rotation.y = Math.sin(t - i * 0.8) * 0.35 * (i + 1) * 0.6; }); }
+  return r; }; }
+// squids
+MOBS.squid.build = function (m, r, glow) {
+  const C = glow ? [36, 150, 150] : [40, 66, 92], D = glow ? [110, 232, 220] : [74, 104, 134], G = glow ? 'g' : '', o = glow ? { glowAll: true } : {};
+  m.body = sbox(m, r, 0.75, 0.95, 0.75, 0, 0.98, 0, G + 'sq_body2', fur(C, 7, { speck: [D, 0.22], extra: (f, set, fw, fh) => {
+    if (f === 'left' || f === 'right') { const y = Math.round(fh * 0.72); set((fw >> 1) - 1, y, [240, 240, 236]); set(fw >> 1, y, [240, 240, 236]); set(fw >> 1, y, [20, 26, 34]); set((fw >> 1) - 1, y + 1, glow ? [150, 255, 240] : [110, 140, 170]); }
+    if (f === 'bottom') { const c = fw >> 1; set(c, c, [20, 20, 26]); set(c - 1, c, [20, 20, 26]); } } }), o);
+  m.tent = []; for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const p = pivot(r, Math.cos(a) * 0.26, 0.52, Math.sin(a) * 0.26);
+    sbox(m, p, 0.11, 0.95, 0.11, 0, -0.47, 0, G + 'sq_tent2', fur(D, 4, { speck: [C, 0.3] }), o); m.tent.push(p); }
+};
+MOBS.glow_squid.build = function (m, r) { MOBS.squid.build(m, r, true); };
+MOBS.elder_guardian.build = function (m, r) { guardianModel(m, r, 2.35, 'egd'); };
+
+// ================= MOB VOICES =================
+// Many mobs used to share one generic sound (cats, foxes, bees and dolphins all "chirped"; horses made no sound at
+// all). Each of those now has its own voice, built from oscillators shaped by formant filters (so a meow sounds like
+// "mi-aow" and a neigh wobbles), noise for breath, hisses and splashes, and pitch curves. Every mob gets an ambient
+// sound, a hurt sound and a death sound; babies are higher pitched, and every call is pitched randomly a little
+// (Minecraft varies mob pitch the same way). Mobs whose recorded sounds already fit (pigs, cows, zombies, skeletons,
+// endermen, ghasts, blazes, piglins...) keep them, and get a voice only for the sounds they were missing.
+const Voice = {
+  out(v) { const c = Sfx.ctx; const g = c.createGain(); g.gain.value = v * Sfx.vol; g.connect(c.destination); return g; },
+  // a voiced sound: pitch curve [[t, hz]...], formants [[hz, q, gain]...], amplitude envelope [[t, level]...]
+  tone(dst, o) {
+    const c = Sfx.ctx, t0 = c.currentTime + (o.at || 0); const osc = c.createOscillator(); osc.type = o.wave || 'sawtooth';
+    const p = o.pitch; osc.frequency.setValueAtTime(p[0][1], t0); for (let i = 1; i < p.length; i++) osc.frequency.linearRampToValueAtTime(p[i][1], t0 + p[i][0]);
+    if (o.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = o.vib[1]; l.connect(lg); lg.connect(osc.frequency); l.start(t0); l.stop(t0 + o.len + 0.05); }
+    const env = c.createGain(); env.gain.setValueAtTime(0.0001, t0); const e = o.env || [[0.02, 1], [o.len, 0]]; for (const [t, a] of e) env.gain.linearRampToValueAtTime(Math.max(0.0001, a), t0 + t);
+    let src = osc;
+    if (o.rough) { const am = c.createGain(); am.gain.value = 0.5; const l = c.createOscillator(); l.frequency.value = o.rough[0]; const lg = c.createGain(); lg.gain.value = o.rough[1] * 0.5; l.connect(lg); lg.connect(am.gain); l.start(t0); l.stop(t0 + o.len + 0.05); osc.connect(am); src = am; }
+    if (o.formants) { for (const [f, q, gn] of o.formants) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; if (Array.isArray(f)) { bp.frequency.setValueAtTime(f[0][1], t0); for (let i = 1; i < f.length; i++) bp.frequency.linearRampToValueAtTime(f[i][1], t0 + f[i][0]); } else bp.frequency.value = f; bp.Q.value = q; const g = c.createGain(); g.gain.value = gn; src.connect(bp); bp.connect(g); g.connect(env); } }
+    else if (o.lp) { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp; src.connect(lp); lp.connect(env); } else src.connect(env);
+    env.connect(dst); osc.start(t0); osc.stop(t0 + o.len + 0.05);
+  },
+  noise(dst, o) {
+    const c = Sfx.ctx, t0 = c.currentTime + (o.at || 0); const s = c.createBufferSource(); s.buffer = Sfx.noise; s.playbackRate.value = o.rate || 1;
+    const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; const fr = o.freq; if (Array.isArray(fr)) { f.frequency.setValueAtTime(fr[0][1], t0); for (let i = 1; i < fr.length; i++) f.frequency.linearRampToValueAtTime(fr[i][1], t0 + fr[i][0]); } else f.frequency.value = fr; f.Q.value = o.q || 1;
+    const env = c.createGain(); env.gain.setValueAtTime(0.0001, t0); const e = o.env || [[0.01, 1], [o.len, 0]]; for (const [t, a] of e) env.gain.linearRampToValueAtTime(Math.max(0.0001, a), t0 + t);
+    s.connect(f); f.connect(env); env.connect(dst); s.start(t0, Math.random() * 1.5); s.stop(t0 + o.len + 0.05);
+  },
+};
+// helpers: p = pitch multiplier for this call
+const V = {
+  meow(d, p, k = 1) { Voice.tone(d, { len: 0.55 * k, pitch: [[0, 520 * p], [0.18 * k, 720 * p], [0.55 * k, 430 * p]], formants: [[[[0, 700], [0.2, 1500], [0.5, 900]], 4, 1.2], [[[0, 2200], [0.25, 2900], [0.5, 2000]], 6, 0.6]], env: [[0.04, 0.9], [0.3 * k, 1], [0.55 * k, 0]], vib: [6, 8] }); },
+  bark(d, p, at = 0) { Voice.tone(d, { at, len: 0.16, pitch: [[0, 330 * p], [0.05, 420 * p], [0.16, 260 * p]], formants: [[600, 3, 1.4], [1500, 5, 0.6]], rough: [55, 0.6], env: [[0.01, 1], [0.06, 0.8], [0.16, 0]] }); Voice.noise(d, { at, len: 0.12, freq: 900, q: 1.5, env: [[0.005, 0.5], [0.12, 0]] }); },
+  whine(d, p, len = 0.5) { Voice.tone(d, { len, wave: 'triangle', pitch: [[0, 1100 * p], [len * 0.4, 1300 * p], [len, 800 * p]], formants: [[1200, 3, 1.2]], vib: [7, 25], env: [[0.04, 0.8], [len, 0]] }); },
+  growl(d, p, len = 0.8) { Voice.tone(d, { len, pitch: [[0, 95 * p], [len, 80 * p]], formants: [[400, 2, 1.4], [900, 4, 0.5]], rough: [32, 0.9], env: [[0.1, 1], [len * 0.8, 0.8], [len, 0]] }); },
+  squeak(d, p, at = 0, len = 0.08) { Voice.tone(d, { at, len, wave: 'sine', pitch: [[0, 2600 * p], [len * 0.5, 3200 * p], [len, 2400 * p]], env: [[0.005, 0.7], [len, 0]] }); },
+  neigh(d, p) { Voice.tone(d, { len: 1.1, pitch: [[0, 420 * p], [0.15, 760 * p], [0.9, 520 * p], [1.1, 300 * p]], formants: [[[[0, 800], [0.5, 1200], [1.1, 700]], 3, 1.2], [2400, 6, 0.4]], vib: [16, 60], env: [[0.05, 0.9], [0.8, 0.8], [1.1, 0]] }); Voice.noise(d, { at: 0.95, len: 0.35, freq: 700, q: 0.8, env: [[0.02, 0.4], [0.35, 0]] }); },
+  snortHorse(d, p) { Voice.noise(d, { len: 0.45, freq: [[0, 500], [0.45, 300]], q: 1.2, rate: p, env: [[0.03, 1], [0.15, 0.6], [0.45, 0]] }); Voice.tone(d, { len: 0.3, pitch: [[0, 110 * p], [0.3, 80 * p]], lp: 400, rough: [40, 0.8], env: [[0.03, 0.5], [0.3, 0]] }); },
+  heehaw(d, p) { for (let i = 0; i < 2; i++) { Voice.tone(d, { at: i * 0.55, len: 0.3, pitch: [[0, 900 * p], [0.3, 760 * p]], formants: [[1100, 3, 1.2], [2600, 6, 0.4]], vib: [9, 30], env: [[0.03, 0.9], [0.3, 0]] }); Voice.tone(d, { at: i * 0.55 + 0.3, len: 0.25, pitch: [[0, 260 * p], [0.25, 210 * p]], formants: [[500, 3, 1.4]], rough: [40, 0.6], env: [[0.03, 1], [0.25, 0]] }); } },
+  hiss(d, p, len = 0.6) { Voice.noise(d, { len, type: 'highpass', freq: 2500 * p, q: 0.7, env: [[0.05, 0.45], [len * 0.7, 0.3], [len, 0]] }); },
+  chitter(d, p, n = 5) { for (let i = 0; i < n; i++) Voice.noise(d, { at: i * 0.045, len: 0.03, freq: 3200 * p, q: 6, env: [[0.003, 0.7], [0.03, 0]] }); },
+  buzz(d, p, len = 0.9) { Voice.tone(d, { len, pitch: [[0, 230 * p], [len, 240 * p]], formants: [[460, 4, 3.2], [1400, 6, 1.2]], rough: [90, 0.5], vib: [5, 6], env: [[0.1, 0.6], [len - 0.1, 0.6], [len, 0]] }); },
+  chime(d, p, notes) { notes.forEach((n, i) => Voice.tone(d, { at: i * 0.09, len: 0.4, wave: 'sine', pitch: [[0, n * p], [0.4, n * p]], env: [[0.01, 0.8], [0.4, 0]] })); },
+  croak(d, p) { Voice.tone(d, { len: 0.35, wave: 'square', pitch: [[0, 120 * p], [0.35, 95 * p]], formants: [[450, 4, 1.3], [1100, 6, 0.3]], rough: [28, 1], env: [[0.02, 1], [0.3, 0.7], [0.35, 0]] }); },
+  flop(d, p) { for (let i = 0; i < 2; i++) Voice.noise(d, { at: i * 0.13, len: 0.08, freq: 700 * p, q: 1.2, env: [[0.005, 1], [0.08, 0]] }); },
+  bubble(d, p) { for (let i = 0; i < 3; i++) Voice.tone(d, { at: i * 0.07, len: 0.06, wave: 'sine', pitch: [[0, 500 * p * (1 + i * 0.2)], [0.06, 900 * p * (1 + i * 0.2)]], env: [[0.005, 0.5], [0.06, 0]] }); },
+  clank(d, p, heavy) { for (const [f, g] of [[180, 1], [432, 0.6], [771, 0.45], [1190, 0.3]]) Voice.tone(d, { len: heavy ? 1.0 : 0.5, wave: 'sine', pitch: [[0, f * p], [heavy ? 1 : 0.5, f * p * 0.98]], env: [[0.004, g * 0.3], [heavy ? 1 : 0.5, 0]] }); Voice.noise(d, { len: 0.12, freq: 1500, q: 1, env: [[0.003, 0.4], [0.12, 0]] }); },
+  cackle(d, p) { for (let i = 0; i < 4; i++) Voice.tone(d, { at: i * 0.12, len: 0.1, pitch: [[0, 520 * p * (1 - i * 0.04)], [0.1, 440 * p]], formants: [[900, 4, 1.2], [2400, 6, 0.5]], env: [[0.01, 0.9], [0.1, 0]] }); },
+  grumble(d, p, len = 0.5) { Voice.tone(d, { len, pitch: [[0, 150 * p], [len * 0.4, 175 * p], [len, 120 * p]], formants: [[[[0, 400], [len, 650]], 3, 1.3], [1100, 5, 0.4]], rough: [24, 0.5], env: [[0.04, 0.9], [len, 0]] }); },
+  screech(d, p, len = 0.7) { Voice.tone(d, { len, pitch: [[0, 900 * p], [len * 0.3, 1400 * p], [len, 700 * p]], formants: [[1600, 3, 2], [3200, 5, 1]], rough: [45, 0.6], env: [[0.05, 0.8], [len, 0]] }); },
+  roar(d, p, len = 1.2) { Voice.tone(d, { len, pitch: [[0, 120 * p], [len * 0.3, 150 * p], [len, 70 * p]], formants: [[350, 2, 1.5], [800, 3, 0.7]], rough: [30, 1], env: [[0.12, 1], [len * 0.7, 0.8], [len, 0]] }); Voice.noise(d, { len, freq: 500, q: 0.7, env: [[0.1, 0.5], [len, 0]] }); },
+  whoosh(d, p, len = 0.6) { Voice.noise(d, { len, freq: [[0, 400 * p], [len * 0.5, 2000 * p], [len, 600 * p]], q: 2, env: [[0.15, 0.8], [len, 0]] }); },
+  whistle(d, p, at = 0) { Voice.tone(d, { at, len: 0.35, wave: 'sine', pitch: [[0, 1800 * p], [0.12, 2600 * p], [0.35, 2000 * p]], vib: [20, 60], env: [[0.02, 0.45], [0.35, 0]] }); },
+  clickTrain(d, p) { for (let i = 0; i < 8; i++) Voice.noise(d, { at: i * 0.035, len: 0.012, freq: 4000 * p, q: 3, env: [[0.002, 1], [0.012, 0]] }); },
+  scrape(d, p, len = 0.3) { Voice.noise(d, { len, freq: 1800 * p, q: 3, env: [[0.02, 0.6], [len, 0]] }); },
+};
+// [ambient, hurt, death] for each mob; each gets (destination, pitch)
+const MOB_VOICE = {
+  wolf: [(d, p, m) => m && (m.angry > 0) ? V.growl(d, p) : (V.bark(d, p), V.bark(d, p, 0.25)), (d, p) => V.whine(d, p, 0.35), (d, p) => V.whine(d, p * 0.9, 1.1)],
+  cat: [(d, p) => V.meow(d, p), (d, p) => V.meow(d, p * 1.25, 0.5), (d, p) => V.meow(d, p * 0.85, 1.6)],
+  ocelot: [(d, p) => V.meow(d, p * 1.1, 0.6), (d, p) => V.meow(d, p * 1.3, 0.4), (d, p) => V.meow(d, p * 0.9, 1.3)],
+  fox: [(d, p) => { V.screech(d, p * 1.4, 0.25); V.screech(d, p * 1.3, 0.2); }, (d, p) => V.screech(d, p * 1.6, 0.25), (d, p) => V.screech(d, p * 1.1, 0.8)],
+  rabbit: [(d, p) => V.squeak(d, p * 0.6, 0, 0.05), (d, p) => V.squeak(d, p * 0.8, 0, 0.15), (d, p) => V.squeak(d, p * 0.6, 0, 0.4)],
+  bat: [(d, p) => { for (let i = 0; i < 3; i++) V.squeak(d, p * 1.3, i * 0.07, 0.04); }, (d, p) => V.squeak(d, p * 1.2, 0, 0.12), (d, p) => V.squeak(d, p, 0, 0.3)],
+  parrot: [(d, p) => { V.whistle(d, p); V.whistle(d, p * 1.15, 0.3); }, (d, p) => V.screech(d, p * 1.8, 0.2), (d, p) => V.screech(d, p * 1.5, 0.5)],
+  bee: [(d, p) => V.buzz(d, p), (d, p) => V.buzz(d, p * 1.4, 0.3), (d, p) => V.buzz(d, p * 0.8, 0.8)],
+  allay: [(d, p) => V.chime(d, p, [880, 1109, 1319]), (d, p) => V.chime(d, p, [1319, 988]), (d, p) => V.chime(d, p, [1319, 1109, 880, 659])],
+  frog: [(d, p) => V.croak(d, p), (d, p) => V.croak(d, p * 1.4), (d, p) => V.croak(d, p * 0.8)],
+  tadpole: [null, (d, p) => V.flop(d, p * 1.6), (d, p) => V.flop(d, p * 1.4)],
+  cod: [null, (d, p) => V.flop(d, p), (d, p) => V.flop(d, p * 0.9)], salmon: [null, (d, p) => V.flop(d, p * 0.9), (d, p) => V.flop(d, p * 0.8)],
+  tropical_fish: [null, (d, p) => V.flop(d, p * 1.2), (d, p) => V.flop(d, p * 1.1)], pufferfish: [(d, p) => V.bubble(d, p * 0.7), (d, p) => V.bubble(d, p * 1.2), (d, p) => V.flop(d, p * 0.8)],
+  squid: [(d, p) => V.bubble(d, p * 0.6), (d, p) => Voice.noise(d, { len: 0.25, freq: 350 * p, q: 1, env: [[0.01, 1], [0.25, 0]] }), (d, p) => Voice.noise(d, { len: 0.5, freq: 260 * p, q: 1, env: [[0.01, 1], [0.5, 0]] })],
+  glow_squid: [(d, p) => V.bubble(d, p * 0.75), (d, p) => Voice.noise(d, { len: 0.25, freq: 420 * p, q: 1, env: [[0.01, 1], [0.25, 0]] }), (d, p) => Voice.noise(d, { len: 0.5, freq: 300 * p, q: 1, env: [[0.01, 1], [0.5, 0]] })],
+  dolphin: [(d, p) => { V.clickTrain(d, p); V.whistle(d, p * 1.2, 0.3); }, (d, p) => V.whistle(d, p * 1.4), (d, p) => V.whistle(d, p * 0.8)],
+  turtle: [(d, p) => Voice.noise(d, { len: 0.3, freq: 300 * p, q: 1, env: [[0.05, 0.5], [0.3, 0]] }), (d, p) => V.grumble(d, p * 1.6, 0.25), (d, p) => V.grumble(d, p * 1.2, 0.6)],
+  axolotl: [(d, p) => V.squeak(d, p * 0.45, 0, 0.12), (d, p) => V.squeak(d, p * 0.6, 0, 0.18), (d, p) => V.squeak(d, p * 0.4, 0, 0.4)],
+  guardian: [(d, p) => Voice.tone(d, { len: 0.9, wave: 'sine', pitch: [[0, 620 * p], [0.45, 760 * p], [0.9, 540 * p]], vib: [5, 40], env: [[0.1, 0.5], [0.9, 0]] }), (d, p) => V.screech(d, p * 1.2, 0.3), (d, p) => V.screech(d, p * 0.8, 1.0)],
+  elder_guardian: [(d, p) => Voice.tone(d, { len: 1.6, wave: 'sine', pitch: [[0, 300 * p], [0.8, 380 * p], [1.6, 240 * p]], vib: [3, 25], env: [[0.2, 0.6], [1.6, 0]] }), (d, p) => V.screech(d, p * 0.7, 0.4), (d, p) => V.roar(d, p * 1.6, 1.4)],
+  shulker: [(d, p) => V.scrape(d, p * 0.6, 0.25), (d, p) => V.clank(d, p * 1.5), (d, p) => V.clank(d, p * 1.2, true)],
+  spider: [(d, p) => { V.hiss(d, p * 0.8, 0.4); V.chitter(d, p); }, (d, p) => { V.chitter(d, p * 1.2, 7); V.hiss(d, p, 0.25); }, (d, p) => { V.chitter(d, p * 0.8, 10); V.hiss(d, p * 0.7, 0.8); }],
+  cave_spider: [(d, p) => { V.hiss(d, p, 0.35); V.chitter(d, p * 1.2); }, (d, p) => V.chitter(d, p * 1.4, 7), (d, p) => { V.chitter(d, p, 10); V.hiss(d, p * 0.8, 0.6); }],
+  silverfish: [(d, p) => { V.squeak(d, p * 1.4, 0, 0.05); V.scrape(d, p * 2, 0.2); }, (d, p) => V.squeak(d, p * 1.5, 0, 0.1), (d, p) => V.squeak(d, p * 1.2, 0, 0.3)],
+  endermite: [(d, p) => V.chitter(d, p * 1.4, 4), (d, p) => V.squeak(d, p * 1.6, 0, 0.1), (d, p) => V.squeak(d, p * 1.3, 0, 0.3)],
+  creeper: [null, (d, p) => Voice.noise(d, { len: 0.25, freq: 2200 * p, type: 'highpass', env: [[0.01, 0.8], [0.25, 0]] }), (d, p) => Voice.noise(d, { len: 0.6, freq: 1500 * p, type: 'highpass', env: [[0.01, 0.8], [0.6, 0]] })],
+  horse: [(d, p) => Math.random() < 0.5 ? V.neigh(d, p) : V.snortHorse(d, p), (d, p) => V.neigh(d, p * 1.3), (d, p) => V.neigh(d, p * 0.8)],
+  donkey: [(d, p) => V.heehaw(d, p), (d, p) => V.heehaw(d, p * 1.2), (d, p) => V.heehaw(d, p * 0.8)],
+  mule: [(d, p) => Math.random() < 0.5 ? V.heehaw(d, p * 0.9) : V.neigh(d, p * 0.85), (d, p) => V.neigh(d, p * 1.2), (d, p) => V.heehaw(d, p * 0.7)],
+  camel: [(d, p) => V.grumble(d, p * 0.6, 0.9), (d, p) => V.grumble(d, p * 0.9, 0.4), (d, p) => V.roar(d, p * 1.3, 1.0)],
+  llama: [(d, p) => Voice.tone(d, { len: 0.6, pitch: [[0, 260 * p], [0.3, 300 * p], [0.6, 240 * p]], formants: [[350, 4, 1.4], [1200, 6, 0.3]], env: [[0.08, 0.7], [0.6, 0]] }), (d, p) => V.grumble(d, p * 1.8, 0.3), (d, p) => V.grumble(d, p * 1.3, 0.8)],
+  goat: [(d, p) => Voice.tone(d, { len: 0.7, pitch: [[0, 420 * p], [0.7, 380 * p]], formants: [[800, 3, 1.2], [2200, 6, 0.5]], vib: [11, 40], env: [[0.04, 0.9], [0.7, 0]] }), (d, p) => Voice.tone(d, { len: 0.3, pitch: [[0, 520 * p], [0.3, 440 * p]], formants: [[900, 3, 1.2]], vib: [12, 50], env: [[0.02, 1], [0.3, 0]] }), (d, p) => Voice.tone(d, { len: 1.0, pitch: [[0, 440 * p], [1, 300 * p]], formants: [[800, 3, 1.2]], vib: [10, 50], env: [[0.04, 1], [1, 0]] })],
+  polar_bear: [(d, p) => V.growl(d, p * 1.1, 0.6), (d, p) => V.roar(d, p * 1.3, 0.4), (d, p) => V.roar(d, p * 1.0, 1.1)],
+  panda: [(d, p) => V.grumble(d, p * 0.9, 0.5), (d, p) => V.grumble(d, p * 1.4, 0.3), (d, p) => V.grumble(d, p * 0.8, 0.9)],
+  sniffer: [(d, p) => { for (let i = 0; i < 3; i++) Voice.noise(d, { at: i * 0.18, len: 0.12, freq: 600 * p, q: 1.5, env: [[0.02, 0.8], [0.12, 0]] }); }, (d, p) => V.grumble(d, p * 0.7, 0.4), (d, p) => V.roar(d, p * 1.4, 1.2)],
+  armadillo: [(d, p) => V.scrape(d, p, 0.15), (d, p) => V.squeak(d, p * 0.5, 0, 0.12), (d, p) => V.squeak(d, p * 0.4, 0, 0.35)],
+  iron_golem: [null, (d, p) => V.clank(d, p), (d, p) => V.clank(d, p * 0.7, true)],
+  snow_golem: [(d, p) => Voice.noise(d, { len: 0.2, freq: 1800 * p, type: 'lowpass', env: [[0.02, 0.5], [0.2, 0]] }), (d, p) => Voice.noise(d, { len: 0.25, freq: 2400 * p, type: 'lowpass', env: [[0.01, 0.9], [0.25, 0]] }), (d, p) => Voice.noise(d, { len: 0.6, freq: 1600 * p, type: 'lowpass', env: [[0.01, 1], [0.6, 0]] })],
+  witch: [(d, p) => V.cackle(d, p), (d, p) => V.grumble(d, p * 2.2, 0.3), (d, p) => V.cackle(d, p * 0.8)],
+  pillager: [(d, p) => V.grumble(d, p, 0.45), (d, p) => V.grumble(d, p * 1.4, 0.25), (d, p) => V.grumble(d, p * 0.8, 0.8)],
+  vindicator: [(d, p) => V.grumble(d, p * 0.9, 0.5), (d, p) => V.grumble(d, p * 1.3, 0.25), (d, p) => V.grumble(d, p * 0.75, 0.8)],
+  evoker: [(d, p) => V.grumble(d, p * 0.8, 0.7), (d, p) => V.grumble(d, p * 1.2, 0.3), (d, p) => V.grumble(d, p * 0.7, 1.0)],
+  vex: [(d, p) => V.screech(d, p * 1.6, 0.3), (d, p) => V.screech(d, p * 1.9, 0.2), (d, p) => V.screech(d, p * 1.3, 0.6)],
+  ravager: [(d, p) => V.growl(d, p * 0.8, 1.0), (d, p) => V.roar(d, p * 1.2, 0.4), (d, p) => V.roar(d, p * 0.9, 1.5)],
+  breeze: [(d, p) => V.whoosh(d, p), (d, p) => V.whoosh(d, p * 1.5, 0.3), (d, p) => V.whoosh(d, p * 0.7, 1.0)],
+  phantom: [(d, p) => V.screech(d, p * 0.9, 0.9), (d, p) => V.screech(d, p * 1.2, 0.3), (d, p) => V.screech(d, p * 0.7, 1.2)],
+  warden: [null, (d, p) => V.roar(d, p * 0.6, 0.5), null],
+  wither: [null, (d, p) => V.roar(d, p * 0.9, 0.4), null],
+  sheep: [null, (d, p) => Voice.tone(d, { len: 0.35, pitch: [[0, 360 * p], [0.35, 300 * p]], formants: [[700, 3, 1.2], [2000, 6, 0.4]], vib: [10, 30], env: [[0.02, 1], [0.35, 0]] }), null],
+  chicken: [null, (d, p) => V.squeak(d, p * 0.45, 0, 0.12), (d, p) => V.squeak(d, p * 0.35, 0, 0.3)],
+  villager: [null, (d, p) => V.grumble(d, p * 1.5, 0.3), (d, p) => V.grumble(d, p * 1.1, 0.8)],
+  slime: [null, (d, p) => Voice.noise(d, { len: 0.2, freq: 400 * p, q: 1.2, env: [[0.01, 1], [0.2, 0]] }), (d, p) => Voice.noise(d, { len: 0.4, freq: 320 * p, q: 1.2, env: [[0.01, 1], [0.4, 0]] })],
+  magma_cube: [null, (d, p) => Voice.noise(d, { len: 0.2, freq: 260 * p, q: 1.2, env: [[0.01, 1], [0.2, 0]] }), (d, p) => Voice.noise(d, { len: 0.45, freq: 200 * p, q: 1.2, env: [[0.01, 1], [0.45, 0]] })],
+  hoglin: [(d, p) => V.growl(d, p * 1.3, 0.5), null, null], zoglin: [(d, p) => V.growl(d, p * 1.1, 0.7), (d, p) => V.roar(d, p * 1.5, 0.3), (d, p) => V.roar(d, p * 1.2, 0.9)],
+};
+const MUTE_AMBIENT = new Set(['cod', 'salmon', 'tropical_fish', 'tadpole', 'iron_golem', 'creeper']); // silent in Minecraft too
+{ const _mob = Sfx.mob.bind(Sfx); Sfx.mob = function (m, kind, v = 0.6) {
+    const voice = MOB_VOICE[m.type]; const i = kind === 'hurt' ? 1 : kind === 'death' ? 2 : 0;
+    const f = voice && voice[i];
+    if (!f) { if (i === 0 && MUTE_AMBIENT.has(m.type)) return; return _mob(m, kind, v); }
+    if (!this.ctx || !this.noise) return; const P = G.player; if (!P) return; const d = P.pos.distanceTo(m.pos); const vol = v * Math.max(0, 1 - d / 24); if (vol < 0.02) return;
+    try { const dst = Voice.out(vol * 0.9); const p = (m.baby ? 1.5 : 1) * (0.9 + Math.random() * 0.2); f(dst, p, m); } catch (e) { }
+  }; }
+
+// ================= THIRD-PERSON HELD ITEMS AND ARM POSES (Minecraft) =================
+// The player model held its item as a flat sprite that always faced the camera. Now, as in Minecraft:
+// - the main-hand item is a real 3D item in the right hand: tools and swords stick forward out of the fist,
+//   blocks are small cubes, other items are held flat;
+// - the off-hand item (shield, totem, torch...) is in the left hand;
+// - an arm holding something is raised a little ("holding" pose); blocking raises the shield in front of the chest;
+// - the attack swing is Minecraft's: the body twists and the arm swings down across, and it repeats while mining.
+const TP_TOOL = (id) => { const it = ITEMS[id]; return !!it && (it.kind === 'tool' || it.melee || it.kind === 'trident' || it.kind === 'bow' || it.kind === 'crossbow' || it.kind === 'fishing_rod' || it.key === 'stick' || it.key === 'blaze_rod' || it.key === 'breeze_rod' || /_spear$/.test(it.key)); };
+const tpItemMat = new THREE.MeshBasicMaterial({ vertexColors: true }); // lit like the player model (by the light level), not by scene lights
+function tpItemMesh(id, left) {
+  const g = new THREE.Group();
+  if (id === IT.shield) { const s = shieldMesh(); s.scale.setScalar(1.15); s.position.set(left ? 0.05 : -0.05, -0.02, 0.12); g.add(s); g.userData.shield = s; return g; }
+  if (isCubeItem(id)) { const m = new THREE.Mesh(blockGeo(id), handMat); m.scale.setScalar(0.24); m.position.set(0, -0.06, 0.1); m.rotation.y = Math.PI / 4; g.add(m); return g; }
+  const tool = TP_TOOL(id);
+  const inner = new THREE.Group(); const mesh = flatItemMesh(id); mesh.material = tpItemMat; inner.add(mesh);
+  // grip the icon near its lower-left corner (where tools have their handle)
+  mesh.position.set(tool ? 0.15 : 0, tool ? 0.15 : 0, 0);
+  // map the icon's diagonal (handle -> tip) onto "forward and a little up", with the icon standing on its edge
+  const ed = new V3(1, 1, 0).normalize(), en = new V3(0, 0, 1), ep = new V3().crossVectors(en, ed);
+  const F = (tool ? new V3(0, 0.3, 1) : new V3(0, 0.55, 1)).normalize(), N = new V3(left ? -1 : 1, 0, 0), NF = new V3().crossVectors(N, F);
+  const A = new THREE.Matrix4().makeBasis(ed, ep, en), Bm = new THREE.Matrix4().makeBasis(F, NF, N);
+  inner.quaternion.setFromRotationMatrix(Bm.multiply(A.transpose()));
+  inner.scale.setScalar(tool ? 1.05 : 0.7); inner.position.set(0, -0.02, 0.04);
+  g.add(inner); return g;
+}
+{ const _mk = makePlayerModel; makePlayerModel = function (skin, name) {
+  const M = _mk(skin, name); const P = M.P; M.held.visible = false;
+  const hand = new THREE.Group(); hand.position.set(0, -10 * PX, 0); P.armR.add(hand);
+  const off = new THREE.Group(); off.position.set(0, -10 * PX, 0); P.armL.add(off);
+  for (const g of [hand, off]) g.traverse(o => o.layers && o.layers.enable(1));
+  M.mainId = 0; M.offId = 0;
+  const fill = (grp, id, left) => { while (grp.children.length) grp.remove(grp.children[0]); if (!id || !ITEMS[id]) return null; const m = tpItemMesh(id, left); m.traverse(o => o.layers && o.layers.enable(1)); grp.add(m); return m; };
+  M.setHeld = function (id) { id = id || 0; if (id === this.mainId) return; this.mainId = id; this.mainMesh = fill(hand, id, false); };
+  M.setOff = function (id) { id = id || 0; if (id === this.offId) return; this.offId = id; this.offMesh = fill(off, id, true); };
+  const _an = M.animate.bind(M);
+  M.animate = function (dt, speed, pitch, swing, sneak, hurt, o = {}) {
+    _an(dt, speed, pitch, 0, sneak, hurt);
+    const B = M.body; B.position.y = 0; B.rotation.x = 0;
+    // Minecraft's crouch: the torso leans 0.5 rad forward from the neck, the neck, shoulders and head drop, the hips go
+    // back and the legs stay upright under them, the arms come forward with the torso
+    const k = (this.sneakK = (this.sneakK || 0) + ((sneak ? 1 : 0) - (this.sneakK || 0)) * Math.min(1, dt * 14));
+    const lean = 0.5 * k, neckY = 24 - 3.2 * k;
+    P.torso.rotation.x = lean; P.torso.position.set(0, (neckY - 12 * Math.cos(lean)) * PX, -12 * Math.sin(lean) * PX);
+    P.legR.position.set(-2 * PX, 12 * PX, -4 * k * PX); P.legL.position.set(2 * PX, 12 * PX, -4 * k * PX);
+    P.armR.position.set(-6 * PX, (22 - 3.2 * k) * PX, 0); P.armL.position.set(6 * PX, (22 - 3.2 * k) * PX, 0);
+    P.head.position.set(0, (24 - 4.2 * k) * PX, 0);
+    B.rotation.y = 0; P.armR.rotation.y = 0; P.armL.rotation.y = 0; P.armR.rotation.z = 0; P.armL.rotation.z = 0;
+    if (this.mainId) P.armR.rotation.x = P.armR.rotation.x * 0.5 - Math.PI / 10;
+    if (this.offId) P.armL.rotation.x = P.armL.rotation.x * 0.5 - Math.PI / 10;
+    P.armR.rotation.x += 0.4 * k; P.armL.rotation.x += 0.4 * k;
+    // blocking with a shield: that arm comes up and across, the shield stays upright in front of the chest
+    const bl = o.blocking; const sh = (m) => m && m.userData && m.userData.shield;
+    if (bl === 'off' || bl === 'main') { const arm = bl === 'off' ? P.armL : P.armR, mesh = bl === 'off' ? this.offMesh : this.mainMesh;
+      const lift = 0.94 + clamp(pitch, -0.6, 0.6) * 0.5; arm.rotation.x = arm.rotation.x * 0.5 - lift; arm.rotation.y = (bl === 'off' ? -1 : 1) * Math.PI / 6;
+      const s = sh(mesh); if (s) { arm.updateMatrix(); s.quaternion.copy(arm.quaternion).invert(); s.position.set(bl === 'off' ? -0.08 : 0.08, 0.02, 0.1); } } // upright, facing forward
+    else { for (const [m, left] of [[this.mainMesh, false], [this.offMesh, true]]) { const s = sh(m); if (s) { s.rotation.set(0, 0, 0); s.position.set(left ? 0.05 : -0.05, -0.02, 0.12); } } }
+    // Minecraft's attack swing (HumanoidModel.setupAttackAnimation); attack time runs 0 -> 1
+    if (swing > 0) { const f = 1 - swing; const by = Math.sin(Math.sqrt(f) * Math.PI * 2) * 0.2; B.rotation.y = -by;
+      P.armR.rotation.y -= by; P.armL.rotation.y -= by; P.armL.rotation.x += by;
+      let e = 1 - f; e *= e; e *= e; e = 1 - e; const f2 = Math.sin(e * Math.PI), f3 = Math.sin(f * Math.PI) * -(-clamp(pitch, -1, 1) - 0.7) * 0.75;
+      P.armR.rotation.x -= f2 * 1.2 + f3; P.armR.rotation.y -= by * 2; P.armR.rotation.z -= Math.sin(f * Math.PI) * -0.4; }
+  };
+  return M; }; }
+// feed the off-hand item and blocking state from the game to your own model in F5
+{ const _ap = applyPov; applyPov = function (P, dt) {
+    if (typeof myModel !== 'undefined' && myModel && myModel.setOff) { const oh = P.inv[36]; myModel.setOff(oh ? oh.id : 0);
+      const _an = myModel.animate; const mainShield = P.inv[P.sel] && P.inv[P.sel].id === IT.shield;
+      myModel.animate = function (dt2, sp, pitch, swing, sneak, hurt) { return _an.call(this, dt2, sp, pitch, swing, sneak, hurt, { blocking: P.blocking ? (mainShield ? 'main' : 'off') : null }); };
+      tpItemMat.color.setScalar(clamp(Math.max(G.minLight || 0, world.lightAt(P.pos.x, P.pos.y + 1, P.pos.z, G.daylight)), 0.08, 1));
+      try { return _ap.apply(this, arguments); } finally { myModel.animate = _an; } }
+    return _ap.apply(this, arguments); }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

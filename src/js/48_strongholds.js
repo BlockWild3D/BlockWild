@@ -155,7 +155,7 @@ buildMonumentChunk = function (world, c) {
         if (shell && h > 0 && h < 22 && ((ix % 7 === 3 && (iz === k || iz === 57 - k)) || (iz % 7 === 3 && (ix === k || ix === 57 - k))) && (h % 5 === 2 || h % 5 === 3)) id = B.WATER; // window holes guardians swim through
         W.set(x, y, z, id); }
       // guardians: about one per 60 water blocks around the monument, and the three elders in their rooms
-      if ((ix * 31 + iz * 17) % 97 === 0) W.mob('guardian', x + 0.5, y0 + 2 + ((ix + iz) % 15), z + 0.5);
+      if ((ix * 31 + iz * 17) % 97 === 0) { const gy = y0 + 2 + ((ix + iz) % 15); if (isWaterId(W.get(x, gy, z)) && isWaterId(W.get(x, gy + 1, z))) W.mob('guardian', x + 0.5, gy, z + 0.5); } // only in open water, never inside walls or pillars
     }
     for (const [ex, ez, eh] of [[10, 29, 2], [47, 29, 2], [29, 29, 15]]) { const x = ox + ex, z = oz + ez; if (W.inC(x, z)) W.mob('elder_guardian', x + 0.5, y0 + eh, z + 0.5); }
     if (W.inC(st.cx * 16 + 8, st.cz * 16 + 8)) { (world.monuments = world.monuments || []).push([st.cx * 16 + 8, y0, st.cz * 16 + 8]); }

@@ -4,6 +4,7 @@ const Dim = {
   get(dim) { if (!this.worlds[dim]) { const w = new World(S.seed, scene, dim); w.onChunkGen = onChunkGen; this.worlds[dim] = w; } return this.worlds[dim]; },
 };
 function travelTo(dim, arrival) {
+  arrival = arrival || { type: dim === 'end' ? 'end-spawn' : 'spawn' };
   if (S.uiOpen) closeInv(true);
   saveGame(false);
   if (world) { for (const c of [...world.chunks.values()]) world.unload(c); world.lastCenter = null; }

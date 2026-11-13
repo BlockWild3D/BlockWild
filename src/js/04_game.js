@@ -282,7 +282,10 @@ function requestLock() {
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => onLockError()); } catch (e) { onLockError(); }
 }
 function releaseLock() { if (document.pointerLockElement) try { document.exitPointerLock(); } catch (e) { } }
-function onLockError() { if (!S.everLocked) { S.fallback = true; toast('Drag with the mouse to look around', 4); show('clickplay', false); } else if (S.started && !S.uiOpen && !S.paused && !player.dead) show('clickplay', true); }
+let lastGestureT = 0; for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => { lastGestureT = performance.now(); }, true);
+// a lock request that wasn't made right after a click or key press (joining a friend's world, returning from a portal) fails
+// in every browser: show "Click to play" for it instead of giving up on pointer lock and leaving the mouse cursor visible
+function onLockError() { if (!S.everLocked && performance.now() - lastGestureT < 1500) { S.fallback = true; toast('Drag with the mouse to look around', 4); show('clickplay', false); } else if (S.started && !S.uiOpen && !S.paused && !player.dead) show('clickplay', true); }
 document.addEventListener('pointerlockchange', () => {
   S.locked = document.pointerLockElement === canvas;
   if (S.locked) { S.everLocked = true; show('clickplay', false); }
@@ -524,7 +527,7 @@ function useAction(eye, dir) {
 
 // ---- spawning ----
 // the ground under the open sky; tree leaves and logs are looked through, so animals spawn under trees, not on them
-function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } return y + 1; } return -1; }
+function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c) return -1; for (let y = Math.min(WH - 2, c.maxY + 1); y > 1; y--) { const id = c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; if (!id) continue; const k = BL[id].key; if (/leaves|_log$|^log$|vine/.test(k)) continue; if (!SOLID[id]) { if (BL[id].fluid) return -1; continue; } const at = (yy) => c.d[(yy * 16 + (z & 15)) * 16 + (x & 15)]; if (SOLID[at(y + 1)] || SOLID[at(y + 2)]) return -1; /* ground under a tree trunk */ return y + 1; } return -1; }
 function onChunkGen(c, hints, cols, w) {
   if (w !== world) return;
   for (const [type, x, y, z] of hints) spawnMob(type, x, y, z);
