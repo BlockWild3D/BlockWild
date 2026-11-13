@@ -113,6 +113,19 @@ button{font-family:'VT323',monospace}
 #kbList{width:min(620px,94vw);max-height:62vh;overflow:auto;background:rgba(0,0,0,.45);border:2px solid #000}
 .kbrow{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:21px;border-bottom:1px solid #2a2a2a}
 .kbrow span{flex:1}.kbkey{min-width:150px}.kbkey.clash{background:#8a2a2a}
+/* worlds */
+#worlds{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
+#worlds .title{font-size:clamp(24px,4.5vw,44px)}
+#wList{width:min(680px,94vw);height:min(46vh,420px);overflow:auto;background:rgba(0,0,0,.45);border:2px solid #000;box-shadow:inset 0 0 0 2px #555}
+.witem{display:flex;gap:12px;align-items:center;padding:8px 10px;border:2px solid transparent;cursor:pointer;user-select:none}
+.witem:hover{background:rgba(255,255,255,.06)}.witem.sel{border-color:#ddd;background:rgba(255,255,255,.1)}
+.witem .wi{flex:1;min-width:0}.witem .wn{font-size:24px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.witem .wd{font-size:19px;color:#aaa}.witem .ws{font-size:18px;color:#9ed36c}.witem .ws.off{color:#ffd27a}
+.witem .wbadge{width:40px;height:40px;flex:none;image-rendering:pixelated;border:2px solid #000}
+.wempty{padding:24px;text-align:center;font-size:22px;color:#bbb}
+.wpanel{background:rgba(0,0,0,.45);border:2px solid #000;padding:8px 12px;margin-top:8px;display:flex;flex-direction:column;align-items:center}
+#wMain .modbar{margin:8px 0 0}
+#worlds .sbtn:disabled{opacity:.45;cursor:default}
 /* mods */
 #mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
 #mods .title{font-size:clamp(24px,4.5vw,44px)}
@@ -230,21 +243,41 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="menu" class="screen">
   <div class="title">BLOCKWILD</div>
   <div class="sub">Now with the Nether and the End!</div>
-  <button class="mbtn" id="btnContinue">Continue World</button>
-  <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnSingle">Singleplayer</button>
   <button class="mbtn" id="btnMultiplayer">Multiplayer</button>
   <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
   <button class="mbtn" id="btnControls2">Controls</button>
-  <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
-  <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
   <div class="help">
     <b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> sneak · <b>W W</b> or <b>Ctrl</b> sprint / swim · <b>Mouse</b> look<br>
     <b>Left click</b> mine / attack · <b>Right click</b> place / use / eat · <b>1–9</b> / wheel hotbar<br>
     <b>E</b> inventory &amp; crafting · <b>R</b> recipe book · <b>Q</b> drop · <b>X</b> swap offhand · <b>F</b> fly (creative) · <b>F3</b> debug · <b>Esc</b> pause<br>
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
-    follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.<br>Boats (5 planks): right-click one to get in, <b>W/S</b> row, <b>A/D</b> turn, <b>Shift</b> get out.<br><b>T</b> chat · <b>/</b> commands · <b>F5</b> or <b>V</b> camera view<br><span style="font-size:16px;color:#999">Sounds: CC0 / public domain from OpenGameArt and Wikimedia Commons; pig grunt by erdie (CC BY 3.0). See CREDITS.md</span>
+    follow an Eye of Ender to the stronghold and defeat the Ender Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.<br>Boats (5 planks): right-click one to get in, <b>W/S</b> row, <b>A/D</b> turn, <b>Shift</b> get out.<br><b>T</b> chat · <b>/</b> commands · <b>F5</b> or <b>V</b> camera view<br><span style="font-size:16px;color:#999">Sounds: CC0 / public domain from OpenGameArt and Wikimedia Commons; pig grunt by erdie (CC BY 3.0). See CREDITS.md</span>
   </div>
+</div>
+
+<div id="worlds" class="screen hidden">
+  <div class="title">SELECT WORLD</div>
+  <div id="wNote" class="modnote"></div>
+  <div id="wList"></div>
+  <div id="wMain">
+    <div class="modbar"><button class="sbtn" id="btnWPlay">Play Selected World</button><button class="sbtn" id="btnWCreate">Create New World</button></div>
+    <div class="modbar"><button class="sbtn" id="btnWRename">Rename</button><button class="sbtn" id="btnWCopy">Copy</button><button class="sbtn red" id="btnWDelete">Delete</button><button class="sbtn" id="btnWExport">Export</button><button class="sbtn" id="btnWImport">Import</button></div>
+  </div>
+  <div id="wCreate" class="wpanel hidden">
+    <div class="row"><label>World name</label><input type="text" id="worldName" placeholder="New World" maxlength="32" autocomplete="off" spellcheck="false"></div>
+    <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24" autocomplete="off" spellcheck="false"></div>
+    <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
+    <div class="modbar"><button class="sbtn" id="btnNew">Create World</button><button class="sbtn" id="btnWCreateCancel">Cancel</button></div>
+  </div>
+  <div id="wRename" class="wpanel hidden">
+    <div class="row"><label>New name</label><input type="text" id="worldRename" maxlength="32" autocomplete="off" spellcheck="false"></div>
+    <div class="modbar"><button class="sbtn" id="btnWRenameOk">Rename</button><button class="sbtn" id="btnWRenameCancel">Cancel</button></div>
+  </div>
+  <div id="wMsg" class="pmsg" style="min-height:24px;text-align:center"></div>
+  <button class="mbtn" id="btnWBack">Back</button>
+  <input type="file" id="worldFile" accept=".json,application/json" style="display:none">
 </div>
 
 <div id="profile" class="screen hidden">

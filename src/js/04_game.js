@@ -784,11 +784,9 @@ function setMode(m) {
   for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === m);
   toast(m === 'creative' ? 'Creative mode: fly with F or double-tap Space' : 'Survival mode', 2);
 }
-function hasSave() { try { return !!localStorage.getItem('blockwild_save'); } catch (e) { return false; } }
-function refreshMenu() { $('btnContinue').disabled = !hasSave(); $('btnContinue').style.display = hasSave() ? '' : 'none'; }
-refreshMenu();
+function hasSave() { return typeof Saves !== 'undefined' && Saves.metas.size > 0; }
+function refreshMenu() { if (typeof Saves !== 'undefined' && !$('worlds').classList.contains('hidden')) renderWorlds(); }
 $('btnNew').addEventListener('click', () => { Sfx.init(); let s = $('seedInput').value.trim(); let seed; if (!s) seed = (Math.random() * 2147483647) | 0; else if (/^-?\d+$/.test(s)) seed = parseInt(s) | 0; else { seed = 0; for (const ch of s) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0; } startWorld({ seed, mode: pendingMode }); });
-$('btnContinue').addEventListener('click', () => { Sfx.init(); let data = null; try { data = JSON.parse(localStorage.getItem('blockwild_save')); } catch (e) { } if (!data) { toast('Save could not be read'); return; } startWorld(data); });
 function openPause() { if (!S.started || S.paused) return; S.paused = true; if (typeof renderMpPanel === 'function') renderMpPanel(); mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
 function closePause() { S.paused = false; show('pause', false); saveSettings(); requestLock(); }
 $('btnResume').addEventListener('click', closePause);
@@ -826,8 +824,8 @@ function saveGame(notify) {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
     const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, food: player.food, sat: player.sat, exh: player.exh, absorb: player.absorb, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
-    localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
-  } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
+    Saves.store(data, notify);
+  } catch (e) { console.warn(e); if (notify) toast('Could not save the world', 3); }
 }
 function clearEntities() {
   for (const m of G.mobs) m.remove(); for (const i of G.items) i.remove(); for (const p of G.projectiles) scene.remove(p.mesh); for (const t of G.tnts) scene.remove(t.mesh); for (const e of G.eyes) scene.remove(e.mesh);

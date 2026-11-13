@@ -145,7 +145,7 @@ function renderMods() {
     const tog = document.createElement('button'); tog.className = 'sbtn' + (m.enabled ? ' on' : ''); tog.textContent = m.enabled ? 'On' : 'Off';
     tog.onclick = () => { const l = modsList(); const t = l.find(x => x.id === m.id); if (t) { t.enabled = !t.enabled; modsSave(l); modsChanged = true; renderMods(); } };
     const exp = document.createElement('button'); exp.className = 'sbtn'; exp.textContent = 'Save file';
-    exp.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([m.code], { type: 'text/javascript' })); a.download = meta.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+    exp.onclick = () => saveFile(meta.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.js', m.code);
     const del = document.createElement('button'); del.className = 'sbtn red'; del.textContent = 'Remove';
     del.onclick = () => { if (!confirmRemove(del)) return; modsSave(modsList().filter(x => x.id !== m.id)); modsChanged = true; renderMods(); };
     row.append(tog, exp, del); el.appendChild(row);

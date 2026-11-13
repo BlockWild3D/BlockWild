@@ -204,7 +204,7 @@ $('skinFile').addEventListener('change', (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   const rd = new FileReader(); rd.onload = () => { const img = new Image(); img.onload = () => { if (img.width !== 64 || (img.height !== 64 && img.height !== 32)) { $('pSkinNote').textContent = 'Skins must be 64x64 (or 64x32) PNG files in the Minecraft skin layout.'; return; } profDraft.png = normalizeSkin(img).toDataURL(); renderSkinEditor(); refreshPreview(); }; img.src = rd.result; }; rd.readAsDataURL(f);
 });
-$('btnSkinDownload').addEventListener('click', () => { const cv = profDraft.png ? null : makeSkinCanvas(profDraft.skin); const url = profDraft.png || cv.toDataURL(); const a = document.createElement('a'); a.href = url; a.download = (profDraft.name || 'skin') + '.png'; a.click(); });
+$('btnSkinDownload').addEventListener('click', () => { const cv = profDraft.png ? null : makeSkinCanvas(profDraft.skin); const url = profDraft.png || cv.toDataURL(); fetch(url).then(r => r.blob()).then(b => saveFile((profDraft.name || 'skin') + '.png', b)); });
 $('btnSkinRandom').addEventListener('click', () => { const rc = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0'); const tones = ['#f3d2b8', '#e8b99a', '#c58c64', '#a8755a', '#6b4430', '#4a2e20']; profDraft.skin = { skin: tones[Math.random() * tones.length | 0], hair: rc(), eyes: rc(), shirt: rc(), accent: rc(), pants: rc(), shoes: rc(), hairStyle: HAIR_STYLES[Math.random() * 5 | 0], top: TOP_STYLES[Math.random() * 4 | 0] }; profDraft.png = null; renderSkinEditor(); refreshPreview(); });
 $('pName').addEventListener('keydown', (e) => e.stopPropagation());
 updateMenuProfile(); profileSkinCanvas();
