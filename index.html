@@ -8065,7 +8065,7 @@ function spearJab(sp, eye, dir) {
   }
   // Lunge
   const lv = heldEnch('lunge'), P = player;
-  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (!isSurv() || P.food > 6)) {
+  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (!isSurv() || P.food >= 6)) {
     const h = new V3(dir.x, 0, dir.z); if (h.lengthSq() > 1e-4) { h.normalize(); const v = 9.16 * lv; const along = P.vel.x * h.x + P.vel.z * h.z; if (along < v) { P.vel.x += h.x * (v - along); P.vel.z += h.z * (v - along); } if (P.onGround) P.vel.y = Math.max(P.vel.y, 2.5); P.peak = null; }
     if (isSurv() && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
     damageHeld(1); Sfx.play('vwoop', 0.25, 1.6);
@@ -9050,7 +9050,7 @@ function windBurst(p, power, src) {
   const R = 2.5 + power * 0.5;
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
-  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, dir.y * k + k * 0.6); P.peak = null; P.windSafeT = 2; }
+  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, dir.y * k + k * 0.6); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
 }
 { const _pi = projImpact; projImpact = function (a, mob) {
     if (a.kind !== 'wind') return _pi(a, mob); a.done = true;
@@ -9081,7 +9081,7 @@ function maceBonus(mob) {
   P.peak = P.pos.y; P.vel.y = Math.max(P.vel.y, 0);
   Particles.emit(mob.pos.x, mob.pos.y + 0.2, mob.pos.z, 40, [[0.55, 0.45, 0.35], [0.4, 0.4, 0.4]], 6, 0.8, 8, 1.6); Sfx.play('boom', 0.35); G.shake = Math.min(1, 0.2 + fall * 0.03);
   for (const m of G.mobs) { if (m === mob || m.dead) continue; const d = m.pos.distanceTo(mob.pos); if (d < 3.5) { const dir = m.pos.clone().sub(mob.pos); dir.y = 0; dir.normalize(); const k = (3.5 - d) * 2.5; m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, 4); } }
-  const wb = enchOf(h, 'wind_burst'); if (wb) { P.vel.y = 6 + 3.5 * wb; P.windSafeT = 3; }
+  const wb = enchOf(h, 'wind_burst'); if (wb) windBurstLaunch(P, wb, mob);
   damageHeld(1); return b;
 }
 { const _me = meleeExtra; meleeExtra = function (mob) { return _me(mob) + (mob ? maceBonus(mob) : 0); }; }
@@ -12383,6 +12383,35 @@ function hitSnd(id) { const s = BL[id] && BL[id].snd; return s === 'glass' ? 'st
       digT -= dt; if (digT <= 0) { digT = 0.2; Sfx.play(hitSnd(target.id), 0.32, 0.5); Particles.blockBreak(target.x, target.y, target.z, target.id, 3); } }
     else { digKey = ''; digT = 0; }
     return r; }; }
+
+// ================= WIND BURST AND LUNGE, AS IN MINECRAFT =================
+// Wind Burst (mace, I-III): a smash attack releases a wind charge burst that throws you 7 blocks up per level
+// (Java 1.21: 7 / 14 / 21 blocks), less with Blast Protection; mobs around the target are blown away too.
+// Like any wind charge launch, the fall afterwards only hurts for the distance you drop BELOW the point where the
+// burst hit you, so landing back where you started is safe. It is a treasure enchantment: never from the
+// enchanting table or librarians, and books come only from ominous vaults.
+// Lunge (spear, I-III): a jab throws you forward 9.16 / 18.32 / 27.48 blocks per second, costs 1/2/3 hunger
+// (saturation first) and 1 durability; it needs 6+ hunger and doesn't work in water, while riding or gliding.
+Object.assign(ENCH.wind_burst, { treasure: true, noTrade: true, vaultOnly: true });
+function windBurstLaunch(P, lv, mob) {
+  const resist = typeof blastKbResist === 'function' ? blastKbResist(P) : 0;
+  const h = 7 * lv * (1 - resist); const g = MODS.physics.gravity;
+  P.vel.y = Math.sqrt(2 * g * h); P.peak = null; P.windSafeT = 1.5; P.windFloorY = P.pos.y; P.windT = performance.now();
+  if (mob && typeof windBurst === 'function') { const p = mob.pos.clone(); p.y += 0.2; const _pl = P.vel.clone(); windBurst(p, 1.1, null); P.vel.copy(_pl); } // knock nearby mobs, not you twice
+  Sfx.play('vwoop', 0.8, 0.8);
+}
+// fall damage after a wind launch counts only below the launch point
+{ const _up = updatePlayer; updatePlayer = function (dt) { const P = player;
+    if (P.windFloorY != null) { if (P.peak != null && P.peak > P.windFloorY) P.peak = P.windFloorY; if ((P.onGround || P.flying || P.gliding) && performance.now() - (P.windT || 0) > 300) P.windFloorY = null; }
+    return _up.apply(this, arguments); }; }
+// Wind Burst books only from ominous vaults (about 1 in 8 openings); other chests never roll one
+{ const _rl = rollLoot; rollLoot = function (type, seed) { const inv = _rl(type, seed); const r = mulberry32((seed ^ 0x77b1) >>> 0);
+    const pool = Object.keys(ENCH).filter(k => !ENCH[k].vaultOnly);
+    for (const s of inv) if (s && s.id === IT.enchanted_book && s.ench && Object.keys(s.ench).some(k => ENCH[k] && ENCH[k].vaultOnly) && type !== 'ominous_vault') { const k = pool[(r() * pool.length) | 0]; s.ench = { [k]: 1 + Math.floor(r() * ENCH[k].max) }; }
+    if (type === 'ominous_vault' && r() < 0.125) inv[0] = { id: IT.enchanted_book, count: 1, ench: { wind_burst: 1 } };
+    return inv; }; }
+// Lunge: needs at least 6 hunger, and not while gliding
+{ const _he = heldEnch; heldEnch = function (e) { if (e === 'lunge') { const P = player; if (P.gliding || (isSurv() && P.food < 6)) return 0; } return _he.apply(this, arguments); }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

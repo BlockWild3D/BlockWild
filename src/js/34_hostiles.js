@@ -214,7 +214,7 @@ function windBurst(p, power, src) {
   const R = 2.5 + power * 0.5;
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
-  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, dir.y * k + k * 0.6); P.peak = null; P.windSafeT = 2; }
+  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, dir.y * k + k * 0.6); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
 }
 { const _pi = projImpact; projImpact = function (a, mob) {
     if (a.kind !== 'wind') return _pi(a, mob); a.done = true;
@@ -245,7 +245,7 @@ function maceBonus(mob) {
   P.peak = P.pos.y; P.vel.y = Math.max(P.vel.y, 0);
   Particles.emit(mob.pos.x, mob.pos.y + 0.2, mob.pos.z, 40, [[0.55, 0.45, 0.35], [0.4, 0.4, 0.4]], 6, 0.8, 8, 1.6); Sfx.play('boom', 0.35); G.shake = Math.min(1, 0.2 + fall * 0.03);
   for (const m of G.mobs) { if (m === mob || m.dead) continue; const d = m.pos.distanceTo(mob.pos); if (d < 3.5) { const dir = m.pos.clone().sub(mob.pos); dir.y = 0; dir.normalize(); const k = (3.5 - d) * 2.5; m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, 4); } }
-  const wb = enchOf(h, 'wind_burst'); if (wb) { P.vel.y = 6 + 3.5 * wb; P.windSafeT = 3; }
+  const wb = enchOf(h, 'wind_burst'); if (wb) windBurstLaunch(P, wb, mob);
   damageHeld(1); return b;
 }
 { const _me = meleeExtra; meleeExtra = function (mob) { return _me(mob) + (mob ? maceBonus(mob) : 0); }; }
