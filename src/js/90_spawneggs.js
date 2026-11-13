@@ -37,7 +37,7 @@ for (const k of Object.keys(MOBS)) {
 
 function eggSpawn(type, x, y, z, baby) {
   if (typeof MP !== 'undefined' && MP.active && MP.role === 'client' && MP.proxyMode) { mpToHost({ t: 'eggspawn', type, x, y, z, baby: baby ? 1 : 0 }); return null; }
-  const m = spawnMob(type, x, y, z, type === 'magma_cube' ? { size: [1, 2, 4][Math.random() * 3 | 0] } : undefined);
+  const m = spawnMob(type, x, y, z, MOBS[type].ai === 'magma' ? { size: [1, 2, 4][Math.random() * 3 | 0] } : undefined);
   if (baby && typeof setBaby === 'function') setBaby(m, true); return m;
 }
 { const _ua = useAction; useAction = function (eye, dir) {

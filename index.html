@@ -661,7 +661,7 @@ defBlock('bookshelf', 'Bookshelf', { tex: { s: 'bookshelf', t: 'planks' }, hardn
 defBlock('tnt', 'TNT', { tex: { s: 'tnt_side', t: 'tnt_top', b: 'tnt_bottom' }, hardness: 0, snd: 'grass', use: 'tnt' });
 defBlock('sandstone', 'Sandstone', { tex: { s: 'sandstone', t: 'sandstone_top' }, hardness: 0.8, tool: 'pick', tier: 1 });
 defBlock('wool', 'White Wool', { tex: 'wool', hardness: 0.8, snd: 'wool' });
-defBlock('glowstone', 'Glowstone', { tex: 'glowstone', hardness: 0.3, light: 1, snd: 'glass' });
+defBlock('glowstone', 'Glowstone', { tex: 'glowstone', hardness: 0.3, light: 1, snd: 'glass', drop: (r) => ['glowstone_dust', 2 + Math.floor(r * 3)] });
 defBlock('furnace', 'Furnace', { tex: { s: 'furnace_side', pz: 'furnace_front', t: 'stone' }, hardness: 3.5, tool: 'pick', tier: 1, use: 'table' });
 defBlock('birch_log', 'Birch Log', { tex: { s: 'birch_side', t: 'birch_top' }, hardness: 2, snd: 'wood' });
 defBlock('birch_leaves', 'Birch Leaves', { tex: 'birch_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
@@ -785,6 +785,10 @@ M('saddle', 'Saddle', { kind: 'saddle', stack: 1 });
 M('raw_iron', 'Raw Iron'); M('raw_gold', 'Raw Gold'); M('raw_copper', 'Raw Copper'); M('copper_ingot', 'Copper Ingot'); M('redstone', 'Redstone Dust'); M('emerald', 'Emerald');
 M('netherite_scrap', 'Netherite Scrap', { fireproof: true }); M('netherite_ingot', 'Netherite Ingot', { fireproof: true });
 M('netherite_upgrade_smithing_template', 'Netherite Upgrade Smithing Template', { kind: 'template' });
+M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1, melee: true });
+M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
+M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
+M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('tripwire_hook', 'Tripwire Hook');
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' });
 M('carrot', 'Carrot', { kind: 'food', crop: 'carrots_0' }); M('potato', 'Potato', { kind: 'food', crop: 'potatoes_0' }); M('baked_potato', 'Baked Potato', { kind: 'food' }); M('golden_carrot', 'Golden Carrot', { kind: 'food' });
 M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
@@ -873,6 +877,20 @@ Object.assign(ICONP, {
   leather_horse_armor: horseArmorIcon([150, 90, 50]), iron_horse_armor: horseArmorIcon([214, 214, 218]), golden_horse_armor: horseArmorIcon([246, 208, 64]), diamond_horse_armor: horseArmorIcon([90, 222, 210]),
   milk_bucket: bucketIcon([[250, 250, 250], [230, 230, 232]]),
   shears: (s, r) => { pLine(s, 3, 3, 9, 9, [200, 200, 206]); pLine(s, 4, 3, 10, 9, [150, 150, 156]); pLine(s, 12, 3, 6, 9, [214, 214, 220]); pLine(s, 13, 4, 7, 10, [160, 160, 166]); for (const [cx, cy] of [[5, 12], [11, 12]]) { s(cx - 1, cy, [60, 60, 66]); s(cx + 1, cy, [60, 60, 66]); s(cx, cy - 1, [60, 60, 66]); s(cx, cy + 1, [60, 60, 66]); } },
+  trident: (s, r) => { pLine(s, 3, 13, 11, 5, [66, 140, 130]); pLine(s, 4, 13, 12, 5, [44, 110, 100]); pLine(s, 2, 14, 3, 13, [40, 90, 84]); for (const [a, b] of [[11, 1], [14, 4], [15, 1]]) pLine(s, 11, 5, a, b, [120, 214, 196]); s(12, 2, [180, 240, 226]); s(14, 2, [180, 240, 226]); },
+  mace: (s, r) => { pLine(s, 3, 13, 9, 7, [110, 76, 46]); pLine(s, 4, 13, 10, 7, [80, 54, 30]); for (let y = 2; y <= 8; y++) for (let x = 8; x <= 14; x++) { const d = Math.abs(x - 11) + Math.abs(y - 5); if (d <= 4) s(x, y, d >= 4 ? [70, 70, 76] : d === 3 ? [110, 110, 118] : [150, 150, 160]); } s(10, 4, [200, 200, 210]); s(11, 1, [90, 90, 96]); s(15, 5, [90, 90, 96]); },
+  heavy_core: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) { const e = x === 4 || y === 4 || x === 12 || y === 12; s(x, y, e ? [48, 48, 56] : vary([82, 82, 92], r, 8)); } for (const [x, y] of [[6, 6], [10, 6], [6, 10], [10, 10], [8, 8]]) s(x, y, [130, 130, 146]); },
+  breeze_rod: (s, r) => { pLine(s, 4, 13, 12, 3, [150, 190, 230]); pLine(s, 5, 13, 13, 3, [110, 150, 200]); for (const t of [0.25, 0.5, 0.75]) { const x = Math.round(4 + 8 * t), y = Math.round(13 - 10 * t); s(x - 1, y - 1, [200, 230, 255]); s(x + 2, y + 1, [200, 230, 255]); } },
+  wind_charge: (s, r) => { for (let a = 0; a < 26; a++) { const t = a / 26 * Math.PI * 3, rr = 1 + a * 0.22; s(Math.round(8 + Math.cos(t) * rr), Math.round(8 + Math.sin(t) * rr), a % 3 ? [196, 220, 250] : [130, 170, 230]); } s(8, 8, [240, 248, 255]); },
+  slime_ball: (s, r) => { blob(s, 8, 8, 4.5, 4.5, [110, 196, 90], r, [70, 150, 60]); s(6, 6, [190, 250, 170]); s(7, 6, [160, 236, 140]); },
+  spider_eye: (s, r) => { blob(s, 8, 9, 4, 4, [150, 30, 40], r, [100, 16, 24]); s(7, 7, [230, 120, 130]); s(9, 10, [70, 10, 16]); },
+  glowstone_dust: (s, r) => { for (let i = 0; i < 24; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 5; s(Math.round(8 + Math.cos(a) * d), Math.round(9 + Math.sin(a) * d * 0.7), r() < 0.5 ? [255, 226, 120] : [230, 180, 70]); } },
+  glass_bottle: (s, r) => { for (let y = 6; y <= 14; y++) for (let x = 4; x <= 11; x++) { const e = x === 4 || x === 11 || y === 14; if (e) s(x, y, [190, 210, 230]); } for (let y = 2; y <= 6; y++) { s(6, y, [190, 210, 230]); s(9, y, [190, 210, 230]); } s(7, 2, [150, 110, 70]); s(8, 2, [150, 110, 70]); },
+  phantom_membrane: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) if (Math.abs(x - 8) + Math.abs(y - 8) <= 6) s(x, y, vary([196, 190, 170], r, 10)); pLine(s, 3, 8, 13, 8, [150, 140, 120]); },
+  crossbow: (s, r) => { pLine(s, 3, 3, 13, 13, [110, 76, 46]); pLine(s, 1, 9, 9, 1, [100, 70, 44]); pLine(s, 2, 10, 10, 2, [80, 56, 34]); pLine(s, 1, 9, 13, 13, [220, 220, 220]); pLine(s, 9, 1, 13, 13, [220, 220, 220]); s(3, 3, [160, 160, 166]); },
+  lead: (s, r) => { for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; s(Math.round(8 + Math.cos(t) * 4.5), Math.round(7 + Math.sin(t) * 4), [150, 120, 80]); } pLine(s, 8, 11, 6, 15, [150, 120, 80]); s(5, 15, [110, 190, 90]); },
+  tripwire_hook: (s, r) => { for (let y = 2; y <= 6; y++) for (let x = 6; x <= 10; x++) if (y === 2 || y === 6 || x === 6 || x === 10) s(x, y, [180, 180, 186]); pLine(s, 8, 7, 8, 14, [130, 92, 56]); },
+  copper_nugget: (s, r) => { blob(s, 8, 9, 3, 2.5, [214, 120, 80], r, [150, 80, 50]); },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
   netherite_ingot: (s) => ingot(s, [72, 64, 70], [126, 116, 122], [40, 36, 40]),
@@ -1020,6 +1038,9 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
+  RSH('crossbow', 1, ['SIS', 'TFT', ' S '], { S: 'stick', I: 'iron_ingot', T: 'string', F: 'tripwire_hook' }), RSH('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }), RSH('lead', 2, ['SS ', 'SB ', '  S'], { S: 'string', B: 'slime_ball' }),
+  RSH('glowstone', 1, ['GG', 'GG'], { G: 'glowstone_dust' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
   RSL('gold_nugget', 9, ['gold_ingot']),
   RSL('blaze_powder', 2, ['blaze_rod']),
@@ -2997,7 +3018,7 @@ class Mob {
   remove() { G.scene.remove(this.root); for (const [m] of this.mats) m.dispose(); }
   dropLoot() {
     const t = this.t; if (MODS.hooks.mobDeath) modFire('mobDeath', { type: this.type, x: this.pos.x, y: this.pos.y, z: this.pos.z });
-    if (t.ai === 'magma') { if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob('magma_cube', this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
+    if (t.ai === 'magma') { if (t.splitDrops) t.splitDrops(this); if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob(this.type, this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (this.type === 'magma_cube' && Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
     for (const [k, a, b, p] of t.drops) if (Math.random() < p) { const n = a + Math.floor(Math.random() * (b - a + 1)); if (n > 0) dropItem(IT[k], n, this.pos.x, this.pos.y + 0.5, this.pos.z); }
   }
   update(dt) {
@@ -3027,13 +3048,13 @@ class Mob {
       if (t.ranged) {
         const see = dist < 16 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.6, this.pos.z), P.eye());
         if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
-        if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
+        if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); if (t.shoot) t.shoot(this, P, dist); else shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
       } else if (t.creeper) {
         if (dist < 2.8 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; move = 0; }
         else if (this.fuse > 0) { this.fuse = dist > 5 ? 0 : Math.max(0, this.fuse - dt * 0.5); }
         if (this.fuse > 1.5) { this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 3.2, this, { cause: 'a creeper' }); return; }
       } else {
-        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; }
+        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
         if (dist < 0.9) move = 0;
         if (this.type === 'enderman' && dist > 12 && Math.random() < dt * 0.6) this.teleport(P.pos);
       }
@@ -3113,7 +3134,7 @@ class Mob {
       if (this.jumpT <= 0) { const chase = hostile && dist < 18; this.jumpT = chase ? 0.7 + Math.random() * 0.8 : 1.8 + Math.random() * 2.5; this.yaw = chase ? Math.atan2(dx, dz) : Math.random() * Math.PI * 2; const sp = 2.2 + this.size * 0.5; this.vel.x = Math.sin(this.yaw) * sp; this.vel.z = Math.cos(this.yaw) * sp; this.vel.y = 6.5 + this.size * 0.7; Sfx.at('squish', this.pos, 0.5); } }
     if (fluid) this.vel.y = Math.min(this.vel.y + 30 * dt, 2); else this.vel.y = Math.max(this.vel.y - 24 * dt, -40);
     moveEntity(this, dt);
-    if (hostile && this.atkCD <= 0 && Math.abs(P.pos.x - this.pos.x) < this.hw + 0.5 && Math.abs(P.pos.z - this.pos.z) < this.hw + 0.5 && P.pos.y < this.pos.y + this.h && P.pos.y + 1.8 > this.pos.y) { this.atkCD = 0.8; P.hurt(this.size >= 4 ? 6 : this.size >= 2 ? 4 : 3, this.pos, 'a Magma Cube'); }
+    if (hostile && this.atkCD <= 0 && Math.abs(P.pos.x - this.pos.x) < this.hw + 0.5 && Math.abs(P.pos.z - this.pos.z) < this.hw + 0.5 && P.pos.y < this.pos.y + this.h && P.pos.y + 1.8 > this.pos.y) { this.atkCD = 0.8; const sd = this.t.slimeDmg ? this.t.slimeDmg(this.size) : (this.size >= 4 ? 6 : this.size >= 2 ? 4 : 3); if (sd > 0) P.hurt(sd, this.pos, 'a ' + this.t.name); }
     const sq = this.onGround ? 1 + Math.max(0, 0.6 - this.jumpT) * 0.3 : 1.1;
     this.body.scale.set(this.baseScale * sq, this.baseScale / sq, this.baseScale * sq);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; this.colorize();
@@ -3212,7 +3233,7 @@ function updateProjectiles(dt) {
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
           const cause = a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball';
-          if (isSurv()) P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
+          if (isSurv()) { P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause); if (a.effect && typeof giveEffect === 'function') giveEffect(a.effect[0], a.effect[1], a.effect[2] || 0); }
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
       }
@@ -3755,7 +3776,7 @@ function updateInteraction(dt) {
   if (mouseL && S.atkCD <= 0 && deflectProjectiles(eye, dir)) { S.atkCD = 0.45; S.swing = 1; }
   if (mouseL && targetBoat) { hitBoat(targetBoat); S.mineT = 0; }
   else if (mouseL && targetMob) {
-    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); S.atkCD = tool && tool.kind === 'tool' ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
+    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.dmg != null && (tool.kind === 'tool' || tool.melee) ? tool.dmg : 1) + eb.dmg + (typeof meleeExtra === 'function' ? meleeExtra(targetMob) : 0)); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2); S.atkCD = tool && (tool.kind === 'tool' || tool.melee) ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
     S.mineT = 0;
   } else if (mouseL && target) {
     const key = target.x + ',' + target.y + ',' + target.z;
@@ -7866,6 +7887,159 @@ function updateFalling(dt) {
 { const _ce = clearEntities; clearEntities = function () { for (const f of FALL.list) scene.remove(f.mesh); FALL.list = []; FALL.queue.clear(); return _ce.apply(this, arguments); }; }
 { const _p = Sfx.play.bind(Sfx); Sfx.play = function (name, v = 1, rate) { if (name === 'anvil' && this.ctx && !(this.has && this.has('anvil'))) { this.tone(1700, 1650, 0.4, 0.07 * v, 'triangle'); this.tone(2550, 2500, 0.3, 0.05 * v, 'sine'); this.nz(0.06, 2800, 0.35 * v, 'bandpass', 3); return; } return _p(name, v, rate); }; }
 
+// ================= DROWNED AND TRIDENTS (Minecraft) =================
+// Drowned: underwater zombies of oceans and rivers. They swim after you, burn in daylight, and some (6.25%) carry
+// a trident they throw (8 damage) and drop 25% of the time. They also drop rotten flesh and copper. A zombie that
+// stays underwater for 30 seconds turns into a drowned.
+// Trident: 9 damage up close; hold use for half a second and release to throw it (8 damage). Loyalty brings it
+// back, Riptide launches you when you're in water instead of throwing, Impaling adds 2.5 damage per level to sea
+// creatures. Channeling needs a thunderstorm (BlockWild has no weather yet).
+Object.assign(ENCH, {
+  loyalty: { name: 'Loyalty', max: 3, for: 'trident', excl: 'rip', w: 5 }, riptide: { name: 'Riptide', max: 3, for: 'trident', excl: 'rip', w: 2 },
+  channeling: { name: 'Channeling', max: 1, for: 'trident', excl: 'rip', w: 1 }, impaling: { name: 'Impaling', max: 5, for: 'trident', w: 2 },
+});
+{ const _ec = enchCat; enchCat = function (id) { const it = ITEMS[id]; if (it && it.kind === 'trident') return 'trident'; return _ec(id); };
+  const _ef = enchantFits; enchantFits = function (id, en) { const c = enchCat(id); if (c === 'trident') return !!ENCH[en] && (ENCH[en].for === 'trident' || ENCH[en].for === '*'); return _ef(id, en); };
+  const _ea = enchantability; enchantability = function (id) { if (id === IT.trident) return 1; return _ea(id); }; }
+const AQUATIC = new Set(['drowned', 'guardian', 'elder_guardian', 'squid', 'glow_squid', 'dolphin', 'cod', 'salmon', 'pufferfish', 'tropical_fish', 'turtle', 'axolotl']);
+// extra melee damage on top of the item (Impaling, Mace smash...)
+function meleeExtra(mob) { const h = player.held(); if (!h) return 0; let d = 0; const imp = enchOf(h, 'impaling'); if (imp && mob && AQUATIC.has(mob.type)) d += 2.5 * imp; return d; }
+
+// ---------- the drowned ----------
+const DROWN_SKIN = [86, 140, 128], DROWN_DARK = [52, 96, 88];
+MOBS.drowned = { name: 'Drowned', hp: 20, w: 0.6, h: 1.95, speed: 2.3, kind: 'hostile', dmg: 3, snd: 'groan', burns: true, egg: [[143, 241, 215], [121, 156, 101]],
+  drops: [['rotten_flesh', 0, 2, 1], ['copper_ingot', 1, 1, 0.11]],
+  build(m, r) {
+    humanoidS(m, r, 'drw', {
+      head: fur(DROWN_SKIN, 7, { speck: [DROWN_DARK, 0.18], topRows: [2, [64, 110, 96]], extra: (f, set) => { if (f !== 'front') return; dots(set, [[1, 4], [2, 4], [5, 4], [6, 4]], [120, 255, 255], true); dots(set, [[2, 6], [3, 6], [4, 6], [5, 6]], [40, 70, 64]); } }),
+      body: fur([96, 128, 84], 8, { speck: [[60, 110, 120], 0.25], extra: (f, set, fw, fh, rr) => { for (let x = 0; x < fw; x++) if (rr() < 0.4) set(x, fh - 1, DROWN_SKIN); } }),
+      arm: fur(DROWN_SKIN, 7, { speck: [DROWN_DARK, 0.2], topRows: [3, [96, 128, 84]] }),
+      leg: fur([70, 96, 116], 7, { speck: [DROWN_DARK, 0.2], foot: [2, DROWN_SKIN] }) }, true);
+    const o = m.opts || {}; m.hasTrident = o.trident != null ? o.trident : (o.rec ? !!o.rec.trident : Math.random() < 0.0625);
+    if (m.hasTrident) { const g = pivot(m.arms[1], 0, -0.62, 0.05); g.rotation.x = 1.2; sbox(m, g, 0.05, 1.1, 0.05, 0, 0.2, 0, 'drw_trident', fur([66, 140, 130], 6, { topRows: [3, [130, 220, 200]] })); for (const dx of [-0.08, 0.08]) sbox(m, g, 0.04, 0.16, 0.04, dx, 0.7, 0, 'drw_prong', fur([130, 220, 200], 4)); }
+  },
+};
+MOB_PITCH.drowned = 0.8; MOB_XP.drowned = [5, 5]; UNDEAD.add('drowned');
+function nearestTargetPos(m) { const P = G.player; return P && !P.dead && isSurv() ? P : null; }
+// swimming: drowned move freely through water toward their target, sinking slowly when idle
+MOBS.drowned.tick = function (m, dt) {
+  const w = G.world; const inW = inWater(m, 0.6); const P = nearestTargetPos(m);
+  // throw the trident from range
+  if (m.hasTrident && P) { const d = m.pos.distanceTo(P.pos); m.throwT = (m.throwT || 2) - dt; if (d > 3.5 && d < 18 && m.throwT <= 0 && lineOfSight(new V3(m.pos.x, m.pos.y + 1.6, m.pos.z), P.eye())) { m.throwT = 3; const from = new V3(m.pos.x, m.pos.y + 1.6, m.pos.z); const tgt = P.eye().add(new V3(0, -0.4, 0)); const dir = tgt.clone().sub(from); const L = dir.length(); dir.normalize(); const v = dir.multiplyScalar(26); v.y += 0.5 * 20 * (L / 26); const p = spawnProj('trident', from, v, 'mob', 8, m); p.mobThrown = true; m.armSwing = 0.4; Sfx.at('bow', m.pos, 0.6, 0.7); } }
+  if (!inW) return false; // on land: normal zombie behaviour
+  const t = m.t; m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.atkCD -= dt; m.angry -= dt;
+  m.lightT -= dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, w.lightAt(m.pos.x, m.pos.y + 1.4, m.pos.z, G.daylight)); }
+  let want = new V3();
+  if (P && P.pos.distanceTo(m.pos) < 24 && (inWater(P, 0.2) || P.pos.distanceTo(m.pos) < 8)) {
+    want.copy(P.pos).sub(m.pos); want.y += 0.4; const L = want.length(); if (L > 0.01) want.multiplyScalar(2.4 / L);
+    m.yaw += angWrap(Math.atan2(want.x, want.z) - m.yaw) * Math.min(1, dt * 6); m.chasing = true;
+    const dist = m.pos.distanceTo(P.pos); if (dist < 1.6 + m.hw && m.atkCD <= 0) { m.atkCD = 1; P.hurt(t.dmg, m.pos, 'a Drowned', 1); m.armSwing = 0.3; }
+  } else { m.chasing = false; m.swimT = (m.swimT || 0) - dt; if (m.swimT <= 0) { m.swimT = 2 + Math.random() * 3; m.swimYaw = Math.random() * Math.PI * 2; } want.set(Math.sin(m.swimYaw) * 0.8, -0.35, Math.cos(m.swimYaw) * 0.8); m.yaw += angWrap(m.swimYaw - m.yaw) * Math.min(1, dt * 2); }
+  const k = Math.min(1, dt * 3); m.vel.x += (want.x - m.vel.x) * k; m.vel.y += (want.y - m.vel.y) * k; m.vel.z += (want.z - m.vel.z) * k;
+  moveEntity(m, dt); if (m.hitH && m.chasing) m.vel.y = 2.5;
+  m.animate(dt); if (m.legs) m.legs.forEach((l, i) => l.rotation.x = Math.sin(m.age * 6 + i * Math.PI) * 0.5);
+  return true;
+};
+// zombies drown into drowned after 30 seconds underwater (15 of them shaking)
+{ const _zt = MOBS.zombie.tick; MOBS.zombie.tick = function (m, dt) {
+    if (_zt && _zt(m, dt)) return true;
+    const under = FKIND[G.world.get(Math.floor(m.pos.x), Math.floor(m.pos.y + 1.7), Math.floor(m.pos.z))] === 1;
+    m.drownT = under ? (m.drownT || 0) + dt : 0;
+    if (m.drownT > 15) m.root.position.x += (Math.random() - 0.5) * 0.05;
+    if (m.drownT > 30 && !isClientMP()) { m.gone = true; const d = spawnMob('drowned', m.pos.x, m.pos.y, m.pos.z, { trident: false }); d.yaw = m.yaw; d.root.scale.setScalar(1); Particles.emit(m.pos.x, m.pos.y + 1, m.pos.z, 16, [[0.6, 0.8, 0.9]], 2, 0.6, -1, 0.6); }
+    return false;
+  }; }
+function isClientMP() { return typeof MP !== 'undefined' && MP.active && MP.role === 'client'; }
+// generic per-type hook: t.tick(m, dt) can take over a mob's update (return true)
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const t = this.t; if (!this.dead && t.tick && t.tick(this, dt)) return; return _u.call(this, dt); }; }
+// drowned drop their trident 25% of the time; persist whether they carry one
+{ const _dl = Mob.prototype.dropLoot; Mob.prototype.dropLoot = function () { if (this.type === 'drowned' && this.hasTrident && !this.remote && Math.random() < 0.25 + 0.04 * (this.lootingLv || 0)) dropItem(IT.trident, 1, this.pos.x, this.pos.y + 0.8, this.pos.z, true, { dmg: 50 + (Math.random() * 150 | 0) }); return _dl.apply(this, arguments); }; }
+
+// natural spawning: drowned in deep water, mostly at night or in the dark
+let drownSpawnT = 0;
+function spawnDrowned(dt) {
+  drownSpawnT -= dt; if (drownSpawnT > 0 || !world || world.dim !== 'overworld' || !S.rules.doMobSpawning || !isSurv() || S.difficulty === 'peaceful' || isClientMP()) return; drownSpawnT = 1.5;
+  if (G.mobs.filter(m => m.type === 'drowned').length >= 6) return;
+  const P = player.pos; const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 24; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);
+  if (!world.loaded(x, z)) return; let top = -1; for (let y = SEA + 2; y > 4; y--) { if (FKIND[world.get(x, y, z)] === 1) { top = y; break; } if (SOLID[world.get(x, y, z)]) break; } if (top < 0) return;
+  let bot = top; while (bot > 2 && FKIND[world.get(x, bot - 1, z)] === 1) bot--; if (top - bot < 2) return;
+  const y = bot + Math.floor(Math.random() * Math.max(1, top - bot - 1)); const L = lightLevels(x, y, z); if (L.block > 0 || L.sky > 7) return;
+  if (Math.random() < 0.6) spawnMob('drowned', x + 0.5, y, z + 0.5);
+}
+{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); spawnDrowned(dt); return r; }; }
+
+// ---------- tridents ----------
+PROJ.trident = { grav: 20, critTrail: [[0.6, 0.95, 0.9]] };
+{ const _pm = projMesh; projMesh = function (kind) {
+    if (kind !== 'trident') return _pm(kind);
+    const g = new THREE.Group(); const mat = new THREE.MeshLambertMaterial({ color: 0x4a9a8e });
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 1.2), mat); g.add(shaft);
+    const pm = new THREE.MeshLambertMaterial({ color: 0x9be8d6 }); for (const dx of [-0.1, 0, 0.1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, dx ? 0.22 : 0.3), pm); p.position.set(dx, 0, 0.62 + (dx ? 0.05 : 0.08)); g.add(p); }
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.04), pm); bar.position.z = 0.55; g.add(bar);
+    return g;
+  }; }
+// throwing: hold use like a bow (at least 0.5 s), release to throw
+S.tridentT = -1;
+function tridentHeld() { const h = player.held(); return h && h.id === IT.trident ? h : null; }
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    const h = tridentHeld();
+    if (!h || S.uiOpen || player.dead || S.mode === 'spectator') { S.tridentT = -1; return _ui.apply(this, arguments); }
+    if (mouseR && !(targetMob && typeof mobWantsItem === 'function' && targetMob.hg)) { if (S.tridentT < 0) S.tridentT = 0; S.tridentT += dt; const mr = mouseR; mouseR = false; try { return _ui.apply(this, arguments); } finally { mouseR = mr; } }
+    if (S.tridentT >= 0.5) { releaseTrident(h); }
+    S.tridentT = -1; return _ui.apply(this, arguments);
+  }; }
+function releaseTrident(h) {
+  const P = player; const rip = enchOf(h, 'riptide'); const eye = P.eye(), dir = lookDir();
+  if (rip) { // Riptide: only in water (or rain); launches you instead of throwing
+    if (!inWater(P, 0.4) && !inWater(P, 1.2)) return;
+    const sp = 3 * (1 + rip) / 4 * 20 * 0.55; P.vel.copy(dir).multiplyScalar(sp); P.riptideT = 0.6 + 0.15 * rip; P.peak = null; damageHeld(1); Sfx.play('vwoop', 0.5, 0.7); S.swing = 1; return;
+  }
+  const p = spawnProj('trident', eye.clone().addScaledVector(dir, 0.5), dir.clone().multiplyScalar(50), 'player', 8);
+  p.item = Object.assign({}, h); p.slot = P.sel; p.life = 60; p.noPickup = S.mode === 'creative'; p.loyalty = enchOf(h, 'loyalty'); p.impaling = enchOf(h, 'impaling');
+  if (S.mode !== 'creative') { P.inv[P.sel] = null; invDirty(); damageSlotObj(p.item, 1); }
+  Sfx.play('bow', 0.6, 0.6); S.swing = 1;
+}
+function damageSlotObj(s, n) { const max = maxDur(s.id); if (!max || S.mode !== 'survival') return; const ub = enchOf(s, 'unbreaking'); for (let i = 0; i < n; i++) if (Math.random() < 1 / (ub + 1)) s.dmg = (s.dmg || 0) + 1; }
+// riptide keeps your momentum and spins into mobs
+{ const _up = updatePlayer; updatePlayer = function (dt) {
+    const P = player; const keep = P.riptideT > 0 ? P.vel.clone() : null; const r = _up.apply(this, arguments);
+    if (keep) { P.riptideT -= dt; const k = Math.exp(-dt * 1.5); P.vel.set(keep.x * k, keep.y * k, keep.z * k); P.peak = null;
+      for (const m of G.mobs) if (!m.dead && m.pos.distanceTo(P.pos) < 1.6 + m.hw && !(P.ripHit && P.ripHit.has(m))) { (P.ripHit || (P.ripHit = new Set())).add(m); m.hurt(8, P.pos, 1); }
+      if (P.riptideT <= 0) P.ripHit = null; }
+    return r;
+  }; }
+// a thrown trident: hits a mob (and falls), sticks in the ground, or flies back with Loyalty
+{ const _pi = projImpact; projImpact = function (a, mob) {
+    if (a.kind !== 'trident') return _pi(a, mob);
+    if (a.owner === 'mob') { a.done = true; return; }
+    if (mob && a.hitMob) return;
+    if (mob && !mob.dead && !a.returning) { const dmg = 8 + (a.impaling && AQUATIC.has(mob.type) ? 2.5 * a.impaling : 0); mob.hurt(dmg, G.player.pos, 0.6); Sfx.at('hurt', mob.pos, 0.4, 0.8); a.vel.multiplyScalar(-0.1); a.vel.y = -2; a.hitMob = true; if (!a.loyalty) return; }
+    if (a.loyalty) { a.returning = true; a.done = false; a.life = 30; return; }
+    a.done = true; if (a.noPickup) return; const it = dropItem(a.item.id, 1, a.pos.x, a.pos.y, a.pos.z, false, xtra(a.item)); if (it) { it.vel.set(0, 0, 0); it.pickDelay = 0.2; }
+  }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    const P = G.player;
+    for (const a of G.projectiles) if (a.kind === 'trident' && a.returning && !a.done) {
+      const to = P.eye().sub(a.pos); const L = to.length(); a.vel.copy(to.multiplyScalar(Math.min(60, (8 + 6 * a.loyalty) + L * 2) / Math.max(L, 0.01)));
+      a.pos.addScaledVector(a.vel, dt); a.mesh.position.copy(a.pos); a.mesh.lookAt(P.eye());
+      if (L < 1.2) { a.done = true; G.scene.remove(a.mesh); Sfx.play('pop', 0.6, 0.7); if (S.mode !== 'creative') { if (!P.inv[a.slot]) { P.inv[a.slot] = a.item; invDirty(); } else giveOrDrop(a.item.id, 1, xtra(a.item)); } }
+    }
+    const ret = G.projectiles.filter(a => a.kind === 'trident' && a.returning); for (const a of ret) a._skip = true;
+    const keep = G.projectiles; G.projectiles = keep.filter(a => !a._skip);
+    const r = _up.apply(this, arguments);
+    for (const a of ret) { a._skip = false; if (!a.done) G.projectiles.push(a); }
+    for (const a of G.projectiles) if (a.kind === 'trident' && !a.returning && a.mesh) a.mesh.lookAt(a.pos.x + a.vel.x, a.pos.y + a.vel.y, a.pos.z + a.vel.z);
+    return r;
+  }; }
+// first-person: raise the trident over the shoulder while charging a throw
+{ const _uh = updateHand; updateHand = function (dt, light) {
+    const r = _uh.apply(this, arguments); if (!tridentHeld() || !handMesh) return r;
+    const k = S.tridentT >= 0 ? Math.min(1, S.tridentT / 0.5) : 0; S.tridPose = (S.tridPose || 0) + (k - (S.tridPose || 0)) * Math.min(1, dt * 12);
+    const q = S.tridPose; handGroup.position.y += 0.18 * q; handGroup.position.z += 0.15 * q; handGroup.position.x -= 0.05 * q;
+    handMesh.rotation.set(HELD_ROT[0] + (Math.PI - 0.2 - HELD_ROT[0]) * q, HELD_ROT[1], HELD_ROT[2] + (Math.PI / 4 - HELD_ROT[2]) * q);
+    return r;
+  }; }
+
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the
 // mob there, on a mob spawner to change what it spawns, or on a grown animal of the same kind to get a baby.
@@ -7905,7 +8079,7 @@ for (const k of Object.keys(MOBS)) {
 
 function eggSpawn(type, x, y, z, baby) {
   if (typeof MP !== 'undefined' && MP.active && MP.role === 'client' && MP.proxyMode) { mpToHost({ t: 'eggspawn', type, x, y, z, baby: baby ? 1 : 0 }); return null; }
-  const m = spawnMob(type, x, y, z, type === 'magma_cube' ? { size: [1, 2, 4][Math.random() * 3 | 0] } : undefined);
+  const m = spawnMob(type, x, y, z, MOBS[type].ai === 'magma' ? { size: [1, 2, 4][Math.random() * 3 | 0] } : undefined);
   if (baby && typeof setBaby === 'function') setBaby(m, true); return m;
 }
 { const _ua = useAction; useAction = function (eye, dir) {

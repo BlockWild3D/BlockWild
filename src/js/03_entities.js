@@ -421,7 +421,7 @@ class Mob {
   remove() { G.scene.remove(this.root); for (const [m] of this.mats) m.dispose(); }
   dropLoot() {
     const t = this.t; if (MODS.hooks.mobDeath) modFire('mobDeath', { type: this.type, x: this.pos.x, y: this.pos.y, z: this.pos.z });
-    if (t.ai === 'magma') { if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob('magma_cube', this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
+    if (t.ai === 'magma') { if (t.splitDrops) t.splitDrops(this); if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob(this.type, this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (this.type === 'magma_cube' && Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
     for (const [k, a, b, p] of t.drops) if (Math.random() < p) { const n = a + Math.floor(Math.random() * (b - a + 1)); if (n > 0) dropItem(IT[k], n, this.pos.x, this.pos.y + 0.5, this.pos.z); }
   }
   update(dt) {
@@ -451,13 +451,13 @@ class Mob {
       if (t.ranged) {
         const see = dist < 16 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.6, this.pos.z), P.eye());
         if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
-        if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
+        if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); if (t.shoot) t.shoot(this, P, dist); else shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
       } else if (t.creeper) {
         if (dist < 2.8 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; move = 0; }
         else if (this.fuse > 0) { this.fuse = dist > 5 ? 0 : Math.max(0, this.fuse - dt * 0.5); }
         if (this.fuse > 1.5) { this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 3.2, this, { cause: 'a creeper' }); return; }
       } else {
-        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; }
+        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
         if (dist < 0.9) move = 0;
         if (this.type === 'enderman' && dist > 12 && Math.random() < dt * 0.6) this.teleport(P.pos);
       }
@@ -537,7 +537,7 @@ class Mob {
       if (this.jumpT <= 0) { const chase = hostile && dist < 18; this.jumpT = chase ? 0.7 + Math.random() * 0.8 : 1.8 + Math.random() * 2.5; this.yaw = chase ? Math.atan2(dx, dz) : Math.random() * Math.PI * 2; const sp = 2.2 + this.size * 0.5; this.vel.x = Math.sin(this.yaw) * sp; this.vel.z = Math.cos(this.yaw) * sp; this.vel.y = 6.5 + this.size * 0.7; Sfx.at('squish', this.pos, 0.5); } }
     if (fluid) this.vel.y = Math.min(this.vel.y + 30 * dt, 2); else this.vel.y = Math.max(this.vel.y - 24 * dt, -40);
     moveEntity(this, dt);
-    if (hostile && this.atkCD <= 0 && Math.abs(P.pos.x - this.pos.x) < this.hw + 0.5 && Math.abs(P.pos.z - this.pos.z) < this.hw + 0.5 && P.pos.y < this.pos.y + this.h && P.pos.y + 1.8 > this.pos.y) { this.atkCD = 0.8; P.hurt(this.size >= 4 ? 6 : this.size >= 2 ? 4 : 3, this.pos, 'a Magma Cube'); }
+    if (hostile && this.atkCD <= 0 && Math.abs(P.pos.x - this.pos.x) < this.hw + 0.5 && Math.abs(P.pos.z - this.pos.z) < this.hw + 0.5 && P.pos.y < this.pos.y + this.h && P.pos.y + 1.8 > this.pos.y) { this.atkCD = 0.8; const sd = this.t.slimeDmg ? this.t.slimeDmg(this.size) : (this.size >= 4 ? 6 : this.size >= 2 ? 4 : 3); if (sd > 0) P.hurt(sd, this.pos, 'a ' + this.t.name); }
     const sq = this.onGround ? 1 + Math.max(0, 0.6 - this.jumpT) * 0.3 : 1.1;
     this.body.scale.set(this.baseScale * sq, this.baseScale / sq, this.baseScale * sq);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; this.colorize();
@@ -636,7 +636,7 @@ function updateProjectiles(dt) {
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
           const cause = a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball';
-          if (isSurv()) P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
+          if (isSurv()) { P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause); if (a.effect && typeof giveEffect === 'function') giveEffect(a.effect[0], a.effect[1], a.effect[2] || 0); }
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
       }

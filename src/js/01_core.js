@@ -282,7 +282,7 @@ defBlock('bookshelf', 'Bookshelf', { tex: { s: 'bookshelf', t: 'planks' }, hardn
 defBlock('tnt', 'TNT', { tex: { s: 'tnt_side', t: 'tnt_top', b: 'tnt_bottom' }, hardness: 0, snd: 'grass', use: 'tnt' });
 defBlock('sandstone', 'Sandstone', { tex: { s: 'sandstone', t: 'sandstone_top' }, hardness: 0.8, tool: 'pick', tier: 1 });
 defBlock('wool', 'White Wool', { tex: 'wool', hardness: 0.8, snd: 'wool' });
-defBlock('glowstone', 'Glowstone', { tex: 'glowstone', hardness: 0.3, light: 1, snd: 'glass' });
+defBlock('glowstone', 'Glowstone', { tex: 'glowstone', hardness: 0.3, light: 1, snd: 'glass', drop: (r) => ['glowstone_dust', 2 + Math.floor(r * 3)] });
 defBlock('furnace', 'Furnace', { tex: { s: 'furnace_side', pz: 'furnace_front', t: 'stone' }, hardness: 3.5, tool: 'pick', tier: 1, use: 'table' });
 defBlock('birch_log', 'Birch Log', { tex: { s: 'birch_side', t: 'birch_top' }, hardness: 2, snd: 'wood' });
 defBlock('birch_leaves', 'Birch Leaves', { tex: 'birch_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
@@ -406,6 +406,10 @@ M('saddle', 'Saddle', { kind: 'saddle', stack: 1 });
 M('raw_iron', 'Raw Iron'); M('raw_gold', 'Raw Gold'); M('raw_copper', 'Raw Copper'); M('copper_ingot', 'Copper Ingot'); M('redstone', 'Redstone Dust'); M('emerald', 'Emerald');
 M('netherite_scrap', 'Netherite Scrap', { fireproof: true }); M('netherite_ingot', 'Netherite Ingot', { fireproof: true });
 M('netherite_upgrade_smithing_template', 'Netherite Upgrade Smithing Template', { kind: 'template' });
+M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1, melee: true });
+M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
+M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
+M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('tripwire_hook', 'Tripwire Hook');
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' });
 M('carrot', 'Carrot', { kind: 'food', crop: 'carrots_0' }); M('potato', 'Potato', { kind: 'food', crop: 'potatoes_0' }); M('baked_potato', 'Baked Potato', { kind: 'food' }); M('golden_carrot', 'Golden Carrot', { kind: 'food' });
 M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
@@ -494,6 +498,20 @@ Object.assign(ICONP, {
   leather_horse_armor: horseArmorIcon([150, 90, 50]), iron_horse_armor: horseArmorIcon([214, 214, 218]), golden_horse_armor: horseArmorIcon([246, 208, 64]), diamond_horse_armor: horseArmorIcon([90, 222, 210]),
   milk_bucket: bucketIcon([[250, 250, 250], [230, 230, 232]]),
   shears: (s, r) => { pLine(s, 3, 3, 9, 9, [200, 200, 206]); pLine(s, 4, 3, 10, 9, [150, 150, 156]); pLine(s, 12, 3, 6, 9, [214, 214, 220]); pLine(s, 13, 4, 7, 10, [160, 160, 166]); for (const [cx, cy] of [[5, 12], [11, 12]]) { s(cx - 1, cy, [60, 60, 66]); s(cx + 1, cy, [60, 60, 66]); s(cx, cy - 1, [60, 60, 66]); s(cx, cy + 1, [60, 60, 66]); } },
+  trident: (s, r) => { pLine(s, 3, 13, 11, 5, [66, 140, 130]); pLine(s, 4, 13, 12, 5, [44, 110, 100]); pLine(s, 2, 14, 3, 13, [40, 90, 84]); for (const [a, b] of [[11, 1], [14, 4], [15, 1]]) pLine(s, 11, 5, a, b, [120, 214, 196]); s(12, 2, [180, 240, 226]); s(14, 2, [180, 240, 226]); },
+  mace: (s, r) => { pLine(s, 3, 13, 9, 7, [110, 76, 46]); pLine(s, 4, 13, 10, 7, [80, 54, 30]); for (let y = 2; y <= 8; y++) for (let x = 8; x <= 14; x++) { const d = Math.abs(x - 11) + Math.abs(y - 5); if (d <= 4) s(x, y, d >= 4 ? [70, 70, 76] : d === 3 ? [110, 110, 118] : [150, 150, 160]); } s(10, 4, [200, 200, 210]); s(11, 1, [90, 90, 96]); s(15, 5, [90, 90, 96]); },
+  heavy_core: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) { const e = x === 4 || y === 4 || x === 12 || y === 12; s(x, y, e ? [48, 48, 56] : vary([82, 82, 92], r, 8)); } for (const [x, y] of [[6, 6], [10, 6], [6, 10], [10, 10], [8, 8]]) s(x, y, [130, 130, 146]); },
+  breeze_rod: (s, r) => { pLine(s, 4, 13, 12, 3, [150, 190, 230]); pLine(s, 5, 13, 13, 3, [110, 150, 200]); for (const t of [0.25, 0.5, 0.75]) { const x = Math.round(4 + 8 * t), y = Math.round(13 - 10 * t); s(x - 1, y - 1, [200, 230, 255]); s(x + 2, y + 1, [200, 230, 255]); } },
+  wind_charge: (s, r) => { for (let a = 0; a < 26; a++) { const t = a / 26 * Math.PI * 3, rr = 1 + a * 0.22; s(Math.round(8 + Math.cos(t) * rr), Math.round(8 + Math.sin(t) * rr), a % 3 ? [196, 220, 250] : [130, 170, 230]); } s(8, 8, [240, 248, 255]); },
+  slime_ball: (s, r) => { blob(s, 8, 8, 4.5, 4.5, [110, 196, 90], r, [70, 150, 60]); s(6, 6, [190, 250, 170]); s(7, 6, [160, 236, 140]); },
+  spider_eye: (s, r) => { blob(s, 8, 9, 4, 4, [150, 30, 40], r, [100, 16, 24]); s(7, 7, [230, 120, 130]); s(9, 10, [70, 10, 16]); },
+  glowstone_dust: (s, r) => { for (let i = 0; i < 24; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 5; s(Math.round(8 + Math.cos(a) * d), Math.round(9 + Math.sin(a) * d * 0.7), r() < 0.5 ? [255, 226, 120] : [230, 180, 70]); } },
+  glass_bottle: (s, r) => { for (let y = 6; y <= 14; y++) for (let x = 4; x <= 11; x++) { const e = x === 4 || x === 11 || y === 14; if (e) s(x, y, [190, 210, 230]); } for (let y = 2; y <= 6; y++) { s(6, y, [190, 210, 230]); s(9, y, [190, 210, 230]); } s(7, 2, [150, 110, 70]); s(8, 2, [150, 110, 70]); },
+  phantom_membrane: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) if (Math.abs(x - 8) + Math.abs(y - 8) <= 6) s(x, y, vary([196, 190, 170], r, 10)); pLine(s, 3, 8, 13, 8, [150, 140, 120]); },
+  crossbow: (s, r) => { pLine(s, 3, 3, 13, 13, [110, 76, 46]); pLine(s, 1, 9, 9, 1, [100, 70, 44]); pLine(s, 2, 10, 10, 2, [80, 56, 34]); pLine(s, 1, 9, 13, 13, [220, 220, 220]); pLine(s, 9, 1, 13, 13, [220, 220, 220]); s(3, 3, [160, 160, 166]); },
+  lead: (s, r) => { for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; s(Math.round(8 + Math.cos(t) * 4.5), Math.round(7 + Math.sin(t) * 4), [150, 120, 80]); } pLine(s, 8, 11, 6, 15, [150, 120, 80]); s(5, 15, [110, 190, 90]); },
+  tripwire_hook: (s, r) => { for (let y = 2; y <= 6; y++) for (let x = 6; x <= 10; x++) if (y === 2 || y === 6 || x === 6 || x === 10) s(x, y, [180, 180, 186]); pLine(s, 8, 7, 8, 14, [130, 92, 56]); },
+  copper_nugget: (s, r) => { blob(s, 8, 9, 3, 2.5, [214, 120, 80], r, [150, 80, 50]); },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
   netherite_ingot: (s) => ingot(s, [72, 64, 70], [126, 116, 122], [40, 36, 40]),
@@ -641,6 +659,9 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
+  RSH('crossbow', 1, ['SIS', 'TFT', ' S '], { S: 'stick', I: 'iron_ingot', T: 'string', F: 'tripwire_hook' }), RSH('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }), RSH('lead', 2, ['SS ', 'SB ', '  S'], { S: 'string', B: 'slime_ball' }),
+  RSH('glowstone', 1, ['GG', 'GG'], { G: 'glowstone_dust' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
   RSL('gold_nugget', 9, ['gold_ingot']),
   RSL('blaze_powder', 2, ['blaze_rod']),

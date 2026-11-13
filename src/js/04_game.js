@@ -438,7 +438,7 @@ function updateInteraction(dt) {
   if (mouseL && S.atkCD <= 0 && deflectProjectiles(eye, dir)) { S.atkCD = 0.45; S.swing = 1; }
   if (mouseL && targetBoat) { hitBoat(targetBoat); S.mineT = 0; }
   else if (mouseL && targetMob) {
-    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); S.atkCD = tool && tool.kind === 'tool' ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
+    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.dmg != null && (tool.kind === 'tool' || tool.melee) ? tool.dmg : 1) + eb.dmg + (typeof meleeExtra === 'function' ? meleeExtra(targetMob) : 0)); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2); S.atkCD = tool && (tool.kind === 'tool' || tool.melee) ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
     S.mineT = 0;
   } else if (mouseL && target) {
     const key = target.x + ',' + target.y + ',' + target.z;
