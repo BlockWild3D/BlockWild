@@ -621,6 +621,23 @@ class World {
         }
         continue;
       }
+      if (def.render === 'boxes') { // small models made of boxes (anvils...), textured like Minecraft's block models
+        const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
+        for (const bx of def.boxes) {
+          const a0 = (sw ? bx[2] : bx[0]) / 16, y0 = bx[1] / 16, c0 = (sw ? bx[0] : bx[2]) / 16, a1 = (sw ? bx[5] : bx[3]) / 16, y1 = bx[4] / 16, c1 = (sw ? bx[3] : bx[5]) / 16;
+          for (let f = 0; f < 6; f++) {
+            const F = FACES[f]; const edge = (F.n[0] > 0 && a1 === 1) || (F.n[0] < 0 && a0 === 0) || (F.n[1] > 0 && y1 === 1) || (F.n[1] < 0 && y0 === 0) || (F.n[2] > 0 && c1 === 1) || (F.n[2] < 0 && c0 === 0);
+            if (edge && OPAQUE[get(x + F.n[0], y + F.n[1], z + F.n[2])]) continue;
+            const uv = TILE_UV[def.texIds[f]];
+            for (let k = 0; k < 4; k++) { const cc = F.c[k]; const lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
+              let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
+              if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
+              uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = F.s; bl[k] = b0; }
+            quad(O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), false, 0);
+          }
+        }
+        continue;
+      }
       if (def.render === 'portal') {
         const uv = TILE_UV[def.texIds[0]]; const v = def.axis === 'x' ? [x, y, z + 0.5, x + 1, y, z + 0.5, x + 1, y + 1, z + 0.5, x, y + 1, z + 0.5] : [x + 0.5, y, z + 1, x + 0.5, y, z, x + 0.5, y + 1, z, x + 0.5, y + 1, z + 1];
         const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; const PS = [1.6, 1.6, 1.6, 1.6]; quad(W, v, u, 1, [1, 1, 1, 1], PS, false);

@@ -176,6 +176,16 @@ makeTile('emerald_ore', (set, r) => pOre(set, r, [40, 190, 80], [150, 255, 170])
 makeTile('lapis_ore_d', (set, r) => pOre(set, r, [36, 70, 176], [90, 130, 230], pDeepslate));
 for (const [k, c, h] of [['coal', [38, 38, 38], [70, 70, 70]], ['iron', [200, 160, 128], [228, 196, 170]], ['gold', [236, 204, 44], [255, 246, 140]], ['diamond', [80, 220, 214], [200, 255, 250]], ['copper', [198, 112, 74], [126, 178, 140]], ['redstone', [176, 16, 14], [255, 70, 60]], ['emerald', [40, 190, 80], [150, 255, 170]]])
   makeTile('deepslate_' + k + '_ore', (set, r) => pOre(set, r, c, h, pDeepslate));
+// storage blocks: bevelled squares with a bright top-left edge and a dark bottom-right edge, like Minecraft's
+function storeTile(base, hi, lo, pat) { return (set, r) => each((x, y) => { let c = vary(base, r, 6); if (x === 0 || y === 0) c = hi; else if (x === 15 || y === 15) c = lo; else if (pat) { const q = pat(x, y, r); if (q) c = vary(q, r, 5); } set(x, y, c); }); }
+makeTile('iron_block', storeTile([214, 214, 216], [242, 242, 244], [160, 160, 164], (x, y) => (x === 1 || y === 1) ? [234, 234, 236] : (y % 5 === 0) ? [196, 196, 200] : null));
+makeTile('gold_block', storeTile([246, 208, 62], [255, 246, 140], [196, 140, 20], (x, y) => (x === 1 || y === 1) ? [255, 232, 100] : ((x + y) % 7 === 0) ? [232, 186, 40] : null));
+makeTile('diamond_block', storeTile([98, 226, 216], [196, 255, 250], [40, 150, 144], (x, y) => (x === 1 || y === 1) ? [150, 244, 236] : ((x * 3 + y) % 9 === 0) ? [70, 196, 188] : null));
+makeTile('emerald_block', storeTile([64, 204, 110], [150, 250, 180], [20, 120, 60], (x, y) => ((x % 4 === 1) && (y % 4 === 1)) ? [120, 240, 160] : null));
+makeTile('coal_block', storeTile([24, 24, 26], [52, 52, 56], [10, 10, 12], (x, y, r) => r() < 0.08 ? [44, 44, 48] : null));
+makeTile('redstone_block', storeTile([170, 24, 14], [230, 70, 50], [110, 10, 6], (x, y, r) => ((x + y) % 5 === 0 && r() < 0.7) ? [210, 40, 24] : null));
+makeTile('anvil_side', (set, r) => each((x, y) => { let c = vary([68, 68, 70], r, 5); if (y % 4 === 0) c = vary([56, 56, 58], r, 4); if (x === 0 || x === 15) c = [50, 50, 52]; set(x, y, c); }));
+for (const [k, cracks] of [['anvil_top', 0], ['anvil_top_chipped', 1], ['anvil_top_damaged', 2]]) makeTile(k, (set, r) => { const rr = mulberry32(31 + cracks); each((x, y) => { let c = vary([74, 74, 76], r, 5); if (x >= 3 && x <= 12) c = vary([92, 92, 96], r, 5); if (x === 3 || x === 12) c = [58, 58, 60]; set(x, y, c); }); for (let n = 0; n < cracks * 3; n++) { let x = 4 + (rr() * 8 | 0), y = rr() * 16 | 0; for (let k2 = 0; k2 < 5; k2++) { set(x, y, [36, 36, 38]); x += rr() < 0.5 ? 1 : -1; y += rr() < 0.6 ? 1 : 0; x = Math.max(4, Math.min(11, x)); if (y > 15) break; } } });
 makeTile('copper_block', (set, r) => each((x, y) => { let c = vary([192, 108, 78], r, 7); if (x === 0 || y === 0) c = [222, 140, 104]; else if (x === 15 || y === 15) c = [140, 72, 50]; set(x, y, c); }));
 makeTile('obsidian', (set, r) => each((x, y) => { let c = vary([22, 16, 34], r, 5); const q = r(); if (q < 0.1) c = vary([60, 38, 96], r, 8); else if (q < 0.16) c = [8, 6, 14]; set(x, y, c); }));
 makeTile('netherrack', pNetherrack);
@@ -341,6 +351,16 @@ defBlock('emerald_ore', 'Emerald Ore', { tex: 'emerald_ore', hardness: 3, tool: 
 for (const [k, n, tier, drop] of [['coal', 'Coal', 1, 'coal'], ['iron', 'Iron', 2, 'raw_iron'], ['gold', 'Gold', 3, 'raw_gold'], ['diamond', 'Diamond', 3, 'diamond'], ['lapis', 'Lapis Lazuli', 2, (r) => ['lapis_lazuli', 4 + (r * 6 | 0)]], ['copper', 'Copper', 2, (r) => ['raw_copper', 2 + (r * 4 | 0)]], ['redstone', 'Redstone', 3, (r) => ['redstone', 4 + (r * 2 | 0)]], ['emerald', 'Emerald', 3, 'emerald']])
   defBlock('deepslate_' + k + '_ore', 'Deepslate ' + n + ' Ore', { tex: k === 'lapis' ? 'lapis_ore_d' : 'deepslate_' + k + '_ore', hardness: 4.5, tool: 'pick', tier, drop });
 defBlock('copper_block', 'Block of Copper', { tex: 'copper_block', hardness: 3, tool: 'pick', tier: 2 });
+defBlock('iron_block', 'Block of Iron', { tex: 'iron_block', hardness: 5, tool: 'pick', tier: 2, snd: 'stone' });
+defBlock('gold_block', 'Block of Gold', { tex: 'gold_block', hardness: 3, tool: 'pick', tier: 3 });
+defBlock('diamond_block', 'Block of Diamond', { tex: 'diamond_block', hardness: 5, tool: 'pick', tier: 3 });
+defBlock('emerald_block', 'Block of Emerald', { tex: 'emerald_block', hardness: 5, tool: 'pick', tier: 3 });
+defBlock('coal_block', 'Block of Coal', { tex: 'coal_block', hardness: 5, tool: 'pick', tier: 1 });
+defBlock('redstone_block', 'Block of Redstone', { tex: 'redstone_block', hardness: 5, tool: 'pick', tier: 1, power: 15 });
+// anvils (Minecraft model, in 1/16 block units); the _x versions are turned 90 degrees. They fall like sand.
+const ANVIL_BOXES = [[2, 0, 2, 14, 4, 14], [4, 4, 3, 12, 5, 13], [6, 5, 4, 10, 10, 12], [3, 10, 0, 13, 16, 16]];
+for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'Chipped Anvil', 'anvil_top_chipped'], ['damaged_anvil', 'Damaged Anvil', 'anvil_top_damaged']]) for (const sw of [false, true])
+  defBlock(k + (sw ? '_x' : ''), n, { tex: { t: top, s: 'anvil_side', b: 'anvil_side' }, render: 'boxes', boxes: ANVIL_BOXES, swapXZ: sw, opaque: false, hardness: 5, tool: 'pick', tier: 1, use: 'anvil', fall: true, anvil: k, drop: k, hidden: sw });
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
@@ -379,7 +399,7 @@ M('quartz', 'Nether Quartz'); M('nether_brick', 'Nether Brick'); M('gold_nugget'
 M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'Blaze Powder'); M('magma_cream', 'Magma Cream');
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
-M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
+M('paper', 'Paper'); M('book', 'Book'); M('enchanted_book', 'Enchanted Book', { kind: 'ebook', stack: 1 }); M('lapis_lazuli', 'Lapis Lazuli');
 M('bed', 'Bed', { kind: 'bed', stack: 1 });
 M('boat', 'Oak Boat', { kind: 'boat', stack: 1 });
 M('saddle', 'Saddle', { kind: 'saddle', stack: 1 });
@@ -507,6 +527,7 @@ Object.assign(ICONP, {
   ender_pearl: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [20, 90, 80], r, [10, 50, 46]); s(6, 6, [120, 220, 200]); s(7, 6, [80, 180, 160]); s(6, 7, [80, 180, 160]); },
   shield: (s, r) => { for (let y = 1; y <= 14; y++) { const w = y < 10 ? 5.5 : 5.5 - (y - 9) * 1.1; for (let x = Math.round(7.5 - w); x <= Math.round(7.5 + w); x++) { const edge = y === 1 || y === 14 || x === Math.round(7.5 - w) || x === Math.round(7.5 + w); const plank = (x % 3 === 0) ? [128, 92, 52] : [158, 116, 68]; s(x, y, edge ? [178, 178, 186] : vary(plank, r, 6)); } } for (let y = 6; y <= 8; y++) for (let x = 6; x <= 9; x++) s(x, y, (x === 6 && y === 6) ? [235, 235, 240] : [186, 186, 194]); },
   paper: (s) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 12; x++) s(x, y, (x === 12 || y === 13) ? [200, 200, 190] : [246, 246, 240]); for (const y of [5, 7, 9, 11]) for (let x = 5; x <= 10; x++) s(x, y, [210, 210, 204]); },
+  enchanted_book: (s) => { for (let y = 2; y <= 14; y++) for (let x = 3; x <= 12; x++) s(x, y, x <= 4 ? [96, 34, 110] : (y === 2 || y === 14 || x === 12) ? [120, 44, 140] : [160, 70, 190]); for (let y = 3; y <= 13; y++) s(13, y, [236, 232, 220]); s(8, 6, [255, 220, 80]); s(7, 7, [255, 220, 80]); s(9, 7, [255, 220, 80]); s(8, 8, [255, 220, 80]); },
   book: (s) => { for (let y = 2; y <= 14; y++) for (let x = 3; x <= 12; x++) s(x, y, x <= 4 ? [90, 50, 30] : (y === 2 || y === 14 || x === 12) ? [110, 60, 34] : [150, 84, 46]); for (let y = 3; y <= 13; y++) s(13, y, [236, 232, 220]); },
   lapis_lazuli: (s, r) => { blob(s, 8, 8, 5, 5.5, [40, 80, 200], r, [24, 44, 130]); s(6, 6, [120, 170, 255]); s(7, 6, [90, 140, 240]); s(9, 10, [30, 60, 170]); },
   eye_of_ender: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [40, 130, 90], r, [20, 70, 50]); blob(s, 8, 8, 3, 2, [200, 230, 120], r); for (let y = 6; y <= 10; y++) s(8, y, [10, 30, 20]); s(6, 6, [160, 240, 200]); },
@@ -599,6 +620,10 @@ RECIPES.push(
   RSH('boat', 1, ['P P', 'PPP'], { P: 'planks' }),
   RSH('saddle', 1, [' L ', 'LIL'], { L: 'leather', I: 'iron_ingot' }),
   RSH('copper_block', 1, ['CCC', 'CCC', 'CCC'], { C: 'copper_ingot' }), RSL('copper_ingot', 9, ['copper_block']),
+  RSH('iron_block', 1, ['III', 'III', 'III'], { I: 'iron_ingot' }), RSL('iron_ingot', 9, ['iron_block']), RSH('gold_block', 1, ['GGG', 'GGG', 'GGG'], { G: 'gold_ingot' }), RSL('gold_ingot', 9, ['gold_block']),
+  RSH('diamond_block', 1, ['DDD', 'DDD', 'DDD'], { D: 'diamond' }), RSL('diamond', 9, ['diamond_block']), RSH('emerald_block', 1, ['EEE', 'EEE', 'EEE'], { E: 'emerald' }), RSL('emerald', 9, ['emerald_block']),
+  RSH('coal_block', 1, ['CCC', 'CCC', 'CCC'], { C: 'coal' }), RSL('coal', 9, ['coal_block']), RSH('redstone_block', 1, ['RRR', 'RRR', 'RRR'], { R: 'redstone' }), RSL('redstone', 9, ['redstone_block']),
+  RSH('anvil', 1, ['BBB', ' I ', 'III'], { B: 'iron_block', I: 'iron_ingot' }),
   RSH('copper_spear', 1, ['  M', ' S ', 'S  '], { M: 'copper_ingot', S: 'stick' }),
   RSL('netherite_ingot', 1, ['netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot']),
   RSH('netherite_block', 1, ['NNN', 'NNN', 'NNN'], { N: 'netherite_ingot' }), RSL('netherite_ingot', 9, ['netherite_block']),

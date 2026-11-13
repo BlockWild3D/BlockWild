@@ -37,4 +37,3 @@ function openSmithUI() {
     if (target && !kd('sneak') && BL[target.id].use === 'smith') { mouseR = false; openSmithUI(); return; }
     return _ua(eye, dir);
   }; }
-{ const _p = Sfx.play.bind(Sfx); Sfx.play = function (name, v = 1, rate) { if (name === 'anvil' && this.ctx && !(this.has && this.has('anvil'))) { this.tone(1600, 1500, 0.35, 0.06 * v, 'triangle'); this.tone(2380, 2300, 0.25, 0.04 * v, 'sine'); this.nz(0.08, 3000, 0.3 * v, 'bandpass', 3); return; } return _p(name, v, rate); }; }

@@ -89,7 +89,7 @@ let world = null;
 
 // ---- inventory helpers ----
 // extra = per-item data that must travel with the item: { ench, dmg } (enchantments and durability damage)
-function xtra(s) { if (!s || (!s.ench && !s.dmg)) return null; const o = {}; if (s.ench) o.ench = s.ench; if (s.dmg) o.dmg = s.dmg; return o; }
+function xtra(s) { if (!s || (!s.ench && !s.dmg && !s.name && !s.rc)) return null; const o = {}; if (s.ench) o.ench = s.ench; if (s.dmg) o.dmg = s.dmg; if (s.name) o.name = s.name; if (s.rc) o.rc = s.rc; return o; }
 function addTo(arr, id, n, order, extra) {
   const mx = stackMax(id); const ench = extra;
   for (const i of order) { const s = arr[i]; if (s && s.id === id && s.count < mx && !xtra(s) && !extra) { const k = Math.min(n, mx - s.count); s.count += k; n -= k; if (!n) return 0; } }
