@@ -147,6 +147,15 @@ makeTile('birch_leaves', (set, r) => pLeaves(set, r, [112, 160, 68]));
 makeTile('spruce_side', (set, r) => pLogSide(set, r, [72, 50, 30], [46, 32, 18]));
 makeTile('spruce_top', (set, r) => pLogTop(set, r, [124, 94, 58], [102, 76, 46], [72, 50, 30]));
 makeTile('spruce_leaves', (set, r) => pLeaves(set, r, [44, 92, 56]));
+makeTile('jungle_side', (set, r) => pLogSide(set, r, [94, 72, 34], [66, 50, 22])); makeTile('jungle_top', (set, r) => pLogTop(set, r, [170, 124, 78], [150, 106, 64], [94, 72, 34])); makeTile('jungle_leaves', (set, r) => pLeaves(set, r, [48, 150, 30]));
+makeTile('dark_oak_side', (set, r) => pLogSide(set, r, [62, 46, 28], [40, 30, 16])); makeTile('dark_oak_top', (set, r) => pLogTop(set, r, [96, 70, 40], [78, 56, 32], [62, 46, 28])); makeTile('dark_oak_leaves', (set, r) => pLeaves(set, r, [40, 110, 28]));
+makeTile('acacia_side', (set, r) => pLogSide(set, r, [112, 104, 96], [84, 78, 70])); makeTile('acacia_top', (set, r) => pLogTop(set, r, [186, 96, 52], [160, 80, 40], [112, 104, 96])); makeTile('acacia_leaves', (set, r) => pLeaves(set, r, [92, 140, 36]));
+makeTile('vine', (set, r) => { clear(set); for (let k = 0; k < 7; k++) { let x = 1 + (r() * 14 | 0); for (let y = 0; y < 16; y++) { if (r() < 0.85) set(x, y, vary([56, 120, 32], r, 18)); if (r() < 0.35) set(Math.min(15, x + 1), y, vary([70, 140, 40], r, 14)); x = Math.max(0, Math.min(15, x + (r() < 0.3 ? (r() < 0.5 ? 1 : -1) : 0))); } } });
+makeTile('lily_pad', (set, r) => { clear(set); each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); const notch = Math.abs(x - 7.5) < 1.5 && y > 8; if (d < 7.2 && !notch) set(x, y, vary(d > 6 ? [36, 100, 30] : [56, 140, 46], r, 10)); }); });
+makeTile('cobweb', (set, r) => { clear(set); for (let a = 0; a < 8; a++) { const t = a / 8 * Math.PI * 2; for (let d = 0; d < 8; d++) set(Math.round(7.5 + Math.cos(t) * d), Math.round(7.5 + Math.sin(t) * d), [226, 226, 230]); } for (const R of [2.5, 4.5, 6.5]) for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; set(Math.round(7.5 + Math.cos(t) * R), Math.round(7.5 + Math.sin(t) * R), [210, 210, 214]); } });
+makeTile('ice', (set, r) => each((x, y) => set(x, y, vary([150, 190, 250], r, 8), 200))); makeTile('packed_ice', (set, r) => each((x, y) => { let c = vary([160, 196, 246], r, 6); if ((x * 3 + y * 5) % 11 === 0) c = [200, 224, 255]; set(x, y, c); }));
+makeTile('cauldron_side', (set, r) => each((x, y) => { let c = vary([62, 62, 66], r, 5); if (y < 2) c = [80, 80, 84]; if (y > 12 && (x < 3 || x > 12)) c = [44, 44, 48]; set(x, y, c); }));
+makeTile('fence', (set, r) => pPlanks(set, r, [162, 130, 78]));
 makeTile('tall_grass', (set, r) => { clear(set); for (let b = 0; b < 8; b++) { let x = 1 + r() * 14; const h = 5 + r() * 9 | 0; const lean = (r() - 0.5) * 0.35; for (let i = 0; i < h; i++) { set(Math.round(x), 15 - i, vary([84, 152, 52], r, 18)); x += lean; } } });
 makeTile('flower_red', (set, r) => pFlower(set, r, [212, 34, 30], [250, 210, 60]));
 makeTile('flower_yellow', (set, r) => pFlower(set, r, [246, 214, 40], [200, 120, 20]));
@@ -300,6 +309,19 @@ defBlock('furnace', 'Furnace', { tex: { s: 'furnace_side', pz: 'furnace_front', 
 defBlock('birch_log', 'Birch Log', { tex: { s: 'birch_side', t: 'birch_top' }, hardness: 2, snd: 'wood' });
 defBlock('birch_leaves', 'Birch Leaves', { tex: 'birch_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
 defBlock('spruce_log', 'Spruce Log', { tex: { s: 'spruce_side', t: 'spruce_top' }, hardness: 2, snd: 'wood' });
+defBlock('jungle_log', 'Jungle Log', { tex: { s: 'jungle_side', t: 'jungle_top' }, hardness: 2, snd: 'wood' });
+defBlock('jungle_leaves', 'Jungle Leaves', { tex: 'jungle_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
+defBlock('dark_oak_log', 'Dark Oak Log', { tex: { s: 'dark_oak_side', t: 'dark_oak_top' }, hardness: 2, snd: 'wood' });
+defBlock('dark_oak_leaves', 'Dark Oak Leaves', { tex: 'dark_oak_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.05 ? ['apple', 1] : r < 0.15 ? ['stick', 1] : null });
+defBlock('acacia_log', 'Acacia Log', { tex: { s: 'acacia_side', t: 'acacia_top' }, hardness: 2, snd: 'wood' });
+defBlock('acacia_leaves', 'Acacia Leaves', { tex: 'acacia_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
+defBlock('vine', 'Vines', { tex: 'vine', solid: false, opaque: false, render: 'cross', hardness: 0.2, snd: 'grass', plant: true, drop: null, climb: true });
+defBlock('lily_pad', 'Lily Pad', { tex: 'lily_pad', solid: false, opaque: false, render: 'flat', hardness: 0, snd: 'grass' });
+defBlock('cobweb', 'Cobweb', { tex: 'cobweb', solid: false, opaque: false, render: 'cross', hardness: 4, snd: 'wool', drop: 'string', web: true });
+defBlock('ice', 'Ice', { tex: 'ice', opaque: false, render: 'cutout', cullSame: true, hardness: 0.5, snd: 'glass', drop: null, slippery: true });
+defBlock('packed_ice', 'Packed Ice', { tex: 'packed_ice', hardness: 0.5, snd: 'glass', drop: null, slippery: true });
+defBlock('cauldron', 'Cauldron', { tex: { s: 'cauldron_side', t: 'cauldron_side', b: 'cauldron_side' }, opaque: false, render: 'boxes', boxes: [[0, 3, 0, 16, 16, 2], [0, 3, 14, 16, 16, 16], [0, 3, 2, 2, 16, 14], [14, 3, 2, 16, 16, 14], [2, 3, 2, 14, 4, 14], [0, 0, 0, 4, 3, 4], [12, 0, 0, 16, 3, 4], [0, 0, 12, 4, 3, 16], [12, 0, 12, 16, 3, 16]], hardness: 2, tool: 'pick', tier: 1 });
+defBlock('oak_fence', 'Oak Fence', { tex: 'fence', opaque: false, render: 'boxes', boxes: [[6, 0, 6, 10, 16, 10]], hardness: 2, snd: 'wood', fence: true });
 defBlock('spruce_leaves', 'Spruce Leaves', { tex: 'spruce_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
 defBlock('tall_grass', 'Tall Grass', { tex: 'tall_grass', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: (r) => r < 0.125 ? ['wheat_seeds', 1] : null, plant: true });
 defBlock('rose', 'Rose', { tex: 'flower_red', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
@@ -655,7 +677,7 @@ const HEART = [heartURL(0), heartURL(1), heartURL(2)];
 const GOLD_HEART = [heartURL(0, 1), heartURL(1, 1), heartURL(2, 1)];
 
 // ---------------- Recipes & loot ----------------
-const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem'], '#stone': ['cobblestone', 'cobbled_deepslate'] };
+const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'jungle_log', 'dark_oak_log', 'acacia_log', 'crimson_stem', 'warped_stem'], '#stone': ['cobblestone', 'cobbled_deepslate'] };
 const RSH = (out, n, shape, key) => ({ out: [out, n], shape, key });
 const RSL = (out, n, items) => ({ out: [out, n], items });
 const RECIPES = [
@@ -711,7 +733,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
   RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
   RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
   RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),

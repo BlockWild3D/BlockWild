@@ -621,8 +621,8 @@ class World {
         }
         continue;
       }
-      if (def.render === 'rail') { // flat (or sloped) rail quads, textured along the track
-        const sh0 = def.rail.shape; const uv = TILE_UV[def.texIds[2]]; const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const e = 1 / 16;
+      if (def.render === 'rail' || def.render === 'flat') { // flat (or sloped) rail quads, textured along the track; lily pads
+        const sh0 = def.rail ? def.rail.shape : 'ns'; const uv = TILE_UV[def.texIds[2]]; const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const e = 1 / 16;
         const C = [[0, 1], [1, 1], [1, 0], [0, 0]];
         const map = sh0 === 'ew' || sh0 === 'asc_e' || sh0 === 'asc_w' ? (lx, lz) => [lz, lx] : sh0 === 'sw' ? (lx, lz) => [1 - lx, 1 - lz] : sh0 === 'ne' ? (lx, lz) => [lx, lz] : sh0 === 'nw' ? (lx, lz) => [1 - lx, lz] : (lx, lz) => [lx, 1 - lz];
         const hgt = (lx, lz) => e + (sh0 === 'asc_e' ? lx : sh0 === 'asc_w' ? 1 - lx : sh0 === 'asc_n' ? 1 - lz : sh0 === 'asc_s' ? lz : 0);
