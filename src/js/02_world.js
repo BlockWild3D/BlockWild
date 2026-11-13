@@ -299,7 +299,7 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
 
 // ---- Chunk ----
 class Chunk {
-  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
+  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint16Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
   calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
   isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return FKIND[this.d[(l[1] * 16 + lz) * 16 + lx]] === 2; }
   scanMeta() {

@@ -69,7 +69,7 @@ function makeModApi(mod) {
     // ---- content ----
     addBlock(key, o = {}) {
       key = ns(key); if (B[key.toUpperCase()] !== undefined) throw new Error('Block "' + key + '" already exists');
-      if (BL.length >= 256) throw new Error('No block ids left (max 255)');
+      if (BL.length >= ITEM_BASE) throw new Error('No block ids left (max ' + (ITEM_BASE - 1) + ')');
       const shape = o.shape || 'cube';
       const def = { tex: tex6(o, key), hardness: o.hardness != null ? o.hardness : 1.5, tool: o.tool === 'pickaxe' || o.tool === 'pick' ? 'pick' : null, tier: o.tier || (o.tool ? 1 : 0), light: o.light || 0, snd: o.sound || 'stone', drop: o.drop === undefined ? key : o.drop, mod: mod.name };
       if (shape === 'cross') Object.assign(def, { solid: false, opaque: false, render: 'cross', plant: true, hardness: o.hardness || 0, snd: o.sound || 'grass' });

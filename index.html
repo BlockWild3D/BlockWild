@@ -377,6 +377,8 @@ const CONFIG = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }],
 };
 
+// Block ids run 0..ITEM_BASE-1 (chunks store them as 16-bit); item ids start at ITEM_BASE
+const ITEM_BASE = 2048;
 'use strict';
 // ================= CORE: utils, noise, textures, blocks, items =================
 // Minecraft heights: the Overworld runs from y -64 to 319 (384 blocks). Inside the game the block arrays start at 0, so an
@@ -568,6 +570,8 @@ makeTile('brewing_base', (set, r) => each((x, y) => set(x, y, vary([110, 110, 11
 makeTile('brewing_rod', (set, r) => each((x, y) => set(x, y, vary([200, 170, 60], r, 10))));
 makeTile('nether_wart0', (set, r) => { clear(set); for (const x0 of [3, 8, 12]) for (let y = 11; y < 16; y++) { set(x0, y, vary([120, 30, 30], r, 10)); if (y > 12) set(x0 + 1, y, vary([140, 36, 36], r, 10)); } });
 makeTile('nether_wart1', (set, r) => { clear(set); for (const [x0, h] of [[2, 9], [7, 6], [11, 8]]) { for (let y = h; y < 16; y++) { set(x0, y, vary([110, 24, 28], r, 8)); set(x0 + 1, y, vary([130, 30, 32], r, 8)); } for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 3; dx++) if (dx * dx + dy * dy < 6) set(x0 + dx, h + dy, vary([170, 40, 44], r, 10)); } });
+makeTile('shulker_side', (set, r) => each((x, y) => { let c = vary([148, 98, 148], r, 6); if (y === 7 || y === 8) c = [100, 64, 104]; if (x === 0 || x === 15 || y === 0 || y === 15) c = mixc(c, [0, 0, 0], 0.2); set(x, y, c); }));
+makeTile('shulker_top', (set, r) => each((x, y) => { let c = vary([156, 104, 156], r, 6); const e = x < 2 || x > 13 || y < 2 || y > 13; if (e) c = [120, 78, 124]; if (x >= 6 && x <= 9 && y >= 6 && y <= 9) c = [110, 70, 114]; set(x, y, c); }));
 makeTile('chorus_plant', (set, r) => each((x, y) => { const q = r(); set(x, y, q < 0.15 ? vary([70, 44, 74], r, 6) : q < 0.3 ? vary([138, 104, 140], r, 6) : vary([98, 66, 104], r, 8)); }));
 makeTile('chorus_flower', (set, r) => each((x, y) => { const e = x < 2 || x > 13 || y < 2 || y > 13; set(x, y, e ? vary([120, 88, 126], r, 6) : vary([196, 168, 204], r, 10)); if (!e && (x + y) % 5 === 0) set(x, y, [226, 206, 232]); }));
 makeTile('end_stone_bricks', (set, r) => each((x, y) => { const row = Math.floor(y / 8), off = row % 2 ? 4 : 0; const m = y % 8 === 7 || (x + off) % 8 === 7; set(x, y, m ? vary([196, 196, 150], r, 4) : vary([226, 226, 172], r, 6)); }));
@@ -773,6 +777,7 @@ defBlock('stonecutter', 'Stonecutter', { tex: { s: 'stonecutter_side', t: 'stone
 defBlock('brewing_stand', 'Brewing Stand', { tex: 'brewing_base', render: 'boxes', boxes: [[1, 0, 1, 7, 2, 7], [9, 0, 1, 15, 2, 7], [5, 0, 9, 11, 2, 15], [7, 0, 7, 9, 14, 9, TILE.brewing_rod]], solid: false, opaque: false, hardness: 0.5, tool: 'pick', light: 0.1, use: 'brew', job: 'cleric' });
 defBlock('nether_wart_0', 'Nether Wart', { tex: 'nether_wart0', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: 'nether_wart', hidden: true, wart: 0 });
 defBlock('nether_wart_1', 'Nether Wart', { tex: 'nether_wart1', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: (q) => ['nether_wart', 2 + Math.floor(q * 3)], hidden: true, wart: 1 });
+defBlock('shulker_box', 'Shulker Box', { tex: { s: 'shulker_side', t: 'shulker_top', b: 'shulker_top' }, hardness: 2, tool: 'pick', drop: null, use: 'chest', shulker: true });
 defBlock('chorus_plant', 'Chorus Plant', { tex: 'chorus_plant', render: 'boxes', boxes: [[3, 0, 3, 13, 16, 13]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', drop: (q) => q < 0.5 ? 'chorus_fruit' : null, chorus: true });
 defBlock('chorus_flower', 'Chorus Flower', { tex: 'chorus_flower', render: 'boxes', boxes: [[1, 0, 1, 15, 14, 15]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', chorus: true });
 defBlock('end_gateway', 'End Gateway', { tex: 'end_portal', solid: false, opaque: false, render: 'cutout', hardness: -1, drop: null, light: 1, noTarget: true });
@@ -882,10 +887,10 @@ defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
-const SOLID = new Uint8Array(256), OPAQUE = new Uint8Array(256), PLANT = new Uint8Array(256), LIGHT = new Float32Array(256);
+const SOLID = new Uint8Array(ITEM_BASE), OPAQUE = new Uint8Array(ITEM_BASE), PLANT = new Uint8Array(ITEM_BASE), LIGHT = new Float32Array(ITEM_BASE);
 for (const d of BL) { SOLID[d.id] = d.solid ? 1 : 0; OPAQUE[d.id] = d.opaque ? 1 : 0; PLANT[d.id] = d.plant ? 1 : 0; LIGHT[d.id] = d.light; }
 // liquids: FKIND 1 = water, 2 = lava; FLEVEL 0 = source, 1-7 = flowing (distance), 8 = falling; FH = surface height
-const FKIND = new Uint8Array(256), FLEVEL = new Uint8Array(256), FH = new Float32Array(256); const FLID = { 1: [B.WATER], 2: [B.LAVA] };
+const FKIND = new Uint8Array(ITEM_BASE), FLEVEL = new Uint8Array(ITEM_BASE), FH = new Float32Array(ITEM_BASE); const FLID = { 1: [B.WATER], 2: [B.LAVA] };
 FKIND[B.WATER] = 1; FKIND[B.LAVA] = 2; FH[B.WATER] = FH[B.LAVA] = 0.875;
 for (let L = 1; L <= 8; L++) for (const [k, n] of [[1, 'WATER_'], [2, 'LAVA_']]) { const id = B[n + L]; FLID[k][L] = id; FKIND[id] = k; FLEVEL[id] = L; FH[id] = L === 8 ? 0.875 : 0.875 * (8 - L) / 8 + 0.02; }
 const isWaterId = (id) => FKIND[id] === 1, isLavaId = (id) => FKIND[id] === 2;
@@ -894,9 +899,9 @@ const isWaterId = (id) => FKIND[id] === 1, isLavaId = (id) => FKIND[id] === 2;
 const ITEMS = []; const IT = {};
 function defItem(id, key, name, o) { ITEMS[id] = Object.assign({ id, key, name, stack: 64, kind: 'mat' }, o); IT[key] = id; }
 for (const d of BL) if (d.id !== 0) defItem(d.id, d.key, d.name, { kind: 'block', block: d.id });
-// non-block items start at 256 so blocks (including modded ones) can use every id up to 255.
+// non-block items start at ITEM_BASE (2048) so blocks (including modded ones) can use every id below it.
 // Old saves numbered these items from 100 in this same order; LEGACY_ITEMS lets the loader convert them.
-let nid = 256; const LEGACY_ITEMS = [];
+let nid = ITEM_BASE; const LEGACY_ITEMS = [];
 const M = (key, name, o) => { LEGACY_ITEMS.push(key); defItem(nid++, key, name, o || {}); };
 M('stick', 'Stick'); M('coal', 'Coal'); M('iron_ingot', 'Iron Ingot'); M('gold_ingot', 'Gold Ingot'); M('diamond', 'Diamond');
 M('string', 'String'); M('bone', 'Bone'); M('arrow', 'Arrow'); M('gunpowder', 'Gunpowder'); M('feather', 'Feather'); M('leather', 'Leather');
@@ -1243,7 +1248,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('snow_block', 1, ['SS', 'SS'], { S: 'snowball' }), RSL('iron_nugget', 9, ['iron_ingot']), RSH('iron_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'iron_nugget' }), RSH('iron_bars', 16, ['III', 'III'], { I: 'iron_ingot' }), RSL('dark_oak_planks', 4, ['dark_oak_log']), RSL('mossy_stone_bricks', 1, ['stone_bricks', 'vine']), RSH('fishing_rod', 1, ['  S', ' St', 'S t'], { S: 'stick', t: 'string' }), RSH('end_crystal', 1, ['GGG', 'GEG', 'GTG'], { G: 'glass', E: 'eye_of_ender', T: 'ghast_tear' }), RSL('fermented_spider_eye', 1, ['spider_eye', 'sugar']), RSH('tipped_arrow', 8, ['AAA', 'ALA', 'AAA'], { A: 'arrow', L: 'lingering_potion' }), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('snow_block', 1, ['SS', 'SS'], { S: 'snowball' }), RSL('iron_nugget', 9, ['iron_ingot']), RSH('iron_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'iron_nugget' }), RSH('shulker_box', 1, ['S', 'C', 'S'], { S: 'shulker_shell', C: 'chest' }), RSH('iron_bars', 16, ['III', 'III'], { I: 'iron_ingot' }), RSL('dark_oak_planks', 4, ['dark_oak_log']), RSL('mossy_stone_bricks', 1, ['stone_bricks', 'vine']), RSH('fishing_rod', 1, ['  S', ' St', 'S t'], { S: 'stick', t: 'string' }), RSH('end_crystal', 1, ['GGG', 'GEG', 'GTG'], { G: 'glass', E: 'eye_of_ender', T: 'ghast_tear' }), RSL('fermented_spider_eye', 1, ['spider_eye', 'sugar']), RSH('tipped_arrow', 8, ['AAA', 'ALA', 'AAA'], { A: 'arrow', L: 'lingering_potion' }), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
   RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
   RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
   RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
@@ -1390,7 +1395,7 @@ function makeModApi(mod) {
     // ---- content ----
     addBlock(key, o = {}) {
       key = ns(key); if (B[key.toUpperCase()] !== undefined) throw new Error('Block "' + key + '" already exists');
-      if (BL.length >= 256) throw new Error('No block ids left (max 255)');
+      if (BL.length >= ITEM_BASE) throw new Error('No block ids left (max ' + (ITEM_BASE - 1) + ')');
       const shape = o.shape || 'cube';
       const def = { tex: tex6(o, key), hardness: o.hardness != null ? o.hardness : 1.5, tool: o.tool === 'pickaxe' || o.tool === 'pick' ? 'pick' : null, tier: o.tier || (o.tool ? 1 : 0), light: o.light || 0, snd: o.sound || 'stone', drop: o.drop === undefined ? key : o.drop, mod: mod.name };
       if (shape === 'cross') Object.assign(def, { solid: false, opaque: false, render: 'cross', plant: true, hardness: o.hardness || 0, snd: o.sound || 'grass' });
@@ -1899,7 +1904,7 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
 
 // ---- Chunk ----
 class Chunk {
-  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
+  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint16Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
   calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
   isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return FKIND[this.d[(l[1] * 16 + lz) * 16 + lx]] === 2; }
   scanMeta() {
@@ -2979,7 +2984,7 @@ const itemTexCache = [];
 function itemTex(id) { if (!itemTexCache[id]) { const t = new THREE.CanvasTexture(ICON_CANVAS[id]); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; itemTexCache[id] = t; } return itemTexCache[id]; }
 const itemBlockMat = new THREE.MeshLambertMaterial({ map: atlasTex, alphaTest: 0.5 });
 const spriteMats = [];
-function isCubeItem(id) { return id < 256 && BL[id] && (BL[id].render === 'cube' || BL[id].render === 'cutout' || BL[id].render === 'water'); }
+function isCubeItem(id) { return id < ITEM_BASE && BL[id] && (BL[id].render === 'cube' || BL[id].render === 'cutout' || BL[id].render === 'water'); }
 function itemMesh(id) {
   if (isCubeItem(id)) { const m = new THREE.Mesh(blockGeo(id), itemBlockMat); m.scale.setScalar(0.26); return m; }
   if (!spriteMats[id]) spriteMats[id] = new THREE.SpriteMaterial({ map: itemTex(id), alphaTest: 0.3 });
@@ -3518,7 +3523,7 @@ function blastRes(id) { const d = BL[id]; if (!d) return 0; if (BLAST_PROOF.has(
   if (d.leaves || /leaves/.test(k)) return 0.2; if (/glass|glowstone|sea_lantern/.test(k)) return 0.3; if (/^(dirt|grass|sand|farmland|dirt_path|snow|soul_sand|clay)|gravel|cactus|hay|sponge|netherrack|crimson_nylium|warped_nylium/.test(k)) return k === 'netherrack' ? 0.4 : 0.6;
   if (/wool|ladder|torch|rail|vine|cobweb|carpet|bed/.test(k)) return 0.8; if (/end_stone/.test(k)) return 9; if (/ore/.test(k)) return 3; if (d.tool === 'axe' || d.snd === 'wood') return 3; if (d.tool === 'pick') return 6; return Math.max(0.5, (d.hardness || 1)); }
 function explode(cx, cy, cz, r, src, opts = {}) {
-  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < 256; i++) if (FKIND[i]) BLAST_PROOF.add(i);
+  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < BL.length; i++) if (FKIND[i]) BLAST_PROOF.add(i);
   const w = G.world; const R = Math.ceil(r);
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
   // Minecraft's explosion: 16x16x16 rays from the centre, each starting at power x (0.7..1.3) and losing
@@ -4388,13 +4393,13 @@ function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
 // saves record which block/item key each id meant, so adding or removing mods (or new game versions) never scrambles a world
-function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= 256) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i }; }
+function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= ITEM_BASE) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i, ib: ITEM_BASE }; }
 function makeRemap(data) {
   const keys = data.keys; const bmap = [], imap = {};
   if (keys) { keys.b.forEach((k, id) => { const n = B[String(k).toUpperCase()]; bmap[id] = n === undefined ? 0 : n; }); for (const id in keys.i) { const n = IT[keys.i[id]]; if (n !== undefined) imap[id] = n; } }
   else { for (let id = 0; id < 100; id++) bmap[id] = id < BL.length ? id : 0; LEGACY_ITEMS.forEach((k, i) => imap[100 + i] = IT[k]); }
   const block = (id) => bmap[id] !== undefined ? bmap[id] : 0;
-  const item = (id) => id < 256 && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
+  const ib = (keys && keys.ib) || 256; const item = (id) => id < ib && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
   return { block, item };
 }
 let REMAP = { block: (id) => id, item: (id) => id };
@@ -6441,7 +6446,7 @@ const HARD = { grass: 0.6, dirt: 0.5, stone: 1.5, sand: 0.5, log: 2, leaves: 0.2
   crimson_nylium: 0.4, warped_nylium: 0.4, crimson_stem: 2, warped_stem: 2, nether_wart_block: 1, warped_wart_block: 1, shroomlight: 1, end_stone: 3, dragon_egg: 3, quartz_block: 0.8,
   lapis_ore: 3, lapis_block: 3, enchanting_table: 5, deepslate: 3, cobbled_deepslate: 3.5, tuff: 1.5, granite: 1.5, diorite: 1.5, andesite: 1.5, copper_ore: 3, redstone_ore: 3, emerald_ore: 3,
   deepslate_coal_ore: 4.5, deepslate_iron_ore: 4.5, deepslate_gold_ore: 4.5, deepslate_diamond_ore: 4.5, deepslate_lapis_ore: 4.5, deepslate_copper_ore: 4.5, deepslate_redstone_ore: 4.5, deepslate_emerald_ore: 4.5, copper_block: 3,
-  ancient_debris: 30, netherite_block: 50, jungle_log: 2, dark_oak_log: 2, acacia_log: 2, jungle_leaves: 0.2, dark_oak_leaves: 0.2, acacia_leaves: 0.2, vine: 0.2, ladder: 0.4, mossy_stone_bricks: 1.5, cracked_stone_bricks: 1.5, iron_bars: 5, dark_oak_planks: 2, composter: 0.6, smoker: 3.5, blast_furnace: 3.5, cartography_table: 2.5, fletching_table: 2.5, loom: 2.5, barrel: 2.5, lectern: 2.5, grindstone: 2, stonecutter: 3.5, brewing_stand: 0.5, chorus_plant: 0.4, chorus_flower: 0.4, ladder_s: 0.4, ladder_w: 0.4, ladder_e: 0.4, cobweb: 4, ice: 0.5, packed_ice: 0.5, cauldron: 2, oak_fence: 2, lily_pad: 0, iron_block: 5, gold_block: 3, diamond_block: 5, emerald_block: 5, coal_block: 5, redstone_block: 5, anvil: 5, anvil_x: 5, chipped_anvil: 5, chipped_anvil_x: 5, damaged_anvil: 5, damaged_anvil_x: 5, smithing_table: 2.5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
+  ancient_debris: 30, netherite_block: 50, jungle_log: 2, dark_oak_log: 2, acacia_log: 2, jungle_leaves: 0.2, dark_oak_leaves: 0.2, acacia_leaves: 0.2, vine: 0.2, ladder: 0.4, shulker_box: 2, mossy_stone_bricks: 1.5, cracked_stone_bricks: 1.5, iron_bars: 5, dark_oak_planks: 2, composter: 0.6, smoker: 3.5, blast_furnace: 3.5, cartography_table: 2.5, fletching_table: 2.5, loom: 2.5, barrel: 2.5, lectern: 2.5, grindstone: 2, stonecutter: 3.5, brewing_stand: 0.5, chorus_plant: 0.4, chorus_flower: 0.4, ladder_s: 0.4, ladder_w: 0.4, ladder_e: 0.4, cobweb: 4, ice: 0.5, packed_ice: 0.5, cauldron: 2, oak_fence: 2, lily_pad: 0, iron_block: 5, gold_block: 3, diamond_block: 5, emerald_block: 5, coal_block: 5, redstone_block: 5, anvil: 5, anvil_x: 5, chipped_anvil: 5, chipped_anvil_x: 5, damaged_anvil: 5, damaged_anvil_x: 5, smithing_table: 2.5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
 const MINE_WITH = {
   pick: ['mossy_stone_bricks', 'cracked_stone_bricks', 'iron_bars', 'smoker', 'blast_furnace', 'grindstone', 'stonecutter', 'brewing_stand', 'iron_block', 'gold_block', 'diamond_block', 'emerald_block', 'coal_block', 'redstone_block', 'anvil', 'anvil_x', 'chipped_anvil', 'chipped_anvil_x', 'damaged_anvil', 'damaged_anvil_x', 'stone', 'cobblestone', 'brick', 'coal_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'mossy_cobblestone', 'sandstone', 'furnace', 'spawner', 'stone_bricks', 'obsidian', 'netherrack', 'quartz_ore', 'nether_gold_ore', 'nether_bricks', 'magma_block', 'crimson_nylium', 'warped_nylium', 'end_stone', 'quartz_block', 'lapis_ore', 'lapis_block', 'enchanting_table', 'deepslate', 'cobbled_deepslate', 'tuff', 'granite', 'diorite', 'andesite', 'copper_ore', 'redstone_ore', 'emerald_ore', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_gold_ore', 'deepslate_diamond_ore', 'deepslate_lapis_ore', 'deepslate_copper_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'copper_block', 'ancient_debris', 'netherite_block'],
   axe: ['dark_oak_planks', 'composter', 'cartography_table', 'fletching_table', 'loom', 'barrel', 'lectern', 'chorus_plant', 'chorus_flower', 'ladder', 'ladder_s', 'ladder_w', 'ladder_e', 'jungle_log', 'dark_oak_log', 'acacia_log', 'oak_fence', 'log', 'planks', 'crafting_table', 'chest', 'bookshelf', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem', 'bed_head', 'bed_foot', 'smithing_table'],
@@ -6959,6 +6964,10 @@ function updateEating(dt) {
 { const btn = $('btnRespawn'); btn.addEventListener('click', () => { player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0; renderFood(); }); }
 // save and load
 { const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); const p = data && data.player; player.food = p && p.food != null ? p.food : 20; player.sat = p && p.sat != null ? p.sat : 5; player.exh = p && p.exh || 0; player.absorb = p && p.absorb || 0; foodShown = -1; renderFood(); return r; }; }
+// saturation is shown as a golden glow on the hunger shanks it covers (the hidden buffer that is used up before food)
+{ const _rf = renderFood; let satShown = -1; renderFood = function () { const r = _rf.apply(this, arguments); const s = Math.round(player.sat || 0); if (s === satShown && !(player.food <= 6 && player.sat <= 0)) return r; satShown = s;
+    for (let i = 0; i < 10; i++) { const v = s - i * 2; foodImgs[i].style.filter = v >= 2 ? 'drop-shadow(0 0 1.5px #ffd84a) drop-shadow(0 0 1px #ffb000)' : v === 1 ? 'drop-shadow(0 0 1px #ffd84a)' : ''; } return r; };
+  const _uh = updateHunger; updateHunger = function (dt) { const r = _uh.apply(this, arguments); if (Math.round(player.sat || 0) !== satShown) renderFood(); return r; }; }
 
 // ================= ANIMALS (Minecraft rules) =================
 // Persistence: passive and tamed mobs are kept with their chunk when it unloads and saved with the world, so herds
@@ -11082,6 +11091,22 @@ function vibrate(pos, src) { G.vibes.push({ pos: pos.clone ? pos.clone() : new V
       m.heartPulse = (m.heartPulse || 0) + dt * 3; if (m.heart) m.heart.scale.setScalar(1 + Math.sin(m.heartPulse * 6) * 0.25); m.lostT = 0; return false; }
     if (m.suspects && m.suspects.has('player')) m.anger = Math.max(m.anger || 0, m.suspects.get('player'));
     return prev(m, dt); }; }
+// ---------- shulker boxes ----------
+// 27 slots like a chest, but breaking one drops the box with everything still inside; place it again and the items are
+// there. Shulker boxes can't be put inside shulker boxes. Craft: shulker shell, chest, shulker shell.
+{ const _rm = onBlockRemoved; onBlockRemoved = function (x, y, z, id) {
+    if (id === B.SHULKER_BOX) { const k = x + ',' + y + ',' + z; const inv = world.chestInv.get(k); world.chestInv.delete(k); const has = inv && inv.some(Boolean);
+      dropItem(IT.shulker_box, 1, x + 0.5, y + 0.5, z + 0.5, true, has ? { inv: inv.map(s => s ? Object.assign({}, s) : null) } : null); return; }
+    return _rm(x, y, z, id); }; }
+{ const _pb = placeBlock; placeBlock = function (t, id) { const h = player.held(); const inv = id === B.SHULKER_BOX && h && h.id === IT.shulker_box && h.inv ? h.inv : null; const r = _pb.apply(this, arguments);
+    if (r && inv) world.chestInv.set((t.x + t.nx) + ',' + (t.y + t.ny) + ',' + (t.z + t.nz), inv.map(s => s ? Object.assign({}, s) : null)); return r; }; }
+{ const _x = xtra; xtra = function (s) { const o = _x(s); if (!s || !s.inv) return o; return Object.assign(o || {}, { inv: s.inv }); }; }
+{ const _tt = itemTooltip; itemTooltip = function (s) { const t = _tt(s); if (!s || s.id !== IT.shulker_box || !s.inv) return t; const items = s.inv.filter(Boolean); const lines = items.slice(0, 5).map(q => (q.pot && typeof potionName === 'function' ? potionName(q) : ITEMS[q.id].name) + ' x' + q.count); if (items.length > 5) lines.push('and ' + (items.length - 5) + ' more...'); return t + '\n' + lines.join('\n'); }; }
+{ const _sc = slotClick; slotClick = function (cont, i, button, shift) {
+    const inShulker = S.chestKey && (() => { const p = String(S.chestKey).split(',').map(Number); return p.length === 3 && world.get(p[0], p[1], p[2]) === B.SHULKER_BOX; })();
+    if (inShulker) { if (cont === 'chest' && S.cursor && S.cursor.id === IT.shulker_box) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } if (cont === 'inv' && shift && player.inv[i] && player.inv[i].id === IT.shulker_box) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } }
+    return _sc(cont, i, button, shift); }; }
+{ const _ou = openUI; openUI = function (kind, key) { const r = _ou(kind, key); if (kind === 'chest' && $('chestTitle')) { const p = String(key).split(',').map(Number); if (p.length === 3 && world.get(p[0], p[1], p[2]) === B.SHULKER_BOX) { $('chestTitle').textContent = 'Shulker Box'; Sfx.play('vwoop', 0.3, 1.6); } } return r; }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

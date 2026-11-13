@@ -807,13 +807,13 @@ function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
 // saves record which block/item key each id meant, so adding or removing mods (or new game versions) never scrambles a world
-function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= 256) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i }; }
+function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= ITEM_BASE) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i, ib: ITEM_BASE }; }
 function makeRemap(data) {
   const keys = data.keys; const bmap = [], imap = {};
   if (keys) { keys.b.forEach((k, id) => { const n = B[String(k).toUpperCase()]; bmap[id] = n === undefined ? 0 : n; }); for (const id in keys.i) { const n = IT[keys.i[id]]; if (n !== undefined) imap[id] = n; } }
   else { for (let id = 0; id < 100; id++) bmap[id] = id < BL.length ? id : 0; LEGACY_ITEMS.forEach((k, i) => imap[100 + i] = IT[k]); }
   const block = (id) => bmap[id] !== undefined ? bmap[id] : 0;
-  const item = (id) => id < 256 && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
+  const ib = (keys && keys.ib) || 256; const item = (id) => id < ib && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
   return { block, item };
 }
 let REMAP = { block: (id) => id, item: (id) => id };

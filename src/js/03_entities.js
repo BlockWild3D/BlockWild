@@ -153,7 +153,7 @@ const itemTexCache = [];
 function itemTex(id) { if (!itemTexCache[id]) { const t = new THREE.CanvasTexture(ICON_CANVAS[id]); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; itemTexCache[id] = t; } return itemTexCache[id]; }
 const itemBlockMat = new THREE.MeshLambertMaterial({ map: atlasTex, alphaTest: 0.5 });
 const spriteMats = [];
-function isCubeItem(id) { return id < 256 && BL[id] && (BL[id].render === 'cube' || BL[id].render === 'cutout' || BL[id].render === 'water'); }
+function isCubeItem(id) { return id < ITEM_BASE && BL[id] && (BL[id].render === 'cube' || BL[id].render === 'cutout' || BL[id].render === 'water'); }
 function itemMesh(id) {
   if (isCubeItem(id)) { const m = new THREE.Mesh(blockGeo(id), itemBlockMat); m.scale.setScalar(0.26); return m; }
   if (!spriteMats[id]) spriteMats[id] = new THREE.SpriteMaterial({ map: itemTex(id), alphaTest: 0.3 });
@@ -692,7 +692,7 @@ function blastRes(id) { const d = BL[id]; if (!d) return 0; if (BLAST_PROOF.has(
   if (d.leaves || /leaves/.test(k)) return 0.2; if (/glass|glowstone|sea_lantern/.test(k)) return 0.3; if (/^(dirt|grass|sand|farmland|dirt_path|snow|soul_sand|clay)|gravel|cactus|hay|sponge|netherrack|crimson_nylium|warped_nylium/.test(k)) return k === 'netherrack' ? 0.4 : 0.6;
   if (/wool|ladder|torch|rail|vine|cobweb|carpet|bed/.test(k)) return 0.8; if (/end_stone/.test(k)) return 9; if (/ore/.test(k)) return 3; if (d.tool === 'axe' || d.snd === 'wood') return 3; if (d.tool === 'pick') return 6; return Math.max(0.5, (d.hardness || 1)); }
 function explode(cx, cy, cz, r, src, opts = {}) {
-  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < 256; i++) if (FKIND[i]) BLAST_PROOF.add(i);
+  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < BL.length; i++) if (FKIND[i]) BLAST_PROOF.add(i);
   const w = G.world; const R = Math.ceil(r);
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
   // Minecraft's explosion: 16x16x16 rays from the centre, each starting at power x (0.7..1.3) and losing

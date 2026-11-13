@@ -104,3 +104,7 @@ function updateEating(dt) {
 { const btn = $('btnRespawn'); btn.addEventListener('click', () => { player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0; renderFood(); }); }
 // save and load
 { const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); const p = data && data.player; player.food = p && p.food != null ? p.food : 20; player.sat = p && p.sat != null ? p.sat : 5; player.exh = p && p.exh || 0; player.absorb = p && p.absorb || 0; foodShown = -1; renderFood(); return r; }; }
+// saturation is shown as a golden glow on the hunger shanks it covers (the hidden buffer that is used up before food)
+{ const _rf = renderFood; let satShown = -1; renderFood = function () { const r = _rf.apply(this, arguments); const s = Math.round(player.sat || 0); if (s === satShown && !(player.food <= 6 && player.sat <= 0)) return r; satShown = s;
+    for (let i = 0; i < 10; i++) { const v = s - i * 2; foodImgs[i].style.filter = v >= 2 ? 'drop-shadow(0 0 1.5px #ffd84a) drop-shadow(0 0 1px #ffb000)' : v === 1 ? 'drop-shadow(0 0 1px #ffd84a)' : ''; } return r; };
+  const _uh = updateHunger; updateHunger = function (dt) { const r = _uh.apply(this, arguments); if (Math.round(player.sat || 0) !== satShown) renderFood(); return r; }; }
