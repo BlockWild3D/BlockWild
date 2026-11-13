@@ -7,6 +7,10 @@ A voxel sandbox you play in the browser. Explore biomes, build, craft, fight mob
 ## Features
 
 - **Endless worlds** with plains, forests, deserts, snowy tundra, mountains and oceans, plus caves, lava and ores
+- **Multiplayer:** open your world to friends from the pause menu and share the 6-letter code; friends join from Multiplayer on the title screen (peer-to-peer, no server needed)
+- **Profiles:** username, skin editor or 64x64 skin upload, optional Google sign-in (see [ACCOUNTS_SETUP.md](ACCOUNTS_SETUP.md))
+- **Chat and commands:** T to chat, / for Minecraft-style commands (/give, /tp, /time, /gamemode, /summon, /fill, /effect, /enchant, /xp, /locate, /gamerule ...)
+- **Survival:** XP and enchanting, armour, durability, beds, farming, swimming and drowning
 - **Mods:** a Mods button on the title screen to add mods from a file, pasted code or built-in examples (new blocks, items, tools, recipes, ores, world generation, events). See [MODDING.md](MODDING.md)
 - **Structures:** villages, desert pyramids, watchtowers, desert wells, dungeons, ruined portals, strongholds and Nether fortresses, placed with Minecraft's rules (one attempt per region, biome checks, Minecraft spacing and rarity; strongholds in rings starting about 1,400-2,700 blocks out)
 - **Mobs** with pixel-art skins and animations: pigs, cows, sheep, chickens, villagers, zombies, skeletons, spiders, creepers and endermen

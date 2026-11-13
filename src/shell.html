@@ -219,6 +219,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnMultiplayer">Multiplayer</button>
   <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
@@ -251,6 +252,15 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <input type="file" id="skinFile" accept="image/png" style="display:none">
 </div>
 
+<div id="mpScreen" class="screen hidden">
+  <div class="title" style="font-size:clamp(24px,4.5vw,44px)">MULTIPLAYER</div>
+  <div class="modnote">Play with friends: one player opens their world (pause menu, Open to Friends) and shares the 6-letter code.</div>
+  <div class="row"><label>Join code</label><input type="text" id="mpCode" maxlength="8" autocomplete="off" spellcheck="false" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:4px"></div>
+  <button class="mbtn" id="btnMpJoin">Join World</button>
+  <div id="mpStatus" class="pmsg" style="max-width:min(560px,92vw);text-align:center;min-height:48px"></div>
+  <button class="mbtn" id="btnMpBack">Back</button>
+</div>
+
 <div id="mods" class="screen hidden">
   <div class="title">MODS</div>
   <div class="modnote">Mods add blocks, items, recipes, world generation and new rules. A mod runs code inside your game, so only add mods from people you trust.</div>
@@ -280,6 +290,9 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="row"><label>Graphics</label><div class="seg" id="gfxSeg"><button data-m="low">Low</button><button data-m="medium">Medium</button><button data-m="high">High</button></div></div>
   <div class="row"><label>Allow cheats</label><div class="seg" id="cheatSeg"><button data-m="off">Off</button><button data-m="on">On</button></div></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
+  <button class="mbtn" id="btnOpenLan">Open to Friends</button>
+  <div id="lanOpts" class="hidden" style="width:min(400px,86vw);background:rgba(0,0,0,.45);border:2px solid #000;padding:6px"><div class="row" style="width:100%"><label>Friends play in</label><div class="seg" id="mpModeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div><button class="sbtn" id="btnLanStart" style="width:100%">Start (get a join code)</button></div>
+  <div id="mpPanel" style="font-size:20px;text-align:center;max-width:min(400px,86vw)"></div>
   <button class="mbtn" id="btnSave">Save World</button>
   <button class="mbtn" id="btnQuit">Save &amp; Quit to Title</button>
 </div>

@@ -531,7 +531,7 @@ function pickWeighted(tab) { let tot = 0; for (const k in tab) tot += tab[k]; le
 function freeAt(x, y, z, h = 2) { for (let k = 0; k < h; k++) if (world.get(x, y + k, z)) return false; return true; }
 const spawnerT = new Map();
 function updateSpawning(dt) {
-  S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1;
+  S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1; if (MP.proxyMode) return;
   const P = player; const hostiles = G.mobs.filter(m => m.t.kind !== 'passive' && !m.isBoss);
   if (!S.rules.doMobSpawning) return;
   if (S.mode === 'survival' || world.dim !== 'overworld') {
@@ -759,7 +759,7 @@ function refreshMenu() { $('btnContinue').disabled = !hasSave(); $('btnContinue'
 refreshMenu();
 $('btnNew').addEventListener('click', () => { Sfx.init(); let s = $('seedInput').value.trim(); let seed; if (!s) seed = (Math.random() * 2147483647) | 0; else if (/^-?\d+$/.test(s)) seed = parseInt(s) | 0; else { seed = 0; for (const ch of s) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0; } startWorld({ seed, mode: pendingMode }); });
 $('btnContinue').addEventListener('click', () => { Sfx.init(); let data = null; try { data = JSON.parse(localStorage.getItem('blockwild_save')); } catch (e) { } if (!data) { toast('Save could not be read'); return; } startWorld(data); });
-function openPause() { if (!S.started || S.paused) return; S.paused = true; mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
+function openPause() { if (!S.started || S.paused) return; S.paused = true; if (typeof renderMpPanel === 'function') renderMpPanel(); mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
 function closePause() { S.paused = false; show('pause', false); saveSettings(); requestLock(); }
 $('btnResume').addEventListener('click', closePause);
 $('rdRange').addEventListener('input', (e) => { S.renderDist = +e.target.value; $('rdVal').textContent = S.renderDist; if (world) world.lastCenter = null; });
@@ -791,10 +791,11 @@ let REMAP = { block: (id) => id, item: (id) => id };
 function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k].map(([i, id]) => [i, REMAP.block(id)]))); const fix = (s) => { if (!s) return null; const id = REMAP.item(s.id); return id && ITEMS[id] ? Object.assign({ id, count: s.count }, xtra(s)) : null; }; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
 function saveGame(notify) {
   if (!world || S.loading) return;
+  if (MP.role === 'client') { MP.sendState(); if (notify) toast('Your progress is saved by the host', 2); return; }
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, mpPlayers: MP.saved, worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -803,6 +804,7 @@ function clearEntities() {
   G.mobs = []; G.items = []; G.projectiles = []; G.tnts = []; G.clouds = []; G.eyes = []; fluidQueue.length = 0; show('bossbar', false);
 }
 function quitToTitle() {
+  if (typeof MP !== 'undefined' && MP.active) mpShutdown();
   S.started = false; S.paused = false; show('pause', false); show('hud', false); show('crosshair', false); show('info', false); show('touch', false); show('death', false); show('inv', false); show('water', false); show('lavafx', false); $('portalfx').style.opacity = 0;
   clearEntities();
   if (world) for (const c of [...world.chunks.values()]) world.unload(c); world = null; G.world = null; Dim.worlds = {};
@@ -816,7 +818,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
-  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
+  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
@@ -869,22 +871,23 @@ function tick(dt) {
     const p = world.meshedAround(P.pos.x, P.pos.z, Math.min(2, S.renderDist)); $('loadBar').style.width = Math.round(p * 100) + '%';
     if (p >= 1) finishLoading();
   }
-  const running = !S.loading && !S.paused;
+  const running = !S.loading && (!S.paused || (typeof MP !== 'undefined' && MP.active)); // multiplayer worlds keep running behind the pause menu
   if (running) {
     if (S.rules.doDaylightCycle) { S.time += dt / DAYLEN; if (S.time >= 1) { S.time -= 1; S.day++; } }
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
-    updatePlayer(dt); if (world) updateInteraction(dt);
+    if (!S.paused) { updatePlayer(dt); if (world) updateInteraction(dt); }
     if (MODS.hooks.tick) modFire('tick', dt);
     updateEffects(dt); updateOrbs(dt); randomTicks(dt); updateSleep(dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;
-    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) m.update(dt); }
+    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
     updateProjectiles(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
     S.saveT += dt; if (S.saveT > 30) { S.saveT = 0; saveGame(false); }
   }
+  if (typeof mpTick === 'function') mpTick(dt);
   Particles.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
   { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;

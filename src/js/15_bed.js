@@ -24,6 +24,7 @@ function useBed(x, y, z) {
 function updateSleep(dt) {
   const sl = S.sleeping; if (!sl) return; sl.t += dt; player.vel.set(0, 0, 0); player.pitch = Math.max(player.pitch, 0.4);
   $('sleepfx').style.opacity = Math.min(1, sl.t / 2.2);
+  if (sl.t >= 2.6 && MP.active && (MP.role === 'client' || [...MP.peers.values()].some(p => p.joined && !p.sleeping))) { if (!sl.waitMsg) { sl.waitMsg = true; toast('Waiting for the other players to sleep...', 3); } $('sleepfx').style.opacity = 0.85; return; }
   if (sl.t >= 2.6) { S.sleeping = null; S.time = 0.0; S.day++; $('sleepfx').style.opacity = 0; show('sleepfx', false); player.pos.y += 0.5; toast('Good morning!', 2); if (typeof MP !== 'undefined' && MP.timeChanged) MP.timeChanged(); }
 }
 function bedSpawnPos() {

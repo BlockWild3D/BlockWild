@@ -219,6 +219,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnMultiplayer">Multiplayer</button>
   <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
@@ -251,6 +252,15 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <input type="file" id="skinFile" accept="image/png" style="display:none">
 </div>
 
+<div id="mpScreen" class="screen hidden">
+  <div class="title" style="font-size:clamp(24px,4.5vw,44px)">MULTIPLAYER</div>
+  <div class="modnote">Play with friends: one player opens their world (pause menu, Open to Friends) and shares the 6-letter code.</div>
+  <div class="row"><label>Join code</label><input type="text" id="mpCode" maxlength="8" autocomplete="off" spellcheck="false" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:4px"></div>
+  <button class="mbtn" id="btnMpJoin">Join World</button>
+  <div id="mpStatus" class="pmsg" style="max-width:min(560px,92vw);text-align:center;min-height:48px"></div>
+  <button class="mbtn" id="btnMpBack">Back</button>
+</div>
+
 <div id="mods" class="screen hidden">
   <div class="title">MODS</div>
   <div class="modnote">Mods add blocks, items, recipes, world generation and new rules. A mod runs code inside your game, so only add mods from people you trust.</div>
@@ -280,6 +290,9 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="row"><label>Graphics</label><div class="seg" id="gfxSeg"><button data-m="low">Low</button><button data-m="medium">Medium</button><button data-m="high">High</button></div></div>
   <div class="row"><label>Allow cheats</label><div class="seg" id="cheatSeg"><button data-m="off">Off</button><button data-m="on">On</button></div></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
+  <button class="mbtn" id="btnOpenLan">Open to Friends</button>
+  <div id="lanOpts" class="hidden" style="width:min(400px,86vw);background:rgba(0,0,0,.45);border:2px solid #000;padding:6px"><div class="row" style="width:100%"><label>Friends play in</label><div class="seg" id="mpModeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div><button class="sbtn" id="btnLanStart" style="width:100%">Start (get a join code)</button></div>
+  <div id="mpPanel" style="font-size:20px;text-align:center;max-width:min(400px,86vw)"></div>
   <button class="mbtn" id="btnSave">Save World</button>
   <button class="mbtn" id="btnQuit">Save &amp; Quit to Title</button>
 </div>
@@ -3444,7 +3457,7 @@ function pickWeighted(tab) { let tot = 0; for (const k in tab) tot += tab[k]; le
 function freeAt(x, y, z, h = 2) { for (let k = 0; k < h; k++) if (world.get(x, y + k, z)) return false; return true; }
 const spawnerT = new Map();
 function updateSpawning(dt) {
-  S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1;
+  S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1; if (MP.proxyMode) return;
   const P = player; const hostiles = G.mobs.filter(m => m.t.kind !== 'passive' && !m.isBoss);
   if (!S.rules.doMobSpawning) return;
   if (S.mode === 'survival' || world.dim !== 'overworld') {
@@ -3672,7 +3685,7 @@ function refreshMenu() { $('btnContinue').disabled = !hasSave(); $('btnContinue'
 refreshMenu();
 $('btnNew').addEventListener('click', () => { Sfx.init(); let s = $('seedInput').value.trim(); let seed; if (!s) seed = (Math.random() * 2147483647) | 0; else if (/^-?\d+$/.test(s)) seed = parseInt(s) | 0; else { seed = 0; for (const ch of s) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0; } startWorld({ seed, mode: pendingMode }); });
 $('btnContinue').addEventListener('click', () => { Sfx.init(); let data = null; try { data = JSON.parse(localStorage.getItem('blockwild_save')); } catch (e) { } if (!data) { toast('Save could not be read'); return; } startWorld(data); });
-function openPause() { if (!S.started || S.paused) return; S.paused = true; mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
+function openPause() { if (!S.started || S.paused) return; S.paused = true; if (typeof renderMpPanel === 'function') renderMpPanel(); mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
 function closePause() { S.paused = false; show('pause', false); saveSettings(); requestLock(); }
 $('btnResume').addEventListener('click', closePause);
 $('rdRange').addEventListener('input', (e) => { S.renderDist = +e.target.value; $('rdVal').textContent = S.renderDist; if (world) world.lastCenter = null; });
@@ -3704,10 +3717,11 @@ let REMAP = { block: (id) => id, item: (id) => id };
 function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k].map(([i, id]) => [i, REMAP.block(id)]))); const fix = (s) => { if (!s) return null; const id = REMAP.item(s.id); return id && ITEMS[id] ? Object.assign({ id, count: s.count }, xtra(s)) : null; }; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
 function saveGame(notify) {
   if (!world || S.loading) return;
+  if (MP.role === 'client') { MP.sendState(); if (notify) toast('Your progress is saved by the host', 2); return; }
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, mpPlayers: MP.saved, worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -3716,6 +3730,7 @@ function clearEntities() {
   G.mobs = []; G.items = []; G.projectiles = []; G.tnts = []; G.clouds = []; G.eyes = []; fluidQueue.length = 0; show('bossbar', false);
 }
 function quitToTitle() {
+  if (typeof MP !== 'undefined' && MP.active) mpShutdown();
   S.started = false; S.paused = false; show('pause', false); show('hud', false); show('crosshair', false); show('info', false); show('touch', false); show('death', false); show('inv', false); show('water', false); show('lavafx', false); $('portalfx').style.opacity = 0;
   clearEntities();
   if (world) for (const c of [...world.chunks.values()]) world.unload(c); world = null; G.world = null; Dim.worlds = {};
@@ -3729,7 +3744,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
-  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
+  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
@@ -3782,22 +3797,23 @@ function tick(dt) {
     const p = world.meshedAround(P.pos.x, P.pos.z, Math.min(2, S.renderDist)); $('loadBar').style.width = Math.round(p * 100) + '%';
     if (p >= 1) finishLoading();
   }
-  const running = !S.loading && !S.paused;
+  const running = !S.loading && (!S.paused || (typeof MP !== 'undefined' && MP.active)); // multiplayer worlds keep running behind the pause menu
   if (running) {
     if (S.rules.doDaylightCycle) { S.time += dt / DAYLEN; if (S.time >= 1) { S.time -= 1; S.day++; } }
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
-    updatePlayer(dt); if (world) updateInteraction(dt);
+    if (!S.paused) { updatePlayer(dt); if (world) updateInteraction(dt); }
     if (MODS.hooks.tick) modFire('tick', dt);
     updateEffects(dt); updateOrbs(dt); randomTicks(dt); updateSleep(dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;
-    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) m.update(dt); }
+    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
     updateProjectiles(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
     S.saveT += dt; if (S.saveT > 30) { S.saveT = 0; saveGame(false); }
   }
+  if (typeof mpTick === 'function') mpTick(dt);
   Particles.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
   { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;
@@ -5273,6 +5289,7 @@ function useBed(x, y, z) {
 function updateSleep(dt) {
   const sl = S.sleeping; if (!sl) return; sl.t += dt; player.vel.set(0, 0, 0); player.pitch = Math.max(player.pitch, 0.4);
   $('sleepfx').style.opacity = Math.min(1, sl.t / 2.2);
+  if (sl.t >= 2.6 && MP.active && (MP.role === 'client' || [...MP.peers.values()].some(p => p.joined && !p.sleeping))) { if (!sl.waitMsg) { sl.waitMsg = true; toast('Waiting for the other players to sleep...', 3); } $('sleepfx').style.opacity = 0.85; return; }
   if (sl.t >= 2.6) { S.sleeping = null; S.time = 0.0; S.day++; $('sleepfx').style.opacity = 0; show('sleepfx', false); player.pos.y += 0.5; toast('Good morning!', 2); if (typeof MP !== 'undefined' && MP.timeChanged) MP.timeChanged(); }
 }
 function bedSpawnPos() {
@@ -5281,6 +5298,359 @@ function bedSpawnPos() {
   for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) { if (!w.loaded(x + a, z + b)) return new V3(x + 0.5, y + 0.6, z + 0.5); if (!w.solid(x + a, y, z + b) && !w.solid(x + a, y + 1, z + b)) return new V3(x + a + 0.5, y, z + b + 0.5); }
   return new V3(x + 0.5, y + 0.6, z + 0.5);
 }
+
+// ================= NETWORK: tiny MQTT-over-WebSocket client (matchmaking only) + WebRTC peer links =================
+// Players find each other through free public MQTT brokers (only the connection offer/answer passes through them);
+// after that, all game traffic goes directly between browsers over WebRTC data channels. No game server is needed.
+class Mqtt {
+  constructor(url) { this.url = url; this.ws = null; this.buf = new Uint8Array(0); this.handlers = []; this.pid = 1; this.ok = false; }
+  static enc(s) { return new TextEncoder().encode(s); }
+  static rl(n) { const out = []; do { let b = n % 128; n = Math.floor(n / 128); if (n > 0) b |= 128; out.push(b); } while (n > 0); return out; }
+  static str(s) { const b = Mqtt.enc(s); return [b.length >> 8, b.length & 255, ...b]; }
+  send(type, body) { if (this.ws && this.ws.readyState === 1) this.ws.send(new Uint8Array([type, ...Mqtt.rl(body.length), ...body])); }
+  connect(timeout = 6000) {
+    return new Promise((res, rej) => {
+      let done = false; const fail = (e) => { if (!done) { done = true; rej(e); try { this.ws.close(); } catch (x) { } } };
+      try { this.ws = new WebSocket(this.url, 'mqtt'); } catch (e) { return fail(e); }
+      this.ws.binaryType = 'arraybuffer'; const t = setTimeout(() => fail(new Error('timeout')), timeout);
+      this.ws.onopen = () => { const id = 'bw' + Math.random().toString(36).slice(2, 12); this.send(0x10, [...Mqtt.str('MQTT'), 4, 2, 0, 60, ...Mqtt.str(id)]); };
+      this.ws.onerror = () => fail(new Error('socket error')); this.ws.onclose = () => { this.ok = false; if (!done) fail(new Error('closed')); };
+      this.ws.onmessage = (ev) => {
+        const nb = new Uint8Array(ev.data); const b = new Uint8Array(this.buf.length + nb.length); b.set(this.buf); b.set(nb, this.buf.length); this.buf = b;
+        for (;;) {
+          if (this.buf.length < 2) break; let mul = 1, len = 0, i = 1, byte;
+          do { if (i >= this.buf.length) return; byte = this.buf[i++]; len += (byte & 127) * mul; mul *= 128; } while (byte & 128);
+          if (this.buf.length < i + len) break; const head = this.buf[0], p = this.buf.slice(i, i + len); this.buf = this.buf.slice(i + len);
+          const type = head >> 4;
+          if (type === 2) { if (p[1] === 0) { this.ok = true; done = true; clearTimeout(t); this.ping = setInterval(() => this.send(0xC0, []), 30000); res(this); } else fail(new Error('refused')); }
+          else if (type === 3) { const tl = (p[0] << 8) | p[1]; const topic = new TextDecoder().decode(p.slice(2, 2 + tl)); let off = 2 + tl; if ((head >> 1) & 3) off += 2; const msg = new TextDecoder().decode(p.slice(off)); for (const h of this.handlers) h(topic, msg); }
+        }
+      };
+    });
+  }
+  subscribe(topic) { const id = this.pid++; this.send(0x82, [id >> 8, id & 255, ...Mqtt.str(topic), 0]); }
+  publish(topic, msg) { this.send(0x30, [...Mqtt.str(topic), ...Mqtt.enc(msg)]); }
+  on(fn) { this.handlers.push(fn); }
+  close() { clearInterval(this.ping); try { this.send(0xE0, []); this.ws.close(); } catch (e) { } }
+}
+async function connectBrokers(all) {
+  const tries = CONFIG.mqttBrokers.map(u => new Mqtt(u).connect().then(m => m, () => null));
+  if (all) return (await Promise.all(tries)).filter(Boolean);
+  return (await Promise.all(tries)).filter(Boolean);
+}
+function waitIce(pc, ms = 3500) { return new Promise((res) => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, ms); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); }); }
+const ROOM_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function newRoomCode() { let s = ''; for (let i = 0; i < 6; i++) s += ROOM_CHARS[Math.floor(Math.random() * ROOM_CHARS.length)]; return s; }
+const TOPIC = (code) => 'blockwild/v1/' + code.toUpperCase();
+// a connection to one other player: reliable channel 'r' (world, chat, blocks) and fast channel 'u' (positions, mobs)
+class PeerLink {
+  constructor(pc, onMsg, onClose) { this.pc = pc; this.onMsg = onMsg; this.onClose = onClose; this.parts = {}; this.closed = false; this.ready = new Promise(r => this._ready = r);
+    pc.addEventListener('connectionstatechange', () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) this.close(); }); }
+  attach(ch) { ch.binaryType = 'arraybuffer'; if (ch.label === 'r') { this.rc = ch; ch.onopen = () => this._ready(); if (ch.readyState === 'open') this._ready(); } else this.uc = ch;
+    ch.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'part') { const P = this.parts[m.id] = this.parts[m.id] || []; P[m.i] = m.d; if (P.filter(x => x !== undefined).length === m.n) { delete this.parts[m.id]; try { this.onMsg(JSON.parse(P.join(''))); } catch (x) { console.error(x); } } return; } try { this.onMsg(m); } catch (x) { console.error(x); } };
+    ch.onclose = () => this.close(); }
+  send(m, fast) {
+    const ch = fast && this.uc && this.uc.readyState === 'open' ? this.uc : this.rc; if (!ch || ch.readyState !== 'open') return;
+    const s = JSON.stringify(m);
+    if (s.length < 15000 || ch === this.uc) { if (ch === this.uc && s.length > 60000) return; try { ch.send(s); } catch (e) { } return; }
+    const id = Math.random().toString(36).slice(2, 9), n = Math.ceil(s.length / 15000); for (let i = 0; i < n; i++) try { ch.send(JSON.stringify({ t: 'part', id, i, n, d: s.slice(i * 15000, (i + 1) * 15000) })); } catch (e) { }
+  }
+  close() { if (this.closed) return; this.closed = true; try { this.pc.close(); } catch (e) { } if (this.onClose) this.onClose(); }
+}
+
+// ================= MULTIPLAYER: "Open to Friends" hosting, joining with a code, world + player sync =================
+// The host's browser runs the world (mobs near the host, time, saving). Friends get the world when they join and
+// then everyone streams block changes, positions, chat and chest contents. Mobs are shared while you are near the host;
+// far away (or in another dimension) each player runs the mobs around them.
+const MP = {
+  active: false, role: null, code: null, myId: 'host', peers: new Map(), avatars: new Map(), brokers: [], maxPlayers: 8, joinMode: 'survival',
+  applying: false, outBlocks: [], sendT: 0, mobT: 0, timeT: 0, stateT: 0, mobSeq: 0, saved: {}, proxyMode: false,
+  hostPos: null, hostDim: 'overworld', hostRD: 6,
+};
+function mpStatus(t) { const el = $('mpStatus'); if (el) el.textContent = t; }
+function skinCanvasFrom(sk, cb) { if (sk && sk.png) { const img = new Image(); img.onload = () => cb(normalizeSkin(img)); img.onerror = () => cb(makeSkinCanvas(SKIN_PRESETS.Explorer)); img.src = sk.png; } else cb(makeSkinCanvas((sk && sk.cfg) || SKIN_PRESETS.Explorer)); }
+function mySkinData() { return PROFILE.png ? { png: PROFILE.png } : { cfg: PROFILE.skin }; }
+const slotOut = (s) => s ? [ITEMS[s.id].key, s.count, xtra(s)] : null;
+const slotIn = (a) => { if (!a || IT[a[0]] === undefined) return null; return Object.assign({ id: IT[a[0]], count: a[1] }, a[2] || {}); };
+
+// ---------- avatars (other players) ----------
+function addAvatar(id, name, skin) {
+  removeAvatar(id); const av = { id, name, pos: new V3(0, -100, 0), tgt: new V3(0, -100, 0), yaw: 0, pitch: 0, dim: 'overworld', held: 0, sneak: false, swing: 0, armor: {}, model: null, hurtT: 0, sleeping: false, seen: performance.now() };
+  MP.avatars.set(id, av);
+  skinCanvasFrom(skin, (cv) => { if (!MP.avatars.has(id)) return; av.model = makePlayerModel(cv, name); addArmorSlots(av.model); scene.add(av.model.root); });
+  return av;
+}
+function removeAvatar(id) { const av = MP.avatars.get(id); if (!av) return; if (av.model) { scene.remove(av.model.root); av.model.dispose(); } MP.avatars.delete(id); }
+MP.remotePlayers = () => [...MP.avatars.values()].filter(a => a.dim === (world && world.dim)).map(a => ({ kind: 'player', name: a.name, pos: a.pos, ref: a, local: false, id: a.id }));
+function updateAvatars(dt) {
+  for (const av of MP.avatars.values()) {
+    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * 12)); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
+    av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
+    if (!av.model) continue; const vis = av.dim === world.dim; av.model.root.visible = vis; if (!vis) continue;
+    av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
+    av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
+    swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
+    if (av.sleeping) { av.model.body.rotation.x = -Math.PI / 2; av.model.body.position.y = 0.25; }
+    const l = Math.max(G.minLight || 0, world.lightAt(av.pos.x, av.pos.y + 1, av.pos.z, G.daylight)); av.model.mat.color.multiplyScalar(clamp(l, 0.1, 1)); av.model.omat.color.copy(av.model.mat.color);
+  }
+}
+
+// ---------- sending ----------
+function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
+function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
+function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
+function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!(keys.ShiftLeft || keys.ShiftRight), swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead }; }
+function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
+MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
+// block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
+const _wset = World.prototype.set;
+World.prototype.set = function (x, y, z, id, record) {
+  const r = _wset.call(this, x, y, z, id, record);
+  if (r !== false && MP.active && !MP.applying && record !== false) MP.outBlocks.push(this.dim, x, y, z, BL[id] ? BL[id].key : 'air');
+  return r;
+};
+MP.blockChanged = () => { };
+function applyBlocks(list, from) {
+  MP.applying = true;
+  try {
+    for (let i = 0; i < list.length; i += 5) {
+      const dim = list[i], x = list[i + 1], y = list[i + 2], z = list[i + 3], key = list[i + 4]; const id = key === 'air' ? 0 : B[String(key).toUpperCase()]; if (id === undefined) continue;
+      const w = Dim.get(dim); const c = w.getChunk(x >> 4, z >> 4);
+      if (c) { const old = w.get(x, y, z); if (old === id) continue; if (w === world && old && !id && player.pos.distanceTo(new V3(x, y, z)) < 32) { Particles.blockBreak(x, y, z, old, 10); Sfx.at(BL[old].snd === 'glass' ? 'glass_break' : BL[old].snd, new V3(x, y, z), 0.7); } if (old) onBlockRemoved(x, y, z, old); w.set(x, y, z, id); }
+      else { const k = ckey(x >> 4, z >> 4); let e = w.edits.get(k); if (!e) { e = new Map(); w.edits.set(k, e); } e.set((y * 16 + (z & 15)) * 16 + (x & 15), id); }
+    }
+  } finally { MP.applying = false; }
+  if (MP.role === 'host') mpSendAll({ t: 'b', l: list }, false, from);
+}
+// chest contents
+const _closeInv = closeInv;
+closeInv = function (noLock) { const k = S.chestKey, arr = chestArr; const r = _closeInv(noLock); if (MP.active && k && arr) mpSend({ t: 'chest', dim: world.dim, k, inv: arr.map(slotOut) }); return r; };
+
+// ---------- message handling ----------
+function onPeerMsg(peer, m) {
+  switch (m.t) {
+    case 'hello': return hostWelcome(peer, m);
+    case 'welcome': return clientWelcome(m);
+    case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; if (m.swing) av.swing = 1; av.seen = performance.now();
+      if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
+      if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
+      return; }
+    case 'b': return applyBlocks(m.l, peer.id);
+    case 'chat': { const t = m.raw || ('<' + m.from + '> ' + m.text); chatPrint(t, m.color); if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
+    case 'chest': { const w = Dim.get(m.dim); w.chestInv.set(m.k, m.inv.map(slotIn)); if (S.chestKey === m.k && chestArr) { chestArr = w.chestInv.get(m.k); renderInvUI(); } if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
+    case 'time': S.time = m.time; S.day = m.day; if (S.sleeping && timeTicks() < 12000) { S.sleeping = null; $('sleepfx').style.opacity = 0; show('sleepfx', false); } return;
+    case 'rules': Object.assign(S.rules, m.rules); S.difficulty = m.difficulty; return;
+    case 'join': addAvatar(m.id, m.name, m.skin); chatPrint(m.name + ' joined the game', '#ff5'); return;
+    case 'leave': { const av = MP.avatars.get(m.id); if (av) chatPrint(av.name + ' left the game', '#ff5'); removeAvatar(m.id); return; }
+    case 'state': if (MP.role === 'host') { MP.saved[m.name] = m; } return;
+    case 'hurt': if (!player.dead) { player.hurtCD = Math.min(player.hurtCD, 0); player.hurt(m.dmg, m.src ? new V3(m.src[0], m.src[1], m.src[2]) : null, m.cause, m.kb == null ? 1 : m.kb); } return;
+    case 'mobs': return clientMobs(m);
+    case 'hit': return hostHit(peer, m);
+    case 'drops': for (const [key, n, x, y, z] of m.items) if (IT[key] !== undefined) dropItem(IT[key], n, x, y, z); if (m.xp) spawnOrb(m.x, m.y, m.z, m.xp); return;
+    case 'fx': if (m.dim === world.dim) { if (m.k === 'boom') { Particles.emit(m.x, m.y, m.z, 60, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5); Sfx.at('boom', new V3(m.x, m.y, m.z), 1.4); G.shake = Math.max(G.shake, 0.5 * Math.max(0, 1 - player.pos.distanceTo(new V3(m.x, m.y, m.z)) / 24)); } } return;
+    case 'cmd': if (m.line) runCommand(m.line, { player, remote: true }); return;
+    case 'whisper': chatPrint(m.from + ' whispers to you: ' + m.text, '#aaa'); return;
+    case 'sleep': peer.sleeping = m.v; return;
+    case 'bye': chatPrint('The host closed the world', '#f66'); toast('The host closed the world', 4); setTimeout(() => { mpShutdown(); quitToTitle(); }, 1500); return;
+    case 'full': mpStatus('That world is full.'); return;
+  }
+}
+
+// ---------- hosting ----------
+async function openToFriends() {
+  if (MP.active) return; mpStatus('Opening your world to friends...');
+  MP.brokers = await connectBrokers(true); if (!MP.brokers.length) { mpStatus('Could not reach any matchmaking server. Check your internet connection and try again.'); return; }
+  MP.active = true; MP.role = 'host'; MP.myId = 'host'; MP.code = newRoomCode(); MP.joinMode = $('mpModeSeg') ? ($('mpModeSeg').querySelector('.on') || {}).dataset?.m || 'survival' : 'survival';
+  for (const b of MP.brokers) { b.subscribe(TOPIC(MP.code) + '/h'); b.on((topic, msg) => hostSignal(b, msg)); }
+  CHAT.onSend = (m) => mpSendAll(Object.assign({ from: myName() }, m));
+  mpStatus('Friends can join with the code ' + MP.code); renderMpPanel();
+  chatPrint('Your world is open to friends. Code: ' + MP.code, '#7ef'); toast('Join code: ' + MP.code, 6);
+}
+async function hostSignal(broker, msg) {
+  let m; try { m = JSON.parse(msg); } catch (e) { return; } if (m.t !== 'offer' || !m.from || MP.peers.has(m.from)) return;
+  const reply = (o) => broker.publish(TOPIC(MP.code) + '/p/' + m.from, JSON.stringify(o));
+  if ([...MP.peers.values()].length + 1 >= MP.maxPlayers) { reply({ t: 'full' }); return; }
+  const pc = new RTCPeerConnection({ iceServers: CONFIG.iceServers }); const peer = { id: m.from, name: m.name || 'Player', joined: false };
+  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => hostPeerGone(peer)); MP.peers.set(peer.id, peer);
+  pc.ondatachannel = (e) => peer.link.attach(e.channel);
+  try { await pc.setRemoteDescription({ type: 'offer', sdp: m.sdp }); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc); reply({ t: 'answer', sdp: pc.localDescription.sdp }); }
+  catch (e) { console.error(e); MP.peers.delete(peer.id); }
+  setTimeout(() => { if (!peer.joined) { peer.link.close(); MP.peers.delete(peer.id); } }, 30000);
+}
+function hostWelcome(peer, m) {
+  let name = String(m.name || 'Player').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16) || 'Player';
+  const taken = new Set([myName(), ...[...MP.avatars.values()].map(a => a.name)]); let n = name, k = 2; while (taken.has(n)) n = name.slice(0, 14) + (k++); name = n;
+  peer.name = name; peer.skin = m.skin; peer.joined = true;
+  saveGame(false);
+  const worlds = {}; for (const d in Dim.worlds) worlds[d] = Object.assign(packWorld(Dim.worlds[d]), { chests: Object.fromEntries([...Dim.worlds[d].chestInv].map(([k2, v]) => [k2, v.map(slotOut)])) });
+  const saved = MP.saved[name];
+  peer.link.send({ t: 'welcome', id: peer.id, name, seed: world.seed, mode: MP.joinMode, cheats: S.cheats, time: S.time, day: S.day, rules: S.rules, difficulty: S.difficulty,
+    worlds, keys: saveKeys(), dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, spawn: player.spawn.toArray(), you: saved || null, hostRD: S.renderDist, mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name),
+    players: [{ id: 'host', name: myName(), skin: mySkinData() }, ...[...MP.peers.values()].filter(p => p.joined && p.id !== peer.id).map(p => ({ id: p.id, name: p.name, skin: p.skin }))] });
+  mpSendAll({ t: 'join', id: peer.id, name, skin: m.skin }, false, peer.id);
+  addAvatar(peer.id, name, m.skin); chatPrint(name + ' joined the game', '#ff5'); renderMpPanel();
+  const mine = MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name).sort().join(','), theirs = (m.mods || []).slice().sort().join(',');
+  if (mine !== theirs) chatPrint(name + ' has different mods (' + (theirs || 'none') + '). Blocks from missing mods will show as air for them.', '#fa5');
+}
+function hostPeerGone(peer) {
+  if (!MP.peers.has(peer.id)) return; MP.peers.delete(peer.id);
+  if (peer.joined) { const av = MP.avatars.get(peer.id); chatPrint((av ? av.name : peer.name) + ' left the game', '#ff5'); removeAvatar(peer.id); mpSendAll({ t: 'leave', id: peer.id }); }
+  renderMpPanel();
+}
+// a remote player as seen by mob AI on the host (same fields the AI reads from the local player)
+function avatarProxy(av, peer) {
+  return { pos: av.pos, vel: new V3(), hw: 0.3, h: 1.8, dead: !!av.dead, hurtCD: 0, peak: null, health: 20, flying: false, blocking: false, isProxy: true,
+    eye() { return new V3(av.pos.x, av.pos.y + 1.62, av.pos.z); },
+    hurt(dmg, src, cause, kb) { if (this.dead) return; peer.link.send({ t: 'hurt', dmg, src: src ? [src.x, src.y, src.z] : null, cause, kb }); av.hurtT = 0.3; } };
+}
+function hostHit(peer, m) {
+  const mob = G.mobs.find(x => x.nid === m.id); if (!mob || mob.dead) return; const av = MP.avatars.get(peer.id); const src = av ? av.pos.clone() : null;
+  mob.killerPeer = peer.id; mob.lootingLv = m.looting || 0; if (m.fire) mob.burnT = m.fire;
+  MP.applying = true; try { _mobHurtRaw.call(mob, m.dmg, src, m.kb == null ? 1 : m.kb); } finally { MP.applying = false; }
+}
+// loot from a mob killed by a remote player goes to that player
+G.captureDrops = null;
+const _dropItem = dropItem; dropItem = function (id, count, x, y, z, burst, extra) { if (G.captureDrops) { G.captureDrops.items.push([ITEMS[id].key, count, x, y, z]); return { vel: new V3(), remove() { } }; } return _dropItem(id, count, x, y, z, burst, extra); };
+const _spawnOrb = spawnOrb; spawnOrb = function (x, y, z, v) { if (G.captureDrops) { G.captureDrops.xp += v; G.captureDrops.x = x; G.captureDrops.y = y; G.captureDrops.z = z; return; } return _spawnOrb(x, y, z, v); };
+const _dropLoot2 = Mob.prototype.dropLoot;
+Mob.prototype.dropLoot = function () {
+  if (this.remote) { Sfx.mob(this, 'death', 0.8); return; }
+  const peer = this.killerPeer && MP.peers.get(this.killerPeer);
+  if (MP.role === 'host' && peer) { G.captureDrops = { items: [], xp: 0 }; this.playerHitT = performance.now(); try { _dropLoot2.call(this); } finally { const c = G.captureDrops; G.captureDrops = null; peer.link.send({ t: 'drops', items: c.items, xp: c.xp, x: c.x, y: c.y, z: c.z }); } return; }
+  return _dropLoot2.call(this);
+};
+// remote mobs on clients: hitting one asks the host to apply the damage
+const _mobHurtRaw = Mob.prototype.hurt;
+Mob.prototype.hurt = function (dmg, src, kb, noAnger) {
+  if (this.remote && !MP.applying) { if (src === player.pos) { mpToHost({ t: 'hit', id: this.nid, dmg, kb, fire: this.burnT > 0 ? this.burnT : 0, looting: this.lootingLv || 0 }); this.hurtT = 0.35; Sfx.mob(this, 'hurt', 0.7); } return; }
+  return _mobHurtRaw.call(this, dmg, src, kb, noAnger);
+};
+// explosions: show them to everyone and hurt remote players nearby
+const _explode = explode;
+explode = function (cx, cy, cz, r, src, opts = {}) {
+  const res = _explode(cx, cy, cz, r, src, opts);
+  if (MP.active && !MP.applying) { mpSend({ t: 'fx', k: 'boom', dim: world.dim, x: cx, y: cy, z: cz, r });
+    if (MP.role === 'host') for (const av of MP.avatars.values()) { if (av.dim !== world.dim) continue; const d = new V3(av.pos.x, av.pos.y + 0.9, av.pos.z).distanceTo(new V3(cx, cy, cz)); if (d > r * 2) continue; const f = 1 - d / (r * 2); const peer = MP.peers.get(av.id); if (peer) peer.link.send({ t: 'hurt', dmg: Math.round(f * f * 7 * r + 1), src: [cx, cy, cz], cause: opts.cause || 'an explosion', kb: 2.2 }); } }
+  return res;
+};
+
+// ---------- host simulation: mobs target the nearest player, snapshots to clients ----------
+function hostMobUpdate(m, dt) {
+  if (!MP.active || MP.role !== 'host' || !MP.avatars.size) return m.update(dt);
+  let best = null, bd = player.pos.distanceToSquared(m.pos);
+  for (const av of MP.avatars.values()) { if (av.dim !== world.dim || av.dead) continue; const d = av.pos.distanceToSquared(m.pos); if (d < bd) { bd = d; best = av; } }
+  if (!best) return m.update(dt);
+  const peer = MP.peers.get(best.id); if (!peer) return m.update(dt);
+  const saved = G.player; G.player = best._proxy || (best._proxy = avatarProxy(best, peer)); best._proxy.dead = !!best.dead;
+  try { m.update(dt); } finally { G.player = saved; }
+}
+function hostTick(dt) {
+  MP.mobT += dt; MP.timeT += dt;
+  if (MP.mobT >= 0.1) { MP.mobT = 0;
+    for (const peer of MP.peers.values()) { if (!peer.joined) continue; const av = MP.avatars.get(peer.id); if (!av || av.dim !== world.dim) continue;
+      const list = []; for (const m of G.mobs) { if (m.gone || m.isBoss) continue; if (!m.nid) m.nid = ++MP.mobSeq; const d = m.pos.distanceToSquared(av.pos); if (d > 72 * 72) continue;
+        list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0]); }
+      peer.link.send({ t: 'mobs', l: list }, true); } }
+  if (MP.timeT >= 3) { MP.timeT = 0; mpSendAll({ t: 'time', time: S.time, day: S.day }); }
+  // mob arrows and fireballs can hit remote players too
+  for (const a of G.projectiles) { if (a.done || a.owner === 'player') continue; for (const av of MP.avatars.values()) { if (av.dim !== world.dim) continue; if (Math.abs(a.pos.x - av.pos.x) < 0.45 && Math.abs(a.pos.z - av.pos.z) < 0.45 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + 1.9) { const peer = MP.peers.get(av.id); if (peer) peer.link.send({ t: 'hurt', dmg: a.dmg || 3, src: [a.pos.x, a.pos.y, a.pos.z], cause: a.kind === 'arrow' ? 'an arrow' : 'a fireball', kb: 0.6 }); a.done = true; G.scene.remove(a.mesh); } } }
+}
+MP.timeChanged = () => { if (MP.role === 'host') mpSendAll({ t: 'time', time: S.time, day: S.day }); };
+MP.rulesChanged = () => { if (MP.role === 'host') mpSendAll({ t: 'rules', rules: S.rules, difficulty: S.difficulty }); };
+MP.remoteCommand = (t, line) => { if (MP.role === 'host') { const p = MP.peers.get(t.id); if (p) p.link.send({ t: 'cmd', line }); } else chatPrint('Only the host can use commands on other players', '#f66'); };
+MP.whisper = (t, text) => { const m = { t: 'whisper', from: myName(), text, to: t.id }; if (MP.role === 'host') { const p = MP.peers.get(t.id); if (p) p.link.send(m); } else mpToHost(m); };
+
+// ---------- clients: mirror the host's mobs while near the host ----------
+const remoteMobs = new Map();
+function clientMobs(m) {
+  if (!MP.proxyMode) return; const seen = new Set();
+  for (const [nid, type, x, y, z, yaw, fl, size, fuse] of m.l) {
+    seen.add(nid); let mob = remoteMobs.get(nid);
+    if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, size ? { size } : undefined); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
+    mob.tgt.set(x, y, z); mob.tgtYaw = yaw; mob.angry = fl & 4 ? 1 : 0; if (fl & 2 && mob.hurtT <= 0) mob.hurtT = 0.3; mob.burnT = fl & 8 ? 0.5 : 0; mob.fuse = fuse; mob.lastSeen = performance.now();
+    if (fl & 1 && !mob.dead) { mob.dead = true; mob.deadT = 0; }
+  }
+  for (const [nid, mob] of remoteMobs) if (!seen.has(nid) && performance.now() - (mob.lastSeen || 0) > 1500) { if (!mob.dead) mob.gone = true; remoteMobs.delete(nid); }
+}
+function remoteMobUpdate(m, dt) {
+  if (m.dead) { m.update(dt); return; }
+  const prev = m.pos.clone(); m.pos.lerp(m.tgt, Math.min(1, dt * 10)); m.vel.copy(m.pos).sub(prev).divideScalar(Math.max(dt, 1e-3));
+  let dy = (m.tgtYaw || 0) - m.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; m.yaw += dy * Math.min(1, dt * 10);
+  m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.lightT = (m.lightT || 0) - dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, world.lightAt(m.pos.x, m.pos.y + 1, m.pos.z, G.daylight)); }
+  if (m.animate) m.animate(dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.colorize();
+}
+function updateProxyMode() {
+  if (MP.role !== 'client') { MP.proxyMode = false; return; }
+  const near = MP.hostPos && MP.hostDim === world.dim && Math.hypot(MP.hostPos.x - player.pos.x, MP.hostPos.z - player.pos.z) < Math.max(48, (MP.hostRD - 1) * 16);
+  if (near !== MP.proxyMode) { MP.proxyMode = near; for (const m of G.mobs) if (!m.isBoss && (near ? !m.remote : m.remote)) { m.gone = true; m.remove(); } G.mobs = G.mobs.filter(m => !m.gone); if (!near) remoteMobs.clear(); }
+}
+
+// ---------- joining ----------
+async function joinWorld(code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 6) { mpStatus('Codes are 6 letters and numbers.'); return; }
+  mpStatus('Looking for the world ' + code + '...'); Sfx.init();
+  const brokers = await connectBrokers(true); if (!brokers.length) { mpStatus('Could not reach any matchmaking server. Check your internet connection.'); return; }
+  const myId = 'p' + Math.random().toString(36).slice(2, 10);
+  const pc = new RTCPeerConnection({ iceServers: CONFIG.iceServers }); const peer = { id: 'host', name: 'Host', joined: true };
+  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host', 4); setTimeout(() => { mpShutdown(); quitToTitle(); }, 1500); } });
+  peer.link.attach(pc.createDataChannel('r', { ordered: true })); peer.link.attach(pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 }));
+  await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
+  let answered = false;
+  for (const b of brokers) { b.subscribe(TOPIC(code) + '/p/' + myId); b.on(async (topic, msg) => { let m; try { m = JSON.parse(msg); } catch (e) { return; } if (m.t === 'full') { mpStatus('That world is full.'); return; } if (m.t !== 'answer' || answered) return; answered = true; try { await pc.setRemoteDescription({ type: 'answer', sdp: m.sdp }); mpStatus('Connecting...'); } catch (e) { mpStatus('Connection failed: ' + e.message); } });
+    setTimeout(() => b.publish(TOPIC(code) + '/h', JSON.stringify({ t: 'offer', from: myId, name: myName(), sdp: pc.localDescription.sdp })), 300); }
+  const timer = setTimeout(() => { if (!answered) mpStatus('No world found with code ' + code + '. Check the code, and that your friend has opened their world.'); else if (!MP.active) mpStatus('Found the world but could not connect directly. Some networks block peer-to-peer connections (a TURN server would be needed).'); }, 15000);
+  peer.link.ready.then(() => { clearTimeout(timer); for (const b of brokers) b.close(); MP.peers.set('host', peer); MP.myId = myId; mpStatus('Joining...'); peer.link.send({ t: 'hello', name: myName(), skin: mySkinData(), mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name) }); });
+}
+function clientWelcome(m) {
+  MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
+  if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
+  const data = { seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, worlds: {} };
+  for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
+  const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
+  show('mpScreen', false); startWorld(data);
+  // chests use item keys over the network
+  for (const d in m.worlds) { const w = Dim.get(d); for (const k in (m.worlds[d].chests || {})) w.chestInv.set(k, m.worlds[d].chests[k].map(slotIn)); }
+  if (y) { player.inv = new Array(41).fill(null); (y.inv || []).forEach((s, i) => player.inv[i] = slotIn(s)); invDirty(); }
+  else player.spawn.fromArray(m.spawn);
+  for (const p of m.players) addAvatar(p.id, p.name, p.skin);
+  CHAT.onSend = (msg) => mpToHost(Object.assign({ from: myName() }, msg));
+  chatPrint('Connected. Say hi with T!', '#7ef'); renderMpPanel();
+}
+function mpShutdown() {
+  if (!MP.active && !MP.brokers.length) return;
+  if (MP.role === 'host') mpSendAll({ t: 'bye' }); else if (MP.role === 'client') MP.sendState();
+  for (const p of MP.peers.values()) p.link.close(); MP.peers.clear(); for (const id of [...MP.avatars.keys()]) removeAvatar(id);
+  for (const b of MP.brokers) b.close(); MP.brokers = []; remoteMobs.clear();
+  MP.active = false; MP.role = null; MP.code = null; MP.proxyMode = false; CHAT.onSend = null; renderMpPanel();
+}
+// per-frame network work (runs even while the pause menu is open)
+function mpTick(dt) {
+  if (!MP.active || !world) return;
+  updateAvatars(dt); updateProxyMode();
+  MP.sendT += dt; if (MP.sendT >= 0.066) { MP.sendT = 0; const s = myState(); if (MP.role === 'host') mpSendAll(s, true); else mpToHost(s, true); }
+  if (MP.outBlocks.length) { const l = MP.outBlocks; MP.outBlocks = []; if (MP.role === 'host') mpSendAll({ t: 'b', l }); else mpToHost({ t: 'b', l }); }
+  if (MP.role === 'host') hostTick(dt);
+  else { MP.stateT += dt; if (MP.stateT > 10) { MP.stateT = 0; MP.sendState(); } }
+  for (const [id, av] of MP.avatars) if (performance.now() - av.seen > 20000) { /* stale */ }
+  const sl = !!S.sleeping; if (MP.role === 'client' && sl !== MP.lastSleep) { MP.lastSleep = sl; mpToHost({ t: 'sleep', v: sl }); }
+}
+// ---------- UI ----------
+function renderMpPanel() {
+  const b = $('btnOpenLan'); if (!b) return;
+  if (MP.role === 'client') { b.style.display = 'none'; $('btnQuit').textContent = 'Disconnect'; $('btnSave').style.display = 'none'; $('mpPanel').innerHTML = 'Playing on a friend\'s world · players: ' + (MP.avatars.size + 1); return; }
+  b.style.display = ''; $('btnQuit').textContent = 'Save & Quit to Title'; $('btnSave').style.display = '';
+  if (MP.active) { b.textContent = 'Open to Friends: ' + MP.code; $('mpPanel').innerHTML = 'Code <b style="font-size:26px;letter-spacing:3px;color:#7ef">' + MP.code + '</b> · players online: ' + (MP.avatars.size + 1) + '<br><span style="color:#aaa">Friends open BlockWild, press Multiplayer and type this code.</span>'; }
+  else { b.textContent = 'Open to Friends'; $('mpPanel').innerHTML = ''; }
+}
+$('btnOpenLan').addEventListener('click', () => { if (!MP.active) { show('lanOpts', true); } else { try { navigator.clipboard.writeText(MP.code); toast('Code copied', 1.5); } catch (e) { } } });
+$('btnLanStart').addEventListener('click', () => { show('lanOpts', false); openToFriends(); });
+segSetup('mpModeSeg', () => { });
+$('btnMultiplayer').addEventListener('click', () => { show('menu', false); show('mpScreen', true); mpStatus(CONFIG.mqttBrokers.length ? 'Type the 6-letter code your friend sees in their pause menu.' : 'Multiplayer is not configured.'); $('mpCode').focus(); });
+$('btnMpBack').addEventListener('click', () => { show('mpScreen', false); show('menu', true); });
+$('btnMpJoin').addEventListener('click', () => joinWorld($('mpCode').value));
+$('mpCode').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') joinWorld($('mpCode').value); });
+addEventListener('beforeunload', () => { if (MP.active) mpShutdown(); });
 
 </script>
 </body>
