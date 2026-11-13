@@ -464,7 +464,10 @@ class World {
     }
     return true;
   }
-  skyAt(x, y, z) { if (this.flatSky) return 1; const c = this.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return 1; const t = c.top[(z & 15) * 16 + (x & 15)]; return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); }
+  skyCol(x, y, z) { const c = this.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return 1; const t = c.top[(z & 15) * 16 + (x & 15)]; return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); }
+  skyAt(x, y, z) { if (this.flatSky) return 1; let v = this.skyCol(x, y, z); if (v >= 1 || v < 0.05 + 1e-6) return v;
+    for (let k = 0; k < 4; k++) { const dx = k === 0 ? 1 : k === 1 ? -1 : 0, dz = k === 2 ? 1 : k === 3 ? -1 : 0; for (let d = 1; d <= 6; d++) { const xx = x + dx * d, zz = z + dz * d; if (OPAQUE[this.get(xx, y, zz)]) break; const w = this.skyCol(xx, y, zz) - 0.09 * d; if (w > v) v = w; } if (v >= 0.9) break; }
+    return v; }
   blockLightAt(x, y, z) {
     let best = 0; const cx = Math.floor(x) >> 4, cz = Math.floor(z) >> 4;
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
@@ -577,7 +580,12 @@ class World {
       const a = NB[i]; return a ? a[(y * 16 + z) * 16 + x] : 0;
     };
     const topAt = (x, z) => { let i = 4; if (x < 0) { i -= 1; x += 16; } else if (x > 15) { i += 1; x -= 16; } if (z < 0) { i -= 3; z += 16; } else if (z > 15) { i += 3; z -= 16; } const t = NT[i]; return t ? t[z * 16 + x] : 0; };
-    const flat = this.flatSky; const sky = (x, y, z) => { if (flat) return 1; const t = topAt(x, z); return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); };
+    const flat = this.flatSky; const skyCol = (x, y, z) => { const t = topAt(x, z); return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); };
+    // sky light also spreads sideways under overhangs (roofs, decks, trees): up to 4 blocks through open air,
+    // losing a little per block, like Minecraft's light propagation
+    const sky = (x, y, z) => { if (flat) return 1; let v = skyCol(x, y, z); if (v >= 1 || topAt(x, z) - y > 20) return v;
+      for (let k = 0; k < 4; k++) { const dx = k === 0 ? 1 : k === 1 ? -1 : 0, dz = k === 2 ? 1 : k === 3 ? -1 : 0; for (let d = 1; d <= 6; d++) { const xx = x + dx * d, zz = z + dz * d; if (OPAQUE[get(xx, y, zz)]) break; const w = skyCol(xx, y, zz) - 0.09 * d; if (w > v) v = w; } if (v >= 0.9) break; }
+      return v; };
     const bx = c.cx * 16, bz = c.cz * 16;
     const lights = [];
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const n = this.getChunk(c.cx + dx, c.cz + dz); if (!n) continue; for (const L of n.lights) { const lx = L[0] - bx, lz = L[2] - bz; if (lx > -9 && lx < 25 && lz > -9 && lz < 25) lights.push([lx + 0.5, L[1] + 0.5, lz + 0.5, L[3]]); } }
