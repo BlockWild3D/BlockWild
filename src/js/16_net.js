@@ -38,6 +38,25 @@ async function connectBrokers(all) {
   return (await Promise.all(tries)).filter(Boolean);
 }
 function waitIce(pc, ms = 3500) { return new Promise((res) => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, ms); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); }); }
+// ---- matchmaking through your own Cloudflare Worker (CONFIG.serverUrl): short HTTP messages stored in D1 ----
+const SERVER = () => String(CONFIG.serverUrl || '').replace(/\/$/, '');
+class WorkerSignal {
+  constructor(room, me) { this.room = room; this.me = me; this.after = 0; this.handlers = []; this.on = true; }
+  async api(path, body) {
+    const r = await fetch(SERVER() + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || ('server answered ' + r.status)); return j;
+  }
+  send(to, obj) { return this.api('/signal/send', { room: this.room, from: this.me, to, data: JSON.stringify(obj) }).catch(e => console.warn('signal send', e)); }
+  listen(fn, ms = 1000) { this.handlers.push(fn); if (this.looping) return; this.looping = true;
+    const loop = async () => { if (!this.on) return; try { const j = await this.api('/signal/poll?room=' + this.room + '&me=' + encodeURIComponent(this.me) + '&after=' + this.after); for (const m of j.msgs || []) { this.after = Math.max(this.after, m.id); for (const h of this.handlers) h(m.from, m.data); } } catch (e) { this.lastError = e; } if (this.on) this.timer = setTimeout(loop, ms); };
+    loop(); }
+  close() { this.on = false; clearTimeout(this.timer); }
+}
+// STUN + (when the Worker has a Cloudflare TURN key) TURN relays, so players on strict networks can still connect
+async function getIceServers() {
+  if (SERVER()) { try { const r = await fetch(SERVER() + '/ice', { cache: 'no-store' }); const j = await r.json(); if (Array.isArray(j.iceServers) && j.iceServers.length) return j.iceServers; } catch (e) { } }
+  return CONFIG.iceServers;
+}
 const ROOM_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newRoomCode() { let s = ''; for (let i = 0; i < 6; i++) s += ROOM_CHARS[Math.floor(Math.random() * ROOM_CHARS.length)]; return s; }
 const TOPIC = (code) => 'blockwild/v1/' + code.toUpperCase();

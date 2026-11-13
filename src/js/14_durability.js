@@ -3,6 +3,7 @@ const TIER_DUR = { 1: 59, 2: 131, 3: 250, 4: 1561, 5: 2031 };
 const ARMOR_BASE = { head: 11, chest: 16, legs: 15, feet: 13 }, ARMOR_MULT = { leather: 5, golden: 7, iron: 15, diamond: 33 };
 for (const id of ITEM_IDS) { const it = ITEMS[id];
   if (it.kind === 'tool') it.dur = it.dur || TIER_DUR[it.tier] || 250;
+  if (it.kind === 'tool' && it.gold) it.dur = 32;
   else if (it.kind === 'bow') it.dur = 384; else if (it.kind === 'shield') it.dur = 336; else if (it.kind === 'fns') it.dur = 64;
   else if (it.kind === 'armor') it.dur = ARMOR_BASE[it.slot] * (ARMOR_MULT[it.mat] || 15); }
 ENCH.unbreaking = { name: 'Unbreaking', max: 3, for: '*', w: 5 };
@@ -20,11 +21,12 @@ function damageSlot(idx, amount = 1) {
 }
 function damageHeld(amount = 1) { return damageSlot(player.sel, amount); }
 // tooltip text in Minecraft's style
-const ATK_SPEED = { sword: 1.6, pick: 1.2, hoe: 2 };
+const ATK_SPEED = { sword: 1.6, pick: 1.2, hoe: 2, axe: 0.9, shovel: 1.0 };
 function itemTooltip(s) {
   const it = ITEMS[s.id]; const L = [it.name];
   if (s.ench) L.push(enchLines(s));
-  if (it.kind === 'tool') { L.push('', 'When in Main Hand:', ' ' + (it.dmg) + ' Attack Damage', ' ' + (ATK_SPEED[it.tool] || 1) + ' Attack Speed'); if (it.tool === 'pick') L.push(' Mining tier ' + it.tier + ', speed ' + it.speed); }
+  if (it.kind === 'tool') { L.push('', 'When in Main Hand:', ' ' + (it.dmg) + ' Attack Damage', ' ' + (it.atk || ATK_SPEED[it.tool] || 1) + ' Attack Speed'); if (it.tool !== 'sword') L.push(' Mining speed ' + it.speed + 'x on ' + { pick: 'stone and ores', axe: 'wood', shovel: 'dirt, sand, gravel and snow', hoe: 'leaves, hay and wart' }[it.tool]); if (it.tool === 'pick') L.push(' Can harvest ' + ['', 'stone, coal', 'iron, lapis', 'gold, diamond', 'obsidian'].slice(1, it.tier + 1).join(', ')); }
+  if (it.kind === 'block' && typeof blockToolLine === 'function') { const t = blockToolLine(s.id); if (t) L.push('', t); }
   if (it.kind === 'armor') { L.push('', 'When on ' + { head: 'Head', chest: 'Body', legs: 'Legs', feet: 'Feet' }[it.slot] + ':', ' +' + it.def + ' Armor' + (it.tough ? ', +' + it.tough + ' Armor Toughness' : '')); }
   if (it.kind === 'bow') L.push('', 'Arrow damage up to ' + Math.round(10 * (enchOf(s, 'power') ? 1 + 0.25 * (enchOf(s, 'power') + 1) : 1)));
   if (it.kind === 'food') L.push('', 'Restores ' + (it.heal / 2) + ' hearts');

@@ -157,7 +157,7 @@ function refreshPreview() {
 function renderAccount() {
   const g = profDraft.google; const a = $('pAcct');
   show('btnSignOut', !!g);
-  if (g) a.innerHTML = 'Signed in with Google as <b>' + esc(g.name || g.email || 'you') + '</b>' + (CONFIG.accountsUrl ? (profDraft.token ? ' - profile saved to your account' : ' - account server not reached') : ' - profile is kept on this device');
+  if (g) a.innerHTML = 'Signed in with Google as <b>' + esc(g.name || g.email || 'you') + '</b>' + (CONFIG.serverUrl ? (profDraft.token ? ' - profile saved to your account' : ' - account server not reached') : ' - profile is kept on this device');
   else if (!CONFIG.googleClientId) a.textContent = 'Google sign-in is not set up on this copy of BlockWild yet (it needs a Google Client ID in the game config). You can still pick a username and skin; they are saved on this device.';
   else a.textContent = 'Sign in with Google to keep your username and skin across devices.';
   const box = $('gsiBox'); box.innerHTML = '';
@@ -174,8 +174,8 @@ async function onGoogleCredential(resp) {
   const claims = decodeJwt(resp.credential); if (!claims) return;
   profDraft.google = { sub: claims.sub, email: claims.email, name: claims.name || claims.given_name, picture: claims.picture };
   if (!validName(profDraft.name) || /^Player\d+$/.test(profDraft.name)) { const n = String(claims.given_name || claims.name || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); if (n.length >= 3) { profDraft.name = n; $('pName').value = n; } }
-  if (CONFIG.accountsUrl) {
-    try { const r = await fetch(CONFIG.accountsUrl.replace(/\/$/, '') + '/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) }); const j = await r.json();
+  if (CONFIG.serverUrl) {
+    try { const r = await fetch(CONFIG.serverUrl.replace(/\/$/, '') + '/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) }); const j = await r.json();
       if (!r.ok) throw new Error(j.error || r.status);
       profDraft.token = j.token; if (j.user) { if (j.user.username) { profDraft.name = j.user.username; $('pName').value = j.user.username; } if (j.user.skin) { try { const sk = JSON.parse(j.user.skin); if (sk.png) profDraft.png = sk.png; else if (sk.cfg) { profDraft.skin = sk.cfg; profDraft.png = null; } } catch (e) { } } }
     } catch (e) { profDraft.token = null; $('pNameMsg').textContent = 'Signed in, but the account server could not be reached: ' + e.message; }
@@ -185,8 +185,8 @@ async function onGoogleCredential(resp) {
 async function saveProfileDraft() {
   const n = $('pName').value.trim(); if (!validName(n)) { $('pNameMsg').textContent = 'Usernames are 3-16 letters, numbers or _'; return false; }
   profDraft.name = n;
-  if (CONFIG.accountsUrl && profDraft.token) {
-    try { const r = await fetch(CONFIG.accountsUrl.replace(/\/$/, '') + '/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + profDraft.token }, body: JSON.stringify({ username: n, skin: JSON.stringify(profDraft.png ? { png: profDraft.png } : { cfg: profDraft.skin }) }) }); const j = await r.json().catch(() => ({}));
+  if (CONFIG.serverUrl && profDraft.token) {
+    try { const r = await fetch(CONFIG.serverUrl.replace(/\/$/, '') + '/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + profDraft.token }, body: JSON.stringify({ username: n, skin: JSON.stringify(profDraft.png ? { png: profDraft.png } : { cfg: profDraft.skin }) }) }); const j = await r.json().catch(() => ({}));
       if (r.status === 409) { $('pNameMsg').textContent = 'That username is taken. Try another.'; return false; }
       if (r.status === 401) { profDraft.token = null; } else if (!r.ok) { $('pNameMsg').textContent = 'Could not save to your account (' + (j.error || r.status) + '). Saved on this device.'; }
     } catch (e) { $('pNameMsg').textContent = 'Account server not reached. Saved on this device.'; }

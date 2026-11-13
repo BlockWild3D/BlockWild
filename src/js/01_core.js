@@ -327,6 +327,11 @@ M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
 M('bed', 'Bed', { kind: 'bed', stack: 1 });
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
+// axes (strong but slow hits, fast on wood) and shovels (fast on dirt, sand, gravel, snow); Minecraft damage values
+for (const [k, n, tier, sp] of TOOLMATS) M(k + '_axe', n + ' Axe', { kind: 'tool', stack: 1, tool: 'axe', tier, speed: sp, dmg: [7, 9, 9, 9][tier - 1] });
+// golden tools: Minecraft's gold is the fastest material (speed 12) but mines like wood and wears out quickly
+for (const [k, n, tool, dmg] of [['pickaxe', 'Pickaxe', 'pick', 2], ['axe', 'Axe', 'axe', 7], ['shovel', 'Shovel', 'shovel', 2.5], ['hoe', 'Hoe', 'hoe', 1], ['sword', 'Sword', 'sword', 4]]) M('golden_' + k, 'Golden ' + n, { kind: 'tool', stack: 1, tool, tier: 1, speed: tool === 'sword' ? 1 : 12, dmg, dur: 32, gold: true });
+for (const [k, n, tier, sp] of TOOLMATS) M(k + '_shovel', n + ' Shovel', { kind: 'tool', stack: 1, tool: 'shovel', tier, speed: sp, dmg: [2.5, 3.5, 4.5, 5.5][tier - 1] });
 // armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
 const ARMOR_MATS = [['leather', 'Leather', [1, 3, 2, 1], 0, [150, 90, 50], 'leather'], ['golden', 'Golden', [2, 5, 3, 1], 0, [240, 200, 60], 'gold_ingot'], ['iron', 'Iron', [2, 6, 5, 2], 0, [210, 210, 214], 'iron_ingot'], ['diamond', 'Diamond', [3, 8, 6, 3], 2, [80, 220, 210], 'diamond']];
 const ARMOR_PIECES = [['helmet', 'Helmet', 'head'], ['chestplate', 'Chestplate', 'chest'], ['leggings', 'Leggings', 'legs'], ['boots', 'Boots', 'feet']];
@@ -372,7 +377,13 @@ function ingot(s, c, hi, dk) { for (let y = 6; y <= 11; y++) { const x0 = 2 + Ma
 function pickIcon(col, hi) { return (s) => { pLine(s, 2, 14, 10, 6, BROWN); pLine(s, 3, 14, 10, 7, BROWN2); for (let a = -110; a <= 20; a += 3) { const t = a * Math.PI / 180; s(4 + 9.5 * Math.cos(t), 11 + 9.5 * Math.sin(t), hi); s(4 + 8.5 * Math.cos(t), 11 + 8.5 * Math.sin(t), col); } }; }
 function swordIcon(col, hi) { return (s) => { pLine(s, 5, 10, 13, 2, col); pLine(s, 6, 11, 14, 3, col); pLine(s, 5, 11, 13, 3, hi); pLine(s, 3, 9, 7, 13, [70, 60, 50]); pLine(s, 2, 13, 4, 11, BROWN); s(1, 14, BROWN2); }; }
 for (const [k, , , , col, hi] of TOOLMATS) { ICONP[k + '_pickaxe'] = pickIcon(col, hi); ICONP[k + '_sword'] = swordIcon(col, hi); }
+for (const [k, , , , col, hi] of TOOLMATS) {
+  ICONP[k + '_axe'] = (s) => { pLine(s, 3, 14, 10, 7, BROWN); pLine(s, 4, 14, 11, 7, BROWN2); for (const [x, y] of [[8, 3], [9, 2], [10, 2], [11, 3], [12, 4], [12, 5], [11, 6], [10, 6], [9, 5], [8, 4], [9, 3], [10, 3], [10, 4], [11, 4], [11, 5], [10, 5], [9, 4], [12, 6], [13, 5]]) s(x, y, (y < 4 || x > 11) ? hi : col); };
+  ICONP[k + '_shovel'] = (s) => { pLine(s, 3, 14, 9, 8, BROWN); pLine(s, 4, 14, 10, 8, BROWN2); for (const [x, y] of [[10, 4], [11, 4], [12, 4], [9, 5], [10, 5], [11, 5], [12, 5], [13, 5], [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [10, 7], [11, 7], [12, 7], [11, 3]]) s(x, y, (y < 5 || x === 9) ? hi : col); };
+}
 for (const [k, , , , col, hi] of TOOLMATS) ICONP[k + '_hoe'] = (s) => { pLine(s, 3, 14, 10, 7, BROWN); pLine(s, 4, 14, 11, 7, BROWN2); for (const [x, y] of [[9, 3], [10, 3], [11, 3], [12, 4], [8, 4], [9, 4], [10, 4], [11, 5], [12, 5], [12, 6]]) s(x, y, (y < 4) ? hi : col); };
+{ const G0 = [240, 200, 50], G1 = [255, 246, 160]; const src = 'diamond'; ICONP.golden_pickaxe = pickIcon(G0, G1); ICONP.golden_sword = swordIcon(G0, G1);
+  for (const k of ['axe', 'shovel', 'hoe']) { const base = ICONP[src + '_' + k]; ICONP['golden_' + k] = (s, r) => base((x, y, c, a) => s(x, y, (c && c[0] === 70 && c[1] === 220) ? G0 : (c && c[0] === 190 && c[1] === 255) ? G1 : c, a), r); } }
 Object.assign(ICONP, {
   bed: (s) => { for (let y = 6; y <= 11; y++) for (let x = 1; x <= 14; x++) s(x, y, y < 8 ? (x < 5 ? [236, 236, 230] : [196, 44, 44]) : y < 10 ? [176, 36, 36] : (x < 3 || x > 12 ? [130, 100, 60] : [0, 0, 0, 0])); for (let x = 1; x <= 14; x++) s(x, 10, [164, 132, 80]); },
   wheat_seeds: (s, r) => { for (let i = 0; i < 9; i++) { const x = 4 + r() * 8, y = 5 + r() * 7; s(x, y, [90, 150, 50]); s(x + 1, y, [60, 120, 30]); } },
@@ -488,7 +499,9 @@ RECIPES.push(
   RSH('bread', 1, ['WWW'], { W: 'wheat' }),
   RSH('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' }),
   RSH('hay_block', 1, ['WWW', 'WWW', 'WWW'], { W: 'wheat' }), RSL('wheat', 9, ['hay_block']),
-  ...[['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].map(([k, m]) => RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' })),
+  RSH('golden_pickaxe', 1, ['MMM', ' S ', ' S '], { M: 'gold_ingot', S: 'stick' }), RSH('golden_sword', 1, ['M', 'M', 'S'], { M: 'gold_ingot', S: 'stick' }),
+  RSH('golden_axe', 1, ['MM', 'MS', ' S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_shovel', 1, ['M', 'S', 'S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_hoe', 1, ['MM', ' S', ' S'], { M: 'gold_ingot', S: 'stick' }),
+  ...[['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].flatMap(([k, m]) => [RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' }), RSH(k + '_axe', 1, ['MM', 'MS', ' S'], { M: m, S: 'stick' }), RSH(k + '_shovel', 1, ['M', 'S', 'S'], { M: m, S: 'stick' })]),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
   RSH('lapis_block', 1, ['LLL', 'LLL', 'LLL'], { L: 'lapis_lazuli' }),
   RSL('lapis_lazuli', 9, ['lapis_block']),

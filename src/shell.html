@@ -100,6 +100,10 @@ button{font-family:'VT323',monospace}
 .pcolor input[type=color]{width:36px;height:26px;border:1px solid #000;padding:0;background:none}
 .pcolor select{font-family:'VT323';font-size:19px;background:#222;color:#fff;border:1px solid #888}
 #pPreview{image-rendering:pixelated;background:radial-gradient(#3a4a5a,#1a2028);border:2px solid #000}
+#controls{justify-content:flex-start;padding-top:2vh;overflow:auto;background:rgba(0,0,0,.75)}
+#kbList{width:min(620px,94vw);max-height:62vh;overflow:auto;background:rgba(0,0,0,.45);border:2px solid #000}
+.kbrow{display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:21px;border-bottom:1px solid #2a2a2a}
+.kbrow span{flex:1}.kbkey{min-width:150px}.kbkey.clash{background:#8a2a2a}
 /* mods */
 #mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
 #mods .title{font-size:clamp(24px,4.5vw,44px)}
@@ -222,10 +226,11 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <button class="mbtn" id="btnMultiplayer">Multiplayer</button>
   <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
+  <button class="mbtn" id="btnControls2">Controls</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
   <div class="help">
-    <b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> sprint (fly: down) · <b>Mouse</b> look<br>
+    <b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> sneak · <b>W W</b> or <b>Ctrl</b> sprint / swim · <b>Mouse</b> look<br>
     <b>Left click</b> mine / attack · <b>Right click</b> place / use / eat · <b>1–9</b> / wheel hotbar<br>
     <b>E</b> inventory &amp; crafting · <b>R</b> recipe book · <b>Q</b> drop · <b>X</b> swap offhand · <b>F</b> fly (creative) · <b>F3</b> debug · <b>Esc</b> pause<br>
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
@@ -261,6 +266,14 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <button class="mbtn" id="btnMpBack">Back</button>
 </div>
 
+<div id="controls" class="screen hidden">
+  <div class="title" style="font-size:clamp(24px,4.5vw,44px)">CONTROLS</div>
+  <div class="modnote">Click a key, then press the new key (Esc cancels). Hotbar keys are always 1-9. Double-tap forward to sprint, or to swim underwater.</div>
+  <div id="kbList"></div>
+  <div class="modbar"><button class="sbtn" id="btnKbReset">Reset all</button></div>
+  <button class="mbtn" id="btnKbDone">Done</button>
+</div>
+
 <div id="mods" class="screen hidden">
   <div class="title">MODS</div>
   <div class="modnote">Mods add blocks, items, recipes, world generation and new rules. A mod runs code inside your game, so only add mods from people you trust.</div>
@@ -290,6 +303,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="row"><label>Graphics</label><div class="seg" id="gfxSeg"><button data-m="low">Low</button><button data-m="medium">Medium</button><button data-m="high">High</button></div></div>
   <div class="row"><label>Allow cheats</label><div class="seg" id="cheatSeg"><button data-m="off">Off</button><button data-m="on">On</button></div></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
+  <button class="mbtn" id="btnControls">Controls</button>
   <button class="mbtn" id="btnOpenLan">Open to Friends</button>
   <div id="lanOpts" class="hidden" style="width:min(400px,86vw);background:rgba(0,0,0,.45);border:2px solid #000;padding:6px"><div class="row" style="width:100%"><label>Friends play in</label><div class="seg" id="mpModeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div><button class="sbtn" id="btnLanStart" style="width:100%">Start (get a join code)</button></div>
   <div id="mpPanel" style="font-size:20px;text-align:center;max-width:min(400px,86vw)"></div>

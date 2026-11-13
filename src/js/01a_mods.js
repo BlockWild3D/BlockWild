@@ -113,7 +113,7 @@ function makeModApi(mod) {
     get graphics() { return MODS.graphics; },
     // a canvas drawn on top of the game; draw(ctx, canvas, dt) runs every frame while playing
     addHud(o = {}) { const h = { mod: mod.name, w: o.width || 160, h: o.height || 160, corner: o.corner || 'top-right', draw: o.draw, every: o.every || 0, t: 0, el: null }; MODS.huds.push(h); return h; },
-    keyDown(code) { return typeof keys !== 'undefined' && !!keys[code]; },
+    keyDown(code) { return typeof keys !== 'undefined' && (KB[code] ? kd(code) : !!keys[code]); },
     onKey(code, fn) { api.on('key', (e) => { if (e.code === code) return fn(e); }); },
     get player() { return typeof player !== 'undefined' ? player : null; },
     get world() { return typeof world !== 'undefined' ? world : null; },

@@ -39,7 +39,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!(keys.ShiftLeft || keys.ShiftRight), swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead }; }
+function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -99,19 +99,26 @@ function onPeerMsg(peer, m) {
 
 // ---------- hosting ----------
 async function openToFriends() {
-  if (MP.active) return; mpStatus('Opening your world to friends...');
-  MP.brokers = await connectBrokers(true); if (!MP.brokers.length) { mpStatus('Could not reach any matchmaking server. Check your internet connection and try again.'); return; }
-  MP.active = true; MP.role = 'host'; MP.myId = 'host'; MP.code = newRoomCode(); MP.joinMode = $('mpModeSeg') ? ($('mpModeSeg').querySelector('.on') || {}).dataset?.m || 'survival' : 'survival';
-  for (const b of MP.brokers) { b.subscribe(TOPIC(MP.code) + '/h'); b.on((topic, msg) => hostSignal(b, msg)); }
+  if (MP.active) return; mpStatus('Opening your world to friends...'); toast('Opening your world to friends...', 2);
+  const code = newRoomCode(); MP.ice = await getIceServers();
+  if (SERVER()) { // your Cloudflare Worker
+    const sig = new WorkerSignal(code, 'host');
+    try { await sig.api('/room/open', { room: code, host: myName() }); } catch (e) { const msg = 'Could not reach your BlockWild server (' + e.message + '). Check serverUrl in the config and that the Worker is deployed.'; mpStatus(msg); chatPrint(msg, '#f66'); toast('Could not open the world', 3); return; }
+    MP.sig = sig; sig.listen((from, data) => hostSignal((o) => sig.send(from, o), data), 1200);
+    MP.roomTimer = setInterval(() => sig.api('/room/open', { room: code, host: myName() }).catch(() => { }), 60000);
+  } else { // public MQTT brokers
+    MP.brokers = await connectBrokers(true); if (!MP.brokers.length) { const msg = 'Could not reach any matchmaking server. Set up your Cloudflare Worker (SERVER_SETUP.md) for reliable joining.'; mpStatus(msg); chatPrint(msg, '#f66'); return; }
+    for (const b of MP.brokers) { b.subscribe(TOPIC(code) + '/h'); b.on((topic, msg) => { let m; try { m = JSON.parse(msg); } catch (e) { return; } hostSignal((o) => b.publish(TOPIC(code) + '/p/' + m.from, JSON.stringify(o)), msg); }); }
+  }
+  MP.active = true; MP.role = 'host'; MP.myId = 'host'; MP.code = code; MP.joinMode = ($('mpModeSeg').querySelector('.on') || { dataset: {} }).dataset.m || 'survival';
   CHAT.onSend = (m) => mpSendAll(Object.assign({ from: myName() }, m));
   mpStatus('Friends can join with the code ' + MP.code); renderMpPanel();
   chatPrint('Your world is open to friends. Code: ' + MP.code, '#7ef'); toast('Join code: ' + MP.code, 6);
 }
-async function hostSignal(broker, msg) {
-  let m; try { m = JSON.parse(msg); } catch (e) { return; } if (m.t !== 'offer' || !m.from || MP.peers.has(m.from)) return;
-  const reply = (o) => broker.publish(TOPIC(MP.code) + '/p/' + m.from, JSON.stringify(o));
+async function hostSignal(reply, msg) {
+  let m; try { m = typeof msg === 'string' ? JSON.parse(msg) : msg; } catch (e) { return; } if (m.t !== 'offer' || !m.from || MP.peers.has(m.from)) return;
   if ([...MP.peers.values()].length + 1 >= MP.maxPlayers) { reply({ t: 'full' }); return; }
-  const pc = new RTCPeerConnection({ iceServers: CONFIG.iceServers }); const peer = { id: m.from, name: m.name || 'Player', joined: false };
+  const pc = new RTCPeerConnection({ iceServers: MP.ice || CONFIG.iceServers }); const peer = { id: m.from, name: m.name || 'Player', joined: false };
   peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => hostPeerGone(peer)); MP.peers.set(peer.id, peer);
   pc.ondatachannel = (e) => peer.link.attach(e.channel);
   try { await pc.setRemoteDescription({ type: 'offer', sdp: m.sdp }); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc); reply({ t: 'answer', sdp: pc.localDescription.sdp }); }
@@ -229,18 +236,27 @@ function updateProxyMode() {
 // ---------- joining ----------
 async function joinWorld(code) {
   code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 6) { mpStatus('Codes are 6 letters and numbers.'); return; }
+  if (MP.joining) return; MP.joining = true; setTimeout(() => MP.joining = false, 16000);
   mpStatus('Looking for the world ' + code + '...'); Sfx.init();
-  const brokers = await connectBrokers(true); if (!brokers.length) { mpStatus('Could not reach any matchmaking server. Check your internet connection.'); return; }
-  const myId = 'p' + Math.random().toString(36).slice(2, 10);
-  const pc = new RTCPeerConnection({ iceServers: CONFIG.iceServers }); const peer = { id: 'host', name: 'Host', joined: true };
+  const myId = 'p' + Math.random().toString(36).slice(2, 10); let sig = null, brokers = [];
+  if (SERVER()) {
+    sig = new WorkerSignal(code, myId);
+    try { const r = await sig.api('/room/check?room=' + code); if (!r.open) { mpStatus('No open world with the code ' + code + '. Check the code, and that your friend pressed Open to Friends.'); MP.joining = false; return; } mpStatus('Found ' + (r.host || 'the world') + '. Connecting...'); }
+    catch (e) { mpStatus('Could not reach your BlockWild server (' + e.message + ').'); MP.joining = false; return; }
+  } else { brokers = await connectBrokers(true); if (!brokers.length) { mpStatus('Could not reach any matchmaking server. Set up your Cloudflare Worker (SERVER_SETUP.md).'); MP.joining = false; return; } }
+  const ice = await getIceServers();
+  const pc = new RTCPeerConnection({ iceServers: ice }); const peer = { id: 'host', name: 'Host', joined: true };
   peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host', 4); setTimeout(() => { mpShutdown(); quitToTitle(); }, 1500); } });
   peer.link.attach(pc.createDataChannel('r', { ordered: true })); peer.link.attach(pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 }));
+  pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && !MP.active) mpStatus('Found the world, but your networks blocked a direct connection. Adding a Cloudflare TURN key to the Worker fixes this (SERVER_SETUP.md).'); });
   await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
   let answered = false;
-  for (const b of brokers) { b.subscribe(TOPIC(code) + '/p/' + myId); b.on(async (topic, msg) => { let m; try { m = JSON.parse(msg); } catch (e) { return; } if (m.t === 'full') { mpStatus('That world is full.'); return; } if (m.t !== 'answer' || answered) return; answered = true; try { await pc.setRemoteDescription({ type: 'answer', sdp: m.sdp }); mpStatus('Connecting...'); } catch (e) { mpStatus('Connection failed: ' + e.message); } });
-    setTimeout(() => b.publish(TOPIC(code) + '/h', JSON.stringify({ t: 'offer', from: myId, name: myName(), sdp: pc.localDescription.sdp })), 300); }
-  const timer = setTimeout(() => { if (!answered) mpStatus('No world found with code ' + code + '. Check the code, and that your friend has opened their world.'); else if (!MP.active) mpStatus('Found the world but could not connect directly. Some networks block peer-to-peer connections (a TURN server would be needed).'); }, 15000);
-  peer.link.ready.then(() => { clearTimeout(timer); for (const b of brokers) b.close(); MP.peers.set('host', peer); MP.myId = myId; mpStatus('Joining...'); peer.link.send({ t: 'hello', name: myName(), skin: mySkinData(), mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name) }); });
+  const onAnswer = async (m) => { if (m.t === 'full') { mpStatus('That world is full.'); return; } if (m.t !== 'answer' || answered) return; answered = true; try { await pc.setRemoteDescription({ type: 'answer', sdp: m.sdp }); mpStatus('Connecting...'); } catch (e) { mpStatus('Connection failed: ' + e.message); } };
+  const offer = { t: 'offer', from: myId, name: myName(), sdp: pc.localDescription.sdp };
+  if (sig) { sig.listen((from, data) => { try { onAnswer(JSON.parse(data)); } catch (e) { } }, 700); sig.send('host', offer); }
+  for (const b of brokers) { b.subscribe(TOPIC(code) + '/p/' + myId); b.on((topic, msg) => { try { onAnswer(JSON.parse(msg)); } catch (e) { } }); setTimeout(() => b.publish(TOPIC(code) + '/h', JSON.stringify(offer)), 300); }
+  const timer = setTimeout(() => { MP.joining = false; if (sig) sig.close(); if (!answered) mpStatus('The world ' + code + ' did not answer. Ask your friend to check their game is still open, then try again.'); else if (!MP.active) mpStatus('Found the world but could not connect directly. A Cloudflare TURN key on the Worker fixes this (SERVER_SETUP.md).'); }, 20000);
+  peer.link.ready.then(() => { clearTimeout(timer); MP.joining = false; if (sig) sig.close(); for (const b of brokers) b.close(); MP.peers.set('host', peer); MP.myId = myId; mpStatus('Joining...'); peer.link.send({ t: 'hello', name: myName(), skin: mySkinData(), mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name) }); });
 }
 function clientWelcome(m) {
   MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
@@ -258,10 +274,11 @@ function clientWelcome(m) {
   chatPrint('Connected. Say hi with T!', '#7ef'); renderMpPanel();
 }
 function mpShutdown() {
-  if (!MP.active && !MP.brokers.length) return;
+  if (!MP.active && !MP.brokers.length && !MP.sig) return;
   if (MP.role === 'host') mpSendAll({ t: 'bye' }); else if (MP.role === 'client') MP.sendState();
   for (const p of MP.peers.values()) p.link.close(); MP.peers.clear(); for (const id of [...MP.avatars.keys()]) removeAvatar(id);
   for (const b of MP.brokers) b.close(); MP.brokers = []; remoteMobs.clear();
+  if (MP.sig) { const sg = MP.sig; MP.sig = null; sg.close(); clearInterval(MP.roomTimer); if (MP.role === 'host') sg.api('/room/close', { room: MP.code }).catch(() => { }); }
   MP.active = false; MP.role = null; MP.code = null; MP.proxyMode = false; CHAT.onSend = null; renderMpPanel();
 }
 // per-frame network work (runs even while the pause menu is open)

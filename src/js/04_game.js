@@ -51,7 +51,7 @@ const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.002, 1.002, 1.002), cra
 // ---- Player ----
 class Player {
   constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(41).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
-  eye() { return new V3(this.pos.x, this.pos.y + (this.swimming ? 0.4 : 1.62), this.pos.z); }
+  eye() { return new V3(this.pos.x, this.pos.y + (this.swimming ? 0.4 : this.eyeH || 1.62), this.pos.z); }
   held() { return this.inv[this.sel]; }
   heldDef() { const h = this.held(); return h ? ITEMS[h.id] : null; }
   hurt(dmg, src, cause, kb = 1) {
@@ -293,23 +293,26 @@ addEventListener('keydown', (e) => {
   if (!S.started || S.loading) return;
   if (e.target && e.target.tagName === 'INPUT') return;
   const c = e.code;
-  if (c === 'F3') { e.preventDefault(); S.debug = !S.debug; show('debug', S.debug); return; }
+  if (c === 'F5') e.preventDefault();
+  if (isKey(c, 'debug')) { e.preventDefault(); S.debug = !S.debug; show('debug', S.debug); return; }
   if (c === 'Escape') { if (S.uiOpen) closeInv(); else if (S.paused) closePause(); else if (S.fallback || S.touch) openPause(); return; }
-  if (c === 'KeyE') { if (S.uiOpen) closeInv(); else if (!S.paused) openInv(); return; }
-  if (c === 'KeyR' && S.uiOpen) { toggleBook(); return; }
-  if ((c === 'KeyT' || c === 'Slash') && !S.uiOpen && !S.paused && !player.dead) { e.preventDefault(); openChat(c === 'Slash' ? '/' : ''); return; }
+  if (isKey(c, 'inventory')) { if (S.uiOpen) closeInv(); else if (!S.paused) openInv(); return; }
+  if (isKey(c, 'book') && S.uiOpen) { toggleBook(); return; }
+  if ((isKey(c, 'chat') || isKey(c, 'command')) && !S.uiOpen && !S.paused && !player.dead) { e.preventDefault(); openChat(isKey(c, 'command') ? '/' : ''); return; }
   if (S.uiOpen || S.paused) return;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(c)) e.preventDefault();
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', KB.jump, KB.sneak, KB.sprint].includes(c)) e.preventDefault();
   if (!keys[c]) {
     if (c.startsWith('Digit')) { const n = +c.slice(5); if (n >= 1 && n <= 9) selectSlot(n - 1); }
-    if (c === 'KeyQ') dropHeld(e.ctrlKey);
-    if (c === 'KeyX') swapHands();
-    if (c === 'KeyF' && S.mode === 'creative') { player.flying = !player.flying; toast(player.flying ? 'Flying' : 'Walking', 1); }
-    if (c === 'Space' && S.mode === 'creative') { const now = performance.now(); if (now - lastSpace < 280) { player.flying = !player.flying; } lastSpace = now; }
+    if (isKey(c, 'drop')) dropHeld(e.ctrlKey);
+    if (isKey(c, 'swap')) swapHands();
+    // double-tap forward to sprint (and to swim when underwater), like Minecraft
+    if (isKey(c, 'forward') && !e.repeat) { const now = e.timeStamp || performance.now(); if (now - (S.lastFwd || 0) < 350) S.sprintTap = true; S.lastFwd = now; }
+    if (isKey(c, 'fly') && S.mode === 'creative') { player.flying = !player.flying; toast(player.flying ? 'Flying' : 'Walking', 1); }
+    if (isKey(c, 'jump') && S.mode === 'creative') { const now = performance.now(); if (now - lastSpace < 280) { player.flying = !player.flying; } lastSpace = now; }
   }
   keys[c] = true;
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => { keys[e.code] = false; if (isKey(e.code, 'forward')) { S.sprintTap = false; player.sprinting = false; } });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseL = mouseR = false; });
 let drag = null;
 canvas.addEventListener('mousedown', (e) => {
@@ -353,8 +356,8 @@ function setupTouch() {
   const end = (e) => { for (const t of e.changedTouches) { if (T.joy && t.identifier === T.joy.id) { T.joy = null; T.mx = T.my = 0; knob.style.transform = ''; } if (T.look && t.identifier === T.look.id) { if (!T.look.moved && performance.now() - T.look.t0 < 250) { mouseR = true; S.useCD = 0; setTimeout(() => mouseR = false, 60); } T.look = null; } } };
   canvas.addEventListener('touchend', end); canvas.addEventListener('touchcancel', end);
   const hold = (id, on, off) => { const el = $(id); el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); Sfx.init(); el.classList.add('on'); on(); }, { passive: false }); el.addEventListener('touchend', (e) => { e.preventDefault(); el.classList.remove('on'); off && off(); }, { passive: false }); };
-  hold('tJump', () => keys.Space = true, () => keys.Space = false);
-  hold('tSneak', () => keys.ShiftLeft = true, () => keys.ShiftLeft = false);
+  hold('tJump', () => keys[KB.jump] = true, () => keys[KB.jump] = false);
+  hold('tSneak', () => keys[KB.sneak] = true, () => keys[KB.sneak] = false);
   hold('tMine', () => mouseL = true, () => mouseL = false);
   hold('tUse', () => { mouseR = true; S.useCD = 0; }, () => mouseR = false);
   hold('tInv', () => { if (S.uiOpen) closeInv(); else openInv(); });
@@ -388,7 +391,10 @@ function breakTime(id, tool) {
   if (def.hardness === 0) return 0.05;
   const hz = 1 + 0.2 * effLevel('haste'); const ef = heldEnch('efficiency');
   if (def.tool === 'pick') return ((tool && tool.tool === 'pick') ? def.hardness * 1.5 / (tool.speed + (ef ? ef * ef + 1 : 0)) : def.hardness * 5) / hz;
-  let t = def.hardness * 1.2; if (tool && tool.tool === 'sword' && (id === B.LEAVES || id === B.BIRCH_LEAVES || id === B.SPRUCE_LEAVES)) t *= 0.4; return t;
+  // axes speed up wood, shovels speed up dirt, sand, gravel and snow
+  const want = def.snd === 'wood' ? 'axe' : (['grass', 'sand', 'snow'].includes(def.snd) && def.render === 'cube' && !def.plant) ? 'shovel' : null;
+  if (want && tool && tool.tool === want) return def.hardness * 1.5 / (tool.speed + (ef ? ef * ef + 1 : 0)) / hz;
+  let t = def.hardness * 1.2; if (tool && tool.tool === 'sword' && (id === B.LEAVES || id === B.BIRCH_LEAVES || id === B.SPRUCE_LEAVES)) t *= 0.4; return t / hz;
 }
 function breakBlock(x, y, z) {
   const id = world.get(x, y, z); if (!id) return;
@@ -430,7 +436,7 @@ function updateInteraction(dt) {
   const tool = player.heldDef();
   if (mouseL && S.atkCD <= 0 && deflectProjectiles(eye, dir)) { S.atkCD = 0.45; S.swing = 1; }
   if (mouseL && targetMob) {
-    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); S.atkCD = 0.45; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
+    if (S.atkCD <= 0) { const eb = meleeBonus(targetMob); const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg); const crit = !player.onGround && player.vel.y < -1 ? 1.5 : 1; targetMob.hurt(Math.round(dmg * crit), player.pos, eb.kb); if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); S.atkCD = tool && tool.kind === 'tool' ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; if (crit > 1) Particles.emit(targetMob.pos.x, targetMob.pos.y + Math.min(targetMob.h, 3) * 0.7, targetMob.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6); }
     S.mineT = 0;
   } else if (mouseL && target) {
     const key = target.x + ',' + target.y + ',' + target.z;
@@ -448,7 +454,7 @@ function updateInteraction(dt) {
   } else { S.mineT = 0; S.mineKey = ''; crackMesh.visible = false; show('mineBar', false); }
   if (!mouseL) { crackMesh.visible = false; show('mineBar', false); }
   // shield: hold right-click with a shield in either hand (main-hand items with their own use take priority)
-  const hb = player.heldDef(); const sneak = keys.ShiftLeft || keys.ShiftRight;
+  const hb = player.heldDef(); const sneak = kd('sneak');
   const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || target.id === B.FURNACE || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
   const offShield = player.inv[36] && player.inv[36].id === IT.shield; const mk = hb ? hb.kind : null;
   const canShield = mk === 'shield' || (offShield && (!mk || mk === 'tool' || mk === 'mat'));
@@ -473,7 +479,7 @@ function fireBow(eye, dir) {
   Sfx.play('bow', 0.5 + p * 0.6); S.bowKick = 1;
 }
 function useAction(eye, dir) {
-  const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
+  const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = kd('sneak');
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
@@ -585,15 +591,20 @@ function updateSpawning(dt) {
 // ---- player update ----
 function updatePlayer(dt) {
   const P = player; if (P.dead) return;
+  P.eyeH = (P.eyeH || 1.62) + ((P.sneaking ? 1.27 : 1.62) - (P.eyeH || 1.62)) * Math.min(1, dt * 12);
   P.hurtCD -= dt;
   if (!world.loaded(Math.floor(P.pos.x), Math.floor(P.pos.z))) return;
-  let f = 0, s = 0; if (!S.uiOpen) { if (keys.KeyW || keys.ArrowUp) f++; if (keys.KeyS || keys.ArrowDown) f--; if (keys.KeyD || keys.ArrowRight) s++; if (keys.KeyA || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
-  const jump = !S.uiOpen && keys.Space, down = !S.uiOpen && (keys.ShiftLeft || keys.ShiftRight);
+  let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
+  const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
-  const sprint = (!P.flying && down && f > 0) || keys.ControlLeft;
+  // sprint: double-tap forward or hold the sprint key while moving forward; sneaking or stopping ends it
+  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying)) P.sprinting = true;
+  if (f <= 0 || (down && !P.flying && !P.swimming) || (P.hitH && !P.flying && !inWater(P, 0.4))) { P.sprinting = false; if (f <= 0) S.sprintTap = false; }
+  const sprint = !!P.sprinting;
+  P.sneaking = down && !P.flying && !P.swimming && !S.uiOpen;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = (P.flying ? (sprint ? 22 : 11) : sprint ? 5.8 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
@@ -604,6 +615,9 @@ function updatePlayer(dt) {
   else if (effLevel('levitation')) { P.vel.y += (0.9 * effLevel('levitation') * 2 - P.vel.y) * (1 - Math.exp(-dt * 5)); P.peak = null; }
   else { P.vel.y = Math.max(P.vel.y - MODS.physics.gravity * dt, effLevel('slow_falling') ? -2.4 : -55); if (effLevel('slow_falling')) P.peak = null; if (jump && P.onGround) P.vel.y = MODS.physics.jump + 1.6 * effLevel('jump_boost'); }
   const ox = P.pos.x, oz = P.pos.z;
+  // sneaking keeps you from walking off edges
+  if (P.sneaking && P.onGround) { const sup = (x, z) => { for (const ax of [-P.hw + 0.01, P.hw - 0.01]) for (const az of [-P.hw + 0.01, P.hw - 0.01]) if (world.solid(Math.floor(x + ax), Math.floor(P.pos.y - 0.1), Math.floor(z + az))) return true; return false; };
+    if (!sup(P.pos.x + P.vel.x * dt, P.pos.z)) P.vel.x = 0; if (!sup(P.pos.x, P.pos.z + P.vel.z * dt)) P.vel.z = 0; }
   moveEntity(P, dt);
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;

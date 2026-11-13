@@ -50,7 +50,7 @@ function ensureMyModel() {
 }
 function cyclePov() { S.pov = (S.pov + 1) % 3; toast(['First person', 'Third person (back)', 'Third person (front)'][S.pov], 1); }
 addEventListener('keydown', (e) => {
-  if (e.code === 'F5' || (e.code === 'KeyV' && !e.repeat)) { if (!S.started || S.loading) return; if (e.code === 'F5') e.preventDefault(); if (S.uiOpen === 'chat' || (e.target && e.target.tagName === 'INPUT')) return; cyclePov(); }
+  if (isKey(e.code, 'pov') || (e.code === 'KeyV' && KB.pov === 'F5' && !e.repeat)) { if (!S.started || S.loading) return; if (e.code.startsWith('F')) e.preventDefault(); if (S.uiOpen === 'chat' || (e.target && e.target.tagName === 'INPUT')) return; cyclePov(); }
 });
 const _camTmp = new V3();
 function applyPov(P, dt) {
@@ -63,7 +63,7 @@ function applyPov(P, dt) {
       myModel.root.position.copy(P.pos); myModel.root.rotation.y = P.yaw + Math.PI;
       const sp = Math.hypot(P.vel.x, P.vel.z) * (P.onGround || P.flying ? 1 : 0.3); const h = P.held();
       myModel.setHeld(h ? h.id : 0); myModel.setArmor(armorMats(P.inv));
-      myModel.animate(dt, sp, P.pitch, S.swing || 0, (keys.ShiftLeft || keys.ShiftRight) && !P.flying, performance.now() / 1000 - P.lastHurt < 0.3);
+      myModel.animate(dt, sp, P.pitch, S.swing || 0, !!P.sneaking, performance.now() / 1000 - P.lastHurt < 0.3);
       swimPose(myModel, P, dt);
       const l = clamp(light, 0.08, 1); myModel.mat.color.multiplyScalar(l); myModel.omat.color.multiplyScalar(l);
     }
