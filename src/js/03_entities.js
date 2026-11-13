@@ -635,7 +635,7 @@ function updateProjectiles(dt) {
       }
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
-          const cause = a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball';
+          const cause = a.cause || (a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball');
           if (isSurv()) { P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause); if (a.effect && typeof giveEffect === 'function') giveEffect(a.effect[0], a.effect[1], a.effect[2] || 0); }
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }

@@ -40,12 +40,13 @@ function smoke(m, n = 6) { Particles.emit(m.pos.x, m.pos.y + m.h * 0.7, m.pos.z,
 }
 
 // ---------- persistence ----------
-function mobPersistent(m) { return !!(m && !m.dead && !m.gone && !m.isBoss && !m.remote && m.t && (m.t.kind === 'passive' || m.tamed)); }
+function mobPersistent(m) { return !!(m && !m.dead && !m.gone && !m.isBoss && !m.remote && m.t && (m.t.kind === 'passive' || m.tamed || m.t.persist)); }
 function stashOf(w) { return w.mobStash || (w.mobStash = new Map()); }
 function mobRecord(m) {
   const r = { t: m.type, p: [+m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2)], y: +m.yaw.toFixed(2), hp: +m.hp.toFixed(1) };
   if (m.baby) r.b = Math.round(m.growT); if (m.loveCD > 0) r.lc = Math.round(m.loveCD); if (m.sheared) r.sh = 1; if (m.eggT) r.e = Math.round(m.eggT);
   if (m.hg) r.h = Object.assign({}, m.hg);
+  if (m.var != null) r.v = m.var; if (m.tamed && !m.hg) { r.tm = 1; r.ow = m.owner || ''; } if (m.sitting) r.st = 1;
   return r;
 }
 function mobFromRecord(rec) {
@@ -53,6 +54,7 @@ function mobFromRecord(rec) {
   const m = spawnMob(rec.t, rec.p[0], rec.p[1], rec.p[2], { rec }); m.yaw = rec.y || 0; m.root.scale.setScalar(1); m.age = 5;
   if (m.hg) { applyHorseGenes(m); m.horseInit = true; }
   if (rec.hp) m.hp = Math.min(m.maxHp, rec.hp);
+  if (rec.tm) { m.tamed = true; m.owner = rec.ow; if (m.onTamed) m.onTamed(); } if (rec.st) m.sitting = true;
   if (rec.b) setBaby(m, true, rec.b); if (rec.lc) m.loveCD = rec.lc; if (rec.sh) setSheared(m, true); if (rec.e) m.eggT = rec.e;
   return m;
 }
@@ -252,10 +254,13 @@ function feedHorse(m, k) {
   mset(m, set); consumeHeldFood(); if (set.loveT) hearts(m, 5); else Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.5);
   if (m.head) m.grazeT = 0.8; Sfx.at('neigh', m.pos, 0.4, 1.2); return true;
 }
+const EQUINE = new Set(['horse', 'donkey']);
+function mateOK(a, b) { return a.type === b.type ? a.type !== 'mule' : EQUINE.has(a.type) && EQUINE.has(b.type); }
 function breed(a, b) {
   a.loveT = b.loveT = 0; a.loveCD = b.loveCD = 300;
   const x = (a.pos.x + b.pos.x) / 2, y = Math.max(a.pos.y, b.pos.y), z = (a.pos.z + b.pos.z) / 2;
-  const baby = spawnMob(a.type, x, y, z, a.hg ? { genes: foalGenes(a.hg, b.hg) } : undefined);
+  const btype = a.type !== b.type ? 'mule' : a.type; const genes = a.hg ? foalGenes(a.hg, b.hg) : undefined; if (genes && btype !== 'horse') { const d = MOBS[btype].genes; if (d) Object.assign(genes, d()); genes.spd = (a.hg.spd + b.hg.spd + genes.spd) / 3; genes.jmp = (a.hg.jmp + b.hg.jmp + genes.jmp) / 3; }
+  const baby = spawnMob(btype, x, y, z, genes ? { genes } : (a.t.variants ? { v: Math.random() < 0.5 ? a.var : b.var } : undefined));
   setBaby(baby, true); if (baby.hg) { applyHorseGenes(baby); baby.hp = baby.maxHp; baby.horseInit = true; }
   for (const m of [a, b, baby]) hearts(m, 6);
   spawnOrb(x, y + 0.5, z, 1 + (Math.random() * 7 | 0));
@@ -294,7 +299,7 @@ Mob.prototype.update = function (dt) {
     let goal = null, stop = 1.2;
     if (this.loveT > 0 && !this.baby) {
       let mate = null, md = 64;
-      for (const o of G.mobs) { if (o === this || o.type !== this.type || o.dead || o.baby || !(o.loveT > 0) || o.remote) continue; const d = o.pos.distanceToSquared(this.pos); if (d < md) { md = d; mate = o; } }
+      for (const o of G.mobs) { if (o === this || !mateOK(this, o) || o.dead || o.baby || !(o.loveT > 0) || o.remote) continue; const d = o.pos.distanceToSquared(this.pos); if (d < md) { md = d; mate = o; } }
       if (mate) { goal = mate.pos; stop = 0.9 + this.hw; if (md < (1.3 + this.hw) ** 2 && this.loveT < 29 && mate.loveT > 0 && !isClient()) { breed(this, mate); goal = null; } }
     }
     if (!goal && TEMPT_FOOD[this.type]) { const p = nearestTempter(this, TEMPT_FOOD[this.type], 10); if (p) { goal = p; stop = 1.8 + this.hw; } }

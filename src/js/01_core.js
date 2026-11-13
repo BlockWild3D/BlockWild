@@ -409,7 +409,11 @@ M('netherite_upgrade_smithing_template', 'Netherite Upgrade Smithing Template', 
 M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1, melee: true });
 M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
 M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
-M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('totem_of_undying', 'Totem of Undying', { kind: 'totem', stack: 1 }); M('tripwire_hook', 'Tripwire Hook');
+M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('totem_of_undying', 'Totem of Undying', { kind: 'totem', stack: 1 });
+M('cod', 'Raw Cod', { kind: 'food' }); M('cooked_cod', 'Cooked Cod', { kind: 'food' }); M('salmon', 'Raw Salmon', { kind: 'food' }); M('cooked_salmon', 'Cooked Salmon', { kind: 'food' });
+M('tropical_fish', 'Tropical Fish', { kind: 'food' }); M('pufferfish', 'Pufferfish', { kind: 'food' }); M('ink_sac', 'Ink Sac'); M('glow_ink_sac', 'Glow Ink Sac');
+M('rabbit', 'Raw Rabbit', { kind: 'food' }); M('cooked_rabbit', 'Cooked Rabbit', { kind: 'food' }); M('rabbit_hide', 'Rabbit Hide'); M('rabbit_foot', "Rabbit's Foot");
+M('bone_meal', 'Bone Meal', { kind: 'bonemeal' }); M('mutton', 'Raw Mutton', { kind: 'food' }); M('cooked_mutton', 'Cooked Mutton', { kind: 'food' }); M('armadillo_scute', 'Armadillo Scute'); M('turtle_scute', 'Turtle Scute'); M('honeycomb', 'Honeycomb'); M('tripwire_hook', 'Tripwire Hook');
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' });
 M('carrot', 'Carrot', { kind: 'food', crop: 'carrots_0' }); M('potato', 'Potato', { kind: 'food', crop: 'potatoes_0' }); M('baked_potato', 'Baked Potato', { kind: 'food' }); M('golden_carrot', 'Golden Carrot', { kind: 'food' });
 M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
@@ -512,6 +516,24 @@ Object.assign(ICONP, {
   lead: (s, r) => { for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; s(Math.round(8 + Math.cos(t) * 4.5), Math.round(7 + Math.sin(t) * 4), [150, 120, 80]); } pLine(s, 8, 11, 6, 15, [150, 120, 80]); s(5, 15, [110, 190, 90]); },
   tripwire_hook: (s, r) => { for (let y = 2; y <= 6; y++) for (let x = 6; x <= 10; x++) if (y === 2 || y === 6 || x === 6 || x === 10) s(x, y, [180, 180, 186]); pLine(s, 8, 7, 8, 14, [130, 92, 56]); },
   totem_of_undying: (s, r) => { for (let y = 2; y <= 14; y++) for (let x = 4; x <= 11; x++) { const head = y < 7 && x >= 5 && x <= 10, body = y >= 7 && y <= 12 && x >= 6 && x <= 9, wing = y >= 7 && y <= 10 && (x === 4 || x === 5 || x === 10 || x === 11); if (head || body || wing) s(x, y, head ? [236, 200, 70] : wing ? [214, 170, 50] : [190, 150, 40]); } s(6, 4, [40, 160, 80]); s(9, 4, [40, 160, 80]); for (let x = 6; x <= 9; x++) s(x, 13, [150, 110, 30]); },
+  cod: (s, r) => { for (let x = 3; x <= 12; x++) { const h = x < 5 ? 1 : x > 10 ? 1 : 2; for (let y = 8 - h; y <= 8 + h; y++) s(x, y, y > 8 ? [220, 206, 180] : [176, 150, 110]); } pLine(s, 13, 6, 13, 10, [140, 116, 84]); pLine(s, 14, 5, 14, 11, [140, 116, 84]); s(5, 7, [20, 20, 20]); },
+  cooked_cod: (s, r) => { for (let x = 3; x <= 12; x++) { const h = x < 5 ? 1 : x > 10 ? 1 : 2; for (let y = 8 - h; y <= 8 + h; y++) s(x, y, y > 8 ? [230, 200, 150] : [196, 150, 90]); } pLine(s, 13, 6, 13, 10, [150, 110, 60]); pLine(s, 14, 5, 14, 11, [150, 110, 60]); s(5, 7, [20, 20, 20]); },
+  salmon: (s, r) => { for (let x = 3; x <= 12; x++) { const h = x < 5 ? 1 : x > 10 ? 1 : 2; for (let y = 8 - h; y <= 8 + h; y++) s(x, y, y > 8 ? [230, 170, 150] : [196, 90, 70]); } pLine(s, 13, 6, 13, 10, [150, 60, 50]); pLine(s, 14, 5, 14, 11, [150, 60, 50]); s(5, 7, [20, 20, 20]); },
+  cooked_salmon: (s, r) => { for (let x = 3; x <= 12; x++) { const h = x < 5 ? 1 : x > 10 ? 1 : 2; for (let y = 8 - h; y <= 8 + h; y++) s(x, y, y > 8 ? [240, 190, 150] : [214, 130, 80]); } pLine(s, 13, 6, 13, 10, [160, 90, 50]); pLine(s, 14, 5, 14, 11, [160, 90, 50]); s(5, 7, [20, 20, 20]); },
+  tropical_fish: (s, r) => { for (let x = 3; x <= 12; x++) { const h = x < 5 ? 1 : x > 10 ? 1 : 2; for (let y = 8 - h; y <= 8 + h; y++) s(x, y, y > 8 ? [250, 200, 120] : [240, 140, 40]); } pLine(s, 13, 6, 13, 10, [250, 250, 250]); pLine(s, 14, 5, 14, 11, [250, 250, 250]); s(5, 7, [20, 20, 20]); },
+  pufferfish: (s, r) => { blob(s, 8, 8, 5, 5, [220, 200, 60], r, [170, 150, 40]); for (const [x, y] of [[3, 4], [13, 4], [3, 12], [13, 12], [8, 2], [8, 14], [2, 8], [14, 8]]) s(x, y, [230, 230, 220]); s(6, 7, [20, 20, 20]); s(10, 7, [20, 20, 20]); },
+  ink_sac: (s, r) => { blob(s, 8, 9, 4.5, 5, [40, 40, 50], r, [20, 20, 26]); s(6, 7, [90, 90, 110]); },
+  glow_ink_sac: (s, r) => { blob(s, 8, 9, 4.5, 5, [60, 200, 190], r, [30, 130, 130]); s(6, 7, [200, 255, 250]); },
+  rabbit: (s, r) => { blob(s, 8, 9, 5, 4, [230, 160, 150], r, [190, 110, 100]); pLine(s, 3, 9, 1, 12, [220, 150, 140]); pLine(s, 13, 9, 15, 12, [220, 150, 140]); },
+  cooked_rabbit: (s, r) => { blob(s, 8, 9, 5, 4, [196, 130, 70], r, [140, 80, 40]); pLine(s, 3, 9, 1, 12, [180, 110, 60]); pLine(s, 13, 9, 15, 12, [180, 110, 60]); },
+  rabbit_hide: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) if ((x + y) % 7 !== 0) s(x, y, vary([170, 130, 90], r, 12)); },
+  rabbit_foot: (s, r) => { blob(s, 8, 6, 3, 4, [200, 170, 130], r, [150, 120, 90]); for (let y = 9; y <= 13; y++) s(8, y, [190, 150, 110]); s(7, 13, [120, 90, 60]); s(9, 13, [120, 90, 60]); },
+  bone_meal: (s, r) => { for (let i = 0; i < 30; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 5; s(Math.round(8 + Math.cos(a) * d), Math.round(9 + Math.sin(a) * d * 0.7), r() < 0.5 ? [240, 240, 236] : [214, 214, 220]); } },
+  mutton: (s, r) => { blob(s, 8, 8, 5, 4, [210, 70, 70], r, [160, 40, 40]); pLine(s, 11, 5, 14, 2, [240, 236, 226]); },
+  cooked_mutton: (s, r) => { blob(s, 8, 8, 5, 4, [150, 90, 50], r, [100, 60, 30]); pLine(s, 11, 5, 14, 2, [240, 236, 226]); },
+  armadillo_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 3; x <= 13; x++) if (Math.abs(x - 8) + Math.abs(y - 8) * 0.6 < 6) s(x, y, y % 3 === 0 ? [140, 90, 80] : [190, 130, 120]); },
+  turtle_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) if (Math.abs(x - 8) + Math.abs(y - 8) < 6) s(x, y, (x + y) % 4 === 0 ? [40, 110, 40] : [70, 160, 70]); },
+  honeycomb: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) { const hx = ((x + (Math.floor(y / 3) % 2) * 2) % 4 === 0) || y % 3 === 0; s(x, y, hx ? [200, 130, 20] : [250, 190, 50]); } },
   copper_nugget: (s, r) => { blob(s, 8, 9, 3, 2.5, [214, 120, 80], r, [150, 80, 50]); },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
@@ -660,7 +682,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('bone_meal', 3, ['bone']), RSH('leather', 1, ['RR', 'RR'], { R: 'rabbit_hide' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
   RSH('crossbow', 1, ['SIS', 'TFT', ' S '], { S: 'stick', I: 'iron_ingot', T: 'string', F: 'tripwire_hook' }), RSH('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }), RSH('lead', 2, ['SS ', 'SB ', '  S'], { S: 'string', B: 'slime_ball' }),
   RSH('glowstone', 1, ['GG', 'GG'], { G: 'glowstone_dust' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
@@ -694,7 +716,7 @@ function gridMatch(grid, n) {
   }
   return null;
 }
-const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'], ['potato', 'baked_potato'],
+const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'], ['potato', 'baked_potato'], ['cod', 'cooked_cod'], ['salmon', 'cooked_salmon'], ['rabbit', 'cooked_rabbit'], ['mutton', 'cooked_mutton'],
   ['deepslate_iron_ore', 'iron_ingot'], ['deepslate_gold_ore', 'gold_ingot'], ['deepslate_copper_ore', 'copper_ingot'], ['deepslate_coal_ore', 'coal'], ['deepslate_diamond_ore', 'diamond'], ['deepslate_lapis_ore', 'lapis_lazuli'], ['deepslate_redstone_ore', 'redstone'], ['deepslate_emerald_ore', 'emerald'], ['redstone_ore', 'redstone'], ['emerald_ore', 'emerald']]) SMELT[IT[a]] = IT[b];
 const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60], ['wooden_spear', 10], ['smithing_table', 15]]) FUEL[IT[a]] = t;
 const COOK_TIME = 5;
