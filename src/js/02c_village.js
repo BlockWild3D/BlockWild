@@ -22,7 +22,7 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
     if (kind === 'library') { // bookshelves along the back wall, lectern-ish table
       const back = [[x0 + 1, z0 + 1, 1, 0, w - 2], [x0 + 1, z0 + d - 2, 1, 0, w - 2], [x0 + w - 2, z0 + 1, 0, 1, d - 2], [x0 + 1, z0 + 1, 0, 1, d - 2]][[3, 2, 1, 0][doorSide]];
       if (back) for (let i = 0; i < back[4]; i++) for (let y = 1; y <= 2; y++) hard(back[0] + back[2] * i, fy + y, back[1] + back[3] * i, B.BOOKSHELF);
-      hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.CRAFTING_TABLE);
+      hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.LECTERN);
     }
     if (kind === 'farmhouse') hard(x0 + 1, fy + 1, z0 + d - 2, B.HAY_BLOCK);
     for (const [cx, cz] of [[x0 + w - 2, z0 + 1], [x0 + 1, z0 + 1], [x0 + 1, z0 + d - 2], [x0 + w - 2, z0 + d - 2]]) { const k = cx + ',' + (fy + 1) + ',' + cz; if (world.chestLoot.get(k) === 'house') world.chestLoot.set(k, kind === 'library' ? 'library' : kind === 'farmhouse' ? 'farm' : 'house'); }
@@ -39,7 +39,7 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
       for (let y = fy + 1; y <= fy + 3; y++) hard(x, y, z, corner ? M.post : (edge && !front ? (y === fy + 2 && (x + z) % 3 === 0 ? B.GLASS : B.COBBLESTONE) : 0));
       hard(x, fy + 4, z, B.STONE_BRICKS);
     }
-    const ix = x0 + 1, iz = z0 + 1; hard(ix, fy + 1, iz, B.FURNACE); hard(ix + 1, fy + 1, iz, B.FURNACE); hard(ix + 2, fy + 1, iz, B.CRAFTING_TABLE);
+    const ix = x0 + 1, iz = z0 + 1; hard(ix, fy + 1, iz, B.FURNACE); hard(ix + 1, fy + 1, iz, [B.BLAST_FURNACE, B.GRINDSTONE, B.SMITHING_TABLE][r() * 3 | 0]); hard(ix + 2, fy + 1, iz, B.CRAFTING_TABLE);
     const cx = x0 + w - 2, cz = z0 + 1; hard(cx, fy + 1, cz, B.CHEST); world.chestLoot.set(cx + ',' + (fy + 1) + ',' + cz, 'smithy');
     hard(x0 + (w >> 1), fy + 4, z0 + (d >> 1), B.GLOWSTONE); hard(x0 + 1, fy + 1, z0 + d - 2, B.MAGMA_BLOCK);
     S.mobs.push(['villager', door[0] + 0.5, fy + 1, door[1] + 0.5]); return;
@@ -52,7 +52,7 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
     }
     for (let y = fy + 11; y <= fy + 13; y++) hard(x0 + (w >> 1), y, z0 + (d >> 1), y === fy + 13 ? B.GLOWSTONE : B.STONE_BRICKS);
     hard(door[0], fy + 1, door[1], 0); hard(door[0], fy + 2, door[1], 0);
-    hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.BOOKSHELF); hard(x0 + (w >> 1), fy + 9, z0 + (d >> 1), B.GLOWSTONE);
+    hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.BREWING_STAND); hard(x0 + (w >> 1), fy + 9, z0 + (d >> 1), B.GLOWSTONE);
     S.mobs.push(['villager', x0 + (w >> 1) + 0.5, fy + 1, z0 + 1.5]); return;
   }
 }
@@ -64,7 +64,7 @@ function villageFarm(S, g, x0, z0, x1, z1, hard, M, r, world, alongX) {
     const edge = x === x0 || x === x1 || z === z0 || z === z1; const mid = alongX ? z === ((z0 + z1) >> 1) : x === ((x0 + x1) >> 1);
     if (edge) hard(x, fy, z, M.log); else if (mid) hard(x, fy, z, B.WATER); else { hard(x, fy, z, B.FARMLAND); hard(x, fy + 1, z, B[crop + Math.min(3, Math.floor(r() * 5))]); }
   }
-  hard(x0, fy + 1, z0, B.HAY_BLOCK); hard(x1, fy + 1, z1, B.HAY_BLOCK);
+  hard(x0, fy + 1, z0, B.HAY_BLOCK); hard(x1, fy + 1, z1, B.COMPOSTER);
   S.mobs.push(['villager', x0 + 1.5, fy + 1, z0 + 1.5]); return true;
 }
 function villagePen(S, g, x0, z0, x1, z1, hard, M, r) {
@@ -73,7 +73,7 @@ function villagePen(S, g, x0, z0, x1, z1, hard, M, r) {
     groundFill(g, x, z, fy, hard, B.DIRT); hard(x, fy, z, M.ground); for (let y = fy + 1; y <= fy + 4; y++) hard(x, y, z, 0);
     if (x === x0 || x === x1 || z === z0 || z === z1) { hard(x, fy + 1, z, M.log); if ((x + z) % 2 === 0) hard(x, fy + 2, z, M.log); }
   }
-  hard(x0 + 1, fy + 1, z0 + 1, B.HAY_BLOCK);
+  hard(x0 + 1, fy + 1, z0 + 1, B.HAY_BLOCK); if (r() < 0.6) hard(x1 - 1, fy + 1, z0 + 1, B.LOOM);
   const kinds = M.ground === B.SAND ? ['chicken'] : ['cow', 'sheep', 'pig', 'chicken']; const k = kinds[Math.floor(r() * kinds.length)];
   for (let i = 0; i < 3; i++) S.mobs.push([k, x0 + 2.5 + i, fy + 1, z0 + 3.5]);
   return true;
@@ -86,7 +86,7 @@ function villageChunk(S, g, cx, cz, vs, hard, r, world) {
     for (let x = bx + 3; x <= bx + 12; x++) for (let z = bz + 3; z <= bz + 12; z++) roadCell(g, x, z, hard, M);
     buildWell(S, g, bx + 6, bz + 6, hard, Object.assign({}, M, { roof: M.roof }));
     for (const [x, z] of [[bx + 2, bz + 2], [bx + 13, bz + 13], [bx + 2, bz + 13], [bx + 13, bz + 2]]) lampPost(g, x, z, hard, M);
-    S.kinds.push(['village', bx + 8, bz + 8]); return;
+    S.kinds.push(['village', bx + 8, bz + 8]); { const gx = bx + 4, gz = bz + 10, gh = g.column(gx, gz).h; if (gh > SEA) S.mobs.push(['iron_golem', gx + 0.5, gh, gz + 0.5]); } return; // one iron golem guards each new village
   }
   const arm = (dx === 0) !== (dz === 0);
   if (arm) {

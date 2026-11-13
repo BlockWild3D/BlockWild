@@ -721,8 +721,8 @@ function collapsePortal(x, y, z) {
 }
 function onBlockRemoved(x, y, z, id) {
   const k = x + ',' + y + ',' + z; const w = G.world;
-  if (id === B.CHEST) { const inv = w.chestInv.get(k) || (w.chestLoot.has(k) ? rollLoot(w.chestLoot.get(k), ihash(x, y, z, w.seed)) : null); if (inv) for (const s of inv) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5); w.chestInv.delete(k); w.chestLoot.delete(k); }
-  if (id === B.FURNACE) { const f = w.furnaces.get(k); if (f) for (const s of f.s) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5); w.furnaces.delete(k); }
+  if (id === B.CHEST || id === B.BARREL) { const inv = w.chestInv.get(k) || (w.chestLoot.has(k) ? rollLoot(w.chestLoot.get(k), ihash(x, y, z, w.seed)) : null); if (inv) for (const s of inv) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5, false, xtra(s)); w.chestInv.delete(k); w.chestLoot.delete(k); }
+  if (BL[id] && BL[id].use === 'furnace') { const f = w.furnaces.get(k); if (f) for (const s of f.s) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5); w.furnaces.delete(k); }
   if (id === B.SPAWNER) w.spawners.delete(k);
   if (id === B.OBSIDIAN || id === B.NETHER_PORTAL || id === B.NETHER_PORTAL_Z) setTimeout(() => collapsePortal(x, y, z), 0);
 }

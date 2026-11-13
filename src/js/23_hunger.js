@@ -12,7 +12,7 @@ const FOOD = { // [food points, saturation, effect chance list]
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
   enchanted_golden_apple: [4, 9.6, [['regeneration', 20, 1, 1], ['absorption', 120, 3, 1], ['resistance', 300, 0, 1], ['fire_resistance', 300, 0, 1]], true],
   carrot: [3, 3.6], potato: [1, 0.6], cod: [2, 0.4], cooked_cod: [5, 6], salmon: [2, 0.4], cooked_salmon: [6, 9.6], tropical_fish: [1, 0.2], pufferfish: [1, 0.2, [['poison', 60, 3, 1], ['hunger', 15, 2, 1]]],
-  rabbit: [3, 1.8], cooked_rabbit: [5, 6], mutton: [2, 1.2], cooked_mutton: [6, 9.6], spider_eye: [2, 3.2, [['poison', 5, 0, 1]]], baked_potato: [5, 6], golden_carrot: [6, 14.4], chorus_fruit: [4, 2.4, null, true], milk_bucket: [0, 0, null, true],
+  rabbit: [3, 1.8], cooked_rabbit: [5, 6], mutton: [2, 1.2], cooked_mutton: [6, 9.6], spider_eye: [2, 3.2, [['poison', 5, 0, 1]]], baked_potato: [5, 6], golden_carrot: [6, 14.4], chorus_fruit: [4, 2.4, null, true], sweet_berries: [2, 0.4], cookie: [2, 0.4], pumpkin_pie: [8, 4.8], rabbit_stew: [10, 12], melon_slice: [2, 1.2], suspicious_stew: [6, 7.2, null, true], milk_bucket: [0, 0, null, true],
 };
 for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kind = 'food'; it.food = FOOD[k][0]; it.sat = FOOD[k][1]; it.eatFx = FOOD[k][2] || null; it.alwaysEat = !!FOOD[k][3]; }
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
@@ -90,7 +90,7 @@ function updateEating(dt) {
     if (isSurv()) { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
     if (typeof onEatItem === 'function') onEatItem(h.id);
-    if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
+    if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
     Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
   }
 }

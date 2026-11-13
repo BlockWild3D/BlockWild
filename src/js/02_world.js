@@ -221,7 +221,7 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   const ins = [[x0 + 1, z0 + 1], [x0 + w - 2, z0 + 1], [x0 + 1, z0 + d - 2], [x0 + w - 2, z0 + d - 2]].filter(([x, z]) => Math.abs(x - dx0) + Math.abs(z - dz0) > 1);
   if (ins[0]) hard(ins[0][0], fy + 1, ins[0][1], B.CRAFTING_TABLE);
   if (ins[1]) { hard(ins[1][0], fy + 1, ins[1][1], B.CHEST); world.chestLoot.set(ins[1][0] + ',' + (fy + 1) + ',' + ins[1][1], 'house'); }
-  if (ins[2] && r() < 0.6) hard(ins[2][0], fy + 1, ins[2][1], r() < 0.5 ? B.BOOKSHELF : B.FURNACE);
+  if (ins[2] && r() < 0.85) hard(ins[2][0], fy + 1, ins[2][1], [B.FLETCHING_TABLE, B.CARTOGRAPHY_TABLE, B.BARREL, B.SMOKER, B.STONECUTTER, B.CAULDRON, B.LOOM, B.COMPOSTER, B.BOOKSHELF][r() * 9 | 0]); // a job site for whoever lives here
   S.mobs.push(['villager', doorX + 0.5, fy + 1, doorZ + 0.5]);
 }
 function buildWell(S, g, x0, z0, hard, M) {

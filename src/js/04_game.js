@@ -52,7 +52,7 @@ const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.002, 1.002, 1.002), cra
 class Player {
   constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(41).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
   eye() { return new V3(this.pos.x, this.pos.y + (this.swimming ? 0.4 : this.eyeH || 1.62), this.pos.z); }
-  held() { return this.inv[this.sel]; }
+  held() { return this.inv[handSlot()]; }
   heldDef() { const h = this.held(); return h ? ITEMS[h.id] : null; }
   hurt(dmg, src, cause, kb = 1) {
     if (this.dead || !isSurv() || this.hurtCD > 0 || S.loading) return;
@@ -101,8 +101,10 @@ function addItem(id, n, extra) { const r = addTo(player.inv, id, n, INV_ORDER, e
 function giveOrDrop(id, n, extra) { const left = addItem(id, n, extra); if (left) dropItem(id, left, player.pos.x, player.pos.y + 1.2, player.pos.z, true, extra); }
 function countItem(id) { let c = 0; for (const s of player.inv) if (s && s.id === id) c += s.count; return c; }
 function removeItem(id, n) { let removed = 0; for (let i = 36; i >= 0 && n > 0; i--) { const s = player.inv[i]; if (s && s.id === id) { const k = Math.min(n, s.count); s.count -= k; n -= k; removed += k; if (!s.count) player.inv[i] = null; } } invDirty(); return removed; }
-function useHeld(n = 1) { if (S.mode === 'creative') return; const h = player.held(); if (!h) return; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); }
-function replaceHeld(id) { if (S.mode === 'creative') { if (!countItem(id)) addItem(id, 1); return; } const h = player.held(); if (h && h.count > 1) { h.count--; giveOrDrop(id, 1); } else player.inv[player.sel] = { id, count: 1 }; invDirty(); }
+// the hand being used: the off hand while a right-click is going to it (44_offhand.js)
+function handSlot() { return S.useOff && player.inv[36] ? 36 : player.sel; }
+function useHeld(n = 1) { if (S.mode === 'creative') return; const h = player.held(); if (!h) return; h.count -= n; if (h.count <= 0) player.inv[handSlot()] = null; invDirty(); }
+function replaceHeld(id) { if (S.mode === 'creative') { if (!countItem(id)) addItem(id, 1); return; } const h = player.held(); if (h && h.count > 1) { h.count--; giveOrDrop(id, 1); } else player.inv[handSlot()] = { id, count: 1 }; invDirty(); }
 let _invDirty = true; function invDirty() { _invDirty = true; }
 
 // ---- UI: hotbar & hearts ----
@@ -265,10 +267,10 @@ function openChest(x, y, z) { Sfx.play('chest', 0.7);
 function getFurnace(k) { let f = world.furnaces.get(k); if (!f) { f = { s: [null, null, null], burn: 0, burnMax: 0, cook: 0 }; world.furnaces.set(k, f); } return f; }
 function updateFurnaces(dt) {
   for (const [k, f] of world.furnaces) {
-    const [inp, fuel, out] = f.s; const res = inp ? SMELT[inp.id] : undefined;
+    const [inp, fuel, out] = f.s; const res0 = inp ? SMELT[inp.id] : undefined; const res = res0 !== undefined && (!f.fast || furnaceAccepts(f.fast, inp.id, res0)) ? res0 : undefined; const spd = f.fast ? 2 : 1;
     const can = res !== undefined && (!out || (out.id === res && out.count < stackMax(res)));
     if (f.burn <= 0 && can && fuel && FUEL[fuel.id]) { f.burn = f.burnMax = FUEL[fuel.id]; if (fuel.id === IT.lava_bucket) f.s[1] = { id: IT.bucket, count: 1 }; else { fuel.count--; if (!fuel.count) f.s[1] = null; } if (S.furnKey === k) invDirty(); }
-    if (f.burn > 0) { f.burn -= dt; if (can) { f.cook += dt; if (f.cook >= COOK_TIME) { f.cook = 0; inp.count--; if (!inp.count) f.s[0] = null; if (out) out.count++; else f.s[2] = { id: res, count: 1 }; f.xp = (f.xp || 0) + (SMELT_XP[ITEMS[res].key] || 0.1); if (S.furnKey === k) invDirty(); } } else f.cook = 0; }
+    if (f.burn > 0) { f.burn -= dt * spd; if (can) { f.cook += dt * spd; if (f.cook >= COOK_TIME) { f.cook = 0; inp.count--; if (!inp.count) f.s[0] = null; if (out) out.count++; else f.s[2] = { id: res, count: 1 }; f.xp = (f.xp || 0) + (SMELT_XP[ITEMS[res].key] || 0.1); if (S.furnKey === k) invDirty(); } } else f.cook = 0; }
     else f.cook = Math.max(0, f.cook - dt * 2);
   }
   if (furnState) { document.querySelector('.flameon').style.height = (furnState.burnMax ? Math.max(0, furnState.burn / furnState.burnMax) * 100 : 0) + '%'; document.querySelector('.progon').style.width = (furnState.cook / COOK_TIME * 100) + '%'; }
@@ -457,7 +459,7 @@ function updateInteraction(dt) {
   if (!mouseL) { crackMesh.visible = false; show('mineBar', false); }
   // shield: hold right-click with a shield in either hand (main-hand items with their own use take priority)
   const hb = player.heldDef(); const sneak = kd('sneak');
-  const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || target.id === B.FURNACE || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
+  const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || BL[target.id].use === 'furnace' || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
   const offShield = player.inv[36] && player.inv[36].id === IT.shield; const mk = hb ? hb.kind : null;
   const canShield = mk === 'shield' || (offShield && (!mk || mk === 'tool' || mk === 'mat'));
   if (canShield && mouseR && !blockUse && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.15; return; }
@@ -488,13 +490,13 @@ function useAction(eye, dir) {
   if (hd && hd.kind === 'boat' && !(target && BL[target.id].use && !sneaking)) { mouseR = false; placeBoatItem(eye, dir); return; }
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
   if (hd && hd.kind === 'bed' && target && !(BL[target.id].use && !sneaking)) { mouseR = false; if (placeBed(target)) useHeld(1); S.swing = 1; return; }
-  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
+  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[handSlot()] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
     const bd = BL[target.id];
     if (bd.use === 'chest') { mouseR = false; openChest(target.x, target.y, target.z); return; }
     if (target.id === B.CRAFTING_TABLE) { mouseR = false; openUI('table'); return; }
-    if (target.id === B.FURNACE) { mouseR = false; openUI('furnace', target.x + ',' + target.y + ',' + target.z); return; }
+    if (bd.use === 'furnace') { mouseR = false; const fk = target.x + ',' + target.y + ',' + target.z; getFurnace(fk).fast = bd.fast || null; openUI('furnace', fk); return; }
     if (bd.use === 'bed') { mouseR = false; useBed(target.x, target.y, target.z); return; }
     if (target.id === B.ENCHANTING_TABLE) { mouseR = false; openUI('enchant', target.x + ',' + target.y + ',' + target.z); return; }
     if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
@@ -515,7 +517,7 @@ function useAction(eye, dir) {
   if (hd.kind === 'bucket') {
     if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
-    if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
+    if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
   }
   if (hd.kind === 'block' && target) { if (placeBlock(target, h.id)) { useHeld(1); S.swing = 1; } }

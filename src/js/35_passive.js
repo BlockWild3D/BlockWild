@@ -230,7 +230,7 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
 // ---------- where they live (when a chunk is first made) and villages' iron golems ----------
 { const _og = onChunkGen; onChunkGen = function (c, hints, cols, w) {
     _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
-    if (hints.filter(h => h[0] === 'villager').length >= 2 && Math.random() < 0.6) { const v = hints.find(h => h[0] === 'villager'); spawnMob('iron_golem', v[1] + 1, v[2], v[3] + 1); if (Math.random() < 0.5) { const m = spawnMob('cat', v[1] - 1, v[2], v[3]); } }
+    if (hints.some(h => h[0] === 'villager') && Math.random() < 0.15) { const v = hints.find(h => h[0] === 'villager'); spawnMob('cat', v[1] - 1, v[2], v[3]); }
     if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.08) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; let tab = null;
     if (col.b === BIO.SNOWY) tab = { rabbit: 3, fox: 3, polar_bear: 1, wolf: 1 };

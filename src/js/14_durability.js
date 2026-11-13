@@ -1,6 +1,6 @@
 // ================= DURABILITY (Minecraft values) + ITEM TOOLTIPS =================
 const TIER_DUR = { 1: 59, 2: 131, 3: 250, 4: 1561, 5: 2031 };
-const ARMOR_BASE = { head: 11, chest: 16, legs: 15, feet: 13 }, ARMOR_MULT = { leather: 5, golden: 7, iron: 15, diamond: 33, netherite: 37 };
+const ARMOR_BASE = { head: 11, chest: 16, legs: 15, feet: 13 }, ARMOR_MULT = { leather: 5, golden: 7, iron: 15, diamond: 33, netherite: 37, chainmail: 15 };
 for (const id of ITEM_IDS) { const it = ITEMS[id];
   if (it.kind === 'tool') it.dur = it.dur || TIER_DUR[it.tier] || 250;
   if (it.kind === 'tool' && it.gold) it.dur = 32;
@@ -19,7 +19,7 @@ function damageSlot(idx, amount = 1) {
   if (s.dmg >= max) { player.inv[idx] = null; Sfx.play('glass_break', 0.6, 1.4); const e = player.eye(); Particles.emit(e.x, e.y - 0.4, e.z, 14, [[0.7, 0.7, 0.7], [0.5, 0.4, 0.3]], 2, 0.5, 8, 0.3); toast(ITEMS[s.id].name + ' broke!', 1.5); return true; }
   return false;
 }
-function damageHeld(amount = 1) { return damageSlot(player.sel, amount); }
+function damageHeld(amount = 1) { return damageSlot(handSlot(), amount); }
 // tooltip text in Minecraft's style
 const ATK_SPEED = { sword: 1.6, pick: 1.2, hoe: 2, axe: 0.9, shovel: 1.0 };
 function itemTooltip(s) {
