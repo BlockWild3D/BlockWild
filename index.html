@@ -608,6 +608,19 @@ makeTile('farmland', (set, r) => each((x, y) => { let c = vary([92, 62, 38], r, 
 for (let st = 0; st < 4; st++) makeTile('wheat' + st, (set, r) => { clear(set); const H = 4 + st * 3.6; const col = st < 3 ? [70 + st * 20, 150 - st * 6, 40] : [196, 170, 70]; for (const cx of [2, 5, 8, 11, 14]) { const h = Math.round(H - r() * 2); for (let y = 0; y < h; y++) set(cx + (y > h - 3 && st === 3 ? (cx % 2) : 0), 15 - y, vary(y > h - 4 && st === 3 ? [214, 186, 90] : col, r, 10)); if (st === 3) { set(cx - 1, 15 - h + 1, [180, 150, 60]); set(cx + 1, 15 - h + 2, [180, 150, 60]); } } });
 for (let st = 0; st < 4; st++) makeTile('carrots' + st, (set, r) => { clear(set); const H = 3 + st * 2.6; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([60 + st * 8, 140 + st * 6, 40], r, 12)); if (y > h * 0.4) { set(cx - 1, 15 - y - 1, vary([70, 160, 50], r, 10)); set(cx + 1, 15 - y, vary([52, 128, 36], r, 10)); } } if (st === 3) { set(cx, 15, [232, 130, 28]); set(cx - 1, 15, [214, 110, 20]); set(cx, 14, [246, 150, 40]); } } });
 for (let st = 0; st < 4; st++) makeTile('potatoes' + st, (set, r) => { clear(set); const H = 3 + st * 2.4; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([66, 132, 46], r, 10)); if (y > 1 && y % 2 === 0) { set(cx - 1, 15 - y, vary([84, 156, 58], r, 10)); set(cx + 1, 15 - y - 1, vary([84, 156, 58], r, 10)); } } if (st === 3) { set(cx, 15 - h, [236, 236, 230]); set(cx - 1, 15, [196, 160, 90]); set(cx + 1, 15, [176, 140, 74]); } } });
+// rails: steel (or gold) rails along the tile's height, wooden ties across; curves bend from the bottom edge to the right edge
+function railTile(railC, mid, curve) { return (set, r) => { clear(set);
+  const tie = (x, y) => set(x, y, vary([118, 86, 54], r, 8));
+  if (!curve) { for (let y = 0; y < 16; y++) { if (y % 4 === 1 || y % 4 === 2) for (let x = 1; x < 15; x++) tie(x, y); set(2, y, railC[0]); set(3, y, railC[1]); set(12, y, railC[0]); set(13, y, railC[1]); if (mid) { set(7, y, mid); set(8, y, mid); } } }
+  else { for (let a = 0; a < 40; a++) { const t = a / 39 * Math.PI / 2; for (const [R, c] of [[2.5, 0], [3.5, 1], [12.5, 0], [13.5, 1]]) set(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R), railC[c]); } for (let k = 0; k < 4; k++) { const t = (k + 0.5) / 4 * Math.PI / 2; for (let R = 1; R < 15; R++) tie(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R)); } for (let a = 0; a < 40; a++) { const t = a / 39 * Math.PI / 2; for (const [R, c] of [[2.5, 0], [3.5, 1], [12.5, 0], [13.5, 1]]) set(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R), railC[c]); } } }; }
+const STEEL = [[196, 196, 200], [140, 140, 146]], GOLDR = [[246, 210, 70], [200, 160, 40]];
+makeTile('rail', railTile(STEEL)); makeTile('rail_corner', railTile(STEEL, null, true));
+makeTile('powered_rail', railTile(GOLDR, [110, 30, 24])); makeTile('powered_rail_on', railTile(GOLDR, [255, 60, 40]));
+makeTile('detector_rail', railTile(STEEL, [90, 70, 70])); makeTile('detector_rail_on', railTile(STEEL, [230, 50, 40]));
+makeTile('activator_rail', railTile(STEEL, [130, 60, 50])); makeTile('activator_rail_on', railTile(STEEL, [250, 90, 60]));
+makeTile('lever', (set, r) => { clear(set); for (let y = 2; y < 12; y++) { set(7, y, [128, 96, 54]); set(8, y, [100, 74, 40]); } });
+makeTile('lever_base', (set, r) => each((x, y) => set(x, y, vary([120, 120, 124], r, 6))));
+makeTile('redstone_torch', (set, r) => { clear(set); for (let y = 8; y < 16; y++) { set(7, y, [128, 96, 54]); set(8, y, [100, 74, 40]); } set(7, 6, [255, 80, 50]); set(8, 6, [230, 40, 30]); set(7, 7, [200, 30, 20]); set(8, 7, [170, 20, 16]); });
 makeTile('hay_side', (set, r) => each((x, y) => { let c = vary([196, 160, 52], r, 12); if (y === 3 || y === 12) c = [120, 70, 30]; if (x % 3 === 0 && y !== 3 && y !== 12) c = vary([170, 136, 40], r, 8); set(x, y, c); }));
 makeTile('hay_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(d > 6.5 ? [120, 70, 30] : (Math.floor(d) % 2 ? [176, 140, 40] : [206, 170, 62]), r, 8)); }));
 makeTile('bed_head_top', (set, r) => each((x, y) => { const pil = y < 9 && x > 1 && x < 14 && y > 1; let c = pil ? vary([236, 236, 230], r, 5) : vary([176, 36, 36], r, 9); if (pil && (y === 2 || x === 2 || x === 13)) c = [214, 214, 206]; if (!pil && (x === 0 || x === 15)) c = [140, 26, 26]; set(x, y, c); }));
@@ -712,6 +725,19 @@ defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' },
 for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, cropBase: 'wheat_', drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
 for (let st = 0; st < 4; st++) defBlock('carrots_' + st, 'Carrots', { tex: 'carrots' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'carrots_', drop: st < 3 ? 'carrot' : (r) => ['carrot', 2 + Math.floor(r * 4)] });
 for (let st = 0; st < 4; st++) defBlock('potatoes_' + st, 'Potatoes', { tex: 'potatoes' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'potatoes_', drop: st < 3 ? 'potato' : (r) => ['potato', 2 + Math.floor(r * 4)] });
+// rails: every shape is its own block (so saves and multiplayer just work). Shapes: ns, ew, asc_e/w/n/s (rising toward
+// that side), and curves se/sw/nw/ne (plain rails only). Powered, detector and activator rails also have an "on" version.
+const RAIL_SHAPES = ['ns', 'ew', 'asc_e', 'asc_w', 'asc_n', 'asc_s', 'se', 'sw', 'nw', 'ne'];
+const RAIL_ID = {};
+for (const [type, name, tex] of [['rail', 'Rail', 'rail'], ['powered_rail', 'Powered Rail', 'powered_rail'], ['detector_rail', 'Detector Rail', 'detector_rail'], ['activator_rail', 'Activator Rail', 'activator_rail']]) {
+  RAIL_ID[type] = {}; for (const shape of RAIL_SHAPES) { if (type !== 'rail' && shape.length === 2 && shape !== 'ns' && shape !== 'ew') continue;
+    for (const on of type === 'rail' ? [false] : [false, true]) { const key = type + (shape === 'ns' && !on ? '' : '_' + shape + (on ? '_on' : ''));
+      const t = shape.length === 2 && shape !== 'ns' && shape !== 'ew' ? 'rail_corner' : tex + (on ? '_on' : '');
+      const id = defBlock(key, name, { tex: t, solid: false, opaque: false, render: 'rail', hardness: 0.7, snd: 'stone', drop: type, hidden: key !== type, rail: { type, shape, on }, light: on && type === 'powered_rail' ? 0 : 0 });
+      (RAIL_ID[type][shape] || (RAIL_ID[type][shape] = {}))[on ? 1 : 0] = id; } } }
+defBlock('lever', 'Lever', { tex: 'lever_base', solid: false, opaque: false, render: 'boxes', boxes: [[5, 0, 4, 11, 2, 12], [7, 2, 3, 9, 11, 5, TILE.lever]], hardness: 0.5, snd: 'wood', use: 'lever', power: 0 });
+defBlock('lever_on', 'Lever', { tex: 'lever_base', solid: false, opaque: false, render: 'boxes', boxes: [[5, 0, 4, 11, 2, 12], [7, 2, 11, 9, 11, 13, TILE.lever]], hardness: 0.5, snd: 'wood', use: 'lever', power: 15, hidden: true, drop: 'lever' });
+defBlock('redstone_torch', 'Redstone Torch', { tex: 'redstone_torch', solid: false, opaque: false, render: 'torch', hardness: 0, light: 0.45, snd: 'wood', power: 15 });
 defBlock('hay_block', 'Hay Bale', { tex: { s: 'hay_side', t: 'hay_top' }, hardness: 0.5, snd: 'grass' });
 defBlock('enchanting_table', 'Enchanting Table', { tex: { s: 'ench_side', t: 'ench_top', b: 'ench_bottom' }, hardness: 5, tool: 'pick', tier: 1, light: 0.45, use: 'enchant' });
 // flowing liquids: levels 1-7 spread outward, 8 is falling. B.WATER / B.LAVA are the source blocks
@@ -789,6 +815,7 @@ M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1,
 M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
 M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
 M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('totem_of_undying', 'Totem of Undying', { kind: 'totem', stack: 1 });
+M('minecart', 'Minecart', { kind: 'minecart', stack: 1 }); M('chest_minecart', 'Minecart with Chest', { kind: 'minecart', stack: 1, chest: true });
 M('cod', 'Raw Cod', { kind: 'food' }); M('cooked_cod', 'Cooked Cod', { kind: 'food' }); M('salmon', 'Raw Salmon', { kind: 'food' }); M('cooked_salmon', 'Cooked Salmon', { kind: 'food' });
 M('tropical_fish', 'Tropical Fish', { kind: 'food' }); M('pufferfish', 'Pufferfish', { kind: 'food' }); M('ink_sac', 'Ink Sac'); M('glow_ink_sac', 'Glow Ink Sac');
 M('rabbit', 'Raw Rabbit', { kind: 'food' }); M('cooked_rabbit', 'Cooked Rabbit', { kind: 'food' }); M('rabbit_hide', 'Rabbit Hide'); M('rabbit_foot', "Rabbit's Foot");
@@ -913,6 +940,8 @@ Object.assign(ICONP, {
   armadillo_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 3; x <= 13; x++) if (Math.abs(x - 8) + Math.abs(y - 8) * 0.6 < 6) s(x, y, y % 3 === 0 ? [140, 90, 80] : [190, 130, 120]); },
   turtle_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) if (Math.abs(x - 8) + Math.abs(y - 8) < 6) s(x, y, (x + y) % 4 === 0 ? [40, 110, 40] : [70, 160, 70]); },
   honeycomb: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) { const hx = ((x + (Math.floor(y / 3) % 2) * 2) % 4 === 0) || y % 3 === 0; s(x, y, hx ? [200, 130, 20] : [250, 190, 50]); } },
+  minecart: (s, r) => { for (let y = 6; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 6 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); s(x - 1, 12, [70, 70, 74]); s(x + 1, 12, [70, 70, 74]); } },
+  chest_minecart: (s, r) => { for (let y = 3; y <= 7; y++) for (let x = 4; x <= 11; x++) s(x, y, y === 5 ? [60, 40, 20] : [170, 120, 60]); s(7, 5, [200, 200, 200]); for (let y = 7; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 7 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); } },
   copper_nugget: (s, r) => { blob(s, 8, 9, 3, 2.5, [214, 120, 80], r, [150, 80, 50]); },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
@@ -1061,7 +1090,11 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('bone_meal', 3, ['bone']), RSH('leather', 1, ['RR', 'RR'], { R: 'rabbit_hide' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }),
+  RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
+  RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
+  RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
+  RSH('lever', 1, ['S', 'C'], { S: 'stick', C: 'cobblestone' }), RSH('redstone_torch', 1, ['R', 'S'], { R: 'redstone', S: 'stick' }), RSL('bone_meal', 3, ['bone']), RSH('leather', 1, ['RR', 'RR'], { R: 'rabbit_hide' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
   RSH('crossbow', 1, ['SIS', 'TFT', ' S '], { S: 'stick', I: 'iron_ingot', T: 'string', F: 'tripwire_hook' }), RSH('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }), RSH('lead', 2, ['SS ', 'SB ', '  S'], { S: 'string', B: 'slime_ball' }),
   RSH('glowstone', 1, ['GG', 'GG'], { G: 'glowstone_dust' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
@@ -2035,6 +2068,15 @@ class World {
         }
         continue;
       }
+      if (def.render === 'rail') { // flat (or sloped) rail quads, textured along the track
+        const sh0 = def.rail.shape; const uv = TILE_UV[def.texIds[2]]; const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const e = 1 / 16;
+        const C = [[0, 1], [1, 1], [1, 0], [0, 0]];
+        const map = sh0 === 'ew' || sh0 === 'asc_e' || sh0 === 'asc_w' ? (lx, lz) => [lz, lx] : sh0 === 'sw' ? (lx, lz) => [1 - lx, 1 - lz] : sh0 === 'ne' ? (lx, lz) => [lx, lz] : sh0 === 'nw' ? (lx, lz) => [1 - lx, lz] : (lx, lz) => [lx, 1 - lz];
+        const hgt = (lx, lz) => e + (sh0 === 'asc_e' ? lx : sh0 === 'asc_w' ? 1 - lx : sh0 === 'asc_n' ? 1 - lz : sh0 === 'asc_s' ? lz : 0);
+        for (let k = 0; k < 4; k++) { const [lx, lz] = C[k]; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + hgt(lx, lz); vtmp[k * 3 + 2] = z + lz; const [uf, vf] = map(lx, lz); uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = 1; bl[k] = b0; }
+        quad(O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), false, 0);
+        continue;
+      }
       if (def.render === 'boxes') { // small models made of boxes (anvils...), textured like Minecraft's block models
         const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
         for (const bx of def.boxes) {
@@ -2042,7 +2084,7 @@ class World {
           for (let f = 0; f < 6; f++) {
             const F = FACES[f]; const edge = (F.n[0] > 0 && a1 === 1) || (F.n[0] < 0 && a0 === 0) || (F.n[1] > 0 && y1 === 1) || (F.n[1] < 0 && y0 === 0) || (F.n[2] > 0 && c1 === 1) || (F.n[2] < 0 && c0 === 0);
             if (edge && OPAQUE[get(x + F.n[0], y + F.n[1], z + F.n[2])]) continue;
-            const uv = TILE_UV[def.texIds[f]];
+            const uv = TILE_UV[bx[6] != null ? bx[6] : def.texIds[f]];
             for (let k = 0; k < 4; k++) { const cc = F.c[k]; const lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
@@ -8721,6 +8763,212 @@ function spawnWaterMobs(dt) {
 { const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); spawnWaterMobs(dt); return r; }; }
 // fish and squid don't count against the land animal cap, and are kept when you walk away only if named
 { const _mp = mobPersistent; mobPersistent = function (m) { if (m && m.t && (FISHY.has(m.type) || m.type === 'squid' || m.type === 'glow_squid' || m.type === 'dolphin' || m.type === 'tadpole' || m.type === 'bat')) return false; return _mp(m); }; }
+
+// ================= RAILS, MINECARTS AND BASIC REDSTONE (Minecraft) =================
+// Rails join up with their neighbours as you place them: straight, curved (plain rails only) or sloping up a block.
+// Powered rails speed carts up when powered and brake them when not; power reaches up to 8 rails along a line from
+// a powered one. Detector rails give power while a cart is on them. Activator rails throw the rider out.
+// Power comes from Blocks of Redstone, levers (right-click to flip) and redstone torches, next to the rail or to
+// the block the source is attached to. Minecarts: put one on a rail and ride it (sneak to get out); push empty
+// ones by walking into them. A Minecart with Chest holds 27 stacks. Top speed 8 blocks/s.
+const RDIR = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
+const EXITS = { ns: [['n', 0], ['s', 0]], ew: [['w', 0], ['e', 0]], asc_e: [['w', 0], ['e', 1]], asc_w: [['e', 0], ['w', 1]], asc_n: [['s', 0], ['n', 1]], asc_s: [['n', 0], ['s', 1]], se: [['s', 0], ['e', 0]], sw: [['s', 0], ['w', 0]], nw: [['n', 0], ['w', 0]], ne: [['n', 0], ['e', 0]] };
+const railAt = (x, y, z) => { const d = BL[world.get(x, y, z)]; return d && d.rail ? d.rail : null; };
+const railId = (type, shape, on) => { const t = RAIL_ID[type]; const s = t[shape] || t[shape.length === 2 && shape !== 'ns' && shape !== 'ew' ? 'ns' : shape]; return s[on ? 1 : 0] != null ? s[on ? 1 : 0] : s[0]; };
+const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+// which neighbour rails point at (x, y, z)?
+function railConnectsTo(nx, ny, nz, x, z) { const r = railAt(nx, ny, nz); if (!r) return false; for (const [d, up] of EXITS[r.shape]) { const v = RDIR[d]; if (nx + v[0] === x && nz + v[1] === z) return true; } return false; }
+function railExitCount(x, y, z) { const r = railAt(x, y, z); if (!r) return 0; let n = 0; for (const [d, up] of EXITS[r.shape]) { const v = RDIR[d]; for (const dy of [up, up - 1]) if (railAt(x + v[0], y + dy, z + v[1]) && railConnectsTo(x + v[0], y + dy, z + v[1], x, z)) { n++; break; } } return n; }
+// choose a shape for a rail at (x, y, z) from the rails around it (Minecraft's rule, simplified)
+function chooseRailShape(x, y, z, type, prefer) {
+  const cand = [];
+  for (const d of ['n', 's', 'e', 'w']) { const v = RDIR[d];
+    for (const dy of [0, 1, -1]) { const nx = x + v[0], ny = y + dy, nz = z + v[1]; const r = railAt(nx, ny, nz); if (!r) continue;
+      const free = railConnectsTo(nx, ny, nz, x, z) || railExitCount(nx, ny, nz) < 2; if (free) { cand.push([d, dy]); break; } } }
+  const has = (d) => cand.find(c => c[0] === d);
+  let a = null, b = null;
+  if (has('n') && has('s')) { a = has('n'); b = has('s'); } else if (has('e') && has('w')) { a = has('e'); b = has('w'); }
+  else if (type === 'rail' && cand.length >= 2) { const pairs = [['s', 'e'], ['s', 'w'], ['n', 'w'], ['n', 'e']]; for (const [p, q] of pairs) if (has(p) && has(q)) { a = has(p); b = has(q); break; } }
+  if (!a && cand.length) a = cand[0];
+  if (!a) return prefer || 'ns';
+  const d1 = a[0], d2 = b ? b[0] : OPP[a[0]];
+  const key = [d1, d2].sort().join('');
+  let shape = { ns: 'ns', ew: 'ew', es: 'se', sw: 'sw', nw: 'nw', en: 'ne' }[key] || 'ns';
+  if (shape === 'ns' || shape === 'ew') { for (const c of [a, b]) if (c && c[1] === 1) shape = 'asc_' + c[0]; }
+  return shape;
+}
+function setRailShape(x, y, z, shape) { const r = railAt(x, y, z); if (!r || r.shape === shape) return; const id = railId(r.type, shape, r.on); world.set(x, y, z, id); mpBlock(x, y, z, id); }
+// placing: needs solid ground; pick a shape and turn the neighbours toward the new rail
+{ const _pb = placeBlock; placeBlock = function (t, id) {
+    const d = BL[id]; if (!d || !d.rail) return _pb.call(this, t, id);
+    const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; if (!world.solid(x, y - 1, z)) return false;
+    const dir = lookDir(); const prefer = Math.abs(dir.x) > Math.abs(dir.z) ? 'ew' : 'ns';
+    const shape = chooseRailShape(x, y, z, d.rail.type, prefer); const ok = _pb.call(this, t, railId(d.rail.type, shape, false)); if (!ok) return ok;
+    for (const dd of ['n', 's', 'e', 'w']) { const v = RDIR[dd]; for (const dy of [0, 1, -1]) { const nx = x + v[0], ny = y + dy, nz = z + v[1]; const r = railAt(nx, ny, nz); if (!r) continue; if (railExitCount(nx, ny, nz) < 2 || railConnectsTo(nx, ny, nz, x, z)) setRailShape(nx, ny, nz, chooseRailShape(nx, ny, nz, r.type, r.shape)); } }
+    // our own shape again, now that the neighbours face us (a slope may appear)
+    setRailShape(x, y, z, chooseRailShape(x, y, z, d.rail.type, shape)); POWER.dirty = true; return ok;
+  }; }
+// rails and levers pop off when the block under them goes; power is recomputed after changes
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) {
+    const r = _set.apply(this, arguments);
+    if (r !== false && this === G.world) { const above = this.get(x, y + 1, z); const d = BL[above]; if (d && (d.rail || d.key === 'lever' || d.key === 'lever_on' || d.key === 'redstone_torch') && !SOLID[id] && !(typeof MP !== 'undefined' && MP.active && MP.role === 'client')) { _set.call(this, x, y + 1, z, 0); mpBlock(x, y + 1, z, 0); const dr = blockDrop(above, null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 1.3, z + 0.5); }
+      if ((BL[id] && (BL[id].power || BL[id].rail)) || POWER.watch) POWER.dirty = true; }
+    return r;
+  }; }
+// levers
+{ const _ua = useAction; useAction = function (eye, dir) { if (target && BL[target.id].use === 'lever') { mouseR = false; const nid = target.id === B.LEVER ? B.LEVER_ON : B.LEVER; world.set(target.x, target.y, target.z, nid); mpBlock(target.x, target.y, target.z, nid); Sfx.play('click', 0.8, nid === B.LEVER_ON ? 1.2 : 0.9); S.swing = 1; POWER.dirty = true; return; } return _ua(eye, dir); }; }
+
+// ---------- power ----------
+const POWER = { dirty: true, t: 0, watch: false };
+function sourceAt(x, y, z) { const d = BL[world.get(x, y, z)]; return !!(d && (d.power > 0 || (d.rail && d.rail.type === 'detector_rail' && d.rail.on))); }
+const N6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+// a rail is powered directly by a source next to it, or by a source on a solid block next to it
+function directPower(x, y, z) {
+  for (const [a, b, c] of N6) { const X = x + a, Y = y + b, Z = z + c; if (sourceAt(X, Y, Z)) return true; if (SOLID[world.get(X, Y, Z)] && OPAQUE[world.get(X, Y, Z)]) for (const [p, q, r] of N6) { const d = BL[world.get(X + p, Y + q, Z + r)]; if (d && (d.key === 'lever_on' || d.key === 'redstone_torch')) return true; } }
+  return false;
+}
+function updatePower(dt) {
+  POWER.t -= dt; if (!POWER.dirty || POWER.t > 0 || !world || (typeof MP !== 'undefined' && MP.active && MP.role === 'client')) return; POWER.dirty = false; POWER.t = 0.1;
+  const P = player.pos; const R = 48; const rails = [];
+  for (const c of world.chunks.values()) { if (Math.abs(c.cx * 16 + 8 - P.x) > R + 8 || Math.abs(c.cz * 16 + 8 - P.z) > R + 8) continue; if (!c.hasRails) continue; const d = c.d;
+    for (let i = 0; i < d.length; i++) { const id = d[i]; if (!id || !BL[id].rail || BL[id].rail.type === 'rail' || BL[id].rail.type === 'detector_rail') continue; const y = (i / 256) | 0, z = c.cz * 16 + ((i >> 4) & 15), x = c.cx * 16 + (i & 15); rails.push([x, y, z, BL[id].rail]); } }
+  // direct power, then spread up to 8 rails along connections between rails of the same kind
+  const key = (x, y, z) => x + ',' + y + ',' + z; const dist = new Map(); const q = [];
+  for (const [x, y, z, r] of rails) if (directPower(x, y, z)) { dist.set(key(x, y, z), 0); q.push([x, y, z, r.type]); }
+  while (q.length) { const [x, y, z, type] = q.shift(); const dd = dist.get(key(x, y, z)); if (dd >= 8) continue; const r = railAt(x, y, z); if (!r) continue;
+    for (const [d, up] of EXITS[r.shape]) { const v = RDIR[d]; for (const dy of [up, up - 1]) { const nx = x + v[0], ny = y + dy, nz = z + v[1]; const nr = railAt(nx, ny, nz); if (!nr || nr.type !== type) continue; const k = key(nx, ny, nz); if (!dist.has(k)) { dist.set(k, dd + 1); q.push([nx, ny, nz, type]); } } } }
+  for (const [x, y, z, r] of rails) { const on = dist.has(key(x, y, z)); if (on !== r.on) { const id = railId(r.type, r.shape, on); world.set(x, y, z, id); mpBlock(x, y, z, id); } }
+}
+// chunks remember whether they have rails, so the power scan skips the rest
+{ const _sm = Chunk.prototype.scanMeta; Chunk.prototype.scanMeta = function () { const r = _sm.apply(this, arguments); this.hasRails = false; const d = this.d; for (let i = 0; i < d.length; i++) { const id = d[i]; if (id && BL[id].rail) { this.hasRails = true; break; } } return r; };
+  const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const r = _set.apply(this, arguments); if (BL[id] && BL[id].rail) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.hasRails = true; } return r; }; }
+
+// ---------- minecarts ----------
+G.carts = []; let cartSeq = 1;
+function cartMesh(chest) {
+  const g = new THREE.Group(); const holder = { mats: [] };
+  const IRON = fur([120, 120, 128], 6, { topRows: [1, [160, 160, 168]] });
+  sbox(holder, g, 0.94, 0.08, 0.7, 0, 0.12, 0, 'cart_floor', fur([90, 90, 96], 5));
+  for (const s of [-1, 1]) { sbox(holder, g, 0.94, 0.5, 0.06, 0, 0.38, s * 0.35, 'cart_side', IRON); sbox(holder, g, 0.06, 0.5, 0.64, s * 0.47, 0.38, 0, 'cart_end', IRON); }
+  for (const [x, z] of [[-0.3, -0.36], [0.3, -0.36], [-0.3, 0.36], [0.3, 0.36]]) sbox(holder, g, 0.2, 0.2, 0.05, x, 0.08, z, 'cart_wheel', fur([46, 46, 50], 3));
+  if (chest) { sbox(holder, g, 0.7, 0.62, 0.56, 0, 0.5, 0, 'cart_chest', fur([168, 118, 58], 6, { extra: (f, set, fw, fh) => { if (f === 'top' || f === 'bottom') return; for (let x = 0; x < fw; x++) set(x, fh >> 2, [70, 46, 22]); if (f === 'front') { set(fw >> 1, (fh >> 2) + 1, [210, 210, 210]); } } })); }
+  g.userData.mats = holder.mats; scene.add(g); return g;
+}
+function makeCart(x, y, z, chest, id, dim) {
+  const c = { id: id || (Date.now() % 1e9) * 10 + (cartSeq++ % 10), pos: new V3(x, y, z), vel: new V3(), v: 0, yaw: 0, hw: 0.49, h: 0.7, chest: !!chest, inv: chest ? new Array(27).fill(null) : null, rider: null, dim: dim || world.dim, mesh: cartMesh(chest), hp: 0, hurtT: 0, onRail: true, sendT: 0 };
+  G.carts.push(c); return c;
+}
+function removeCart(c) { if (player.riding === c) cartDismount(); scene.remove(c.mesh); c.gone = true; G.carts = G.carts.filter(x => x !== c); }
+function cartList() { return G.carts.map(c => ({ id: c.id, dim: c.dim, x: +c.pos.x.toFixed(2), y: +c.pos.y.toFixed(2), z: +c.pos.z.toFixed(2), v: +c.v.toFixed(2), yaw: +c.yaw.toFixed(2), chest: c.chest ? 1 : 0, inv: c.inv ? c.inv.map(s => s ? Object.assign({}, s) : null) : null })); }
+function loadCarts(list) { for (const c of G.carts) scene.remove(c.mesh); G.carts = []; for (const d of list || []) { const c = makeCart(d.x, d.y, d.z, d.chest, d.id, d.dim); c.yaw = d.yaw || 0; c.v = d.v || 0; if (c.inv && d.inv) d.inv.forEach((s, i) => { if (s && ITEMS[s.id]) c.inv[i] = s; }); } }
+// rail geometry for the cart's current block
+function railLine(x, y, z, r) { const [e1, e2] = EXITS[r.shape]; const p = (e) => new V3(x + 0.5 + RDIR[e[0]][0] * 0.5, y + 0.0625 + e[1], z + 0.5 + RDIR[e[0]][1] * 0.5); return [p(e1), p(e2), e1, e2]; }
+function findRail(pos) { const x = Math.floor(pos.x), z = Math.floor(pos.z); for (const dy of [0, -1]) { const y = Math.floor(pos.y + 0.1) + dy; const r = railAt(x, y, z); if (r) return [x, y, z, r]; } return null; }
+function cartPhysics(c, dt, push) {
+  const rail = findRail(c.pos);
+  if (rail) {
+    const [x, y, z, r] = rail; const [p1, p2] = railLine(x, y, z, r); const dir = p2.clone().sub(p1); const len = dir.length(); dir.divideScalar(len);
+    if (!c.onRail) { c.v = c.vel.x * dir.x + c.vel.z * dir.z; c.onRail = true; }
+    // slopes, powered rails, pushes, friction
+    c.v -= 5.5 * dir.y * dt / Math.max(0.3, Math.hypot(dir.x, dir.z));
+    if (r.type === 'powered_rail') { if (r.on) { if (Math.abs(c.v) < 0.05) { const b1 = world.solid(Math.floor(p1.x + (p1.x - p2.x) * 0.6), y, Math.floor(p1.z + (p1.z - p2.z) * 0.6)); const b2 = world.solid(Math.floor(p2.x + (p2.x - p1.x) * 0.6), y, Math.floor(p2.z + (p2.z - p1.z) * 0.6)); if (b1 && !b2) c.v = 1; else if (b2 && !b1) c.v = -1; } else c.v += Math.sign(c.v) * 24 * dt; } else c.v *= Math.exp(-dt * 10); }
+    if (r.type === 'activator_rail' && r.on && c.rider === 'local') cartDismount();
+    if (push) c.v += (push.x * dir.x + push.z * dir.z) * dt;
+    c.v *= Math.exp(-dt * (c.rider ? 0.06 : 0.8)); c.v = clamp(c.v, -8, 8); if (Math.abs(c.v) < 0.01) c.v = 0;
+    // move along the line, carrying on into the next rail
+    let t = c.pos.clone().sub(p1).dot(dir); t = clamp(t, 0, len) + c.v * dt;
+    const exitEnd = t > len ? 1 : t < 0 ? 0 : -1;
+    if (exitEnd >= 0) {
+      const e = EXITS[r.shape][exitEnd]; const v = RDIR[e[0]]; const nx = x + v[0], nz = z + v[1]; const ny0 = y + e[1];
+      let next = null; for (const dy of [0, -1]) { const nr = railAt(nx, ny0 + dy, nz); if (nr) { next = [nx, ny0 + dy, nz, nr]; break; } }
+      const over = exitEnd ? t - len : -t; const endP = exitEnd ? p2 : p1;
+      if (next) { const [n1, n2] = railLine(...next); const fromStart = n1.distanceTo(endP) < n2.distanceTo(endP); const nd = n2.clone().sub(n1).normalize(); const sp = Math.abs(c.v); c.v = fromStart ? sp : -sp; c.pos.copy(fromStart ? n1 : n2).addScaledVector(nd, fromStart ? over : -over); c.yaw = Math.atan2(nd.x, nd.z); }
+      else { // off the end of the track
+        c.onRail = false; const d = exitEnd ? dir : dir.clone().negate(); c.vel.set(d.x * Math.abs(c.v), Math.max(0, d.y * Math.abs(c.v)), d.z * Math.abs(c.v)); c.pos.copy(endP).addScaledVector(d, 0.05);
+        if (world.solid(Math.floor(c.pos.x + d.x * 0.3), Math.floor(c.pos.y + 0.2), Math.floor(c.pos.z + d.z * 0.3))) { c.vel.set(0, 0, 0); c.v = 0; c.onRail = true; c.pos.copy(endP).addScaledVector(d, -0.02); }
+      }
+    } else { c.pos.copy(p1).addScaledVector(dir, t); c.yaw = Math.atan2(dir.x, dir.z); }
+    c.vel.copy(dir).multiplyScalar(c.v); c.pitch = Math.asin(clamp(dir.y, -1, 1)) * Math.sign(c.v || 1);
+    // detector rails
+    const here = findRail(c.pos); if (here && here[3].type === 'detector_rail') { const k = here[0] + ',' + here[1] + ',' + here[2]; DETECT.set(k, 1); if (!here[3].on) { const id = railId('detector_rail', here[3].shape, true); world.set(here[0], here[1], here[2], id); mpBlock(here[0], here[1], here[2], id); POWER.dirty = true; } }
+  } else {
+    c.onRail = false; c.pitch = 0; if (push) { c.vel.x += push.x * dt; c.vel.z += push.z * dt; }
+    const water = inWater(c, 0.2); c.vel.y = water ? Math.min(c.vel.y + 20 * dt, 1) : Math.max(c.vel.y - 28 * dt, -40); const f = Math.exp(-dt * (c.onGround ? 4 : 0.5)); c.vel.x *= f; c.vel.z *= f;
+    moveEntity(c, dt); if (Math.hypot(c.vel.x, c.vel.z) > 0.2) c.yaw = Math.atan2(c.vel.x, c.vel.z);
+  }
+}
+// detector rails switch off a moment after the cart leaves
+const DETECT = new Map();
+function updateDetectors(dt) { for (const [k, t] of DETECT) { const nt = t - dt * 2; if (nt > 0) { DETECT.set(k, nt); continue; } DETECT.delete(k); const [x, y, z] = k.split(',').map(Number); const r = railAt(x, y, z); if (r && r.type === 'detector_rail' && r.on) { const id = railId('detector_rail', r.shape, false); world.set(x, y, z, id); mpBlock(x, y, z, id); POWER.dirty = true; } } }
+// riding
+function mountCart(c) { const P = player; if (P.riding || P.dead || c.chest) return; if (c.rider) { toast('Someone is already in this minecart', 1.5); return; } P.riding = c; c.rider = 'local'; c.isCart = true; P.sneaking = false; P.sprinting = false; P.flying = false; seatCart(P, c); cartSync(c, true); }
+function seatCart(P, c) { P.pos.set(c.pos.x, c.pos.y + 0.12, c.pos.z); P.vel.copy(c.vel); P.onGround = true; P.peak = null; }
+function cartDismount() { const P = player; const c = P.riding; if (!c || !c.isCart) return; P.riding = null; c.rider = null; for (const a of [Math.PI / 2, -Math.PI / 2, 0, Math.PI]) { const x = c.pos.x + Math.sin(c.yaw + a) * 1.1, z = c.pos.z + Math.cos(c.yaw + a) * 1.1; const y = Math.floor(c.pos.y + 0.2); if (!world.solid(Math.floor(x), y, Math.floor(z)) && !world.solid(Math.floor(x), y + 1, Math.floor(z))) { P.pos.set(x, y + 0.01, z); break; } } P.vel.set(0, 0, 0); P.peak = null; cartSync(c, true); }
+{ const _ru = rideUpdate; rideUpdate = function (P, dt) {
+    const c = P.riding; if (!c || !c.isCart) return _ru(P, dt);
+    if (!S.uiOpen && kd('sneak')) { cartDismount(); return; }
+    if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
+    const f = !S.uiOpen && (kd('forward') || keys.ArrowUp) ? 1 : 0; const push = f ? new V3(-Math.sin(P.yaw) * 3, 0, -Math.cos(P.yaw) * 3) : null;
+    cartPhysics(c, dt, push); seatCart(P, c); P.sprinting = false; P.sneaking = false; P.swimming = false;
+  };
+  const _dm = dismount; dismount = function () { if (player.riding && player.riding.isCart) return cartDismount(); return _dm.apply(this, arguments); };
+  const _sp = sitPose; sitPose = function (model, on, rowing) { return _sp(model, on, rowing); };
+}
+// placing, using, breaking, pushing
+function cartRay(eye, dir, maxT) { let best = null, bt = maxT; for (const c of G.carts) { if (c.dim !== world.dim || c === player.riding) continue; const t = rayAABB(eye, dir, new V3(c.pos.x - 0.5, c.pos.y, c.pos.z - 0.5), new V3(c.pos.x + 0.5, c.pos.y + 0.7, c.pos.z + 0.5)); if (t >= 0 && t < bt) { bt = t; best = c; } } return best ? { c: best, t: bt } : null; }
+let targetCart = null;
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    const eye = player.eye(), dir = lookDir(); const hit = !S.uiOpen && S.mode !== 'spectator' ? cartRay(eye, dir, 4.5) : null; const blk = hit ? raycast(eye, dir, hit.t) : null;
+    targetCart = hit && !(blk && blk.dist < hit.t) ? hit.c : null;
+    if (targetCart && mouseL && S.atkCD <= 0) { const c = targetCart; S.atkCD = 0.25; S.swing = 1; c.hurtT = 0.4; c.hp += S.mode === 'creative' ? 99 : 1 + ((player.heldDef() || {}).dmg || 0) * 0.5; Sfx.play('stone', 0.6, 1.3);
+      if (c.hp >= 4) { if (S.mode !== 'creative') { dropItem(IT.minecart, 1, c.pos.x, c.pos.y + 0.4, c.pos.z); if (c.chest) { dropItem(IT.chest, 1, c.pos.x, c.pos.y + 0.4, c.pos.z); for (const s of c.inv) if (s) dropItem(s.id, s.count, c.pos.x, c.pos.y + 0.4, c.pos.z, true, xtra(s)); } } if (typeof MP !== 'undefined' && MP.active) mpSend({ t: 'cartdel', id: c.id }, false); removeCart(c); targetCart = null; }
+      const ml = mouseL; mouseL = false; try { return _ui.apply(this, arguments); } finally { mouseL = ml; } }
+    return _ui.apply(this, arguments);
+  }; }
+{ const _ua = useAction; useAction = function (eye, dir) {
+    if (targetCart && !kd('sneak')) { mouseR = false; const c = targetCart; if (c.chest) openCartChest(c); else mountCart(c); return; }
+    const h = player.held(); const hd = h && ITEMS[h.id];
+    if (hd && hd.kind === 'minecart' && target) { mouseR = false; const r = railAt(target.x, target.y, target.z); if (!r) return; const c = makeCart(target.x + 0.5, target.y + 0.0625, target.z + 0.5, hd.chest); const [p1, p2] = railLine(target.x, target.y, target.z, r); c.yaw = Math.atan2(p2.x - p1.x, p2.z - p1.z); useHeld(1); S.swing = 1; Sfx.play('stone', 0.6); cartSync(c, true); return; }
+    return _ua(eye, dir);
+  }; }
+// a chest minecart opens like a chest (its contents live with the cart)
+function openCartChest(c) { const key = 'cart:' + c.id; world.chestInv.set(key, c.inv); Sfx.play('chest', 0.7); openUI('chest', key); $('chestTitle').textContent = 'Minecart with Chest'; }
+{ const _ci = closeInv; closeInv = function (noLock) { const k = S.chestKey; const r = _ci(noLock); if (k && String(k).startsWith('cart:')) { world.chestInv.delete(k); const c = G.carts.find(x => 'cart:' + x.id === k); if (c) cartSync(c, true, true); } return r; }; }
+function updateCarts(dt) {
+  const mp = typeof MP !== 'undefined' && MP.active, client = mp && MP.role === 'client'; const P = player;
+  for (const c of G.carts) {
+    const here = c.dim === world.dim; c.mesh.visible = here; if (!here || !world.loaded(Math.floor(c.pos.x), Math.floor(c.pos.z))) continue;
+    if (c.rider === 'local') { }
+    else if (c.rider || client) { if (c.tgt) { c.pos.lerp(c.tgt, Math.min(1, dt * 10)); c.yaw = lerpAngle(c.yaw, c.tgtYaw, Math.min(1, dt * 10)); } }
+    else { // walking into an empty cart pushes it
+      let push = null; if (!P.dead && !P.riding && Math.abs(P.pos.x - c.pos.x) < 0.8 && Math.abs(P.pos.z - c.pos.z) < 0.8 && P.pos.y < c.pos.y + 0.8 && P.pos.y + 1.8 > c.pos.y) { push = new V3(c.pos.x - P.pos.x, 0, c.pos.z - P.pos.z).normalize().multiplyScalar(14); }
+      cartPhysics(c, dt, push);
+    }
+    c.hurtT = Math.max(0, c.hurtT - dt); c.hp = Math.max(0, c.hp - dt * 0.5);
+    c.mesh.position.set(c.pos.x, c.pos.y, c.pos.z); c.mesh.rotation.set(0, c.yaw + Math.PI / 2, 0); c.mesh.rotateZ((c.pitch || 0) * (1)); if (c.hurtT > 0) c.mesh.rotateX(Math.sin(c.hurtT * 40) * c.hurtT * 0.3);
+    const l = clamp(Math.max(G.minLight || 0, world.lightAt(c.pos.x, c.pos.y + 0.5, c.pos.z, G.daylight)), 0.08, 1); for (const mm of c.mesh.userData.mats) mm[0].color.setScalar(l);
+    if (mp && (c.rider === 'local' || (!client && !c.rider))) { c.sendT -= dt; if (c.sendT <= 0 && (Math.abs(c.v) > 0.01 || c.rider === 'local')) { c.sendT = 0.1; cartSync(c, false); } }
+  }
+  updateDetectors(dt); updatePower(dt);
+}
+// multiplayer, like boats
+function cartSync(c, reliable, withInv) { if (typeof MP === 'undefined' || !MP.active) return; mpSend({ t: 'cart', id: c.id, dim: c.dim, x: +c.pos.x.toFixed(2), y: +c.pos.y.toFixed(2), z: +c.pos.z.toFixed(2), yaw: +c.yaw.toFixed(3), v: +c.v.toFixed(2), chest: c.chest ? 1 : 0, r: c.rider === 'local' ? MP.myId : (c.rider || 0), inv: withInv && c.inv ? c.inv.map(slotOut) : undefined }, !reliable); }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m.t === 'cart') { let c = G.carts.find(x => x.id === m.id); if (!c) c = makeCart(m.x, m.y, m.z, m.chest, m.id, m.dim);
+      if (c.rider !== 'local') { c.tgt = new V3(m.x, m.y, m.z); c.tgtYaw = m.yaw; c.v = m.v; c.dim = m.dim; c.rider = m.r ? (m.r === MP.myId ? 'local' : m.r) : null; if (c.pos.distanceTo(c.tgt) > 8) { c.pos.copy(c.tgt); c.yaw = m.yaw; } if (!c.rider && MP.role === 'host') { c.pos.copy(c.tgt); } }
+      if (m.inv && c.inv) m.inv.forEach((s, i) => c.inv[i] = slotIn(s));
+      if (MP.role === 'host') mpSendAll(m, true, peer.id); return; }
+    if (m.t === 'cartdel') { const c = G.carts.find(x => x.id === m.id); if (c) removeCart(c); if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
+    return _on(peer, m);
+  }; }
+{ const _hw = hostWelcome; hostWelcome = function (peer, m) { const r = _hw.apply(this, arguments); for (const c of G.carts) peer.link.send({ t: 'cart', id: c.id, dim: c.dim, x: c.pos.x, y: c.pos.y, z: c.pos.z, yaw: c.yaw, v: c.v, chest: c.chest ? 1 : 0, r: 0, inv: c.inv ? c.inv.map(slotOut) : undefined }); return r; }; }
+// saving, quitting, dimension travel
+{ const _pk = packWorld; packWorld = function (w) { const r = _pk(w); r.carts = cartList().filter(c => c.dim === w.dim); return r; };
+  const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); const all = []; const wd = data && data.worlds || {}; for (const k in wd) for (const c of (wd[k].carts || [])) all.push(Object.assign({ dim: k }, c)); loadCarts(all); return r; };
+  const _ce = clearEntities; clearEntities = function () { if (player.riding && player.riding.isCart) { player.riding = null; } return _ce.apply(this, arguments); };
+  const _tv = travelTo; travelTo = function () { if (player.riding && player.riding.isCart) cartDismount(); return _tv.apply(this, arguments); };
+  const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updateCarts(dt); return r; }; }
+{ const _q = quitToTitle; quitToTitle = function () { const r = _q.apply(this, arguments); for (const c of G.carts) scene.remove(c.mesh); G.carts = []; return r; }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

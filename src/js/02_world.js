@@ -621,6 +621,15 @@ class World {
         }
         continue;
       }
+      if (def.render === 'rail') { // flat (or sloped) rail quads, textured along the track
+        const sh0 = def.rail.shape; const uv = TILE_UV[def.texIds[2]]; const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const e = 1 / 16;
+        const C = [[0, 1], [1, 1], [1, 0], [0, 0]];
+        const map = sh0 === 'ew' || sh0 === 'asc_e' || sh0 === 'asc_w' ? (lx, lz) => [lz, lx] : sh0 === 'sw' ? (lx, lz) => [1 - lx, 1 - lz] : sh0 === 'ne' ? (lx, lz) => [lx, lz] : sh0 === 'nw' ? (lx, lz) => [1 - lx, lz] : (lx, lz) => [lx, 1 - lz];
+        const hgt = (lx, lz) => e + (sh0 === 'asc_e' ? lx : sh0 === 'asc_w' ? 1 - lx : sh0 === 'asc_n' ? 1 - lz : sh0 === 'asc_s' ? lz : 0);
+        for (let k = 0; k < 4; k++) { const [lx, lz] = C[k]; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + hgt(lx, lz); vtmp[k * 3 + 2] = z + lz; const [uf, vf] = map(lx, lz); uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = 1; bl[k] = b0; }
+        quad(O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), false, 0);
+        continue;
+      }
       if (def.render === 'boxes') { // small models made of boxes (anvils...), textured like Minecraft's block models
         const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
         for (const bx of def.boxes) {
@@ -628,7 +637,7 @@ class World {
           for (let f = 0; f < 6; f++) {
             const F = FACES[f]; const edge = (F.n[0] > 0 && a1 === 1) || (F.n[0] < 0 && a0 === 0) || (F.n[1] > 0 && y1 === 1) || (F.n[1] < 0 && y0 === 0) || (F.n[2] > 0 && c1 === 1) || (F.n[2] < 0 && c0 === 0);
             if (edge && OPAQUE[get(x + F.n[0], y + F.n[1], z + F.n[2])]) continue;
-            const uv = TILE_UV[def.texIds[f]];
+            const uv = TILE_UV[bx[6] != null ? bx[6] : def.texIds[f]];
             for (let k = 0; k < 4; k++) { const cc = F.c[k]; const lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }

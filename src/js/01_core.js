@@ -229,6 +229,19 @@ makeTile('farmland', (set, r) => each((x, y) => { let c = vary([92, 62, 38], r, 
 for (let st = 0; st < 4; st++) makeTile('wheat' + st, (set, r) => { clear(set); const H = 4 + st * 3.6; const col = st < 3 ? [70 + st * 20, 150 - st * 6, 40] : [196, 170, 70]; for (const cx of [2, 5, 8, 11, 14]) { const h = Math.round(H - r() * 2); for (let y = 0; y < h; y++) set(cx + (y > h - 3 && st === 3 ? (cx % 2) : 0), 15 - y, vary(y > h - 4 && st === 3 ? [214, 186, 90] : col, r, 10)); if (st === 3) { set(cx - 1, 15 - h + 1, [180, 150, 60]); set(cx + 1, 15 - h + 2, [180, 150, 60]); } } });
 for (let st = 0; st < 4; st++) makeTile('carrots' + st, (set, r) => { clear(set); const H = 3 + st * 2.6; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([60 + st * 8, 140 + st * 6, 40], r, 12)); if (y > h * 0.4) { set(cx - 1, 15 - y - 1, vary([70, 160, 50], r, 10)); set(cx + 1, 15 - y, vary([52, 128, 36], r, 10)); } } if (st === 3) { set(cx, 15, [232, 130, 28]); set(cx - 1, 15, [214, 110, 20]); set(cx, 14, [246, 150, 40]); } } });
 for (let st = 0; st < 4; st++) makeTile('potatoes' + st, (set, r) => { clear(set); const H = 3 + st * 2.4; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([66, 132, 46], r, 10)); if (y > 1 && y % 2 === 0) { set(cx - 1, 15 - y, vary([84, 156, 58], r, 10)); set(cx + 1, 15 - y - 1, vary([84, 156, 58], r, 10)); } } if (st === 3) { set(cx, 15 - h, [236, 236, 230]); set(cx - 1, 15, [196, 160, 90]); set(cx + 1, 15, [176, 140, 74]); } } });
+// rails: steel (or gold) rails along the tile's height, wooden ties across; curves bend from the bottom edge to the right edge
+function railTile(railC, mid, curve) { return (set, r) => { clear(set);
+  const tie = (x, y) => set(x, y, vary([118, 86, 54], r, 8));
+  if (!curve) { for (let y = 0; y < 16; y++) { if (y % 4 === 1 || y % 4 === 2) for (let x = 1; x < 15; x++) tie(x, y); set(2, y, railC[0]); set(3, y, railC[1]); set(12, y, railC[0]); set(13, y, railC[1]); if (mid) { set(7, y, mid); set(8, y, mid); } } }
+  else { for (let a = 0; a < 40; a++) { const t = a / 39 * Math.PI / 2; for (const [R, c] of [[2.5, 0], [3.5, 1], [12.5, 0], [13.5, 1]]) set(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R), railC[c]); } for (let k = 0; k < 4; k++) { const t = (k + 0.5) / 4 * Math.PI / 2; for (let R = 1; R < 15; R++) tie(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R)); } for (let a = 0; a < 40; a++) { const t = a / 39 * Math.PI / 2; for (const [R, c] of [[2.5, 0], [3.5, 1], [12.5, 0], [13.5, 1]]) set(Math.round(15.5 - Math.cos(t) * R), Math.round(15.5 - Math.sin(t) * R), railC[c]); } } }; }
+const STEEL = [[196, 196, 200], [140, 140, 146]], GOLDR = [[246, 210, 70], [200, 160, 40]];
+makeTile('rail', railTile(STEEL)); makeTile('rail_corner', railTile(STEEL, null, true));
+makeTile('powered_rail', railTile(GOLDR, [110, 30, 24])); makeTile('powered_rail_on', railTile(GOLDR, [255, 60, 40]));
+makeTile('detector_rail', railTile(STEEL, [90, 70, 70])); makeTile('detector_rail_on', railTile(STEEL, [230, 50, 40]));
+makeTile('activator_rail', railTile(STEEL, [130, 60, 50])); makeTile('activator_rail_on', railTile(STEEL, [250, 90, 60]));
+makeTile('lever', (set, r) => { clear(set); for (let y = 2; y < 12; y++) { set(7, y, [128, 96, 54]); set(8, y, [100, 74, 40]); } });
+makeTile('lever_base', (set, r) => each((x, y) => set(x, y, vary([120, 120, 124], r, 6))));
+makeTile('redstone_torch', (set, r) => { clear(set); for (let y = 8; y < 16; y++) { set(7, y, [128, 96, 54]); set(8, y, [100, 74, 40]); } set(7, 6, [255, 80, 50]); set(8, 6, [230, 40, 30]); set(7, 7, [200, 30, 20]); set(8, 7, [170, 20, 16]); });
 makeTile('hay_side', (set, r) => each((x, y) => { let c = vary([196, 160, 52], r, 12); if (y === 3 || y === 12) c = [120, 70, 30]; if (x % 3 === 0 && y !== 3 && y !== 12) c = vary([170, 136, 40], r, 8); set(x, y, c); }));
 makeTile('hay_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(d > 6.5 ? [120, 70, 30] : (Math.floor(d) % 2 ? [176, 140, 40] : [206, 170, 62]), r, 8)); }));
 makeTile('bed_head_top', (set, r) => each((x, y) => { const pil = y < 9 && x > 1 && x < 14 && y > 1; let c = pil ? vary([236, 236, 230], r, 5) : vary([176, 36, 36], r, 9); if (pil && (y === 2 || x === 2 || x === 13)) c = [214, 214, 206]; if (!pil && (x === 0 || x === 15)) c = [140, 26, 26]; set(x, y, c); }));
@@ -333,6 +346,19 @@ defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' },
 for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, cropBase: 'wheat_', drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
 for (let st = 0; st < 4; st++) defBlock('carrots_' + st, 'Carrots', { tex: 'carrots' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'carrots_', drop: st < 3 ? 'carrot' : (r) => ['carrot', 2 + Math.floor(r * 4)] });
 for (let st = 0; st < 4; st++) defBlock('potatoes_' + st, 'Potatoes', { tex: 'potatoes' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'potatoes_', drop: st < 3 ? 'potato' : (r) => ['potato', 2 + Math.floor(r * 4)] });
+// rails: every shape is its own block (so saves and multiplayer just work). Shapes: ns, ew, asc_e/w/n/s (rising toward
+// that side), and curves se/sw/nw/ne (plain rails only). Powered, detector and activator rails also have an "on" version.
+const RAIL_SHAPES = ['ns', 'ew', 'asc_e', 'asc_w', 'asc_n', 'asc_s', 'se', 'sw', 'nw', 'ne'];
+const RAIL_ID = {};
+for (const [type, name, tex] of [['rail', 'Rail', 'rail'], ['powered_rail', 'Powered Rail', 'powered_rail'], ['detector_rail', 'Detector Rail', 'detector_rail'], ['activator_rail', 'Activator Rail', 'activator_rail']]) {
+  RAIL_ID[type] = {}; for (const shape of RAIL_SHAPES) { if (type !== 'rail' && shape.length === 2 && shape !== 'ns' && shape !== 'ew') continue;
+    for (const on of type === 'rail' ? [false] : [false, true]) { const key = type + (shape === 'ns' && !on ? '' : '_' + shape + (on ? '_on' : ''));
+      const t = shape.length === 2 && shape !== 'ns' && shape !== 'ew' ? 'rail_corner' : tex + (on ? '_on' : '');
+      const id = defBlock(key, name, { tex: t, solid: false, opaque: false, render: 'rail', hardness: 0.7, snd: 'stone', drop: type, hidden: key !== type, rail: { type, shape, on }, light: on && type === 'powered_rail' ? 0 : 0 });
+      (RAIL_ID[type][shape] || (RAIL_ID[type][shape] = {}))[on ? 1 : 0] = id; } } }
+defBlock('lever', 'Lever', { tex: 'lever_base', solid: false, opaque: false, render: 'boxes', boxes: [[5, 0, 4, 11, 2, 12], [7, 2, 3, 9, 11, 5, TILE.lever]], hardness: 0.5, snd: 'wood', use: 'lever', power: 0 });
+defBlock('lever_on', 'Lever', { tex: 'lever_base', solid: false, opaque: false, render: 'boxes', boxes: [[5, 0, 4, 11, 2, 12], [7, 2, 11, 9, 11, 13, TILE.lever]], hardness: 0.5, snd: 'wood', use: 'lever', power: 15, hidden: true, drop: 'lever' });
+defBlock('redstone_torch', 'Redstone Torch', { tex: 'redstone_torch', solid: false, opaque: false, render: 'torch', hardness: 0, light: 0.45, snd: 'wood', power: 15 });
 defBlock('hay_block', 'Hay Bale', { tex: { s: 'hay_side', t: 'hay_top' }, hardness: 0.5, snd: 'grass' });
 defBlock('enchanting_table', 'Enchanting Table', { tex: { s: 'ench_side', t: 'ench_top', b: 'ench_bottom' }, hardness: 5, tool: 'pick', tier: 1, light: 0.45, use: 'enchant' });
 // flowing liquids: levels 1-7 spread outward, 8 is falling. B.WATER / B.LAVA are the source blocks
@@ -410,6 +436,7 @@ M('trident', 'Trident', { kind: 'trident', stack: 1, dur: 250, dmg: 9, atk: 1.1,
 M('mace', 'Mace', { kind: 'mace', stack: 1, dur: 500, dmg: 6, atk: 0.6, melee: true }); M('heavy_core', 'Heavy Core'); M('breeze_rod', 'Breeze Rod'); M('wind_charge', 'Wind Charge', { kind: 'wind_charge', stack: 64 });
 M('slime_ball', 'Slimeball'); M('spider_eye', 'Spider Eye', { kind: 'food' }); M('glowstone_dust', 'Glowstone Dust'); M('glass_bottle', 'Glass Bottle'); M('phantom_membrane', 'Phantom Membrane');
 M('crossbow', 'Crossbow', { kind: 'crossbow', stack: 1, dur: 465 }); M('lead', 'Lead', { kind: 'lead' }); M('copper_nugget', 'Copper Nugget'); M('totem_of_undying', 'Totem of Undying', { kind: 'totem', stack: 1 });
+M('minecart', 'Minecart', { kind: 'minecart', stack: 1 }); M('chest_minecart', 'Minecart with Chest', { kind: 'minecart', stack: 1, chest: true });
 M('cod', 'Raw Cod', { kind: 'food' }); M('cooked_cod', 'Cooked Cod', { kind: 'food' }); M('salmon', 'Raw Salmon', { kind: 'food' }); M('cooked_salmon', 'Cooked Salmon', { kind: 'food' });
 M('tropical_fish', 'Tropical Fish', { kind: 'food' }); M('pufferfish', 'Pufferfish', { kind: 'food' }); M('ink_sac', 'Ink Sac'); M('glow_ink_sac', 'Glow Ink Sac');
 M('rabbit', 'Raw Rabbit', { kind: 'food' }); M('cooked_rabbit', 'Cooked Rabbit', { kind: 'food' }); M('rabbit_hide', 'Rabbit Hide'); M('rabbit_foot', "Rabbit's Foot");
@@ -534,6 +561,8 @@ Object.assign(ICONP, {
   armadillo_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 3; x <= 13; x++) if (Math.abs(x - 8) + Math.abs(y - 8) * 0.6 < 6) s(x, y, y % 3 === 0 ? [140, 90, 80] : [190, 130, 120]); },
   turtle_scute: (s, r) => { for (let y = 4; y <= 12; y++) for (let x = 4; x <= 12; x++) if (Math.abs(x - 8) + Math.abs(y - 8) < 6) s(x, y, (x + y) % 4 === 0 ? [40, 110, 40] : [70, 160, 70]); },
   honeycomb: (s, r) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) { const hx = ((x + (Math.floor(y / 3) % 2) * 2) % 4 === 0) || y % 3 === 0; s(x, y, hx ? [200, 130, 20] : [250, 190, 50]); } },
+  minecart: (s, r) => { for (let y = 6; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 6 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); s(x - 1, 12, [70, 70, 74]); s(x + 1, 12, [70, 70, 74]); } },
+  chest_minecart: (s, r) => { for (let y = 3; y <= 7; y++) for (let x = 4; x <= 11; x++) s(x, y, y === 5 ? [60, 40, 20] : [170, 120, 60]); s(7, 5, [200, 200, 200]); for (let y = 7; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 7 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); } },
   copper_nugget: (s, r) => { blob(s, 8, 9, 3, 2.5, [214, 120, 80], r, [150, 80, 50]); },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
@@ -682,7 +711,11 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('bone_meal', 3, ['bone']), RSH('leather', 1, ['RR', 'RR'], { R: 'rabbit_hide' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }),
+  RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
+  RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
+  RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
+  RSH('lever', 1, ['S', 'C'], { S: 'stick', C: 'cobblestone' }), RSH('redstone_torch', 1, ['R', 'S'], { R: 'redstone', S: 'stick' }), RSL('bone_meal', 3, ['bone']), RSH('leather', 1, ['RR', 'RR'], { R: 'rabbit_hide' }), RSL('wind_charge', 4, ['breeze_rod']), RSH('glass_bottle', 3, ['G G', ' G '], { G: 'glass' }),
   RSH('crossbow', 1, ['SIS', 'TFT', ' S '], { S: 'stick', I: 'iron_ingot', T: 'string', F: 'tripwire_hook' }), RSH('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }), RSH('lead', 2, ['SS ', 'SB ', '  S'], { S: 'string', B: 'slime_ball' }),
   RSH('glowstone', 1, ['GG', 'GG'], { G: 'glowstone_dust' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
