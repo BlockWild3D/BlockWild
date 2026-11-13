@@ -100,8 +100,9 @@ function structuresFor(world, cx, cz) {
   const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
   const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
   const bx = cx * 16, bz = cz * 16;
+  const vs = startNear(world, 'village', cx, cz, 2);
   // --- trees ---
-  for (let a = 0; a < 9; a++) {
+  for (let a = 0; a < (vs ? 0 : 9); a++) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
@@ -122,24 +123,9 @@ function structuresFor(world, cx, cz) {
       for (let y = 0; y < H; y++) hard(wx, y0 + y, wz, log);
     }
   }
-  // --- village: one start per 34x34-chunk region, plains / desert / snowy only; houses spread over the 5x5 chunks around it ---
+  // --- village: one start per 34x34-chunk region, plains / desert / snowy only; see 02c_village.js for the layout ---
   let inVillage = false;
-  const vs = startNear(world, 'village', cx, cz, 2);
-  if (vs) {
-    const ccx = vs.cx, ccz = vs.cz, cc = vs.col, vh = vs.seed >>> 0;
-    const here = g.column(bx + 8, bz + 8);
-    inVillage = true;
-    const mats = cc.b === BIO.DESERT ? { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE } :
-      cc.b === BIO.SNOWY ? { wall: B.PLANKS, corner: B.SPRUCE_LOG, floor: B.PLANKS, roof: B.SPRUCE_LOG, found: B.COBBLESTONE } :
-        { wall: B.PLANKS, corner: B.LOG, floor: B.PLANKS, roof: [B.PLANKS, B.BRICK, B.COBBLESTONE, B.STONE_BRICKS][(vh >> 4) & 3], found: B.COBBLESTONE };
-    if (cx === ccx && cz === ccz) { buildWell(S, g, bx + 6, bz + 6, hard, mats); S.kinds.push(['village', bx + 8, bz + 8]); }
-    else if (here.h > SEA + 1 && here.b !== BIO.OCEAN && here.b !== BIO.BEACH && Math.abs(here.h - cc.h) < 9 && r() < (Math.max(Math.abs(cx - ccx), Math.abs(cz - ccz)) === 1 ? 0.75 : 0.45)) {
-      const w = 5 + (r() * 2 | 0) * 2, d = 5 + (r() * 2 | 0) * 2;
-      const x0 = bx + 2 + (r() * (12 - w) | 0), z0 = bz + 2 + (r() * (12 - d) | 0);
-      const dxs = ccx - cx, dzs = ccz - cz; const doorSide = Math.abs(dxs) >= Math.abs(dzs) ? (dxs > 0 ? 0 : 1) : (dzs > 0 ? 2 : 3);
-      buildHouse(S, g, x0, z0, w, d, hard, mats, doorSide, r, world);
-    }
-  }
+  if (vs) { inVillage = true; villageChunk(S, g, cx, cz, vs, hard, r, world); }
   const cc0 = g.column(bx + 8, bz + 8);
   if (!inVillage) {
     // desert pyramid: desert only, one chance per 32x32-chunk region
@@ -185,7 +171,7 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   const doors = [[x0 + w - 1, doorZ, 1, 0], [x0, doorZ, -1, 0], [doorX, z0 + d - 1, 0, 1], [doorX, z0, 0, -1]];
   const [dx0, dz0, ox, oz] = doors[doorSide];
   hard(dx0, fy + 1, dz0, 0); hard(dx0, fy + 2, dz0, 0);
-  for (let i = 1; i <= 4; i++) { const px = dx0 + ox * i, pz = dz0 + oz * i; const gh = g.column(px, pz).h; if (i > 1) hard(px, gh - 1, pz, B.GRAVEL); }
+  for (let i = 1; i <= 2; i++) { const px = dx0 + ox * i, pz = dz0 + oz * i; const gh = g.column(px, pz).h; if (gh > SEA) { hard(px, gh - 1, pz, M.road || B.DIRT_PATH); hard(px, gh, pz, 0); hard(px, gh + 1, pz, 0); } }
   // roof (stepped pyramid)
   for (let k = 0; ; k++) {
     const ax = x0 - 1 + k, bx2 = x0 + w - k, az = z0 - 1 + k, bz2 = z0 + d - k; if (ax > bx2 || az > bz2) break;
@@ -203,7 +189,7 @@ function buildWell(S, g, x0, z0, hard, M) {
   const fy = g.column(x0 + 2, z0 + 2).h - 1; if (fy < SEA) return;
   for (let x = x0 - 2; x <= x0 + 5; x++) for (let z = z0 - 2; z <= z0 + 5; z++) {
     const inner = x >= x0 && x <= x0 + 3 && z >= z0 && z <= z0 + 3;
-    groundFill(g, x, z, fy, hard, B.DIRT); hard(x, fy, z, inner ? M.found : B.GRAVEL);
+    groundFill(g, x, z, fy, hard, B.DIRT); hard(x, fy, z, inner ? M.found : (M.road || B.GRAVEL));
     for (let y = fy + 1; y <= fy + 6; y++) hard(x, y, z, 0);
   }
   for (let x = x0; x <= x0 + 3; x++) for (let z = z0; z <= z0 + 3; z++) {

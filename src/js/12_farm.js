@@ -1,0 +1,36 @@
+// ================= FARMING: hoes, farmland, wheat, sugar cane growth (random block ticks like Minecraft) =================
+function farmUse(h, hd) {
+  if (!hd || !target) return false;
+  const above = world.get(target.x, target.y + 1, target.z);
+  if (hd.tool === 'hoe' && (target.id === B.GRASS || target.id === B.DIRT || target.id === B.DIRT_PATH || target.id === B.SNOWY_GRASS) && (!above || PLANT[above]) && target.ny >= 0) {
+    if (above) world.set(target.x, target.y + 1, target.z, 0);
+    world.set(target.x, target.y, target.z, B.FARMLAND); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
+  }
+  if (hd.kind === 'seed' && target.id === B.FARMLAND && !above) {
+    const id = B[hd.crop.toUpperCase()]; world.set(target.x, target.y + 1, target.z, id); useHeld(1); Sfx.play('grass', 0.7); S.swing = 1; S.useCD = 0.2; mpBlock(target.x, target.y + 1, target.z, id); return true;
+  }
+  return false;
+}
+function mpBlock(x, y, z, id) { if (typeof MP !== 'undefined' && MP.blockChanged) MP.blockChanged(x, y, z, id); }
+function nearWater(x, y, z) { for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) if (world.get(x + dx, y, z + dz) === B.WATER) return true; return false; }
+let tickAcc = 0;
+function randomTicks(dt) {
+  tickAcc += dt * 400; const n = Math.floor(tickAcc); if (n < 1) return; tickAcc -= n;
+  const P = player.pos, R = Math.min(S.simDist, S.renderDist) * 16;
+  for (const c of world.chunks.values()) {
+    const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - P.x) > R || Math.abs(oz + 8 - P.z) > R) continue;
+    const d = c.d;
+    for (let i = 0; i < n; i++) {
+      const j = (Math.random() * d.length) | 0; const id = d[j]; if (!id) continue;
+      const def = BL[id];
+      if (def.crop !== undefined && def.crop < 3) {
+        const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
+        if (world.get(x, y - 1, z) !== B.FARMLAND) continue;
+        if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { world.set(x, y, z, B['WHEAT_' + (def.crop + 1)]); mpBlock(x, y, z, B['WHEAT_' + (def.crop + 1)]); }
+      } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
+        const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
+        if (world.get(x, y + 1, z) || world.get(x, y - 2, z) === B.SUGAR_CANE) continue; world.set(x, y + 1, z, B.SUGAR_CANE); mpBlock(x, y + 1, z, B.SUGAR_CANE);
+      }
+    }
+  }
+}

@@ -3,7 +3,8 @@ const $ = (id) => document.getElementById(id);
 const S = { mode: 'survival', seed: 0, renderDist: 6, sens: 1, time: 0.02, day: 1, started: false, loading: false, paused: false, uiOpen: null, chestKey: null, furnKey: null, cursor: null,
   debug: false, fallback: false, locked: false, everLocked: false, touch: false, swing: 0, mineT: 0, mineKey: '', atkCD: 0, useCD: 0, wasNight: false, saveT: 0, spawnT: 0,
   dim: 'overworld', portalT: 0, portalLock: false, arrival: null, dragonDead: false, crystalsGone: [], dragonHp: 200, gridN: 2, bookFilter: 'all', bookSel: null, bowDraw: -1 };
-try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); if (s.rd) S.renderDist = s.rd; if (s.sens) S.sens = s.sens; } catch (e) { }
+try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); if (s.rd) S.renderDist = s.rd; if (s.sens) S.sens = s.sens; if (s.fov) S.fov = s.fov; if (s.sim) S.simDist = s.sim; } catch (e) { }
+S.fov = S.fov || 72; S.simDist = S.simDist || 5;
 S.touch = (window.matchMedia && matchMedia('(pointer:coarse)').matches) && ('ontouchstart' in window);
 if (S.touch) S.renderDist = Math.min(S.renderDist, 4);
 const DAYLEN = 600;
@@ -391,7 +392,7 @@ function breakBlock(x, y, z) {
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0);
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd, 0.9);
-  if (S.mode === 'survival') { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } }
+  if (S.mode === 'survival') { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
   for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (S.mode === 'survival') { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
 }
 const PLANT_SOIL = { nether: [B.CRIMSON_NYLIUM, B.WARPED_NYLIUM, B.NETHERRACK, B.SOUL_SAND] };
@@ -401,8 +402,9 @@ function placeBlock(hit, id) {
   if (y < 1 || y >= WH) return false;
   const cur = world.get(x, y, z); if (cur && !BL[cur].fluid && !PLANT[cur]) return false;
   const below = world.get(x, y - 1, z);
+  if (BL[id].crop !== undefined && below !== B.FARMLAND) return false;
   if (id === B.SUGAR_CANE) { const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.get(x + a, y - 1, z + b) === B.WATER); if (!(below === B.SUGAR_CANE || ((below === B.GRASS || below === B.DIRT || below === B.SAND) && wet))) return false; }
-  else if (BL[id].plant) { const netherPlant = id >= B.CRIMSON_FUNGUS && id <= B.WARPED_ROOTS; const ok = netherPlant ? PLANT_SOIL.nether.includes(below) : (below === B.GRASS || below === B.DIRT || below === B.SNOWY_GRASS || (id === B.DEAD_BUSH && below === B.SAND)); if (!ok) return false; }
+  else if (BL[id].plant && BL[id].crop === undefined) { const netherPlant = id >= B.CRIMSON_FUNGUS && id <= B.WARPED_ROOTS; const ok = netherPlant ? PLANT_SOIL.nether.includes(below) : (below === B.GRASS || below === B.DIRT || below === B.SNOWY_GRASS || (id === B.DEAD_BUSH && below === B.SAND)); if (!ok) return false; }
   if (id === B.TORCH && !SOLID[below]) return false;
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
@@ -470,6 +472,7 @@ function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
+  if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
   if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
@@ -726,18 +729,21 @@ function refreshMenu() { $('btnContinue').disabled = !hasSave(); $('btnContinue'
 refreshMenu();
 $('btnNew').addEventListener('click', () => { Sfx.init(); let s = $('seedInput').value.trim(); let seed; if (!s) seed = (Math.random() * 2147483647) | 0; else if (/^-?\d+$/.test(s)) seed = parseInt(s) | 0; else { seed = 0; for (const ch of s) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0; } startWorld({ seed, mode: pendingMode }); });
 $('btnContinue').addEventListener('click', () => { Sfx.init(); let data = null; try { data = JSON.parse(localStorage.getItem('blockwild_save')); } catch (e) { } if (!data) { toast('Save could not be read'); return; } startWorld(data); });
-function openPause() { if (!S.started || S.paused) return; S.paused = true; mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
+function openPause() { if (!S.started || S.paused) return; S.paused = true; mouseL = mouseR = false; releaseLock(); $('rdRange').value = S.renderDist; $('rdVal').textContent = S.renderDist; $('fovRange').value = S.fov; $('fovVal').textContent = fovLabel(S.fov); $('simRange').value = S.simDist; $('simVal').textContent = S.simDist; $('sensRange').value = S.sens; for (const x of $('modeSeg2').children) x.classList.toggle('on', x.dataset.m === S.mode); show('pause', true); show('clickplay', false); }
 function closePause() { S.paused = false; show('pause', false); saveSettings(); requestLock(); }
 $('btnResume').addEventListener('click', closePause);
 $('rdRange').addEventListener('input', (e) => { S.renderDist = +e.target.value; $('rdVal').textContent = S.renderDist; if (world) world.lastCenter = null; });
 $('sensRange').addEventListener('input', (e) => { S.sens = +e.target.value; });
+function fovLabel(v) { return v == 70 ? 'Normal' : v >= 110 ? 'Quake Pro' : v; }
+$('fovRange').addEventListener('input', (e) => { S.fov = +e.target.value; $('fovVal').textContent = fovLabel(S.fov); });
+$('simRange').addEventListener('input', (e) => { S.simDist = +e.target.value; $('simVal').textContent = S.simDist; });
 $('btnSave').addEventListener('click', () => saveGame(true));
 $('btnQuit').addEventListener('click', () => { saveGame(false); quitToTitle(); });
 $('btnRespawn').addEventListener('click', () => {
   player.dead = false; player.health = 20; player.vel.set(0, 0, 0); player.peak = null; updateHearts(); show('death', false);
   if (world.dim !== 'overworld') travelTo('overworld', { type: 'spawn' }); else { player.pos.copy(player.spawn); world.lastCenter = null; requestLock(); }
 });
-function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens, gfx: (typeof GFX !== 'undefined' ? GFX.quality : undefined) })); } catch (e) { } }
+function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens, fov: S.fov, sim: S.simDist, gfx: (typeof GFX !== 'undefined' ? GFX.quality : undefined) })); } catch (e) { } }
 
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
@@ -837,11 +843,11 @@ function tick(dt) {
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
     updatePlayer(dt); if (world) updateInteraction(dt);
     if (MODS.hooks.tick) modFire('tick', dt);
-    updateEffects(dt); updateOrbs(dt);
+    updateEffects(dt); updateOrbs(dt); randomTicks(dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;
-    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > 80 * 80)) { m.gone = true; continue; } if (d2 < 72 * 72) m.update(dt); }
+    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) m.update(dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
     updateProjectiles(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
@@ -854,7 +860,7 @@ function tick(dt) {
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
   camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
   applyPov(P, dt);
-  const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (sprinting ? 80 : 72) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
+  const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (S.fov + (sprinting ? 8 : 0)) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = BL[eb] && BL[eb].fluid ? eb : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
   updateSky(eyeFluid);
