@@ -10,6 +10,7 @@ const FOOD = { // [food points, saturation, effect chance list]
   apple: [4, 2.4], bread: [5, 6], raw_pork: [3, 1.8], cooked_pork: [8, 12.8], raw_beef: [3, 1.8], steak: [8, 12.8],
   raw_chicken: [2, 1.2, [['hunger', 30, 0, 0.3]]], cooked_chicken: [6, 7.2], rotten_flesh: [4, 0.8, [['hunger', 30, 0, 0.8]]],
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
+  enchanted_golden_apple: [4, 9.6, [['regeneration', 20, 1, 1], ['absorption', 120, 3, 1], ['resistance', 300, 0, 1], ['fire_resistance', 300, 0, 1]], true],
   carrot: [3, 3.6], potato: [1, 0.6], cod: [2, 0.4], cooked_cod: [5, 6], salmon: [2, 0.4], cooked_salmon: [6, 9.6], tropical_fish: [1, 0.2], pufferfish: [1, 0.2, [['poison', 60, 3, 1], ['hunger', 15, 2, 1]]],
   rabbit: [3, 1.8], cooked_rabbit: [5, 6], mutton: [2, 1.2], cooked_mutton: [6, 9.6], spider_eye: [2, 3.2, [['poison', 5, 0, 1]]], baked_potato: [5, 6], golden_carrot: [6, 14.4], milk_bucket: [0, 0, null, true],
 };
