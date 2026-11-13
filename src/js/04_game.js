@@ -662,10 +662,13 @@ function updateSky(eyeFluid) {
   } else if (world.dim === 'nether') {
     G.daylight = 0.56; sky = C_NETHER.clone(); fogFar = Math.min(fogFar, 72); fogNear = 12; chunkUniforms.skyTint.value.setRGB(1, 0.78, 0.66);
   } else { G.daylight = 0.8; sky = C_END.clone(); fogNear = fogFar * 0.5; chunkUniforms.skyTint.value.setRGB(0.88, 0.8, 1.0); }
-  let fogC = sky.clone(), fn = fogNear, ff = fogFar;
+  const ep = camera.position; const eyeSky = world.dim === 'overworld' ? world.skyAt(Math.floor(ep.x), Math.floor(ep.y), Math.floor(ep.z)) : 1;
+  let fogC = gfxSkyColors(world.dim, day, ss, eyeFluid, eyeSky).clone(), fn = fogNear, ff = fogFar;
+  if (world.dim === 'overworld' && eyeSky < 0.6) { fn *= 0.55 + 0.45 * eyeSky / 0.6; }
   if (eyeFluid === B.WATER) { fogC = C_WATER.clone().multiplyScalar(0.4 + G.daylight * 0.6); fn = 1; ff = 20; }
   if (eyeFluid === B.LAVA) { fogC = C_LAVA.clone(); fn = 0.2; ff = 3; }
-  scene.background = fogC; scene.fog.color.copy(fogC); scene.fog.near = fn; scene.fog.far = ff;
+  skyDome.visible = !eyeFluid; if (eyeFluid) skyUniforms.horizon.value.copy(fogC);
+  scene.fog.color.copy(fogC); scene.fog.near = fn; scene.fog.far = ff;
   chunkUniforms.fogColor.value.copy(fogC); chunkUniforms.fogNear.value = fn; chunkUniforms.fogFar.value = ff; chunkUniforms.daylight.value = G.daylight;
   const ow = world.dim === 'overworld';
   skyG.position.copy(camera.position);
@@ -679,6 +682,7 @@ function updateSky(eyeFluid) {
   cloudMat.uniforms.color.value.setRGB(1, 1, 1).multiplyScalar(0.25 + G.daylight * 0.75).lerp(C_SET, ss * 0.3);
   itemBlockMat.color.setScalar(clamp(G.daylight + 0.15, 0.3, 1));
   hemiL.color.setRGB(1, 1, 1); if (world.dim === 'nether') hemiL.color.setRGB(1, 0.8, 0.7);
+  gfxFrame(1 / 60, ang, se, day);
 }
 
 // ---- menus ----
@@ -707,7 +711,7 @@ $('btnRespawn').addEventListener('click', () => {
   player.dead = false; player.health = 20; player.vel.set(0, 0, 0); player.peak = null; updateHearts(); show('death', false);
   if (world.dim !== 'overworld') travelTo('overworld', { type: 'spawn' }); else { player.pos.copy(player.spawn); world.lastCenter = null; requestLock(); }
 });
-function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens })); } catch (e) { } }
+function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens, gfx: (typeof GFX !== 'undefined' ? GFX.quality : undefined) })); } catch (e) { } }
 
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
@@ -822,7 +826,7 @@ function tick(dt) {
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + P.pos.y.toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + target.y + ',' + target.z : '');
   }
-  renderer.clear(); renderer.render(scene, camera);
+  renderFrame();
   if (!P.dead) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
 requestAnimationFrame(frame);

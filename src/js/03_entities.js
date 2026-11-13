@@ -374,7 +374,7 @@ class Mob {
     this.size = opts.size || 4; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
     this.hw = t.ai === 'magma' ? this.size * 0.255 : t.w / 2; this.h = t.ai === 'magma' ? this.size * 0.51 : t.h; this.hp = t.ai === 'magma' ? this.size * this.size : t.hp; this.maxHp = this.hp;
     this.lavaWalk = !!t.lavaWalk;
-    this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root);
+    this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
     this.hurtT = 0; this.atkCD = 1; this.walk = 0; this.wT = 0; this.wMove = 0; this.wYaw = this.yaw; this.flee = 0; this.angry = 0; this.fuse = 0; this.dead = false; this.deadT = 0;
     this.light = 1; this.lightT = 0; this.burnT = 0; this.lavaT = 0; this.sndT = 3 + Math.random() * 10; this.age = 0; this.shootT = 2 + Math.random() * 2; this.jumpT = 1; this.admireT = 0; this.volley = 0;
     this.lookT = Math.random() * 3; this.lookYaw = 0; this.lookPitch = 0; this.grazeT = 0; this.hy = 0; this.hp_ = 0; this.root.scale.setScalar(0.01);
@@ -657,7 +657,7 @@ function updateClouds(dt) {
 // ---------------- TNT & explosions ----------------
 function primeTNT(x, y, z, fuse = 3) {
   const mat = new THREE.MeshLambertMaterial({ map: atlasTex });
-  const mesh = new THREE.Mesh(blockGeo(B.TNT), mat); G.scene.add(mesh);
+  const mesh = new THREE.Mesh(blockGeo(B.TNT), mat); mesh.layers.enable(1); G.scene.add(mesh);
   G.tnts.push({ pos: new V3(x + 0.5, y, z + 0.5), vel: new V3(0, 4, 0), hw: 0.49, h: 0.98, fuse, mesh, mat }); Sfx.at('hiss', new V3(x, y, z), 1);
 }
 function updateTNT(dt) {

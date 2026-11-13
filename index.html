@@ -176,6 +176,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <button class="mbtn" id="btnResume">Back to Game</button>
   <div class="row"><label>View dist</label><input type="range" id="rdRange" min="3" max="9" step="1"><span id="rdVal" style="font-size:22px;width:28px"></span></div>
   <div class="row"><label>Sensitivity</label><input type="range" id="sensRange" min="0.3" max="2.5" step="0.1"></div>
+  <div class="row"><label>Graphics</label><div class="seg" id="gfxSeg"><button data-m="low">Low</button><button data-m="medium">Medium</button><button data-m="high">High</button></div></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
   <button class="mbtn" id="btnSave">Save World</button>
   <button class="mbtn" id="btnQuit">Save &amp; Quit to Title</button>
@@ -1090,21 +1091,61 @@ const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
 
 // ---- Materials ----
 const atlasTex = new THREE.CanvasTexture(atlasCanvas); atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false;
-const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 } };
-const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+const dummyDepth = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 },
+  shadowOn: { value: 0 }, shadowMap: { value: dummyDepth }, shadowMatrix: { value: new THREE.Matrix4() }, shadowTexel: { value: 1 / 2048 }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunK: { value: 0 },
+  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 } };
+const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 uniform float fogNear; uniform float fogFar; uniform float time;
 void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
- if(sway!=0.0){ vec4 wp=modelMatrix*vec4(position,1.0);
-  if(sway>0.0){ float s=sin(time*1.7+wp.x*0.7+wp.z*0.5)*0.07+sin(time*2.9+wp.z*1.1+wp.x*0.3)*0.03; p.x+=s*sway; p.z+=s*0.7*sway; }
-  else { p.y+=((sin(time*1.9+wp.x*0.9+wp.z*0.7)+sin(time*1.3-wp.x*0.6+wp.z*1.1))*0.035-0.04)*(-sway); } }
- vec4 mv=modelViewMatrix*vec4(p,1.0); vFog=smoothstep(fogNear,fogFar,length(mv.xyz)); gl_Position=projectionMatrix*mv; }`;
-const FS = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV;
-varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+ if(sway!=0.0){ vec4 wp0=modelMatrix*vec4(position,1.0);
+  if(sway>0.0){ float s=sin(time*1.7+wp0.x*0.7+wp0.z*0.5)*0.07+sin(time*2.9+wp0.z*1.1+wp0.x*0.3)*0.03; p.x+=s*sway; p.z+=s*0.7*sway; }
+  else { p.y+=((sin(time*1.9+wp0.x*0.9+wp0.z*0.7)+sin(time*1.3-wp0.x*0.6+wp0.z*1.1))*0.035-0.04)*(-sway); } }
+ vec4 wp=modelMatrix*vec4(p,1.0); vWorld=wp.xyz; vec4 mv=viewMatrix*wp; vDist=length(mv.xyz); vFog=smoothstep(fogNear,fogFar,vDist); gl_Position=projectionMatrix*mv; }`;
+const FS_COMMON = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV; uniform float time;
+uniform float shadowOn; uniform sampler2D shadowMap; uniform mat4 shadowMatrix; uniform float shadowTexel; uniform vec3 sunDir; uniform float sunK;
+uniform vec3 skyRefl; uniform float mist; uniform float mistY;
+varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
+float shadowAt(vec3 wp, vec3 n){
+ vec4 sc=shadowMatrix*vec4(wp+n*0.05,1.0); vec3 s=sc.xyz*0.5+0.5;
+ if(s.x<0.0||s.x>1.0||s.y<0.0||s.y>1.0||s.z>1.0) return 1.0;
+ float b=0.0012; float lit=0.0;
+ for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){ lit+= (texture2D(shadowMap, s.xy+vec2(float(i),float(j))*shadowTexel).r < s.z-b) ? 0.0 : 1.0; }
+ return lit/9.0; }
+float fogMix(){ float m = mist*clamp((mistY-vWorld.y)/12.0,0.0,1.0)*smoothstep(6.0,48.0,vDist); return max(vFog, m*0.85); }
+vec3 lightFor(vec3 n){
+ float sky=vLight.x*daylight;
+ if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0){ float ndl=dot(n,sunDir); float lit= ndl>0.0 ? shadowAt(vWorld,n)*smoothstep(0.0,0.3,ndl) : 0.0; sky*=mix(1.0-0.38*sunK, 1.0+0.06*sunK, lit); }
+ float fl=0.92+0.08*sin(time*7.0+vWorld.x*1.3+vWorld.z*0.7)*sin(time*11.3+vWorld.y*2.1);
+ vec3 l=max(skyTint*sky, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(0.07)); }`;
+const FS = FS_COMMON + `
 void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
- vec3 l=max(skyTint*(vLight.x*daylight), vec3(1.0,0.84,0.62)*vLight.y); l=max(l,vec3(0.07));
- vec3 c=t.rgb*l*vShade; gl_FragColor=vec4(mix(c,fogColor,vFog), alphaV); }`;
+ float f=fogMix();
+ if(vShade>1.01){ gl_FragColor=vec4(mix(t.rgb,fogColor,f),alphaV); return; }
+ vec3 n=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+ vec3 c=t.rgb*lightFor(n)*vShade; gl_FragColor=vec4(mix(c,fogColor,f), alphaV); }`;
+const WFS = FS_COMMON + `
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
+ float f=fogMix();
+ if(vShade>1.01){ gl_FragColor=vec4(mix(t.rgb,fogColor,f),0.82); return; }
+ vec3 fn=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+ vec3 base=t.rgb*lightFor(fn)*min(vShade,1.0);
+ float up=step(0.7,abs(fn.y));
+ vec3 n=normalize(vec3(sin(vWorld.x*1.7+time*1.5)*0.06+sin(vWorld.z*2.3-time*1.1)*0.04, 1.0, cos(vWorld.z*1.9+time*1.3)*0.06+cos(vWorld.x*2.1-time*0.9)*0.04));
+ vec3 V=normalize(cameraPosition-vWorld); float vd=abs(dot(V,n));
+ float fres=up*pow(1.0-vd,4.0);
+ vec3 refl=skyRefl*(0.25+0.75*daylight)*mix(0.4,1.0,vLight.x);
+ vec3 c=mix(base, refl, fres*0.8);
+ vec3 H=normalize(V+sunDir); float spec=pow(max(dot(n,H),0.0),160.0)*sunK*up*vLight.x;
+ c+=vec3(1.0,0.95,0.82)*spec*2.0;
+ float a=mix(alphaV, 0.96, fres);
+ gl_FragColor=vec4(mix(c,fogColor,f), a); }`;
+const GFS = `uniform sampler2D atlas; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard; float g=clamp(vShade-1.0,0.0,1.0); vec3 c=t.rgb*g; c=c*c*1.4; gl_FragColor=vec4(c*(1.0-vFog),1.0); }`;
 const chunkMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 1 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS });
-const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.72 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.66 } }, chunkUniforms), vertexShader: VS, fragmentShader: WFS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const glowMat = new THREE.ShaderMaterial({ uniforms: chunkUniforms, vertexShader: VS, fragmentShader: GFS, side: THREE.DoubleSide });
+for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: true };
 
 // ---- World ----
 class World {
@@ -1271,18 +1312,18 @@ class World {
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * px; vb = v0 - 6 * px; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * px; vb = v0 - 6 * px; }
-          const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1, 1, 1, 1], false);
+          const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1.95, 1.95, 1.95, 1.95], false);
         }
         continue;
       }
       if (def.render === 'portal') {
         const uv = TILE_UV[def.texIds[0]]; const v = def.axis === 'x' ? [x, y, z + 0.5, x + 1, y, z + 0.5, x + 1, y + 1, z + 0.5, x, y + 1, z + 0.5] : [x + 0.5, y, z + 1, x + 0.5, y, z, x + 0.5, y + 1, z, x + 0.5, y + 1, z + 1];
-        const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; quad(W, v, u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false);
-        quad(W, [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]], u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+        const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; const PS = [1.6, 1.6, 1.6, 1.6]; quad(W, v, u, 1, [1, 1, 1, 1], PS, false);
+        quad(W, [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]], u, 1, [1, 1, 1, 1], PS, false); continue;
       }
       if (def.render === 'endportal') {
         if (OPAQUE[get(x, y + 1, z)]) continue; const uv = TILE_UV[def.texIds[2]]; const yy = y + 0.75;
-        quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+        quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1.8, 1.8, 1.8, 1.8], false); continue;
       }
       const isW = def.render === 'water' || def.render === 'lava'; const isLava = def.render === 'lava';
       const waterTop = isW && get(x, y + 1, z) !== id; const leafy = def.cullSame && def.render === 'cutout' && id !== B.GLASS;
@@ -1300,7 +1341,7 @@ class World {
           sh[k] = F.s * AO_LV[aov[k]];
           bl[k] = nL ? blk(x + cc[0] + F.n[0] * 0.5, y + cc[1] + F.n[1] * 0.5, z + cc[2] + F.n[2] * 0.5) : 0;
         }
-        if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1; }
+        if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1 + LIGHT[id]; }
         quad(isW && !isLava ? W : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
       }
     }
@@ -1311,7 +1352,7 @@ class World {
       geo.setAttribute('light', new THREE.Float32BufferAttribute(G.l, 2)); geo.setAttribute('shade', new THREE.Float32BufferAttribute(G.s, 1)); geo.setAttribute('sway', new THREE.Float32BufferAttribute(G.w, 1));
       geo.setIndex(G.n > 65535 ? new THREE.Uint32BufferAttribute(G.i, 1) : new THREE.Uint16BufferAttribute(G.i, 1));
       geo.computeBoundingSphere();
-      const m = new THREE.Mesh(geo, mat); m.position.set(bx, 0, bz); m.matrixAutoUpdate = false; m.updateMatrix(); return m;
+      const m = new THREE.Mesh(geo, mat); m.position.set(bx, 0, bz); m.matrixAutoUpdate = false; m.updateMatrix(); m.layers.enable(2); if (mat === chunkMat) m.layers.enable(1); return m;
     };
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); c.wmesh = null; }
@@ -1908,7 +1949,7 @@ class Mob {
     this.size = opts.size || 4; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
     this.hw = t.ai === 'magma' ? this.size * 0.255 : t.w / 2; this.h = t.ai === 'magma' ? this.size * 0.51 : t.h; this.hp = t.ai === 'magma' ? this.size * this.size : t.hp; this.maxHp = this.hp;
     this.lavaWalk = !!t.lavaWalk;
-    this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root);
+    this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
     this.hurtT = 0; this.atkCD = 1; this.walk = 0; this.wT = 0; this.wMove = 0; this.wYaw = this.yaw; this.flee = 0; this.angry = 0; this.fuse = 0; this.dead = false; this.deadT = 0;
     this.light = 1; this.lightT = 0; this.burnT = 0; this.lavaT = 0; this.sndT = 3 + Math.random() * 10; this.age = 0; this.shootT = 2 + Math.random() * 2; this.jumpT = 1; this.admireT = 0; this.volley = 0;
     this.lookT = Math.random() * 3; this.lookYaw = 0; this.lookPitch = 0; this.grazeT = 0; this.hy = 0; this.hp_ = 0; this.root.scale.setScalar(0.01);
@@ -2191,7 +2232,7 @@ function updateClouds(dt) {
 // ---------------- TNT & explosions ----------------
 function primeTNT(x, y, z, fuse = 3) {
   const mat = new THREE.MeshLambertMaterial({ map: atlasTex });
-  const mesh = new THREE.Mesh(blockGeo(B.TNT), mat); G.scene.add(mesh);
+  const mesh = new THREE.Mesh(blockGeo(B.TNT), mat); mesh.layers.enable(1); G.scene.add(mesh);
   G.tnts.push({ pos: new V3(x + 0.5, y, z + 0.5), vel: new V3(0, 4, 0), hw: 0.49, h: 0.98, fuse, mesh, mat }); Sfx.at('hiss', new V3(x, y, z), 1);
 }
 function updateTNT(dt) {
@@ -2937,10 +2978,13 @@ function updateSky(eyeFluid) {
   } else if (world.dim === 'nether') {
     G.daylight = 0.56; sky = C_NETHER.clone(); fogFar = Math.min(fogFar, 72); fogNear = 12; chunkUniforms.skyTint.value.setRGB(1, 0.78, 0.66);
   } else { G.daylight = 0.8; sky = C_END.clone(); fogNear = fogFar * 0.5; chunkUniforms.skyTint.value.setRGB(0.88, 0.8, 1.0); }
-  let fogC = sky.clone(), fn = fogNear, ff = fogFar;
+  const ep = camera.position; const eyeSky = world.dim === 'overworld' ? world.skyAt(Math.floor(ep.x), Math.floor(ep.y), Math.floor(ep.z)) : 1;
+  let fogC = gfxSkyColors(world.dim, day, ss, eyeFluid, eyeSky).clone(), fn = fogNear, ff = fogFar;
+  if (world.dim === 'overworld' && eyeSky < 0.6) { fn *= 0.55 + 0.45 * eyeSky / 0.6; }
   if (eyeFluid === B.WATER) { fogC = C_WATER.clone().multiplyScalar(0.4 + G.daylight * 0.6); fn = 1; ff = 20; }
   if (eyeFluid === B.LAVA) { fogC = C_LAVA.clone(); fn = 0.2; ff = 3; }
-  scene.background = fogC; scene.fog.color.copy(fogC); scene.fog.near = fn; scene.fog.far = ff;
+  skyDome.visible = !eyeFluid; if (eyeFluid) skyUniforms.horizon.value.copy(fogC);
+  scene.fog.color.copy(fogC); scene.fog.near = fn; scene.fog.far = ff;
   chunkUniforms.fogColor.value.copy(fogC); chunkUniforms.fogNear.value = fn; chunkUniforms.fogFar.value = ff; chunkUniforms.daylight.value = G.daylight;
   const ow = world.dim === 'overworld';
   skyG.position.copy(camera.position);
@@ -2954,6 +2998,7 @@ function updateSky(eyeFluid) {
   cloudMat.uniforms.color.value.setRGB(1, 1, 1).multiplyScalar(0.25 + G.daylight * 0.75).lerp(C_SET, ss * 0.3);
   itemBlockMat.color.setScalar(clamp(G.daylight + 0.15, 0.3, 1));
   hemiL.color.setRGB(1, 1, 1); if (world.dim === 'nether') hemiL.color.setRGB(1, 0.8, 0.7);
+  gfxFrame(1 / 60, ang, se, day);
 }
 
 // ---- menus ----
@@ -2982,7 +3027,7 @@ $('btnRespawn').addEventListener('click', () => {
   player.dead = false; player.health = 20; player.vel.set(0, 0, 0); player.peak = null; updateHearts(); show('death', false);
   if (world.dim !== 'overworld') travelTo('overworld', { type: 'spawn' }); else { player.pos.copy(player.spawn); world.lastCenter = null; requestLock(); }
 });
-function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens })); } catch (e) { } }
+function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens, gfx: (typeof GFX !== 'undefined' ? GFX.quality : undefined) })); } catch (e) { } }
 
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
@@ -3097,7 +3142,7 @@ function tick(dt) {
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + P.pos.y.toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + target.y + ',' + target.z : '');
   }
-  renderer.clear(); renderer.render(scene, camera);
+  renderFrame();
   if (!P.dead) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
 requestAnimationFrame(frame);
@@ -3260,7 +3305,7 @@ class Dragon {
     this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Shadow Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
     this.pos = new V3(0, 82, 46); this.vel = new V3(-12, 0, 0); this.hw = 3; this.h = 3; this.yaw = 0; this.pitch = 0; this.state = 'circle'; this.stateT = 12; this.ang = Math.PI / 2; this.dirSign = 1;
     this.mats = []; this.age = 0; this.hurtT = 0; this.hurtCD = 0; this.contactCD = 0; this.shootCD = 2; this.shots = 0; this.perchT = 0; this.roarT = 5; this.hist = [];
-    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.spheres = [];
+    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); }); this.spheres = [];
   }
   build() {
     const r = this.root, m = this; const RIDGE = 0x6a2fa0, EYE = 0xe060ff;
@@ -3384,6 +3429,125 @@ const EndFight = {
 };
 
 Object.assign(window.__game, { EndFight, Dim, tryLightPortal, checkEndPortal, Dragon, Crystal });
+
+// ================= GRAPHICS: sky dome, sun shadows, bloom, quality presets, ambience =================
+const GFX = { quality: 'high', bloom: 0.9 };
+try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); if (s.gfx) GFX.quality = s.gfx; else if (S.touch) GFX.quality = 'low'; } catch (e) { if (S.touch) GFX.quality = 'low'; }
+
+// ---- sky dome (gradient, sun halo, sunset glow) ----
+const skyUniforms = { zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, sunDir: { value: new V3(0, 1, 0) }, sunColor: { value: new THREE.Color(1, 0.9, 0.7) }, sunsetCol: { value: new THREE.Color(1, 0.5, 0.25) }, sunsetK: { value: 0 }, haloK: { value: 1 } };
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(320, 32, 16), new THREE.ShaderMaterial({
+  uniforms: skyUniforms, side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: 'varying vec3 vDir; void main(){ vDir=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunColor; uniform vec3 sunsetCol; uniform float sunsetK; uniform float haloK; varying vec3 vDir;
+  void main(){ vec3 d=normalize(vDir); float h=d.y; vec3 c=mix(horizon, zenith, pow(clamp(h,0.0,1.0),0.6)); if(h<0.0) c=mix(horizon, horizon*0.75, clamp(-h*4.0,0.0,1.0));
+   vec2 hd=normalize(d.xz+1e-4), hs=normalize(sunDir.xz+1e-4); float side=max(dot(hd,hs),0.0);
+   c=mix(c, sunsetCol, sunsetK*pow(1.0-abs(h),5.0)*(0.35+0.65*pow(side,3.0)));
+   float s=max(dot(d,sunDir),0.0); c+=sunColor*haloK*(pow(s,6.0)*0.22+pow(s,60.0)*0.45);
+   gl_FragColor=vec4(c,1.0); }`
+}));
+skyDome.renderOrder = -10; skyDome.frustumCulled = false; scene.add(skyDome); scene.background = null;
+
+// ---- sun / moon shadows ----
+const shadowCam = new THREE.OrthographicCamera(-48, 48, 48, -48, 1, 420); shadowCam.layers.set(1);
+let shadowRT = null;
+function ensureShadowRT(size) {
+  if (shadowRT && shadowRT.width === size) return;
+  if (shadowRT) { shadowRT.depthTexture.dispose(); shadowRT.dispose(); }
+  shadowRT = new THREE.WebGLRenderTarget(size, size, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+  shadowRT.depthTexture = new THREE.DepthTexture(size, size); shadowRT.depthTexture.type = THREE.UnsignedIntType;
+  chunkUniforms.shadowTexel.value = 1 / size;
+}
+const _f = new V3(), _r = new V3(), _u = new V3(), _c = new V3();
+function updateShadowCam(lightDir, R, size) {
+  shadowCam.left = shadowCam.bottom = -R; shadowCam.right = shadowCam.top = R; shadowCam.updateProjectionMatrix();
+  _f.copy(lightDir).negate(); _r.crossVectors(_f, Math.abs(_f.y) > 0.99 ? new V3(0, 0, 1) : new V3(0, 1, 0)).normalize(); _u.crossVectors(_r, _f).normalize();
+  const p = player.pos; const tex = 2 * R / size;
+  const cr = Math.round(p.dot(_r) / tex) * tex, cu = Math.round(p.dot(_u) / tex) * tex, cf = p.dot(_f);
+  _c.copy(_r).multiplyScalar(cr).addScaledVector(_u, cu).addScaledVector(_f, cf);
+  shadowCam.position.copy(_c).addScaledVector(_f, -200); shadowCam.up.copy(_u); shadowCam.lookAt(_c); shadowCam.updateMatrixWorld(true);
+  chunkUniforms.shadowMatrix.value.multiplyMatrices(shadowCam.projectionMatrix, shadowCam.matrixWorldInverse);
+}
+
+// ---- bloom (only emissive blocks: lava, torches, glowstone, portals...) ----
+const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); const fsScene = new THREE.Scene(); const fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); fsScene.add(fsQuad);
+const blurMat = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) } }, depthTest: false, depthWrite: false,
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+  fragmentShader: `uniform sampler2D tex; uniform vec2 dir; varying vec2 vUv; void main(){ vec3 c=texture2D(tex,vUv).rgb*0.227;
+    c+=(texture2D(tex,vUv+dir*1.384).rgb+texture2D(tex,vUv-dir*1.384).rgb)*0.316; c+=(texture2D(tex,vUv+dir*3.23).rgb+texture2D(tex,vUv-dir*3.23).rgb)*0.07; gl_FragColor=vec4(c,1.0); }` });
+const compMat = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, tex2: { value: null }, k: { value: 1 } }, depthTest: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending,
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }',
+  fragmentShader: 'uniform sampler2D tex; uniform sampler2D tex2; uniform float k; varying vec2 vUv; void main(){ vec3 c=(texture2D(tex,vUv).rgb*0.9+texture2D(tex2,vUv).rgb*0.8)*k; gl_FragColor=vec4(c,1.0); }' });
+let glowRT = null, blurA = null, blurB = null, blurC = null, blurD = null;
+function ensureBloomRT() {
+  const w = Math.max(1, Math.floor(renderer.domElement.width / 2)), h = Math.max(1, Math.floor(renderer.domElement.height / 2));
+  if (glowRT && glowRT.width === w && glowRT.height === h) return;
+  for (const t of [glowRT, blurA, blurB, blurC, blurD]) if (t) t.dispose();
+  const o = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+  glowRT = new THREE.WebGLRenderTarget(w, h, o); blurA = new THREE.WebGLRenderTarget(w, h, Object.assign({ depthBuffer: false }, o)); blurB = new THREE.WebGLRenderTarget(w, h, Object.assign({ depthBuffer: false }, o));
+  blurC = new THREE.WebGLRenderTarget(w >> 2 || 1, h >> 2 || 1, Object.assign({ depthBuffer: false }, o)); blurD = new THREE.WebGLRenderTarget(w >> 2 || 1, h >> 2 || 1, Object.assign({ depthBuffer: false }, o));
+}
+function blurPass(src, dst, dx, dy) { blurMat.uniforms.tex.value = src.texture; blurMat.uniforms.dir.value.set(dx / src.width, dy / src.height); fsQuad.material = blurMat; renderer.setRenderTarget(dst); renderer.render(fsScene, fsCam); }
+function renderBloom() {
+  ensureBloomRT();
+  renderer.setRenderTarget(glowRT); renderer.setClearColor(0x000000, 1); renderer.clear(true, true, false);
+  const prevMask = camera.layers.mask; camera.layers.set(2); scene.overrideMaterial = glowMat;
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null; camera.layers.mask = prevMask;
+  blurPass(glowRT, blurA, 1, 0); blurPass(blurA, blurB, 0, 1);       // tight glow
+  blurPass(blurB, blurC, 2, 0); blurPass(blurC, blurD, 0, 2);       // wide glow
+  renderer.setRenderTarget(null);
+  compMat.uniforms.tex.value = blurB.texture; compMat.uniforms.tex2.value = blurD.texture; compMat.uniforms.k.value = GFX.bloom; fsQuad.material = compMat; renderer.render(fsScene, fsCam);
+}
+
+// ---- per-frame graphics state ----
+function gfxSkyColors(dim, day, ss, eyeFluid, eyeSky) {
+  const z = skyUniforms.zenith.value, h = skyUniforms.horizon.value;
+  if (dim === 'overworld') {
+    z.setRGB(0.012, 0.016, 0.045).lerp(new THREE.Color(0.24, 0.48, 0.92), day);
+    h.setRGB(0.03, 0.04, 0.09).lerp(new THREE.Color(0.66, 0.83, 1.0), day);
+    skyUniforms.sunsetK.value = Math.min(1, ss * 1.7); skyUniforms.haloK.value = 0.25 + day * 0.75;
+  } else if (dim === 'nether') { z.setRGB(0.18, 0.03, 0.02); h.setRGB(0.3, 0.07, 0.04); skyUniforms.sunsetK.value = 0; skyUniforms.haloK.value = 0; }
+  else { z.setRGB(0.03, 0.015, 0.06); h.setRGB(0.12, 0.07, 0.17); skyUniforms.sunsetK.value = 0; skyUniforms.haloK.value = 0; }
+  // underground: fade the horizon/fog towards darkness so caves feel enclosed
+  if (dim === 'overworld' && eyeSky < 0.6) { const k = 1 - eyeSky / 0.6; h.lerp(new THREE.Color(0.02, 0.02, 0.03), k * 0.85); z.lerp(new THREE.Color(0.02, 0.02, 0.03), k * 0.85); }
+  return h;
+}
+function gfxFrame(dt, ang, se, day) {
+  skyDome.position.copy(camera.position);
+  // light direction: sun by day, moon by night
+  const sun = new V3(Math.cos(ang), Math.sin(ang), 0.13).normalize();
+  const useMoon = se < 0; const L = useMoon ? sun.clone().negate() : sun;
+  skyUniforms.sunDir.value.copy(sun); chunkUniforms.sunDir.value.copy(L);
+  sunMesh.material.color.setRGB(1, 1, 1).lerp(new THREE.Color(1, 0.62, 0.38), skyUniforms.sunsetK.value * 0.8);
+  const elev = Math.abs(se);
+  chunkUniforms.sunK.value = world && world.dim === 'overworld' ? smoothstep(0.03, 0.2, elev) * (useMoon ? 0.35 : 1) : 0;
+  chunkUniforms.skyRefl.value.copy(skyUniforms.horizon.value).lerp(skyUniforms.zenith.value, 0.4);
+  // morning mist in valleys, light haze otherwise
+  const t = S.time; const morning = (t > 0.95 || t < 0.08) ? 1 : 0; chunkUniforms.mist.value = world && world.dim === 'overworld' ? 0.15 + 0.3 * morning : world && world.dim === 'nether' ? 0.2 : 0;
+  chunkUniforms.mistY.value = world && world.dim === 'nether' ? NSEA + 10 : SEA + 7;
+  // ambient particles
+  if (world && !S.paused) {
+    const P = player.pos; const n = world.dim === 'nether' ? 6 : world.dim === 'end' ? 4 : 0;
+    for (let i = 0; i < n * dt * 10; i++) { if (Math.random() > 0.1) continue; const x = P.x + (Math.random() - 0.5) * 24, y = P.y + (Math.random() - 0.3) * 12, z = P.z + (Math.random() - 0.5) * 24;
+      if (world.dim === 'nether') Particles.emit(x, y, z, 1, [[0.5, 0.45, 0.42], [0.8, 0.3, 0.2], [0.3, 0.28, 0.27]], 0.2, 5, 0.25, 0.1, 0.8);
+      else Particles.emit(x, y, z, 1, [[0.6, 0.3, 0.9], [0.4, 0.2, 0.7]], 0.15, 5, -0.05, 0.1, 1); }
+  }
+}
+function renderFrame() {
+  const q = GFX.quality;
+  if (q === 'high' && world && world.dim === 'overworld' && chunkUniforms.sunK.value > 0.01) {
+    ensureShadowRT(2048); updateShadowCam(chunkUniforms.sunDir.value, 56, 2048);
+    chunkUniforms.shadowMap.value = dummyDepth; chunkUniforms.shadowOn.value = 0;
+    renderer.setRenderTarget(shadowRT); renderer.clear(true, true, false); renderer.render(scene, shadowCam); renderer.setRenderTarget(null);
+    chunkUniforms.shadowMap.value = shadowRT.depthTexture; chunkUniforms.shadowOn.value = 1;
+  } else chunkUniforms.shadowOn.value = 0;
+  renderer.setRenderTarget(null); renderer.setClearColor(skyUniforms.horizon.value, 1); renderer.clear(); renderer.render(scene, camera);
+  if (q !== 'low') renderBloom();
+}
+function setGfx(q) { GFX.quality = q; for (const b of document.querySelectorAll('#gfxSeg button')) b.classList.toggle('on', b.dataset.m === q); saveSettings(); }
+for (const b of document.querySelectorAll('#gfxSeg button')) b.addEventListener('click', () => setGfx(b.dataset.m));
+setGfx(GFX.quality);
 
 </script>
 </body>

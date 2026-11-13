@@ -256,21 +256,61 @@ const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
 
 // ---- Materials ----
 const atlasTex = new THREE.CanvasTexture(atlasCanvas); atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false;
-const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 } };
-const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+const dummyDepth = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 },
+  shadowOn: { value: 0 }, shadowMap: { value: dummyDepth }, shadowMatrix: { value: new THREE.Matrix4() }, shadowTexel: { value: 1 / 2048 }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunK: { value: 0 },
+  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 } };
+const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 uniform float fogNear; uniform float fogFar; uniform float time;
 void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
- if(sway!=0.0){ vec4 wp=modelMatrix*vec4(position,1.0);
-  if(sway>0.0){ float s=sin(time*1.7+wp.x*0.7+wp.z*0.5)*0.07+sin(time*2.9+wp.z*1.1+wp.x*0.3)*0.03; p.x+=s*sway; p.z+=s*0.7*sway; }
-  else { p.y+=((sin(time*1.9+wp.x*0.9+wp.z*0.7)+sin(time*1.3-wp.x*0.6+wp.z*1.1))*0.035-0.04)*(-sway); } }
- vec4 mv=modelViewMatrix*vec4(p,1.0); vFog=smoothstep(fogNear,fogFar,length(mv.xyz)); gl_Position=projectionMatrix*mv; }`;
-const FS = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV;
-varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+ if(sway!=0.0){ vec4 wp0=modelMatrix*vec4(position,1.0);
+  if(sway>0.0){ float s=sin(time*1.7+wp0.x*0.7+wp0.z*0.5)*0.07+sin(time*2.9+wp0.z*1.1+wp0.x*0.3)*0.03; p.x+=s*sway; p.z+=s*0.7*sway; }
+  else { p.y+=((sin(time*1.9+wp0.x*0.9+wp0.z*0.7)+sin(time*1.3-wp0.x*0.6+wp0.z*1.1))*0.035-0.04)*(-sway); } }
+ vec4 wp=modelMatrix*vec4(p,1.0); vWorld=wp.xyz; vec4 mv=viewMatrix*wp; vDist=length(mv.xyz); vFog=smoothstep(fogNear,fogFar,vDist); gl_Position=projectionMatrix*mv; }`;
+const FS_COMMON = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV; uniform float time;
+uniform float shadowOn; uniform sampler2D shadowMap; uniform mat4 shadowMatrix; uniform float shadowTexel; uniform vec3 sunDir; uniform float sunK;
+uniform vec3 skyRefl; uniform float mist; uniform float mistY;
+varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
+float shadowAt(vec3 wp, vec3 n){
+ vec4 sc=shadowMatrix*vec4(wp+n*0.05,1.0); vec3 s=sc.xyz*0.5+0.5;
+ if(s.x<0.0||s.x>1.0||s.y<0.0||s.y>1.0||s.z>1.0) return 1.0;
+ float b=0.0012; float lit=0.0;
+ for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){ lit+= (texture2D(shadowMap, s.xy+vec2(float(i),float(j))*shadowTexel).r < s.z-b) ? 0.0 : 1.0; }
+ return lit/9.0; }
+float fogMix(){ float m = mist*clamp((mistY-vWorld.y)/12.0,0.0,1.0)*smoothstep(6.0,48.0,vDist); return max(vFog, m*0.85); }
+vec3 lightFor(vec3 n){
+ float sky=vLight.x*daylight;
+ if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0){ float ndl=dot(n,sunDir); float lit= ndl>0.0 ? shadowAt(vWorld,n)*smoothstep(0.0,0.3,ndl) : 0.0; sky*=mix(1.0-0.38*sunK, 1.0+0.06*sunK, lit); }
+ float fl=0.92+0.08*sin(time*7.0+vWorld.x*1.3+vWorld.z*0.7)*sin(time*11.3+vWorld.y*2.1);
+ vec3 l=max(skyTint*sky, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(0.07)); }`;
+const FS = FS_COMMON + `
 void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
- vec3 l=max(skyTint*(vLight.x*daylight), vec3(1.0,0.84,0.62)*vLight.y); l=max(l,vec3(0.07));
- vec3 c=t.rgb*l*vShade; gl_FragColor=vec4(mix(c,fogColor,vFog), alphaV); }`;
+ float f=fogMix();
+ if(vShade>1.01){ gl_FragColor=vec4(mix(t.rgb,fogColor,f),alphaV); return; }
+ vec3 n=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+ vec3 c=t.rgb*lightFor(n)*vShade; gl_FragColor=vec4(mix(c,fogColor,f), alphaV); }`;
+const WFS = FS_COMMON + `
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
+ float f=fogMix();
+ if(vShade>1.01){ gl_FragColor=vec4(mix(t.rgb,fogColor,f),0.82); return; }
+ vec3 fn=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+ vec3 base=t.rgb*lightFor(fn)*min(vShade,1.0);
+ float up=step(0.7,abs(fn.y));
+ vec3 n=normalize(vec3(sin(vWorld.x*1.7+time*1.5)*0.06+sin(vWorld.z*2.3-time*1.1)*0.04, 1.0, cos(vWorld.z*1.9+time*1.3)*0.06+cos(vWorld.x*2.1-time*0.9)*0.04));
+ vec3 V=normalize(cameraPosition-vWorld); float vd=abs(dot(V,n));
+ float fres=up*pow(1.0-vd,4.0);
+ vec3 refl=skyRefl*(0.25+0.75*daylight)*mix(0.4,1.0,vLight.x);
+ vec3 c=mix(base, refl, fres*0.8);
+ vec3 H=normalize(V+sunDir); float spec=pow(max(dot(n,H),0.0),160.0)*sunK*up*vLight.x;
+ c+=vec3(1.0,0.95,0.82)*spec*2.0;
+ float a=mix(alphaV, 0.96, fres);
+ gl_FragColor=vec4(mix(c,fogColor,f), a); }`;
+const GFS = `uniform sampler2D atlas; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard; float g=clamp(vShade-1.0,0.0,1.0); vec3 c=t.rgb*g; c=c*c*1.4; gl_FragColor=vec4(c*(1.0-vFog),1.0); }`;
 const chunkMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 1 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS });
-const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.72 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.66 } }, chunkUniforms), vertexShader: VS, fragmentShader: WFS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const glowMat = new THREE.ShaderMaterial({ uniforms: chunkUniforms, vertexShader: VS, fragmentShader: GFS, side: THREE.DoubleSide });
+for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: true };
 
 // ---- World ----
 class World {
@@ -437,18 +477,18 @@ class World {
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * px; vb = v0 - 6 * px; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * px; vb = v0 - 6 * px; }
-          const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1, 1, 1, 1], false);
+          const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1.95, 1.95, 1.95, 1.95], false);
         }
         continue;
       }
       if (def.render === 'portal') {
         const uv = TILE_UV[def.texIds[0]]; const v = def.axis === 'x' ? [x, y, z + 0.5, x + 1, y, z + 0.5, x + 1, y + 1, z + 0.5, x, y + 1, z + 0.5] : [x + 0.5, y, z + 1, x + 0.5, y, z, x + 0.5, y + 1, z, x + 0.5, y + 1, z + 1];
-        const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; quad(W, v, u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false);
-        quad(W, [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]], u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+        const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; const PS = [1.6, 1.6, 1.6, 1.6]; quad(W, v, u, 1, [1, 1, 1, 1], PS, false);
+        quad(W, [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]], u, 1, [1, 1, 1, 1], PS, false); continue;
       }
       if (def.render === 'endportal') {
         if (OPAQUE[get(x, y + 1, z)]) continue; const uv = TILE_UV[def.texIds[2]]; const yy = y + 0.75;
-        quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+        quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1.8, 1.8, 1.8, 1.8], false); continue;
       }
       const isW = def.render === 'water' || def.render === 'lava'; const isLava = def.render === 'lava';
       const waterTop = isW && get(x, y + 1, z) !== id; const leafy = def.cullSame && def.render === 'cutout' && id !== B.GLASS;
@@ -466,7 +506,7 @@ class World {
           sh[k] = F.s * AO_LV[aov[k]];
           bl[k] = nL ? blk(x + cc[0] + F.n[0] * 0.5, y + cc[1] + F.n[1] * 0.5, z + cc[2] + F.n[2] * 0.5) : 0;
         }
-        if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1; }
+        if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1 + LIGHT[id]; }
         quad(isW && !isLava ? W : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
       }
     }
@@ -477,7 +517,7 @@ class World {
       geo.setAttribute('light', new THREE.Float32BufferAttribute(G.l, 2)); geo.setAttribute('shade', new THREE.Float32BufferAttribute(G.s, 1)); geo.setAttribute('sway', new THREE.Float32BufferAttribute(G.w, 1));
       geo.setIndex(G.n > 65535 ? new THREE.Uint32BufferAttribute(G.i, 1) : new THREE.Uint16BufferAttribute(G.i, 1));
       geo.computeBoundingSphere();
-      const m = new THREE.Mesh(geo, mat); m.position.set(bx, 0, bz); m.matrixAutoUpdate = false; m.updateMatrix(); return m;
+      const m = new THREE.Mesh(geo, mat); m.position.set(bx, 0, bz); m.matrixAutoUpdate = false; m.updateMatrix(); m.layers.enable(2); if (mat === chunkMat) m.layers.enable(1); return m;
     };
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); c.wmesh = null; }

@@ -152,7 +152,7 @@ class Dragon {
     this.isBoss = true; this.type = 'dragon'; this.t = { kind: 'boss', name: 'Shadow Dragon' }; this.hp = hp; this.maxHp = 200; this.dead = false; this.dying = false;
     this.pos = new V3(0, 82, 46); this.vel = new V3(-12, 0, 0); this.hw = 3; this.h = 3; this.yaw = 0; this.pitch = 0; this.state = 'circle'; this.stateT = 12; this.ang = Math.PI / 2; this.dirSign = 1;
     this.mats = []; this.age = 0; this.hurtT = 0; this.hurtCD = 0; this.contactCD = 0; this.shootCD = 2; this.shots = 0; this.perchT = 0; this.roarT = 5; this.hist = [];
-    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.spheres = [];
+    this.root = new THREE.Group(); this.root.rotation.order = 'YXZ'; this.build(); scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); }); this.spheres = [];
   }
   build() {
     const r = this.root, m = this; const RIDGE = 0x6a2fa0, EYE = 0xe060ff;
