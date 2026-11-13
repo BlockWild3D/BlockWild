@@ -17,7 +17,7 @@ function flNotify(x, y, z) { flSchedule(x, y, z); flSchedule(x + 1, y, z); flSch
 const flAmount = (id) => { const L = FLEVEL[id]; return L === 0 || L === 8 ? 8 : 8 - L; };
 // blocks liquid can wash away: air, plants, torches, crops
 function flReplaceable(id) { if (id === 0) return true; const d = BL[id]; return !!d && !d.solid && !FKIND[id] && (d.plant || d.render === 'cross' || d.render === 'torch'); }
-function flWash(w, x, y, z, id) { if (!id || FKIND[id]) return; const d = BL[id]; if (d.render === 'torch') dropItem(id, 1, x + 0.5, y + 0.4, z + 0.5, false); else if (d.crop !== undefined && IT.wheat_seeds) dropItem(IT.wheat_seeds, 1, x + 0.5, y + 0.4, z + 0.5, false); }
+function flWash(w, x, y, z, id) { if (!id || FKIND[id]) return; const d = BL[id]; if (d.render === 'torch') dropItem(id, 1, x + 0.5, y + 0.4, z + 0.5, false); else if (d.crop !== undefined) { const dr = blockDrop(id, null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5, false); } }
 function flFizz(x, y, z) { Sfx.at('fizz', new V3(x + 0.5, y + 0.5, z + 0.5), 0.8); Particles.emit(x + 0.5, y + 1, z + 0.5, 8, [[0.85, 0.85, 0.85]], 1.5, 1, -2, 0.8); }
 function flSet(w, x, y, z, id) { if (!w.loaded(x, z)) return false; const old = w.get(x, y, z); flWash(w, x, y, z, old); w.set(x, y, z, id); return true; }
 // the level this flowing block should have now (MC getNewLiquid); -1 = it should dry up

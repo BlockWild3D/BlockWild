@@ -71,6 +71,8 @@ button{font-family:'VT323',monospace}
 #xpRow{position:relative;width:100%;height:8px;margin-top:6px}
 #xpBar{height:6px;border:1px solid #000;background:rgba(20,20,20,.7);margin:0 1px}
 #xpBar i{display:block;height:100%;background:linear-gradient(#b6ff5a,#5fc219);width:0}
+#jumpBar{position:absolute;left:1px;right:1px;top:0;height:6px;border:1px solid #000;background:#2a1d10}#jumpBar i{display:block;height:100%;width:0;background:linear-gradient(#ffd27a,#d07a18)}
+#mountRow{display:flex;flex-wrap:wrap-reverse;flex-direction:row-reverse;max-width:180px;gap:0}#mountRow img{width:18px;height:18px;image-rendering:pixelated}
 #xpLevel{position:absolute;left:50%;top:-17px;transform:translateX(-50%);color:#80ff20;font-size:22px;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
 .slot.ench::after{content:'';position:absolute;inset:2px;background:linear-gradient(115deg,transparent 35%,rgba(200,120,255,.6) 48%,transparent 62%);background-size:300% 300%;animation:glint 2.6s linear infinite;pointer-events:none;mix-blend-mode:screen}
 @keyframes glint{from{background-position:100% 0}to{background-position:0 0}}
@@ -198,8 +200,8 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="mineBar" class="hidden"><i></i></div>
 <div id="hud" class="hidden">
   <div id="itemname"></div>
-  <div id="stats"><div class="scol"><div id="armorRow"></div><div id="hearts"></div></div><div class="scol sright"><div id="airRow" style="visibility:hidden"></div><div id="foodRow"></div></div></div>
-  <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span></div>
+  <div id="stats"><div class="scol"><div id="armorRow"></div><div id="hearts"></div></div><div class="scol sright"><div id="airRow" style="visibility:hidden"></div><div id="foodRow"></div><div id="mountRow" style="display:none"></div></div></div>
+  <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span><div id="jumpBar" class="hidden"><i></i></div></div>
   <div id="hotrow"><div id="offhud" class="slot"><img><span class="cnt"></span></div><div id="hotbar"></div></div>
 </div>
 <div id="toast"></div>
@@ -324,6 +326,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
     <div id="chestBox" class="hidden"><h3 id="chestTitle">Chest</h3><div class="grid" id="chestGrid"></div><div class="gap"></div></div>
     <div id="craftArea" class="hidden"><h3 id="craftTitle">Crafting</h3><div class="crow"><div id="craftGrid" class="cgrid"></div><img class="arrowimg" data-ic="arrowR"><div id="outSlotBox"></div><button class="smallbtn" id="btnBook">Recipe Book</button></div><div class="gap"></div></div>
     <div id="furnArea" class="hidden"><h3>Furnace</h3><div class="crow"><div class="fcol"><div id="furnIn"></div><div class="flamebox"><img data-ic="flame"><div class="flameon"><img data-ic="flameOn"></div></div><div id="furnFuel"></div></div><div class="progbox"><img data-ic="arrowR"><div class="progon"><img data-ic="arrowRw"></div></div><div id="furnOut"></div><button class="smallbtn" id="btnBook2">Recipe Book</button></div><div class="gap"></div></div>
+    <div id="panelArea" class="hidden"><h3 id="panelTitle"></h3><div class="crow" id="panelBody" style="gap:8px"></div><div class="gap"></div></div>
     <div id="enchArea" class="hidden"><h3>Enchant</h3><div class="crow"><div class="fcol"><div id="enchItem"></div><div id="enchLapis"></div></div><div><button class="eopt" data-i="0"></button><button class="eopt" data-i="1"></button><button class="eopt" data-i="2"></button><div id="enchInfo" style="font-size:18px;color:#555"></div></div></div><div class="gap"></div></div>
     <h3>Inventory</h3>
     <div class="grid" id="mainGrid"></div>
@@ -587,6 +590,8 @@ makeTile('path_top', (set, r) => each((x, y) => { let c = vary([148, 120, 70], r
 makeTile('path_side', (set, r) => each((x, y) => set(x, y, y < 2 ? vary([148, 120, 70], r, 8) : vary([134, 96, 67], r, 12))));
 makeTile('farmland', (set, r) => each((x, y) => { let c = vary([92, 62, 38], r, 8); if (y % 4 === 0) c = vary([70, 46, 28], r, 5); if (x === 0 || x === 15) c = [80, 54, 32]; set(x, y, c); }));
 for (let st = 0; st < 4; st++) makeTile('wheat' + st, (set, r) => { clear(set); const H = 4 + st * 3.6; const col = st < 3 ? [70 + st * 20, 150 - st * 6, 40] : [196, 170, 70]; for (const cx of [2, 5, 8, 11, 14]) { const h = Math.round(H - r() * 2); for (let y = 0; y < h; y++) set(cx + (y > h - 3 && st === 3 ? (cx % 2) : 0), 15 - y, vary(y > h - 4 && st === 3 ? [214, 186, 90] : col, r, 10)); if (st === 3) { set(cx - 1, 15 - h + 1, [180, 150, 60]); set(cx + 1, 15 - h + 2, [180, 150, 60]); } } });
+for (let st = 0; st < 4; st++) makeTile('carrots' + st, (set, r) => { clear(set); const H = 3 + st * 2.6; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([60 + st * 8, 140 + st * 6, 40], r, 12)); if (y > h * 0.4) { set(cx - 1, 15 - y - 1, vary([70, 160, 50], r, 10)); set(cx + 1, 15 - y, vary([52, 128, 36], r, 10)); } } if (st === 3) { set(cx, 15, [232, 130, 28]); set(cx - 1, 15, [214, 110, 20]); set(cx, 14, [246, 150, 40]); } } });
+for (let st = 0; st < 4; st++) makeTile('potatoes' + st, (set, r) => { clear(set); const H = 3 + st * 2.4; for (const cx of [2, 6, 10, 13]) { const h = Math.round(H - r() * 1.5); for (let y = 0; y < h; y++) { set(cx, 15 - y, vary([66, 132, 46], r, 10)); if (y > 1 && y % 2 === 0) { set(cx - 1, 15 - y, vary([84, 156, 58], r, 10)); set(cx + 1, 15 - y - 1, vary([84, 156, 58], r, 10)); } } if (st === 3) { set(cx, 15 - h, [236, 236, 230]); set(cx - 1, 15, [196, 160, 90]); set(cx + 1, 15, [176, 140, 74]); } } });
 makeTile('hay_side', (set, r) => each((x, y) => { let c = vary([196, 160, 52], r, 12); if (y === 3 || y === 12) c = [120, 70, 30]; if (x % 3 === 0 && y !== 3 && y !== 12) c = vary([170, 136, 40], r, 8); set(x, y, c); }));
 makeTile('hay_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(d > 6.5 ? [120, 70, 30] : (Math.floor(d) % 2 ? [176, 140, 40] : [206, 170, 62]), r, 8)); }));
 makeTile('bed_head_top', (set, r) => each((x, y) => { const pil = y < 9 && x > 1 && x < 14 && y > 1; let c = pil ? vary([236, 236, 230], r, 5) : vary([176, 36, 36], r, 9); if (pil && (y === 2 || x === 2 || x === 13)) c = [214, 214, 206]; if (!pil && (x === 0 || x === 15)) c = [140, 26, 26]; set(x, y, c); }));
@@ -688,7 +693,9 @@ defBlock('bed_head', 'Bed', { tex: { s: 'bed_side', t: 'bed_head_top', b: 'plank
 defBlock('bed_foot', 'Bed', { tex: { s: 'bed_side', t: 'bed_foot_top', b: 'planks' }, opaque: false, render: 'cube', h: 9 / 16, hardness: 0.2, snd: 'wool', drop: null, use: 'bed', hidden: true });
 defBlock('dirt_path', 'Dirt Path', { tex: { s: 'path_side', t: 'path_top', b: 'dirt' }, hardness: 0.65, snd: 'grass', drop: 'dirt' });
 defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' }, hardness: 0.6, snd: 'grass', drop: 'dirt' });
-for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
+for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, cropBase: 'wheat_', drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
+for (let st = 0; st < 4; st++) defBlock('carrots_' + st, 'Carrots', { tex: 'carrots' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'carrots_', drop: st < 3 ? 'carrot' : (r) => ['carrot', 2 + Math.floor(r * 4)] });
+for (let st = 0; st < 4; st++) defBlock('potatoes_' + st, 'Potatoes', { tex: 'potatoes' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: true, crop: st, cropBase: 'potatoes_', drop: st < 3 ? 'potato' : (r) => ['potato', 2 + Math.floor(r * 4)] });
 defBlock('hay_block', 'Hay Bale', { tex: { s: 'hay_side', t: 'hay_top' }, hardness: 0.5, snd: 'grass' });
 defBlock('enchanting_table', 'Enchanting Table', { tex: { s: 'ench_side', t: 'ench_top', b: 'ench_bottom' }, hardness: 5, tool: 'pick', tier: 1, light: 0.45, use: 'enchant' });
 // flowing liquids: levels 1-7 spread outward, 8 is falling. B.WATER / B.LAVA are the source blocks
@@ -752,7 +759,10 @@ M('saddle', 'Saddle', { kind: 'saddle', stack: 1 });
 M('raw_iron', 'Raw Iron'); M('raw_gold', 'Raw Gold'); M('raw_copper', 'Raw Copper'); M('copper_ingot', 'Copper Ingot'); M('redstone', 'Redstone Dust'); M('emerald', 'Emerald');
 M('netherite_scrap', 'Netherite Scrap', { fireproof: true }); M('netherite_ingot', 'Netherite Ingot', { fireproof: true });
 M('netherite_upgrade_smithing_template', 'Netherite Upgrade Smithing Template', { kind: 'template' });
-M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
+M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' });
+M('carrot', 'Carrot', { kind: 'food', crop: 'carrots_0' }); M('potato', 'Potato', { kind: 'food', crop: 'potatoes_0' }); M('baked_potato', 'Baked Potato', { kind: 'food' }); M('golden_carrot', 'Golden Carrot', { kind: 'food' });
+M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
+for (const [k, n, def, col] of [['leather', 'Leather', 3, [150, 90, 50]], ['iron', 'Iron', 5, [214, 214, 218]], ['golden', 'Golden', 7, [246, 208, 64]], ['diamond', 'Diamond', 11, [90, 222, 210]]]) M(k + '_horse_armor', n + ' Horse Armor', { kind: 'horse_armor', stack: 1, hdef: def, hcol: col, hmat: k }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // axes (strong but slow hits, fast on wood) and shovels (fast on dirt, sand, gravel, snow); Minecraft damage values
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_axe', n + ' Axe', { kind: 'tool', stack: 1, tool: 'axe', tier, speed: sp, dmg: [7, 9, 9, 9][tier - 1] });
@@ -783,6 +793,7 @@ function iconCanvas(painter) {
 }
 function blob(set, cx, cy, rx, ry, col, r, outline) { each((x, y) => { const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (d <= 1) set(x, y, d > 0.62 && outline ? outline : vary(col, r, 9)); }); }
 const BROWN = [118, 86, 44], BROWN2 = [86, 62, 30];
+function horseArmorIcon(col) { const shadeC = (c, k) => c.map(v => Math.max(0, Math.min(255, Math.round(v * k)))); return (s, r) => { const rows = ['......XX....', '.....XHHX...', '....XHHHHX..', '...XHHEHHHX.', '..XHHHHHHHX.', '.XHHHHHHHX..', 'XHHHXHHHHX..', 'XHHX.XHHHHX.', '.XX..XHHHHHX', '.....XHHHHHX', '......XXXXX.']; rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === 'X') s(x + 2, y + 3, shadeC(col, 0.55)); else if (ch === 'H') s(x + 2, y + 3, vary(shadeC(col, 0.85 + (x + y) % 3 * 0.08), r, 6)); else if (ch === 'E') s(x + 2, y + 3, [40, 40, 40]); })); }; }
 const ICONP = {
   stick: (s) => { pLine(s, 2, 13, 12, 3, BROWN); pLine(s, 3, 13, 13, 3, BROWN2); },
   coal: (s, r) => { blob(s, 8, 8, 5.5, 5, [44, 44, 44], r, [22, 22, 22]); s(6, 6, [90, 90, 90]); s(9, 9, [80, 80, 80]); },
@@ -827,6 +838,15 @@ Object.assign(ICONP, {
   copper_ingot: (s) => ingot(s, [200, 110, 76], [240, 166, 130], [140, 70, 44]),
   redstone: (s, r) => { for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 5; s(8 + Math.cos(a) * d, 9 + Math.sin(a) * d * 0.8, r() < 0.3 ? [255, 60, 50] : [170, 14, 10]); } },
   emerald: (s) => { for (let y = 3; y <= 13; y++) { const w = y < 8 ? (y - 3) * 0.9 + 1 : (13 - y) * 0.9 + 1; for (let x = Math.round(8 - w); x <= Math.round(7 + w); x++) s(x, y, (x < 7 && y < 8) ? [170, 255, 190] : (x > 9 || y > 10) ? [10, 120, 50] : [40, 200, 90]); } },
+  carrot: (s, r) => { pLine(s, 3, 13, 10, 6, [232, 128, 28]); pLine(s, 4, 13, 11, 6, [214, 110, 20]); pLine(s, 3, 12, 10, 5, [246, 152, 44]); pLine(s, 4, 12, 10, 6, [240, 140, 36]); s(5, 10, [190, 90, 16]); s(8, 8, [190, 90, 16]); pLine(s, 11, 5, 13, 2, [60, 150, 40]); pLine(s, 11, 5, 14, 4, [70, 170, 50]); pLine(s, 10, 4, 11, 1, [50, 130, 34]); },
+  golden_carrot: (s, r) => { pLine(s, 3, 13, 10, 6, [236, 196, 50]); pLine(s, 4, 13, 11, 6, [206, 160, 30]); pLine(s, 3, 12, 10, 5, [255, 236, 130]); pLine(s, 4, 12, 10, 6, [246, 214, 80]); s(5, 10, [170, 130, 20]); s(8, 8, [170, 130, 20]); pLine(s, 11, 5, 13, 2, [246, 220, 90]); pLine(s, 11, 5, 14, 4, [255, 240, 150]); pLine(s, 10, 4, 11, 1, [220, 180, 50]); },
+  potato: (s, r) => { blob(s, 8, 9, 5, 3.6, [196, 152, 84], r, [150, 108, 54]); s(6, 8, [140, 100, 50]); s(10, 10, [140, 100, 50]); s(8, 7, [214, 176, 108]); },
+  baked_potato: (s, r) => { blob(s, 8, 9, 5, 3.6, [214, 160, 70], r, [150, 96, 36]); s(6, 8, [246, 220, 140]); s(7, 8, [246, 220, 140]); s(9, 10, [120, 76, 30]); s(10, 9, [246, 220, 140]); },
+  sugar: (s, r) => { for (let i = 0; i < 26; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * 4.5; s(Math.round(8 + Math.cos(a) * d), Math.round(10 + Math.sin(a) * d * 0.6), vary([240, 240, 244], r, 8)); } },
+  egg: (s, r) => { blob(s, 8, 9, 3.6, 4.8, [236, 222, 196], r, [190, 170, 140]); s(7, 7, [252, 246, 232]); s(10, 11, [214, 196, 168]); },
+  leather_horse_armor: horseArmorIcon([150, 90, 50]), iron_horse_armor: horseArmorIcon([214, 214, 218]), golden_horse_armor: horseArmorIcon([246, 208, 64]), diamond_horse_armor: horseArmorIcon([90, 222, 210]),
+  milk_bucket: bucketIcon([[250, 250, 250], [230, 230, 232]]),
+  shears: (s, r) => { pLine(s, 3, 3, 9, 9, [200, 200, 206]); pLine(s, 4, 3, 10, 9, [150, 150, 156]); pLine(s, 12, 3, 6, 9, [214, 214, 220]); pLine(s, 13, 4, 7, 10, [160, 160, 166]); for (const [cx, cy] of [[5, 12], [11, 12]]) { s(cx - 1, cy, [60, 60, 66]); s(cx + 1, cy, [60, 60, 66]); s(cx, cy - 1, [60, 60, 66]); s(cx, cy + 1, [60, 60, 66]); } },
   saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
   netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
   netherite_ingot: (s) => ingot(s, [72, 64, 70], [126, 116, 122], [40, 36, 40]),
@@ -967,6 +987,8 @@ RECIPES.push(
   RSL('lapis_lazuli', 9, ['lapis_block']),
   RSH('glowstone', 1, [' T ', 'TGT', ' T '], { T: 'torch', G: 'glass' }),
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
+  RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
+  RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),
   RSL('gold_nugget', 9, ['gold_ingot']),
   RSL('blaze_powder', 2, ['blaze_rod']),
@@ -998,19 +1020,19 @@ function gridMatch(grid, n) {
   }
   return null;
 }
-const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'],
+const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'], ['potato', 'baked_potato'],
   ['deepslate_iron_ore', 'iron_ingot'], ['deepslate_gold_ore', 'gold_ingot'], ['deepslate_copper_ore', 'copper_ingot'], ['deepslate_coal_ore', 'coal'], ['deepslate_diamond_ore', 'diamond'], ['deepslate_lapis_ore', 'lapis_lazuli'], ['deepslate_redstone_ore', 'redstone'], ['deepslate_emerald_ore', 'emerald'], ['redstone_ore', 'redstone'], ['emerald_ore', 'emerald']]) SMELT[IT[a]] = IT[b];
 const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60], ['wooden_spear', 10], ['smithing_table', 15]]) FUEL[IT[a]] = t;
 const COOK_TIME = 5;
 const LOOT = {
   ruined_portal: [['obsidian', 3, 7, 0.95], ['flint_and_steel', 1, 1, 0.7], ['gold_ingot', 2, 6, 0.6], ['flint', 1, 4, 0.5], ['golden_apple', 1, 1, 0.15], ['gold_nugget', 4, 12, 0.5]],
-  fortress: [['saddle', 1, 1, 0.35], ['netherite_upgrade_smithing_template', 1, 1, 0.12], ['gold_ingot', 2, 6, 0.7], ['iron_ingot', 1, 5, 0.6], ['diamond', 1, 3, 0.3], ['obsidian', 2, 4, 0.3], ['flint_and_steel', 1, 1, 0.2], ['golden_apple', 1, 1, 0.12], ['nether_brick', 4, 10, 0.4], ['ender_pearl', 1, 2, 0.2], ['blaze_rod', 1, 2, 0.25]],
+  fortress: [['golden_horse_armor', 1, 1, 0.2], ['iron_horse_armor', 1, 1, 0.12], ['diamond_horse_armor', 1, 1, 0.08], ['saddle', 1, 1, 0.35], ['netherite_upgrade_smithing_template', 1, 1, 0.12], ['gold_ingot', 2, 6, 0.7], ['iron_ingot', 1, 5, 0.6], ['diamond', 1, 3, 0.3], ['obsidian', 2, 4, 0.3], ['flint_and_steel', 1, 1, 0.2], ['golden_apple', 1, 1, 0.12], ['nether_brick', 4, 10, 0.4], ['ender_pearl', 1, 2, 0.2], ['blaze_rod', 1, 2, 0.25]],
   stronghold: [['ender_pearl', 1, 3, 0.5], ['iron_ingot', 2, 5, 0.6], ['bread', 1, 1, 0], ['apple', 1, 3, 0.5], ['iron_pickaxe', 1, 1, 0.2], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.1], ['eye_of_ender', 1, 1, 0.15]],
-  house: [['bread', 1, 4, 0.6], ['wheat_seeds', 1, 5, 0.4], ['apple', 1, 3, 0.7], ['stick', 2, 6, 0.5], ['coal', 1, 4, 0.5], ['iron_ingot', 1, 3, 0.35], ['torch', 2, 6, 0.5], ['cooked_pork', 1, 3, 0.4], ['wool', 1, 3, 0.3], ['stone_pickaxe', 1, 1, 0.2], ['steak', 1, 2, 0.3]],
-  pyramid: [['saddle', 1, 1, 0.25], ['gold_ingot', 2, 6, 0.8], ['diamond', 1, 3, 0.45], ['iron_ingot', 1, 5, 0.6], ['bone', 2, 6, 0.6], ['rotten_flesh', 1, 4, 0.5], ['golden_apple', 1, 1, 0.25], ['gunpowder', 2, 5, 0.5], ['tnt', 1, 3, 0.35]],
-  dungeon: [['saddle', 1, 1, 0.3], ['iron_ingot', 1, 4, 0.6], ['gold_ingot', 1, 3, 0.4], ['string', 1, 4, 0.5], ['bone', 1, 5, 0.6], ['gunpowder', 1, 4, 0.5], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.12], ['bow', 1, 1, 0.15], ['arrow', 4, 12, 0.4], ['coal', 2, 8, 0.5]],
-  smithy: [['saddle', 1, 1, 0.15], ['iron_spear', 1, 1, 0.15], ['iron_ingot', 1, 5, 0.7], ['iron_pickaxe', 1, 1, 0.3], ['iron_sword', 1, 1, 0.3], ['iron_helmet', 1, 1, 0.25], ['iron_chestplate', 1, 1, 0.2], ['iron_leggings', 1, 1, 0.2], ['iron_boots', 1, 1, 0.25], ['diamond', 1, 2, 0.12], ['obsidian', 1, 3, 0.2], ['bread', 1, 3, 0.5], ['apple', 1, 3, 0.4]],
-  farm: [['wheat_seeds', 2, 8, 0.8], ['wheat', 2, 6, 0.6], ['bread', 1, 4, 0.6], ['apple', 1, 3, 0.4], ['iron_hoe', 1, 1, 0.15], ['stone_hoe', 1, 1, 0.3]],
+  house: [['carrot', 1, 3, 0.3], ['potato', 1, 3, 0.3], ['bread', 1, 4, 0.6], ['wheat_seeds', 1, 5, 0.4], ['apple', 1, 3, 0.7], ['stick', 2, 6, 0.5], ['coal', 1, 4, 0.5], ['iron_ingot', 1, 3, 0.35], ['torch', 2, 6, 0.5], ['cooked_pork', 1, 3, 0.4], ['wool', 1, 3, 0.3], ['stone_pickaxe', 1, 1, 0.2], ['steak', 1, 2, 0.3]],
+  pyramid: [['iron_horse_armor', 1, 1, 0.15], ['golden_horse_armor', 1, 1, 0.1], ['diamond_horse_armor', 1, 1, 0.05], ['saddle', 1, 1, 0.25], ['gold_ingot', 2, 6, 0.8], ['diamond', 1, 3, 0.45], ['iron_ingot', 1, 5, 0.6], ['bone', 2, 6, 0.6], ['rotten_flesh', 1, 4, 0.5], ['golden_apple', 1, 1, 0.25], ['gunpowder', 2, 5, 0.5], ['tnt', 1, 3, 0.35]],
+  dungeon: [['iron_horse_armor', 1, 1, 0.15], ['golden_horse_armor', 1, 1, 0.1], ['diamond_horse_armor', 1, 1, 0.05], ['saddle', 1, 1, 0.3], ['iron_ingot', 1, 4, 0.6], ['gold_ingot', 1, 3, 0.4], ['string', 1, 4, 0.5], ['bone', 1, 5, 0.6], ['gunpowder', 1, 4, 0.5], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.12], ['bow', 1, 1, 0.15], ['arrow', 4, 12, 0.4], ['coal', 2, 8, 0.5]],
+  smithy: [['iron_horse_armor', 1, 1, 0.1], ['saddle', 1, 1, 0.15], ['iron_spear', 1, 1, 0.15], ['iron_ingot', 1, 5, 0.7], ['iron_pickaxe', 1, 1, 0.3], ['iron_sword', 1, 1, 0.3], ['iron_helmet', 1, 1, 0.25], ['iron_chestplate', 1, 1, 0.2], ['iron_leggings', 1, 1, 0.2], ['iron_boots', 1, 1, 0.25], ['diamond', 1, 2, 0.12], ['obsidian', 1, 3, 0.2], ['bread', 1, 3, 0.5], ['apple', 1, 3, 0.4]],
+  farm: [['carrot', 1, 5, 0.5], ['potato', 1, 5, 0.5], ['wheat_seeds', 2, 8, 0.8], ['wheat', 2, 6, 0.6], ['bread', 1, 4, 0.6], ['apple', 1, 3, 0.4], ['iron_hoe', 1, 1, 0.15], ['stone_hoe', 1, 1, 0.3]],
   library: [['book', 1, 4, 0.8], ['paper', 2, 8, 0.6], ['lapis_lazuli', 2, 6, 0.4], ['bookshelf', 1, 2, 0.2], ['experience_bottle', 1, 1, 0]],
   tower: [['iron_pickaxe', 1, 1, 0.2], ['iron_sword', 1, 1, 0.25], ['arrow', 4, 16, 0.6], ['bow', 1, 1, 0.3], ['diamond', 1, 2, 0.25], ['torch', 4, 8, 0.5], ['glowstone', 1, 3, 0.3], ['apple', 1, 3, 0.5], ['iron_ingot', 1, 4, 0.5]],
 };
@@ -2445,10 +2467,11 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
 }
 function villageFarm(S, g, x0, z0, x1, z1, hard, M, r, world, alongX) {
   const { fy, rough } = padHeight(g, x0, z0, x1, z1); if (rough > 4 || fy < SEA) return false;
+  const cr = r(), crop = cr < 0.5 ? 'WHEAT_' : cr < 0.75 ? 'CARROTS_' : 'POTATOES_';
   for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
     groundFill(g, x, z, fy, hard, B.DIRT); for (let y = fy + 1; y <= fy + 4; y++) hard(x, y, z, 0);
     const edge = x === x0 || x === x1 || z === z0 || z === z1; const mid = alongX ? z === ((z0 + z1) >> 1) : x === ((x0 + x1) >> 1);
-    if (edge) hard(x, fy, z, M.log); else if (mid) hard(x, fy, z, B.WATER); else { hard(x, fy, z, B.FARMLAND); hard(x, fy + 1, z, B['WHEAT_' + Math.min(3, Math.floor(r() * 5))]); }
+    if (edge) hard(x, fy, z, M.log); else if (mid) hard(x, fy, z, B.WATER); else { hard(x, fy, z, B.FARMLAND); hard(x, fy + 1, z, B[crop + Math.min(3, Math.floor(r() * 5))]); }
   }
   hard(x0, fy + 1, z0, B.HAY_BLOCK); hard(x1, fy + 1, z1, B.HAY_BLOCK);
   S.mobs.push(['villager', x0 + 1.5, fy + 1, z0 + 1.5]); return true;
@@ -2793,12 +2816,13 @@ const MOBS = {
     m.tail = pivot(r, 0, 1.28, -0.58); sbox(m, m.tail, 0.07, 0.6, 0.07, 0, -0.3, 0, 'cow_tail', fur(COWB, 4, { foot: [3, [40, 30, 24]] })); } },
   sheep: { name: 'Sheep', hp: 8, w: 0.9, h: 1.3, speed: 1.3, kind: 'passive', snd: 'baa', grazer: true, drops: [['wool', 1, 2, 1], ['raw_beef', 0, 1, 0.5]], build(m, r) {
     const woolP = fur(WOOL, 7, { speck: [[208, 204, 196], 0.2] });
-    sbox(m, r, 0.86, 0.78, 1.08, 0, 0.9, 0, 'sheep_wool', woolP);
+    m.wool = [sbox(m, r, 0.86, 0.78, 1.08, 0, 0.9, 0, 'sheep_wool', woolP)];
+    m.skinBody = sbox(m, r, 0.62, 0.56, 0.95, 0, 0.88, 0, 'sheep_skin', fur([214, 196, 170], 5, { speck: [[196, 176, 150], 0.1] })); m.skinBody.visible = false;
     const h = pivot(r, 0, 1.05, 0.58); m.head = h;
     sbox(m, h, 0.38, 0.4, 0.42, 0, 0, 0.12, 'sheep_head', fur([216, 198, 172], 5, { extra: (f, set, fw) => { if (f !== 'front') return; set(0, 2, WHT); set(1, 2, BLK); set(fw - 2, 2, BLK); set(fw - 1, 2, WHT); set((fw >> 1) - 1, 5, [186, 136, 126]); set(fw >> 1, 5, [186, 136, 126]); } }));
-    sbox(m, h, 0.46, 0.2, 0.34, 0, 0.17, 0.05, 'sheep_cap', woolP);
+    m.wool.push(sbox(m, h, 0.46, 0.2, 0.34, 0, 0.17, 0.05, 'sheep_cap', woolP));
     m.legs = quadLegs(m, r, 0.2, 0.52, 0.2, 0.33, 'sheep_leg', fur([210, 192, 166], 5, { foot: [2, [110, 92, 82]] }));
-    for (const l of m.legs) sbox(m, l, 0.28, 0.22, 0.28, 0, -0.1, 0, 'sheep_thigh', woolP); } },
+    for (const l of m.legs) m.wool.push(sbox(m, l, 0.28, 0.22, 0.28, 0, -0.1, 0, 'sheep_thigh', woolP)); } },
   chicken: { name: 'Chicken', hp: 4, w: 0.45, h: 0.8, speed: 1.2, kind: 'passive', snd: 'cluck', drops: [['raw_chicken', 1, 1, 1], ['feather', 0, 2, 1]], build(m, r) {
     sbox(m, r, 0.38, 0.36, 0.5, 0, 0.47, 0, 'ch_body', fur(FEATH, 4, { speck: [[222, 222, 216], 0.08] }));
     sbox(m, r, 0.3, 0.22, 0.1, 0, 0.62, -0.27, 'ch_tail', fur(FEATH, 4, { topRows: [1, [226, 226, 220]] }));
@@ -2886,7 +2910,7 @@ const MOB_PITCH = { wither_skeleton: 0.72, zombified_piglin: 0.82, magma_cube: 0
 class Mob {
   constructor(type, x, y, z, opts = {}) {
     const t = MOBS[type]; this.t = t; this.type = type; this.pos = new V3(x, y, z); this.vel = new V3();
-    this.size = opts.size || 4; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
+    this.size = opts.size || 4; this.opts = opts; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
     this.hw = t.ai === 'magma' ? this.size * 0.255 : t.w / 2; this.h = t.ai === 'magma' ? this.size * 0.51 : t.h; this.hp = t.ai === 'magma' ? this.size * this.size : t.hp; this.maxHp = this.hp;
     this.lavaWalk = !!t.lavaWalk;
     this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
@@ -3773,9 +3797,10 @@ function onChunkGen(c, hints, cols, w) {
   const passive = G.mobs.filter(m => m.t.kind === 'passive').length;
   if (passive < 40 && Math.random() < 0.2) {
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx];
-    if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < 60)) {
-      const types = col.b === BIO.SNOWY ? ['sheep', 'sheep', 'cow'] : ['pig', 'cow', 'sheep', 'chicken'];
-      const type = types[Math.random() * types.length | 0]; const n = 2 + (Math.random() * 3 | 0);
+    if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < SEA + 30)) {
+      // Minecraft spawn weights: plains also have horse herds (2-6); snowy plains mostly sheep
+      const type = col.b === BIO.SNOWY ? pickWeighted({ sheep: 2, cow: 1 }) : col.b === BIO.PLAINS ? pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8, horse: 5 }) : pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8 });
+      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 2 + (Math.random() * 3 | 0);
       for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS) && animalLightOk(x, y, z)) spawnMob(type, x + 0.5, y, z + 0.5); }
     }
   }
@@ -4169,7 +4194,7 @@ function tick(dt) {
   }
   if (running && !S.loading) {
     const pp = P.pos;
-    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
+    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && !m.tamed && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { if (typeof stashMob === 'function') stashMob(m); m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
     updateProjectiles(dt); updateBoats(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);
@@ -5535,7 +5560,7 @@ function farmUse(h, hd) {
     if (above) world.set(target.x, target.y + 1, target.z, 0);
     world.set(target.x, target.y, target.z, B.FARMLAND); damageHeld(1); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
   }
-  if (hd.kind === 'seed' && target.id === B.FARMLAND && !above) {
+  if ((hd.kind === 'seed' || hd.crop) && target.id === B.FARMLAND && !above && target.ny > 0) {
     const id = B[hd.crop.toUpperCase()]; world.set(target.x, target.y + 1, target.z, id); useHeld(1); Sfx.play('grass', 0.7); S.swing = 1; S.useCD = 0.2; mpBlock(target.x, target.y + 1, target.z, id); return true;
   }
   return false;
@@ -5555,7 +5580,7 @@ function randomTicks(dt) {
       if (def.crop !== undefined && def.crop < 3) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y - 1, z) !== B.FARMLAND) continue;
-        if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { world.set(x, y, z, B['WHEAT_' + (def.crop + 1)]); mpBlock(x, y, z, B['WHEAT_' + (def.crop + 1)]); }
+        if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { const nid = B[(def.cropBase || 'wheat_').toUpperCase() + (def.crop + 1)]; world.set(x, y, z, nid); mpBlock(x, y, z, nid); }
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y + 1, z) || world.get(x, y - 2, z) === B.SUGAR_CANE) continue; world.set(x, y + 1, z, B.SUGAR_CANE); mpBlock(x, y + 1, z, B.SUGAR_CANE);
@@ -5783,7 +5808,7 @@ function updateAvatars(dt) {
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
     swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
-    sitPose(av.model, av.ride > 0, av.ride > 1);
+    sitPose(av.model, av.ride > 0, av.ride === 3 ? 'horse' : av.ride > 1);
     if (av.sleeping) { av.model.body.rotation.x = -Math.PI / 2; av.model.body.position.y = 0.25; }
     const l = Math.max(G.minLight || 0, world.lightAt(av.pos.x, av.pos.y + 1, av.pos.z, G.daylight)); av.model.mat.color.multiplyScalar(clamp(l, 0.1, 1)); av.model.omat.color.copy(av.model.mat.color);
   }
@@ -5793,7 +5818,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? 1 + (P.riding.rowing ? 1 : 0) : 0 }; }
+function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -5953,7 +5978,7 @@ function hostTick(dt) {
   if (MP.mobT >= 0.1) { MP.mobT = 0;
     for (const peer of MP.peers.values()) { if (!peer.joined) continue; const av = MP.avatars.get(peer.id); if (!av || av.dim !== world.dim) continue;
       const list = []; for (const m of G.mobs) { if (m.gone || m.isBoss) continue; if (!m.nid) m.nid = ++MP.mobSeq; const d = m.pos.distanceToSquared(av.pos); if (d > 72 * 72) continue;
-        list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0]); }
+        list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0, m.netx ? m.netx() : 0]); }
       peer.link.send({ t: 'mobs', l: list }, true); } }
   if (MP.timeT >= 3) { MP.timeT = 0; mpSendAll({ t: 'time', time: S.time, day: S.day }); }
   // mob arrows and fireballs can hit remote players too
@@ -5968,9 +5993,10 @@ MP.whisper = (t, text) => { const m = { t: 'whisper', from: myName(), text, to: 
 const remoteMobs = new Map();
 function clientMobs(m) {
   if (!MP.proxyMode) return; const seen = new Set();
-  for (const [nid, type, x, y, z, yaw, fl, size, fuse] of m.l) {
+  for (const [nid, type, x, y, z, yaw, fl, size, fuse, ex] of m.l) {
     seen.add(nid); let mob = remoteMobs.get(nid);
-    if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, size ? { size } : undefined); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
+    if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, Object.assign(size ? { size } : {}, { netx: ex || 0 })); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
+    if (mob.applyNetx) mob.applyNetx(ex || 0);
     mob.tgt.set(x, y, z); mob.tgtYaw = yaw; mob.angry = fl & 4 ? 1 : 0; if (fl & 2 && mob.hurtT <= 0) mob.hurtT = 0.3; mob.burnT = fl & 8 ? 0.5 : 0; mob.fuse = fuse; mob.lastSeen = performance.now();
     if (fl & 1 && !mob.dead) { mob.dead = true; mob.deadT = 0; }
   }
@@ -6357,7 +6383,7 @@ function flNotify(x, y, z) { flSchedule(x, y, z); flSchedule(x + 1, y, z); flSch
 const flAmount = (id) => { const L = FLEVEL[id]; return L === 0 || L === 8 ? 8 : 8 - L; };
 // blocks liquid can wash away: air, plants, torches, crops
 function flReplaceable(id) { if (id === 0) return true; const d = BL[id]; return !!d && !d.solid && !FKIND[id] && (d.plant || d.render === 'cross' || d.render === 'torch'); }
-function flWash(w, x, y, z, id) { if (!id || FKIND[id]) return; const d = BL[id]; if (d.render === 'torch') dropItem(id, 1, x + 0.5, y + 0.4, z + 0.5, false); else if (d.crop !== undefined && IT.wheat_seeds) dropItem(IT.wheat_seeds, 1, x + 0.5, y + 0.4, z + 0.5, false); }
+function flWash(w, x, y, z, id) { if (!id || FKIND[id]) return; const d = BL[id]; if (d.render === 'torch') dropItem(id, 1, x + 0.5, y + 0.4, z + 0.5, false); else if (d.crop !== undefined) { const dr = blockDrop(id, null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5, false); } }
 function flFizz(x, y, z) { Sfx.at('fizz', new V3(x + 0.5, y + 0.5, z + 0.5), 0.8); Particles.emit(x + 0.5, y + 1, z + 0.5, 8, [[0.85, 0.85, 0.85]], 1.5, 1, -2, 0.8); }
 function flSet(w, x, y, z, id) { if (!w.loaded(x, z)) return false; const old = w.get(x, y, z); flWash(w, x, y, z, old); w.set(x, y, z, id); return true; }
 // the level this flowing block should have now (MC getNewLiquid); -1 = it should dry up
@@ -6523,6 +6549,7 @@ const FOOD = { // [food points, saturation, effect chance list]
   apple: [4, 2.4], bread: [5, 6], raw_pork: [3, 1.8], cooked_pork: [8, 12.8], raw_beef: [3, 1.8], steak: [8, 12.8],
   raw_chicken: [2, 1.2, [['hunger', 30, 0, 0.3]]], cooked_chicken: [6, 7.2], rotten_flesh: [4, 0.8, [['hunger', 30, 0, 0.8]]],
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
+  carrot: [3, 3.6], potato: [1, 0.6], baked_potato: [5, 6], golden_carrot: [6, 14.4], milk_bucket: [0, 0, null, true],
 };
 for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kind = 'food'; it.food = FOOD[k][0]; it.sat = FOOD[k][1]; it.eatFx = FOOD[k][2] || null; it.alwaysEat = !!FOOD[k][3]; }
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
@@ -6548,7 +6575,7 @@ const FOOD_ICON = [foodURL(0), foodURL(1), foodURL(2)], FOOD_ICON_SICK = [foodUR
 const foodImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('foodRow').appendChild(im); foodImgs.push(im); }
 let foodShown = -1;
 function renderFood() {
-  const vis = S.mode === 'survival' && !player.riding; $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
+  const vis = S.mode === 'survival' && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
   const sick = !!effLevel('hunger') || (player.effects && player.effects.hunger); const key = player.food * 2 + (sick ? 1 : 0); if (key === foodShown && !(player.food <= 6 && player.sat <= 0)) return; foodShown = key;
   const I = sick ? FOOD_ICON_SICK : FOOD_ICON; const shake = player.sat <= 0 && player.food <= 6;
   for (let i = 0; i < 10; i++) { const v = player.food - i * 2; foodImgs[i].src = I[v >= 2 ? 2 : v === 1 ? 1 : 0]; foodImgs[i].style.transform = shake && Math.random() < 0.3 ? 'translateY(' + (Math.random() < 0.5 ? -2 : 2) + 'px)' : ''; }
@@ -6591,7 +6618,7 @@ function updateHunger(dt) {
 // ---- eating: hold use with food for 1.6 s ----
 function updateEating(dt) {
   const P = player; const h = P.held(); const it = h && ITEMS[h.id];
-  const can = it && it.kind === 'food' && mouseR && !S.uiOpen && !P.dead && S.mode !== 'spectator' && (S.mode === 'creative' || P.food < 20 || it.alwaysEat || S.difficulty === 'peaceful') && !(targetBoat) && !(targetMob && targetMob.t && targetMob.t.tameFood);
+  const can = it && it.kind === 'food' && mouseR && !S.uiOpen && !P.dead && S.mode !== 'spectator' && (S.mode === 'creative' || P.food < 20 || it.alwaysEat || S.difficulty === 'peaceful') && !(targetBoat) && !(targetMob && typeof mobWantsItem === 'function' && mobWantsItem(targetMob, h.id)) && !(it.crop && target && target.id === B.FARMLAND && target.ny > 0 && !world.get(target.x, target.y + 1, target.z));
   if (!can) { H.eatT = 0; S.eating = 0; return; }
   H.eatT += dt; S.eating = Math.min(1, H.eatT / 1.6); H.eatSnd -= dt;
   if (H.eatSnd <= 0 && H.eatT > 0.25) { H.eatSnd = 0.22; Sfx.play('eat', 0.5 + Math.random() * 0.2); const e = P.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.45, e.y - 0.25, e.z + d.z * 0.45, 4, [[0.75, 0.5, 0.35], [0.6, 0.35, 0.2]], 1.4, 0.4, 12, 0.15); }
@@ -6599,7 +6626,8 @@ function updateEating(dt) {
     H.eatT = 0; S.eating = 0; mouseR = false;
     if (S.mode === 'survival') { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
-    useHeld(1); Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
+    if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
+    Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
   }
 }
 { const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); updateEating(dt); return r; }; }
@@ -6612,6 +6640,522 @@ function updateEating(dt) {
 { const btn = $('btnRespawn'); btn.addEventListener('click', () => { player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0; renderFood(); }); }
 // save and load
 { const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); const p = data && data.player; player.food = p && p.food != null ? p.food : 20; player.sat = p && p.sat != null ? p.sat : 5; player.exh = p && p.exh || 0; player.absorb = p && p.absorb || 0; foodShown = -1; renderFood(); return r; }; }
+
+// ================= ANIMALS (Minecraft rules) =================
+// Persistence: passive and tamed mobs are kept with their chunk when it unloads and saved with the world, so herds
+// and your horses stay where you left them. Breeding: feed two adults of the same kind their food (cows and sheep
+// wheat, pigs carrots or potatoes, chickens seeds, tamed horses golden carrots or golden apples); they find each
+// other and make a baby (5 minute cooldown, 1-7 experience). Babies grow up in 20 minutes; feeding them speeds it
+// up by 10%. Animals follow you while you hold their food. Shears shear sheep (grass regrows the wool), a bucket
+// milks cows, chickens lay eggs every 5-10 minutes and thrown eggs can hatch chicks.
+// Horses: herds of 2-6 on plains, 7 coats x 5 markings, 15-30 health, speed 4.9-14.6 blocks/s, jumps 1.1-5.3
+// blocks. Tame one by riding it until it stops bucking (each failed try raises its temper by 5; feeding raises it
+// too). A saddle lets you steer; hold jump to charge a jump; horse armor protects it. Sneak + use (or your
+// inventory key while riding) opens the horse's saddle and armor slots.
+
+// ---------- small helpers ----------
+const angWrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+const isClient = () => typeof MP !== 'undefined' && MP.active && MP.role === 'client';
+function hearts(m, n = 1) { Particles.emit(m.pos.x, m.pos.y + m.h + 0.2, m.pos.z, n, [[1, 0.25, 0.35], [0.95, 0.1, 0.2]], 0.6, 0.9, -1.5, Math.max(0.4, m.hw)); }
+function smoke(m, n = 6) { Particles.emit(m.pos.x, m.pos.y + m.h * 0.7, m.pos.z, n, [[0.55, 0.55, 0.55], [0.35, 0.35, 0.35]], 1, 0.7, -1, Math.max(0.4, m.hw)); }
+
+// extra synthesized sounds (no recorded samples for these)
+{ const _play = Sfx.play.bind(Sfx);
+  Sfx.play = function (name, v = 1, rate) {
+    if (!this.ctx || v < 0.02) return _play(name, v, rate);
+    if (this.has && this.has(name)) return _play(name, v, rate);
+    const c = this.ctx, t = c.currentTime;
+    const whinny = (f0, dur, vol) => { const o = c.createOscillator(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), f = c.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * 1.35, t + dur * 0.25); o.frequency.exponentialRampToValueAtTime(f0 * 0.55, t + dur);
+      lfo.frequency.value = 22; lg.gain.value = f0 * 0.08; lfo.connect(lg); lg.connect(o.frequency); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 1.2;
+      o.connect(f); f.connect(g); g.connect(this.out || c.destination); this.env(g, t, 0.03, dur, vol); o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05); };
+    switch (name) {
+      case 'neigh': whinny(520 * (rate || 1), 0.9, 0.11 * v); this.nz(0.25, 900, 0.18 * v, 'lowpass'); return;
+      case 'neigh_hurt': whinny(700 * (rate || 1), 0.35, 0.12 * v); return;
+      case 'neigh_angry': whinny(620, 0.7, 0.14 * v); this.nz(0.4, 600, 0.3 * v, 'lowpass'); return;
+      case 'hoof': this.nz(0.06, 380, 0.45 * v, 'lowpass'); this.tone(140, 90, 0.05, 0.06 * v, 'sine'); return;
+      case 'snip': this.nz(0.07, 5000, 0.3 * v, 'highpass'); setTimeout(() => this.nz(0.06, 4200, 0.25 * v, 'highpass'), 90); return;
+      case 'milk': this.nz(0.3, 900, 0.25 * v, 'lowpass'); this.tone(300, 200, 0.2, 0.04 * v, 'sine'); return;
+      case 'saddle': this.nz(0.2, 900, 0.35 * v, 'bandpass', 1.5); this.tone(180, 140, 0.12, 0.05 * v, 'triangle'); return;
+    }
+    return _play(name, v, rate);
+  };
+}
+
+// ---------- persistence ----------
+function mobPersistent(m) { return !!(m && !m.dead && !m.gone && !m.isBoss && !m.remote && m.t && (m.t.kind === 'passive' || m.tamed)); }
+function stashOf(w) { return w.mobStash || (w.mobStash = new Map()); }
+function mobRecord(m) {
+  const r = { t: m.type, p: [+m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2)], y: +m.yaw.toFixed(2), hp: +m.hp.toFixed(1) };
+  if (m.baby) r.b = Math.round(m.growT); if (m.loveCD > 0) r.lc = Math.round(m.loveCD); if (m.sheared) r.sh = 1; if (m.eggT) r.e = Math.round(m.eggT);
+  if (m.hg) r.h = Object.assign({}, m.hg);
+  return r;
+}
+function mobFromRecord(rec) {
+  if (!MOBS[rec.t]) return null;
+  const m = spawnMob(rec.t, rec.p[0], rec.p[1], rec.p[2], { rec }); m.yaw = rec.y || 0; m.root.scale.setScalar(1); m.age = 5;
+  if (m.hg) { applyHorseGenes(m); m.horseInit = true; }
+  if (rec.hp) m.hp = Math.min(m.maxHp, rec.hp);
+  if (rec.b) setBaby(m, true, rec.b); if (rec.lc) m.loveCD = rec.lc; if (rec.sh) setSheared(m, true); if (rec.e) m.eggT = rec.e;
+  return m;
+}
+function stashMob(m) {
+  if (isClient() || !mobPersistent(m) || !G.world) return false;
+  const k = ckey(Math.floor(m.pos.x) >> 4, Math.floor(m.pos.z) >> 4); const st = stashOf(G.world);
+  if (!st.has(k)) st.set(k, []); st.get(k).push(mobRecord(m)); return true;
+}
+let restoreT = 0;
+function restoreStashed(dt) {
+  restoreT -= dt; if (restoreT > 0 || !world || isClient()) return; restoreT = 0.5;
+  const st = stashOf(world);
+  for (const [k, list] of st) if (world.chunks.has(k)) { st.delete(k); for (const rec of list) mobFromRecord(rec); }
+}
+// chunk keys that already had their structures and animals generated, packed small for the save
+function packKeys(set) { const a = [...set].sort((x, y) => x - y); let prev = 0; return a.map(v => { const d = v - prev; prev = v; return d.toString(36); }).join(','); }
+function unpackKeys(s) { const out = new Set(); if (!s) return out; let v = 0; for (const p of s.split(',')) { v += parseInt(p, 36); out.add(v); } return out; }
+{ const _pack = packWorld; packWorld = function (w) {
+    const r = _pack(w); const mobs = {};
+    for (const [k, list] of stashOf(w)) mobs[k] = list.slice();
+    if (w === world && !isClient()) for (const m of G.mobs) if (mobPersistent(m)) { const k = ckey(Math.floor(m.pos.x) >> 4, Math.floor(m.pos.z) >> 4); (mobs[k] || (mobs[k] = [])).push(mobRecord(m)); }
+    r.mobs = mobs; r.gen = packKeys(w.hintsDone); return r;
+  };
+  const _unpack = unpackWorld; unpackWorld = function (w, d) {
+    const r = _unpack(w, d); if (!d) return r;
+    if (d.mobs) { const st = stashOf(w); st.clear(); for (const k in d.mobs) st.set(Number(k), d.mobs[k]); }
+    if (d.gen) w.hintsDone = unpackKeys(d.gen);
+    return r;
+  };
+  const _travel = travelTo; travelTo = function () { for (const m of G.mobs) if (mobPersistent(m)) { stashMob(m); } return _travel.apply(this, arguments); };
+}
+
+// ---------- babies ----------
+function setBaby(m, on, growT) {
+  m.baby = !!on; m.growT = on ? (growT || 1200) : 0;
+  const t = m.t; const k = on ? 0.5 : 1;
+  m.baseScale = k; m.body.scale.setScalar(k); m.hw = (t.w / 2) * k; m.h = t.h * k;
+  if (m.head) m.head.scale.setScalar(on ? 1.45 : 1);
+}
+
+// ---------- sheep ----------
+function setSheared(m, on) { m.sheared = !!on; if (m.wool) for (const w of m.wool) w.visible = !on; if (m.skinBody) m.skinBody.visible = !!on; }
+
+// ---------- what each animal eats ----------
+const BREED_FOOD = { cow: ['wheat'], sheep: ['wheat'], pig: ['carrot', 'potato'], chicken: ['wheat_seeds'], horse: ['golden_carrot', 'golden_apple'] };
+const TEMPT_FOOD = { cow: ['wheat'], sheep: ['wheat'], pig: ['carrot', 'potato'], chicken: ['wheat_seeds'] };
+// horse food: [health healed, temper added, seconds a foal grows]
+const HORSE_FOOD = { sugar: [1, 3, 30], wheat: [2, 3, 20], apple: [3, 3, 60], golden_carrot: [4, 5, 60], golden_apple: [10, 10, 240], hay_block: [10, 0, 180] };
+const itemKey = (id) => id != null && ITEMS[id] ? ITEMS[id].key : null;
+function mobWantsItem(m, id) {
+  const k = itemKey(id); if (!k || !m || m.dead) return false;
+  if (m.hg) return !!HORSE_FOOD[k] || (k === 'saddle' && m.tamed && !m.baby) || (ITEMS[id].kind === 'horse_armor' && m.tamed && !m.baby);
+  return !!((BREED_FOOD[m.type] || []).includes(k) || (TEMPT_FOOD[m.type] || []).includes(k));
+}
+
+// ---------- horses ----------
+const HORSE_COATS = [['White', [232, 228, 220], [204, 198, 188]], ['Creamy', [204, 160, 106], [176, 132, 82]], ['Chestnut', [156, 86, 44], [126, 66, 32]], ['Brown', [104, 66, 40], [82, 50, 30]], ['Black', [44, 40, 40], [30, 28, 28]], ['Gray', [124, 120, 116], [100, 96, 92]], ['Dark Brown', [68, 44, 30], [52, 34, 22]]];
+const HORSE_MARKS = ['None', 'White', 'White Field', 'White Dots', 'Black Dots'];
+const HORSE_ARMOR = ['leather', 'iron', 'golden', 'diamond'];
+// Minecraft: jump strength j (blocks per tick) -> jump height in blocks
+const horseJumpHeight = (j) => -0.1817584952 * j * j * j + 3.689713992 * j * j + 2.128599134 * j - 0.343930367;
+function rollHorse(rnd = Math.random) {
+  return { c: rnd() * 7 | 0, mk: rnd() * 5 | 0, hp: 15 + (rnd() * 8 | 0) + (rnd() * 9 | 0), spd: +((0.45 + rnd() * 0.3 + rnd() * 0.3 + rnd() * 0.3) * 0.25 * 43.17).toFixed(2), jmp: +(0.4 + rnd() * 0.2 + rnd() * 0.2 + rnd() * 0.2).toFixed(3), tamed: 0, temper: 0, saddle: 0, armor: -1, owner: '' };
+}
+function foalGenes(a, b) {
+  const r = rollHorse(); const pick = (x, y, z, wx, wy) => { const q = Math.random(); return q < wx ? x : q < wx + wy ? y : z; };
+  return Object.assign(r, { c: pick(a.c, b.c, r.c, 4 / 9, 4 / 9), mk: pick(a.mk, b.mk, r.mk, 0.4, 0.4), hp: Math.round((a.hp + b.hp + r.hp) / 3), spd: +((a.spd + b.spd + r.spd) / 3).toFixed(2), jmp: +((a.jmp + b.jmp + r.jmp) / 3).toFixed(3) });
+}
+function horsePaints(c, mk) {
+  const [, base, dark] = HORSE_COATS[c]; const W = [236, 234, 228], D = [26, 22, 20];
+  const opt = { bottom: dark };
+  if (mk === 2) opt.patch = [W, 0.56]; if (mk === 3) opt.speck = [W, 0.09]; if (mk === 4) opt.speck = [D, 0.09];
+  const body = fur(base, 6, Object.assign({ seed: c * 7 + mk }, opt));
+  const leg = fur(base, 6, Object.assign({}, opt, { foot: mk === 1 ? [6, W] : [2, [40, 34, 30]], bottom: [40, 34, 30] }));
+  const head = fur(base, 6, Object.assign({}, opt, { extra: (f, set, fw, fh) => { if (mk === 1 && (f === 'top' || f === 'front')) for (let y = 0; y < fh; y++) { set((fw >> 1), y, W); if (f === 'top') set((fw >> 1) - 1, y, W); } if (f === 'left' || f === 'right') { set(f === 'left' ? 2 : fw - 3, 2, [20, 16, 14]); set(f === 'left' ? 2 : fw - 3, 1, [240, 240, 236]); } } }));
+  const muzzle = fur(shadeC(base, 0.8), 5, { extra: (f, set, fw, fh) => { if (mk === 1 && f !== 'bottom') for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (f === 'top' || f === 'front' || x > 1) set(x, y, W); if (f === 'front') { set(1, 2, [30, 24, 22]); set(fw - 2, 2, [30, 24, 22]); } } });
+  const maneC = c === 0 ? [214, 206, 192] : c === 1 ? [150, 108, 64] : shadeC(dark, 0.6);
+  return { body, leg, head, muzzle, mane: fur(maneC, 9, { speck: [shadeC(maneC, 1.3), 0.15] }), tail: fur(maneC, 9, { speck: [shadeC(maneC, 1.3), 0.15] }) };
+}
+MOBS.horse = { name: 'Horse', hp: 22, w: 1.3965, h: 1.6, speed: 2.4, kind: 'passive', snd: 'neigh', grazer: true, drops: [['leather', 0, 2, 1]], build(m, r) {
+  const o = m.opts || {}; const nx = o.netx && o.netx.h; const g = m.hg = o.rec && o.rec.h ? Object.assign(rollHorse(), o.rec.h) : nx ? Object.assign(rollHorse(), { c: nx[0], mk: nx[1] }) : (o.genes || rollHorse());
+  const P = horsePaints(g.c, g.mk); const k = 'c' + g.c + 'm' + g.mk;
+  sbox(m, r, 0.625, 0.625, 1.375, 0, 1.0, 0, 'hz_body' + k, P.body);
+  m.legs = quadLegs(m, r, 0.25, 0.69, 0.19, 0.5, 'hz_leg' + k, P.leg);
+  const neck = pivot(r, 0, 1.18, 0.5); neck.rotation.x = 0.52;
+  const hp = pivot(neck, 0, 0, 0); m.head = hp;
+  sbox(m, hp, 0.25, 0.75, 0.44, 0, 0.375, 0, 'hz_neck' + k, P.body);
+  sbox(m, hp, 0.3125, 0.3125, 0.44, 0, 0.62, 0.3, 'hz_head' + k, P.head);
+  const mz = pivot(hp, 0, 0.62, 0.52); mz.rotation.x = 0.35; sbox(m, mz, 0.25, 0.28, 0.34, 0, -0.06, 0.14, 'hz_muz' + k, P.muzzle);
+  for (const s of [-1, 1]) sbox(m, hp, 0.11, 0.19, 0.0625, s * 0.1, 0.86, 0.12, 'hz_ear' + k, P.body);
+  sbox(m, hp, 0.13, 0.95, 0.14, 0, 0.42, -0.24, 'hz_mane' + k, P.mane);
+  m.tail = pivot(r, 0, 1.24, -0.68); m.tail.rotation.x = 0.55; sbox(m, m.tail, 0.19, 0.88, 0.25, 0, -0.42, 0, 'hz_tail' + k, P.tail);
+  // saddle and bridle (shown once saddled)
+  const LE = [116, 66, 34], LE2 = [86, 46, 22], MET = [190, 190, 196];
+  m.saddleParts = [
+    sbox(m, r, 0.66, 0.1, 0.62, 0, 1.36, -0.02, 'hz_saddle', fur(LE, 5, { topRows: [1, [140, 82, 44]] })),
+    sbox(m, r, 0.3, 0.12, 0.1, 0, 1.44, 0.24, 'hz_pommel', fur(LE2, 4)),
+    sbox(m, r, 0.3, 0.12, 0.1, 0, 1.44, -0.3, 'hz_cantle', fur(LE2, 4)),
+    sbox(m, r, 0.7, 0.42, 0.1, 0, 1.16, 0.04, 'hz_girth', fur(LE2, 4)),
+    sbox(m, r, 0.06, 0.32, 0.06, -0.37, 1.02, 0.04, 'hz_strap', fur([60, 56, 52], 3)), sbox(m, r, 0.06, 0.32, 0.06, 0.37, 1.02, 0.04, 'hz_strap', fur([60, 56, 52], 3)),
+    sbox(m, r, 0.1, 0.06, 0.14, -0.38, 0.85, 0.04, 'hz_stirrup', fur(MET, 3)), sbox(m, r, 0.1, 0.06, 0.14, 0.38, 0.85, 0.04, 'hz_stirrup', fur(MET, 3)),
+    sbox(m, hp, 0.33, 0.06, 0.06, 0, 0.62, 0.55, 'hz_bit', fur(MET, 3)),
+    sbox(m, hp, 0.335, 0.05, 0.46, 0, 0.7, 0.3, 'hz_bridle', fur(LE2, 3)),
+  ];
+  m.reins = [sbox(m, hp, 0.03, 0.03, 0.62, -0.17, 0.5, 0.25, 'hz_rein', fur(LE2, 2)), sbox(m, hp, 0.03, 0.03, 0.62, 0.17, 0.5, 0.25, 'hz_rein', fur(LE2, 2))];
+  for (const p of m.reins) p.rotation.x = -0.55;
+  for (const p of m.saddleParts.concat(m.reins)) p.visible = false;
+  m.neck = neck; m.armorParts = []; m.horseBody = r;
+} };
+MOB_PITCH.horse = 1; if (typeof MOB_XP !== 'undefined') MOB_XP.horse = [1, 3];
+function horseArmorDef(m) { const a = m.hg && m.hg.armor; return a >= 0 ? ITEMS[IT[HORSE_ARMOR[a] + '_horse_armor']].hdef : 0; }
+function applyHorseLook(m) {
+  if (!m.hg) return; const g = m.hg; const sad = !!g.saddle && !m.baby;
+  for (const p of m.saddleParts) p.visible = sad; for (const p of m.reins) p.visible = sad && m.rider != null;
+  const want = m.baby ? -1 : g.armor; if (m.armorShown === want) return; m.armorShown = want;
+  for (const p of m.armorParts) { p.parent.remove(p); m.mats = m.mats.filter(x => x[0] !== p.material); p.material.dispose(); } m.armorParts = [];
+  if (want < 0) return;
+  const mat = HORSE_ARMOR[want]; const col = ITEMS[IT[mat + '_horse_armor']].hcol;
+  const plate = fur(col, mat === 'leather' ? 7 : 5, { topRows: [1, shadeC(col, 1.15)], extra: (f, set, fw, fh) => { if (f === 'top' || f === 'bottom') return; for (let x = 0; x < fw; x++) set(x, fh - 1, shadeC(col, 0.6)); } });
+  const r = m.horseBody, hp = m.head;
+  m.armorParts.push(sbox(m, r, 0.69, 0.5, 1.44, 0, 1.08, 0, 'hz_arm_body_' + mat, plate));
+  m.armorParts.push(sbox(m, hp, 0.29, 0.6, 0.48, 0, 0.42, 0, 'hz_arm_neck_' + mat, plate));
+  m.armorParts.push(sbox(m, hp, 0.35, 0.18, 0.48, 0, 0.74, 0.3, 'hz_arm_head_' + mat, plate));
+  for (const p of m.armorParts) p.layers.enable(1);
+  if (m.saddleParts[0].visible) m.armorParts[0].scale.set(1, 0.98, 1);
+}
+function applyHorseGenes(m) { if (!m.hg) return; m.maxHp = m.hg.hp; if (m.hp > m.maxHp) m.hp = m.maxHp; m.tamed = !!m.hg.tamed; applyHorseLook(m); }
+
+// ---------- network state for animals ----------
+Mob.prototype.netx = function () {
+  if (!BREED_FOOD[this.type]) return 0;
+  const o = {}; let any = false;
+  if (this.baby) { o.b = 1; any = true; } if (this.sheared) { o.s = 1; any = true; } if (this.loveT > 0) { o.l = 1; any = true; }
+  if (this.hg) { const g = this.hg; o.h = [g.c, g.mk, g.tamed ? 1 : 0, g.saddle ? 1 : 0, g.armor, Math.ceil(this.hp), g.hp, g.temper, g.spd, g.jmp, this.rider != null || this.riderPeer ? 1 : 0]; any = true; }
+  return any ? o : 0;
+};
+Mob.prototype.applyNetx = function (ex) {
+  if (!BREED_FOOD[this.type]) return; ex = ex || {};
+  if (!!ex.b !== !!this.baby) setBaby(this, !!ex.b); if (!!ex.s !== !!this.sheared) setSheared(this, !!ex.s);
+  this.loveT = ex.l ? 1 : 0;
+  if (ex.h && this.hg) { const h = ex.h, g = this.hg; g.tamed = h[2]; g.saddle = h[3]; g.armor = h[4]; if (this.rider !== 'local') this.hp = h[5]; g.hp = h[6]; g.temper = h[7]; g.spd = h[8]; g.jmp = h[9]; this.takenBy = h[10] && this.rider !== 'local'; applyHorseGenes(this); }
+};
+// change a mob's state here and, for the host's mobs seen by a client, on the host too
+const MOBSET_KEYS = ['tamed', 'owner', 'temper', 'saddle', 'armor', 'hp', 'loveT', 'sheared', 'growT', 'loveCD'];
+function applyMobSet(m, set) {
+  for (const k in set) {
+    if (!MOBSET_KEYS.includes(k)) continue; const v = set[k];
+    if (m.hg && (k === 'tamed' || k === 'owner' || k === 'temper' || k === 'saddle' || k === 'armor')) m.hg[k] = v;
+    else if (k === 'hp') m.hp = Math.min(m.maxHp, v);
+    else if (k === 'sheared') setSheared(m, v);
+    else if (k === 'growT') { if (v <= 0) setBaby(m, false); else m.growT = v; }
+    else m[k] = v;
+  }
+  if (m.hg) applyHorseGenes(m);
+}
+function mset(m, set) { applyMobSet(m, set); if (m.remote) mpToHost({ t: 'mobset', id: m.nid, set }); }
+// a mob made by a client's action (a chick from an egg) is made on the host so everyone shares it
+function spawnShared(type, x, y, z, baby) {
+  if (isClient() && MP.proxyMode) { mpToHost({ t: 'aspawn', type, x, y, z, baby: baby ? 1 : 0 }); return null; }
+  const m = spawnMob(type, x, y, z); if (baby) setBaby(m, true); return m;
+}
+
+// ---------- feeding, breeding and other right-click uses on animals ----------
+function consumeHeldFood() { if (S.mode !== 'creative') useHeld(1); S.swing = 1; Sfx.play('eat', 0.6); }
+function mobInteract(m, sneaking) {
+  const P = player; const h = P.held(); const hd = h && ITEMS[h.id]; const k = hd ? hd.key : null;
+  if (m.dead || m === P.riding) return false;
+  // horses
+  if (m.hg) {
+    if (sneaking && m.tamed && !m.baby) { openHorseUI(m); return true; }
+    if (k && HORSE_FOOD[k] && feedHorse(m, k)) return true;
+    if (hd && hd.kind === 'saddle' && m.tamed && !m.baby && !m.hg.saddle) { mset(m, { saddle: 1 }); useHeld(1); Sfx.at('saddle', m.pos, 1); S.swing = 1; return true; }
+    if (hd && hd.kind === 'horse_armor' && m.tamed && !m.baby && m.hg.armor < 0) { mset(m, { armor: HORSE_ARMOR.indexOf(hd.hmat) }); useHeld(1); Sfx.play('armor', 0.8); S.swing = 1; return true; }
+    if (!m.baby) { mountHorse(m); return true; }
+    return false;
+  }
+  // shearing and milking
+  if (m.type === 'sheep' && hd && hd.kind === 'shears' && !m.baby && !m.sheared) {
+    mset(m, { sheared: true }); damageHeld(1); Sfx.at('snip', m.pos, 1); S.swing = 1;
+    const n = 1 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) { const it = dropItem(IT.wool, 1, m.pos.x, m.pos.y + 0.9, m.pos.z, false); if (it && it.vel) it.vel.set((Math.random() - 0.5) * 2, 3 + Math.random() * 1.5, (Math.random() - 0.5) * 2); }
+    return true;
+  }
+  if (m.type === 'cow' && h && h.id === IT.bucket && !m.baby) { replaceHeld(IT.milk_bucket); Sfx.at('milk', m.pos, 1); S.swing = 1; return true; }
+  // breeding food
+  const food = BREED_FOOD[m.type]; if (!food || !k || !food.includes(k)) return false;
+  if (m.baby) { mset(m, { growT: m.growT * 0.9 }); consumeHeldFood(); smoke(m, 3); Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.4); return true; }
+  if (m.loveT > 0 || m.loveCD > 0) return true; // MC: they take no more food while in love or recovering
+  mset(m, { loveT: 30 }); consumeHeldFood(); hearts(m, 4); return true;
+}
+function feedHorse(m, k) {
+  const [heal, temper, grow] = HORSE_FOOD[k]; const g = m.hg; let ate = false; const set = {};
+  if (m.hp < m.maxHp && heal) { set.hp = Math.min(m.maxHp, m.hp + heal); ate = true; }
+  if (m.baby && grow) { set.growT = Math.max(0, m.growT - grow); ate = true; }
+  if (!g.tamed && temper && g.temper < 100) { set.temper = Math.min(100, g.temper + temper); ate = true; }
+  if (g.tamed && !m.baby && BREED_FOOD.horse.includes(k) && m.loveT <= 0 && !(m.loveCD > 0)) { set.loveT = 30; ate = true; }
+  if (!ate) return false;
+  mset(m, set); consumeHeldFood(); if (set.loveT) hearts(m, 5); else Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.5);
+  if (m.head) m.grazeT = 0.8; Sfx.at('neigh', m.pos, 0.4, 1.2); return true;
+}
+function breed(a, b) {
+  a.loveT = b.loveT = 0; a.loveCD = b.loveCD = 300;
+  const x = (a.pos.x + b.pos.x) / 2, y = Math.max(a.pos.y, b.pos.y), z = (a.pos.z + b.pos.z) / 2;
+  const baby = spawnMob(a.type, x, y, z, a.hg ? { genes: foalGenes(a.hg, b.hg) } : undefined);
+  setBaby(baby, true); if (baby.hg) { applyHorseGenes(baby); baby.hp = baby.maxHp; baby.horseInit = true; }
+  for (const m of [a, b, baby]) hearts(m, 6);
+  spawnOrb(x, y + 0.5, z, 1 + (Math.random() * 7 | 0));
+}
+// nearest player holding one of the given items, within range (the host also checks friends)
+function nearestTempter(m, foods, range) {
+  let best = null, bd = range * range;
+  const consider = (pos, key) => { if (!key || !foods.includes(key)) return; const d = pos.distanceToSquared(m.pos); if (d < bd) { bd = d; best = pos; } };
+  const P = player; if (!P.dead && S.mode !== 'spectator') consider(P.pos, itemKey(P.held() && P.held().id));
+  if (typeof MP !== 'undefined' && MP.active && MP.role === 'host') for (const av of MP.avatars.values()) if (av.dim === world.dim && !av.dead) consider(av.pos, av.held || null);
+  return best;
+}
+function steerTo(m, pos, stopAt) {
+  const dx = pos.x - m.pos.x, dz = pos.z - m.pos.z; const d = Math.hypot(dx, dz);
+  m.wYaw = Math.atan2(dx, dz); m.wMove = d > stopAt ? 1 : 0; m.wT = 0.3; return d;
+}
+
+// ---------- per-mob update ----------
+const _animalUpdate = Mob.prototype.update;
+Mob.prototype.update = function (dt) {
+  const t = this.t;
+  if (this.hg && !this.horseInit) { this.horseInit = true; applyHorseGenes(this); if (!this.opts || !this.opts.rec) this.hp = this.maxHp; }
+  if (this.dead || !BREED_FOOD[this.type]) return _animalUpdate.call(this, dt);
+  // a horse someone is riding: the rider moves it (here or on a friend's computer)
+  if (this.rider === 'local' || (this.riderPeer && performance.now() - (this.rideT || 0) < 2500)) {
+    this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.lightT -= dt;
+    if (this.lightT <= 0) { this.lightT = 0.3; this.light = Math.max(G.minLight || 0, world.lightAt(this.pos.x, this.pos.y + 1, this.pos.z, G.daylight)); }
+    this.animate(dt); horseAnim(this, dt); return;
+  }
+  if (this.riderPeer) this.riderPeer = null;
+  this.loveT = Math.max(0, (this.loveT || 0) - dt); this.loveCD = Math.max(0, (this.loveCD || 0) - dt);
+  if (this.loveT > 0 && Math.random() < dt * 2.5) hearts(this);
+  if (this.baby) { this.growT -= dt; if (this.growT <= 0) setBaby(this, false); }
+  // where to walk: a partner when in love, a player holding food, or a parent for babies
+  if (this.flee <= 0) {
+    let goal = null, stop = 1.2;
+    if (this.loveT > 0 && !this.baby) {
+      let mate = null, md = 64;
+      for (const o of G.mobs) { if (o === this || o.type !== this.type || o.dead || o.baby || !(o.loveT > 0) || o.remote) continue; const d = o.pos.distanceToSquared(this.pos); if (d < md) { md = d; mate = o; } }
+      if (mate) { goal = mate.pos; stop = 0.9 + this.hw; if (md < (1.3 + this.hw) ** 2 && this.loveT < 29 && mate.loveT > 0 && !isClient()) { breed(this, mate); goal = null; } }
+    }
+    if (!goal && TEMPT_FOOD[this.type]) { const p = nearestTempter(this, TEMPT_FOOD[this.type], 10); if (p) { goal = p; stop = 1.8 + this.hw; } }
+    if (!goal && this.baby) { let par = null, pd = 100; for (const o of G.mobs) { if (o.type !== this.type || o.baby || o.dead || o === this) continue; const d = o.pos.distanceToSquared(this.pos); if (d < pd) { pd = d; par = o; } } if (par && pd > 9) { goal = par.pos; stop = 2.5; } }
+    if (goal) { steerTo(this, goal, stop); this.goalBoost = true; } else this.goalBoost = false;
+  } else this.goalBoost = false;
+  // sheep regrow wool by eating grass
+  if (this.sheared && !this.baby && this.onGround && Math.random() < dt / 25 && !isClient()) {
+    const x = Math.floor(this.pos.x), y = Math.floor(this.pos.y) - 1, z = Math.floor(this.pos.z);
+    if (world.get(x, y, z) === B.GRASS) { world.set(x, y, z, B.DIRT); mpBlock(x, y, z, B.DIRT); setSheared(this, false); this.grazeT = 1.4; }
+  }
+  // chickens lay an egg every 5-10 minutes
+  if (this.type === 'chicken' && !this.baby && !isClient()) { if (!this.eggT) this.eggT = 300 + Math.random() * 300; this.eggT -= dt; if (this.eggT <= 0) { this.eggT = 300 + Math.random() * 300; dropItem(IT.egg, 1, this.pos.x, this.pos.y + 0.3, this.pos.z, false); Sfx.at('pop', this.pos, 0.6, 0.8); } }
+  if (this.hg) { if (Math.random() < dt / 45 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 1); }
+  const sp = t.speed; if (this.goalBoost) t.speed = sp * 1.7; // walking to food or a mate is quicker than wandering
+  let r; try { r = _animalUpdate.call(this, dt); } finally { t.speed = sp; }
+  if (this.hg) horseAnim(this, dt);
+  return r;
+};
+// horses: graze with the whole neck, swish the tail, rear when bucking, gallop sounds
+function horseAnim(m, dt) {
+  if (!m.head) return; const hs = Math.hypot(m.vel.x, m.vel.z); if (m.stepOff) m.root.position.y -= m.stepOff;
+  const ridden = m.rider != null || !!m.riderPeer || !!m.takenBy;
+  const tgt = ridden ? (hs > 6 ? 0.35 : 0.1) + Math.sin(m.walk) * 0.08 * Math.min(1, hs / 4) : m.grazeT > 0 ? 1.9 : null;
+  if (m.hpx == null) m.hpx = m.head.rotation.x;
+  if (tgt != null) { m.hpx += (tgt - m.hpx) * Math.min(1, dt * 5); m.head.rotation.x = m.hpx; if (ridden) m.head.rotation.y *= 0.8; } else m.hpx = m.head.rotation.x;
+  if (m.tail) m.tail.rotation.x = 0.55 + Math.min(0.6, hs * 0.05) + Math.sin(m.age * 1.3) * 0.05;
+  m.rearT = Math.max(0, (m.rearT || 0) - dt);
+  const rear = m.rearT > 0 ? Math.sin(Math.min(1, (1.2 - m.rearT) / 0.3) * Math.PI / 2) * (m.rearT < 0.3 ? m.rearT / 0.3 : 1) : 0;
+  m.body.rotation.x = -rear * 0.75; m.body.position.z = -rear * 0.35; m.body.position.y += rear * 0.25;
+  if (rear && m.legs) { m.legs[0].rotation.x = m.legs[1].rotation.x = -0.9 * rear + Math.sin(m.age * 14) * 0.3 * rear; }
+  if (m.onGround && hs > 1.5) { m.hoofT = (m.hoofT || 0) - dt * hs; if (m.hoofT <= 0) { m.hoofT = hs > 7 ? 2.6 : 1.6; Sfx.at('hoof', m.pos, hs > 7 ? 0.5 : 0.3); } }
+  if (m.reins) for (const p of m.reins) p.visible = !!m.hg.saddle && !m.baby && (m.rider != null || !!m.riderPeer || !!m.takenBy);
+}
+// remote horse ridden by this client: the client moves it
+{ const _rmu = remoteMobUpdate; remoteMobUpdate = function (m, dt) { if (m.loveT > 0 && Math.random() < dt * 2.5) hearts(m); if (m.rider === 'local') { m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.animate(dt); horseAnim(m, dt); return; } const r = _rmu(m, dt); if (m.hg) horseAnim(m, dt); return r; }; }
+// horse armor and riders
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb = 1, noAnger) {
+    if (this.hg) { const a = horseArmorDef(this); if (a) dmg *= 1 - Math.min(20, a) / 25; if (this.rider != null || this.riderPeer) kb = 0; }
+    return _h.call(this, dmg, src, kb, noAnger);
+  };
+  const _dl = Mob.prototype.dropLoot; Mob.prototype.dropLoot = function () {
+    if (this.baby) { Sfx.mob(this, 'death', 0.8); return; }
+    if (this.hg && !this.remote) { if (this.hg.saddle) dropItem(IT.saddle, 1, this.pos.x, this.pos.y + 0.8, this.pos.z); if (this.hg.armor >= 0) dropItem(IT[HORSE_ARMOR[this.hg.armor] + '_horse_armor'], 1, this.pos.x, this.pos.y + 0.8, this.pos.z); }
+    if (this === player.riding) dismount();
+    return _dl.call(this);
+  };
+}
+// you can't target the horse you are sitting on
+{ const _mr = mobRay; mobRay = function (m, eye, dir) { if (m === player.riding) return -1; return _mr(m, eye, dir); }; }
+
+// ---------- riding ----------
+const HORSE_SEAT = 1.08;
+function mountHorse(m) {
+  const P = player; if (P.riding || P.dead) return;
+  if (m.rider != null || m.riderPeer || m.takenBy) { toast('Someone is already riding this horse', 1.5); return; }
+  P.riding = m; m.rider = 'local'; P.swimming = false; P.sneaking = false; P.sprinting = false; P.flying = false; P.h = 1.8; m.rowing = 'horse';
+  m.vel.set(0, m.vel.y, 0); S.hJump = -1; m.peak = null;
+  if (!m.tamed) m.tameT = 1 + Math.random() * 2.5; else m.tameT = 0;
+  seatOnHorse(P, m); Sfx.at('saddle', m.pos, 0.6); horseRideSync(m, true);
+}
+function boxBlocked(e) { const X0 = Math.floor(e.pos.x - e.hw), X1 = Math.floor(e.pos.x + e.hw - 1e-7), Y0 = Math.floor(e.pos.y), Y1 = Math.floor(e.pos.y + e.h - 1e-7), Z0 = Math.floor(e.pos.z - e.hw), Z1 = Math.floor(e.pos.z + e.hw - 1e-7); for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) if (world.solid(x, y, z)) return true; return false; }
+function seatOnHorse(P, m) { P.pos.set(m.pos.x, m.pos.y - (m.stepOff || 0) + HORSE_SEAT, m.pos.z); P.vel.copy(m.vel); P.onGround = true; P.peak = null; P.flying = false; }
+function horseDismount(P, m, thrown) {
+  P.riding = null; if (m.rider === 'local') m.rider = null; m.tameT = 0; S.hJump = -1; show('jumpBar', false);
+  const free = (x, y, z) => !world.solid(Math.floor(x), y, Math.floor(z)) && !world.solid(Math.floor(x), y + 1, Math.floor(z));
+  let spot = null;
+  for (const needGround of [true, false]) {
+    for (let a = 0; a < 8 && !spot; a++) {
+      const ang = m.yaw + Math.PI / 2 + a * Math.PI / 4; const x = m.pos.x + Math.sin(ang) * 1.3, z = m.pos.z + Math.cos(ang) * 1.3;
+      for (const dy of [0, 1, -1]) { const y = Math.floor(m.pos.y + 0.2) + dy; if (free(x, y, z) && (!needGround || world.solid(Math.floor(x), y - 1, Math.floor(z)))) { spot = [x, y + 0.01, z]; break; } }
+    }
+    if (spot) break;
+  }
+  if (spot) P.pos.set(spot[0], spot[1], spot[2]); else P.pos.set(m.pos.x, m.pos.y + 1.7, m.pos.z);
+  P.vel.set(0, thrown ? 4 : 0, 0); P.peak = null; horseRideSync(m, true);
+}
+function horseRide(P, dt) {
+  const m = P.riding; if (!m || m.dead || m.gone) { P.riding = null; show('jumpBar', false); return; }
+  let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
+  if (!S.uiOpen && kd('sneak') && !(m.tameT > 0)) { horseDismount(P, m); return; }
+  if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
+  f = clamp(f, -1, 1); s = clamp(s, -1, 1);
+  const g = m.hg; const water = inWater(m, 0.6), lava = inLava(m, 0.3);
+  // taming: an untamed horse bucks around, then either accepts you or throws you off
+  if (m.tameT > 0) {
+    m.tameT -= dt; f = 0; s = 0; if (Math.random() < dt * 3) m.buckYaw = m.yaw + (Math.random() - 0.5) * 3; m.yaw += angWrap((m.buckYaw || m.yaw) - m.yaw) * Math.min(1, dt * 3);
+    const sp = 2.2; m.vel.x += (Math.sin(m.yaw) * sp - m.vel.x) * Math.min(1, dt * 4); m.vel.z += (Math.cos(m.yaw) * sp - m.vel.z) * Math.min(1, dt * 4);
+    if (m.onGround && Math.random() < dt * 1.2) m.vel.y = 5;
+    if (m.tameT <= 0) {
+      if ((Math.random() * 100 | 0) < g.temper) { mset(m, { tamed: 1, owner: myName() }); hearts(m, 10); Sfx.at('neigh', m.pos, 0.8, 1.1); toast('The horse is tamed', 2); }
+      else { mset(m, { temper: Math.min(100, g.temper + 5) }); m.rearT = 1.2; smoke(m, 10); Sfx.at('neigh_angry', m.pos, 1); m.vel.set(0, 0, 0); horseDismount(P, m, true); return; }
+    }
+  } else {
+    const ctl = g.tamed && g.saddle && !m.baby;
+    if (ctl) {
+      m.yaw = angWrap(P.yaw + Math.PI);
+      const fwd = f > 0 ? 1 : f < 0 ? -0.25 : 0, side = s * 0.5; const sp = g.spd * (water ? 0.35 : 1);
+      const tx = (Math.sin(m.yaw) * fwd - Math.cos(m.yaw) * side) * sp, tz = (Math.cos(m.yaw) * fwd + Math.sin(m.yaw) * side) * sp;
+      const k = m.onGround || water ? Math.min(1, dt * 6) : Math.min(1, dt * 1.2);
+      m.vel.x += (tx - m.vel.x) * k; m.vel.z += (tz - m.vel.z) * k;
+      // jump: hold to charge (full after 0.5 s, then it slips back toward 80%), release to leap
+      const jumpKey = !S.uiOpen && kd('jump');
+      if (jumpKey && m.onGround && !water) { if (S.hJump < 0) S.hJump = 0; S.hJump += dt; }
+      const pow = S.hJump < 0 ? 0 : S.hJump <= 0.5 ? S.hJump / 0.5 : Math.min(1, 0.8 + 0.2 / Math.max(1, (S.hJump - 0.45) * 20));
+      if (!jumpKey && S.hJump >= 0) { if (m.onGround && pow > 0.05) { const p2 = pow >= 0.9 ? 1 : 0.4 + 0.4 * pow / 0.9; const h = Math.max(0.6, horseJumpHeight(g.jmp * p2)); m.vel.y = Math.sqrt(2 * 28 * h) + 28 * dt * 0.5; if (fwd > 0) { m.vel.x += Math.sin(m.yaw) * 1.2 * p2; m.vel.z += Math.cos(m.yaw) * 1.2 * p2; } Sfx.at('neigh', m.pos, 0.25, 1.3); } S.hJump = -1; }
+      show('jumpBar', true); $('jumpBar').firstChild.style.width = Math.round(pow * 100) + '%';
+    } else {
+      show('jumpBar', false); const k = Math.min(1, dt * 6); m.vel.x -= m.vel.x * k; m.vel.z -= m.vel.z * k;
+      if (f || s) { if (!g.saddle && g.tamed && S.useCD <= 0 && !m.hintShown) { m.hintShown = true; toast('Put a saddle on the horse to steer it', 2.5); } }
+    }
+  }
+  // physics (the horse steps up full blocks, floats in water)
+  if (water || lava) { m.vel.y = Math.min(m.vel.y + 30 * dt, 1.6); m.vel.x *= 0.96; m.vel.z *= 0.96; } else m.vel.y = Math.max(m.vel.y - 28 * dt, -50);
+  const wasGround = m.onGround, want = new V3(m.vel.x, 0, m.vel.z), p0 = m.pos.clone(); moveEntity(m, dt);
+  // horses step up full blocks (step height 1): retry the move one block higher if that gets further
+  if (m.hitH && wasGround && want.lengthSq() > 0.25) {
+    const e = { pos: p0.clone(), vel: new V3(want.x, 0, want.z), hw: m.hw, h: m.h };
+    e.pos.y = Math.floor(p0.y + 0.01) + 1.001;
+    if (!boxBlocked(e)) { moveEntity(e, dt); const gotH = Math.hypot(e.pos.x - p0.x, e.pos.z - p0.z), had = Math.hypot(m.pos.x - p0.x, m.pos.z - p0.z); if (gotH > had + 0.02) { m.stepOff = (m.stepOff || 0) + (e.pos.y - m.pos.y); m.pos.copy(e.pos); m.vel.x = want.x; m.vel.z = want.z; m.vel.y = 0; m.onGround = true; } }
+  }
+  m.stepOff = Math.max(0, (m.stepOff || 0) - dt * 7);
+  // fall damage: Minecraft horses take ceil(fall / 2 - 3), and so does the rider
+  if (!m.onGround && !water) m.peak = m.peak == null ? m.pos.y : Math.max(m.peak, m.pos.y);
+  else { if (m.peak != null && m.onGround && S.rules.fallDamage) { const dmg = Math.ceil((m.peak - m.pos.y) * 0.5 - 3); if (dmg > 0) { m.hurt(dmg, null, 0, true); if (S.mode === 'survival') { P.hurtCD = 0; P.hurt(dmg, null, 'fall damage', 0); } } } m.peak = null; }
+  if (m.pos.y < -80) { m.gone = true; P.riding = null; return; }
+  P.sprinting = false; P.sneaking = false; P.swimming = false;
+  seatOnHorse(P, m);
+  m.syncT = (m.syncT || 0) - dt; if (m.syncT <= 0) { m.syncT = 0.1; horseRideSync(m, false); }
+}
+function horseRideSync(m, reliable) {
+  if (typeof MP === 'undefined' || !MP.active || MP.role !== 'client' || !m.remote) return;
+  mpToHost({ t: 'hride', id: m.nid, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2), yaw: +m.yaw.toFixed(3), on: m.rider === 'local' ? 1 : 0 }, !reliable);
+}
+// boats and horses share the riding hooks
+{ const _ru = rideUpdate; rideUpdate = function (P, dt) { if (P.riding && P.riding.hg) return horseRide(P, dt); return _ru(P, dt); };
+  const _dm = dismount; dismount = function () { const P = player; if (P.riding && P.riding.hg) return horseDismount(P, P.riding); return _dm.apply(this, arguments); };
+  const _sp = sitPose; sitPose = function (model, on, rowing) {
+    if (rowing !== 'horse' || !on || !model) return _sp(model, on, rowing === 'horse' ? false : rowing);
+    _sp(model, true, false); const P2 = model.P;
+    P2.legR.rotation.x = P2.legL.rotation.x = -0.42; P2.legR.rotation.z = 0.42; P2.legL.rotation.z = -0.42; P2.armR.rotation.x = P2.armL.rotation.x = -0.55;
+  };
+  const _oi = openInv; openInv = function () { const m = player.riding; if (m && m.hg && m.tamed) return openHorseUI(m); return _oi.apply(this, arguments); };
+}
+
+// ---------- horse HUD: health hearts instead of food, jump bar over the XP bar ----------
+const mountImgs = [];
+function renderMountHearts() {
+  const m = player.riding; const row = $('mountRow'); const on = !!(m && m.hg && S.mode === 'survival');
+  const key = on ? Math.ceil(m.hp) + '/' + m.maxHp : ''; if (key === renderMountHearts.last) return; renderMountHearts.last = key;
+  row.style.display = on ? 'flex' : 'none'; if (!on) return;
+  const n = Math.ceil(m.maxHp / 2); while (mountImgs.length < n) { const im = document.createElement('img'); row.appendChild(im); mountImgs.push(im); }
+  const h = Math.max(0, Math.ceil(m.hp));
+  for (let i = 0; i < mountImgs.length; i++) { const im = mountImgs[i]; if (i >= n) { im.style.display = 'none'; continue; } im.style.display = ''; const v = h - i * 2; im.src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; }
+}
+
+// ---------- the horse's saddle and armor slots (a small panel in the inventory screen) ----------
+slotEls.panel = [];
+S.panel = null;
+function openHorseUI(m) {
+  if (player.dead) return;
+  const g = m.hg; const slots = [g.saddle ? { id: IT.saddle, count: 1 } : null, g.armor >= 0 ? { id: IT[HORSE_ARMOR[g.armor] + '_horse_armor'], count: 1 } : null];
+  S.panel = { title: (g.tamed ? 'Horse' : 'Horse') + '  ' + Math.ceil(m.hp) + '/' + g.hp + ' HP · ' + (g.spd).toFixed(1) + ' blocks/s · jumps ' + horseJumpHeight(g.jmp).toFixed(1) + ' blocks', slots, ghosts: [IT.saddle, IT.iron_horse_armor],
+    accept: (i, s) => i === 0 ? ITEMS[s.id].kind === 'saddle' : ITEMS[s.id].kind === 'horse_armor',
+    changed: () => { const a = slots[1] ? HORSE_ARMOR.indexOf(ITEMS[slots[1].id].hmat) : -1; const sd = slots[0] ? 1 : 0; if (sd !== (g.saddle ? 1 : 0) || a !== g.armor) { if (sd && !g.saddle) Sfx.play('saddle', 0.8); mset(m, { saddle: sd, armor: a }); } },
+    mob: m };
+  openUI('panel');
+}
+{ const _ca = contArr; contArr = function (c) { if (c === 'panel') return S.panel ? S.panel.slots : null; return _ca(c); };
+  const _sc = slotClick; slotClick = function (cont, i, button, shift) {
+    const pn = S.panel;
+    if (pn && cont === 'panel') { const c = S.cursor; if (c && !pn.accept(i, c)) return; if (c && c.count > 1 && !pn.slots[i]) { pn.slots[i] = Object.assign({}, c, { count: 1 }); c.count--; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } const r = _sc(cont, i, button, shift); pn.changed(); return r; }
+    if (pn && cont === 'inv' && shift) { const s = player.inv[i]; if (s) for (let k = 0; k < pn.slots.length; k++) if (!pn.slots[k] && pn.accept(k, s)) { pn.slots[k] = Object.assign({}, s, { count: 1 }); s.count--; if (!s.count) player.inv[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } }
+    return _sc(cont, i, button, shift);
+  };
+  const _rui = renderInvUI; renderInvUI = function () { const r = _rui.apply(this, arguments); const pn = S.panel; if (pn && S.uiOpen === 'panel') pn.slots.forEach((s, i) => { const el = slotEls.panel[i]; if (!el) return; paintSlot(el, s); el.classList.toggle('empty', !s); if (!s && pn.ghosts && pn.ghosts[i] != null) { el.firstChild.src = ICON[pn.ghosts[i]]; } }); return r; };
+  const _ou = openUI; openUI = function (kind, key) {
+    const r = _ou(kind, key); const on = kind === 'panel' && S.panel; show('panelArea', !!on);
+    if (on) { $('panelTitle').textContent = S.panel.title; const body = $('panelBody'); body.innerHTML = ''; slotEls.panel = []; S.panel.slots.forEach((_, i) => makeSlot('panel', i, body)); show('rightPanel', false); renderInvUI(); }
+    else S.panel = null;
+    return r;
+  };
+  const _cl = closeInv; closeInv = function (noLock) { const r = _cl(noLock); S.panel = null; show('panelArea', false); return r; };
+}
+
+// ---------- use action: animals first, then eggs ----------
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const sneaking = kd('sneak'); const h = player.held(); const hd = h && ITEMS[h.id];
+    if (targetMob && !targetMob.dead && mobInteract(targetMob, sneaking)) { mouseR = false; S.useCD = 0.3; return; }
+    if (hd && hd.kind === 'egg' && !(target && BL[target.id].use && !sneaking)) { useHeld(1); spawnProj('egg', eye.clone().addScaledVector(dir, 0.5), dir.clone().multiplyScalar(18), 'player', 0); Sfx.play('bow', 0.4, 1.4); S.useCD = 0.25; S.swing = 1; return; }
+    return _ua(eye, dir);
+  }; }
+PROJ.egg = { grav: 20, size: 0.2, color: 0xefe4c8 };
+{ const _pi = projImpact; projImpact = function (a, mob) {
+    if (a.kind !== 'egg') return _pi(a, mob);
+    a.done = true; Particles.emit(a.pos.x, a.pos.y, a.pos.z, 8, [[0.95, 0.92, 0.82], [0.85, 0.8, 0.66]], 1.5, 0.4, 10, 0.2);
+    if (mob && !mob.dead) mob.hurt(0, a.pos.clone().addScaledVector(a.vel, -0.2), 0.3, true);
+    if (Math.random() < 1 / 8) { const n = Math.random() < 1 / 32 ? 4 : 1; for (let i = 0; i < n; i++) spawnShared('chicken', a.pos.x, a.pos.y, a.pos.z, true); }
+  }; }
+
+// ---------- multiplayer messages ----------
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    switch (m.t) {
+      case 'mobset': { if (MP.role !== 'host') return; const mob = G.mobs.find(x => x.nid === m.id); if (mob && !mob.dead) applyMobSet(mob, m.set || {}); return; }
+      case 'hride': { if (MP.role !== 'host') return; const mob = G.mobs.find(x => x.nid === m.id); if (!mob || mob.dead) return;
+        if (m.on) { if (mob.rider === 'local') return; const now = performance.now(); const dtm = Math.max(0.05, (now - (mob.rideT || now - 100)) / 1000); mob.vel.set((m.x - mob.pos.x) / dtm, (m.y - mob.pos.y) / dtm, (m.z - mob.pos.z) / dtm); mob.pos.set(m.x, m.y, m.z); mob.yaw = m.yaw; mob.riderPeer = peer.id; mob.rideT = now; mob.root.position.copy(mob.pos); mob.root.rotation.y = mob.yaw; }
+        else if (mob.riderPeer === peer.id) { mob.riderPeer = null; mob.pos.set(m.x, m.y, m.z); mob.vel.set(0, 0, 0); }
+        return; }
+      case 'aspawn': { if (MP.role !== 'host' || !MOBS[m.type] || BREED_FOOD[m.type] === undefined) return; const mob = spawnMob(m.type, m.x, m.y, m.z); if (m.baby) setBaby(mob, true); return; }
+    }
+    return _on(peer, m);
+  };
+  const _rm = removeAvatar; removeAvatar = function (id) { for (const m of G.mobs) if (m.riderPeer === id) m.riderPeer = null; return _rm.apply(this, arguments); };
+}
+
+// ---------- per-frame hooks ----------
+{ const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); restoreStashed(dt); renderMountHearts(); return r; }; }
+{ const _ce = clearEntities; clearEntities = function () { if (player.riding && player.riding.hg) { player.riding = null; show('jumpBar', false); } return _ce.apply(this, arguments); }; }
 
 </script>
 </body>

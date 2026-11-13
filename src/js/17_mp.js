@@ -30,7 +30,7 @@ function updateAvatars(dt) {
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
     swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
-    sitPose(av.model, av.ride > 0, av.ride > 1);
+    sitPose(av.model, av.ride > 0, av.ride === 3 ? 'horse' : av.ride > 1);
     if (av.sleeping) { av.model.body.rotation.x = -Math.PI / 2; av.model.body.position.y = 0.25; }
     const l = Math.max(G.minLight || 0, world.lightAt(av.pos.x, av.pos.y + 1, av.pos.z, G.daylight)); av.model.mat.color.multiplyScalar(clamp(l, 0.1, 1)); av.model.omat.color.copy(av.model.mat.color);
   }
@@ -40,7 +40,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? 1 + (P.riding.rowing ? 1 : 0) : 0 }; }
+function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -200,7 +200,7 @@ function hostTick(dt) {
   if (MP.mobT >= 0.1) { MP.mobT = 0;
     for (const peer of MP.peers.values()) { if (!peer.joined) continue; const av = MP.avatars.get(peer.id); if (!av || av.dim !== world.dim) continue;
       const list = []; for (const m of G.mobs) { if (m.gone || m.isBoss) continue; if (!m.nid) m.nid = ++MP.mobSeq; const d = m.pos.distanceToSquared(av.pos); if (d > 72 * 72) continue;
-        list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0]); }
+        list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0, m.netx ? m.netx() : 0]); }
       peer.link.send({ t: 'mobs', l: list }, true); } }
   if (MP.timeT >= 3) { MP.timeT = 0; mpSendAll({ t: 'time', time: S.time, day: S.day }); }
   // mob arrows and fireballs can hit remote players too
@@ -215,9 +215,10 @@ MP.whisper = (t, text) => { const m = { t: 'whisper', from: myName(), text, to: 
 const remoteMobs = new Map();
 function clientMobs(m) {
   if (!MP.proxyMode) return; const seen = new Set();
-  for (const [nid, type, x, y, z, yaw, fl, size, fuse] of m.l) {
+  for (const [nid, type, x, y, z, yaw, fl, size, fuse, ex] of m.l) {
     seen.add(nid); let mob = remoteMobs.get(nid);
-    if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, size ? { size } : undefined); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
+    if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, Object.assign(size ? { size } : {}, { netx: ex || 0 })); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
+    if (mob.applyNetx) mob.applyNetx(ex || 0);
     mob.tgt.set(x, y, z); mob.tgtYaw = yaw; mob.angry = fl & 4 ? 1 : 0; if (fl & 2 && mob.hurtT <= 0) mob.hurtT = 0.3; mob.burnT = fl & 8 ? 0.5 : 0; mob.fuse = fuse; mob.lastSeen = performance.now();
     if (fl & 1 && !mob.dead) { mob.dead = true; mob.deadT = 0; }
   }

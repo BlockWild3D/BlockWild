@@ -58,10 +58,11 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
 }
 function villageFarm(S, g, x0, z0, x1, z1, hard, M, r, world, alongX) {
   const { fy, rough } = padHeight(g, x0, z0, x1, z1); if (rough > 4 || fy < SEA) return false;
+  const cr = r(), crop = cr < 0.5 ? 'WHEAT_' : cr < 0.75 ? 'CARROTS_' : 'POTATOES_';
   for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
     groundFill(g, x, z, fy, hard, B.DIRT); for (let y = fy + 1; y <= fy + 4; y++) hard(x, y, z, 0);
     const edge = x === x0 || x === x1 || z === z0 || z === z1; const mid = alongX ? z === ((z0 + z1) >> 1) : x === ((x0 + x1) >> 1);
-    if (edge) hard(x, fy, z, M.log); else if (mid) hard(x, fy, z, B.WATER); else { hard(x, fy, z, B.FARMLAND); hard(x, fy + 1, z, B['WHEAT_' + Math.min(3, Math.floor(r() * 5))]); }
+    if (edge) hard(x, fy, z, M.log); else if (mid) hard(x, fy, z, B.WATER); else { hard(x, fy, z, B.FARMLAND); hard(x, fy + 1, z, B[crop + Math.min(3, Math.floor(r() * 5))]); }
   }
   hard(x0, fy + 1, z0, B.HAY_BLOCK); hard(x1, fy + 1, z1, B.HAY_BLOCK);
   S.mobs.push(['villager', x0 + 1.5, fy + 1, z0 + 1.5]); return true;

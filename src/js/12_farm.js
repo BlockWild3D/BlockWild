@@ -6,7 +6,7 @@ function farmUse(h, hd) {
     if (above) world.set(target.x, target.y + 1, target.z, 0);
     world.set(target.x, target.y, target.z, B.FARMLAND); damageHeld(1); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
   }
-  if (hd.kind === 'seed' && target.id === B.FARMLAND && !above) {
+  if ((hd.kind === 'seed' || hd.crop) && target.id === B.FARMLAND && !above && target.ny > 0) {
     const id = B[hd.crop.toUpperCase()]; world.set(target.x, target.y + 1, target.z, id); useHeld(1); Sfx.play('grass', 0.7); S.swing = 1; S.useCD = 0.2; mpBlock(target.x, target.y + 1, target.z, id); return true;
   }
   return false;
@@ -26,7 +26,7 @@ function randomTicks(dt) {
       if (def.crop !== undefined && def.crop < 3) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y - 1, z) !== B.FARMLAND) continue;
-        if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { world.set(x, y, z, B['WHEAT_' + (def.crop + 1)]); mpBlock(x, y, z, B['WHEAT_' + (def.crop + 1)]); }
+        if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { const nid = B[(def.cropBase || 'wheat_').toUpperCase() + (def.crop + 1)]; world.set(x, y, z, nid); mpBlock(x, y, z, nid); }
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y + 1, z) || world.get(x, y - 2, z) === B.SUGAR_CANE) continue; world.set(x, y + 1, z, B.SUGAR_CANE); mpBlock(x, y + 1, z, B.SUGAR_CANE);

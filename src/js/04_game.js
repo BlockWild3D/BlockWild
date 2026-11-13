@@ -530,9 +530,10 @@ function onChunkGen(c, hints, cols, w) {
   const passive = G.mobs.filter(m => m.t.kind === 'passive').length;
   if (passive < 40 && Math.random() < 0.2) {
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx];
-    if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < 60)) {
-      const types = col.b === BIO.SNOWY ? ['sheep', 'sheep', 'cow'] : ['pig', 'cow', 'sheep', 'chicken'];
-      const type = types[Math.random() * types.length | 0]; const n = 2 + (Math.random() * 3 | 0);
+    if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < SEA + 30)) {
+      // Minecraft spawn weights: plains also have horse herds (2-6); snowy plains mostly sheep
+      const type = col.b === BIO.SNOWY ? pickWeighted({ sheep: 2, cow: 1 }) : col.b === BIO.PLAINS ? pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8, horse: 5 }) : pickWeighted({ sheep: 12, pig: 10, chicken: 10, cow: 8 });
+      const n = type === 'horse' ? 2 + (Math.random() * 5 | 0) : 2 + (Math.random() * 3 | 0);
       for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS) && animalLightOk(x, y, z)) spawnMob(type, x + 0.5, y, z + 0.5); }
     }
   }
@@ -926,7 +927,7 @@ function tick(dt) {
   }
   if (running && !S.loading) {
     const pp = P.pos;
-    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
+    for (const m of G.mobs) { if (m.isBoss) { m.update(dt); continue; } if (m.remote) { remoteMobUpdate(m, dt); continue; } const d2 = (m.pos.x - pp.x) ** 2 + (m.pos.z - pp.z) ** 2; if (!world.loaded(Math.floor(m.pos.x), Math.floor(m.pos.z)) || (m.t.kind !== 'passive' && !m.tamed && d2 > Math.max(80, S.simDist * 16 + 16) ** 2)) { if (typeof stashMob === 'function') stashMob(m); m.gone = true; continue; } const sd = S.simDist * 16; if (d2 < sd * sd) hostMobUpdate(m, dt); }
     G.mobs = G.mobs.filter(m => { if (m.gone) m.remove(); return !m.gone; });
     for (const it of G.items) if (!it.gone) it.update(dt);
     updateProjectiles(dt); updateBoats(dt); updateTNT(dt); updateWater(dt); updateSpawning(dt); updateClouds(dt); updateEyes(dt); updateFurnaces(dt); EndFight.update(dt);

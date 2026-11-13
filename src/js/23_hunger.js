@@ -10,6 +10,7 @@ const FOOD = { // [food points, saturation, effect chance list]
   apple: [4, 2.4], bread: [5, 6], raw_pork: [3, 1.8], cooked_pork: [8, 12.8], raw_beef: [3, 1.8], steak: [8, 12.8],
   raw_chicken: [2, 1.2, [['hunger', 30, 0, 0.3]]], cooked_chicken: [6, 7.2], rotten_flesh: [4, 0.8, [['hunger', 30, 0, 0.8]]],
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
+  carrot: [3, 3.6], potato: [1, 0.6], baked_potato: [5, 6], golden_carrot: [6, 14.4], milk_bucket: [0, 0, null, true],
 };
 for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kind = 'food'; it.food = FOOD[k][0]; it.sat = FOOD[k][1]; it.eatFx = FOOD[k][2] || null; it.alwaysEat = !!FOOD[k][3]; }
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
@@ -35,7 +36,7 @@ const FOOD_ICON = [foodURL(0), foodURL(1), foodURL(2)], FOOD_ICON_SICK = [foodUR
 const foodImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('foodRow').appendChild(im); foodImgs.push(im); }
 let foodShown = -1;
 function renderFood() {
-  const vis = S.mode === 'survival' && !player.riding; $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
+  const vis = S.mode === 'survival' && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
   const sick = !!effLevel('hunger') || (player.effects && player.effects.hunger); const key = player.food * 2 + (sick ? 1 : 0); if (key === foodShown && !(player.food <= 6 && player.sat <= 0)) return; foodShown = key;
   const I = sick ? FOOD_ICON_SICK : FOOD_ICON; const shake = player.sat <= 0 && player.food <= 6;
   for (let i = 0; i < 10; i++) { const v = player.food - i * 2; foodImgs[i].src = I[v >= 2 ? 2 : v === 1 ? 1 : 0]; foodImgs[i].style.transform = shake && Math.random() < 0.3 ? 'translateY(' + (Math.random() < 0.5 ? -2 : 2) + 'px)' : ''; }
@@ -78,7 +79,7 @@ function updateHunger(dt) {
 // ---- eating: hold use with food for 1.6 s ----
 function updateEating(dt) {
   const P = player; const h = P.held(); const it = h && ITEMS[h.id];
-  const can = it && it.kind === 'food' && mouseR && !S.uiOpen && !P.dead && S.mode !== 'spectator' && (S.mode === 'creative' || P.food < 20 || it.alwaysEat || S.difficulty === 'peaceful') && !(targetBoat) && !(targetMob && targetMob.t && targetMob.t.tameFood);
+  const can = it && it.kind === 'food' && mouseR && !S.uiOpen && !P.dead && S.mode !== 'spectator' && (S.mode === 'creative' || P.food < 20 || it.alwaysEat || S.difficulty === 'peaceful') && !(targetBoat) && !(targetMob && typeof mobWantsItem === 'function' && mobWantsItem(targetMob, h.id)) && !(it.crop && target && target.id === B.FARMLAND && target.ny > 0 && !world.get(target.x, target.y + 1, target.z));
   if (!can) { H.eatT = 0; S.eating = 0; return; }
   H.eatT += dt; S.eating = Math.min(1, H.eatT / 1.6); H.eatSnd -= dt;
   if (H.eatSnd <= 0 && H.eatT > 0.25) { H.eatSnd = 0.22; Sfx.play('eat', 0.5 + Math.random() * 0.2); const e = P.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.45, e.y - 0.25, e.z + d.z * 0.45, 4, [[0.75, 0.5, 0.35], [0.6, 0.35, 0.2]], 1.4, 0.4, 12, 0.15); }
@@ -86,7 +87,8 @@ function updateEating(dt) {
     H.eatT = 0; S.eating = 0; mouseR = false;
     if (S.mode === 'survival') { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
-    useHeld(1); Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
+    if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
+    Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
   }
 }
 { const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); updateEating(dt); return r; }; }

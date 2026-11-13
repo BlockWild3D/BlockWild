@@ -288,12 +288,13 @@ const MOBS = {
     m.tail = pivot(r, 0, 1.28, -0.58); sbox(m, m.tail, 0.07, 0.6, 0.07, 0, -0.3, 0, 'cow_tail', fur(COWB, 4, { foot: [3, [40, 30, 24]] })); } },
   sheep: { name: 'Sheep', hp: 8, w: 0.9, h: 1.3, speed: 1.3, kind: 'passive', snd: 'baa', grazer: true, drops: [['wool', 1, 2, 1], ['raw_beef', 0, 1, 0.5]], build(m, r) {
     const woolP = fur(WOOL, 7, { speck: [[208, 204, 196], 0.2] });
-    sbox(m, r, 0.86, 0.78, 1.08, 0, 0.9, 0, 'sheep_wool', woolP);
+    m.wool = [sbox(m, r, 0.86, 0.78, 1.08, 0, 0.9, 0, 'sheep_wool', woolP)];
+    m.skinBody = sbox(m, r, 0.62, 0.56, 0.95, 0, 0.88, 0, 'sheep_skin', fur([214, 196, 170], 5, { speck: [[196, 176, 150], 0.1] })); m.skinBody.visible = false;
     const h = pivot(r, 0, 1.05, 0.58); m.head = h;
     sbox(m, h, 0.38, 0.4, 0.42, 0, 0, 0.12, 'sheep_head', fur([216, 198, 172], 5, { extra: (f, set, fw) => { if (f !== 'front') return; set(0, 2, WHT); set(1, 2, BLK); set(fw - 2, 2, BLK); set(fw - 1, 2, WHT); set((fw >> 1) - 1, 5, [186, 136, 126]); set(fw >> 1, 5, [186, 136, 126]); } }));
-    sbox(m, h, 0.46, 0.2, 0.34, 0, 0.17, 0.05, 'sheep_cap', woolP);
+    m.wool.push(sbox(m, h, 0.46, 0.2, 0.34, 0, 0.17, 0.05, 'sheep_cap', woolP));
     m.legs = quadLegs(m, r, 0.2, 0.52, 0.2, 0.33, 'sheep_leg', fur([210, 192, 166], 5, { foot: [2, [110, 92, 82]] }));
-    for (const l of m.legs) sbox(m, l, 0.28, 0.22, 0.28, 0, -0.1, 0, 'sheep_thigh', woolP); } },
+    for (const l of m.legs) m.wool.push(sbox(m, l, 0.28, 0.22, 0.28, 0, -0.1, 0, 'sheep_thigh', woolP)); } },
   chicken: { name: 'Chicken', hp: 4, w: 0.45, h: 0.8, speed: 1.2, kind: 'passive', snd: 'cluck', drops: [['raw_chicken', 1, 1, 1], ['feather', 0, 2, 1]], build(m, r) {
     sbox(m, r, 0.38, 0.36, 0.5, 0, 0.47, 0, 'ch_body', fur(FEATH, 4, { speck: [[222, 222, 216], 0.08] }));
     sbox(m, r, 0.3, 0.22, 0.1, 0, 0.62, -0.27, 'ch_tail', fur(FEATH, 4, { topRows: [1, [226, 226, 220]] }));
@@ -381,7 +382,7 @@ const MOB_PITCH = { wither_skeleton: 0.72, zombified_piglin: 0.82, magma_cube: 0
 class Mob {
   constructor(type, x, y, z, opts = {}) {
     const t = MOBS[type]; this.t = t; this.type = type; this.pos = new V3(x, y, z); this.vel = new V3();
-    this.size = opts.size || 4; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
+    this.size = opts.size || 4; this.opts = opts; const sc = t.ai === 'magma' ? this.size * 0.51 : 1;
     this.hw = t.ai === 'magma' ? this.size * 0.255 : t.w / 2; this.h = t.ai === 'magma' ? this.size * 0.51 : t.h; this.hp = t.ai === 'magma' ? this.size * this.size : t.hp; this.maxHp = this.hp;
     this.lavaWalk = !!t.lavaWalk;
     this.yaw = Math.random() * Math.PI * 2; this.mats = []; this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); t.build(this, this.body); this.body.scale.setScalar(sc); this.baseScale = sc; G.scene.add(this.root); this.root.traverse(o => { if (o.isMesh) o.layers.enable(1); });

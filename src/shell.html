@@ -71,6 +71,8 @@ button{font-family:'VT323',monospace}
 #xpRow{position:relative;width:100%;height:8px;margin-top:6px}
 #xpBar{height:6px;border:1px solid #000;background:rgba(20,20,20,.7);margin:0 1px}
 #xpBar i{display:block;height:100%;background:linear-gradient(#b6ff5a,#5fc219);width:0}
+#jumpBar{position:absolute;left:1px;right:1px;top:0;height:6px;border:1px solid #000;background:#2a1d10}#jumpBar i{display:block;height:100%;width:0;background:linear-gradient(#ffd27a,#d07a18)}
+#mountRow{display:flex;flex-wrap:wrap-reverse;flex-direction:row-reverse;max-width:180px;gap:0}#mountRow img{width:18px;height:18px;image-rendering:pixelated}
 #xpLevel{position:absolute;left:50%;top:-17px;transform:translateX(-50%);color:#80ff20;font-size:22px;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
 .slot.ench::after{content:'';position:absolute;inset:2px;background:linear-gradient(115deg,transparent 35%,rgba(200,120,255,.6) 48%,transparent 62%);background-size:300% 300%;animation:glint 2.6s linear infinite;pointer-events:none;mix-blend-mode:screen}
 @keyframes glint{from{background-position:100% 0}to{background-position:0 0}}
@@ -198,8 +200,8 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="mineBar" class="hidden"><i></i></div>
 <div id="hud" class="hidden">
   <div id="itemname"></div>
-  <div id="stats"><div class="scol"><div id="armorRow"></div><div id="hearts"></div></div><div class="scol sright"><div id="airRow" style="visibility:hidden"></div><div id="foodRow"></div></div></div>
-  <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span></div>
+  <div id="stats"><div class="scol"><div id="armorRow"></div><div id="hearts"></div></div><div class="scol sright"><div id="airRow" style="visibility:hidden"></div><div id="foodRow"></div><div id="mountRow" style="display:none"></div></div></div>
+  <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span><div id="jumpBar" class="hidden"><i></i></div></div>
   <div id="hotrow"><div id="offhud" class="slot"><img><span class="cnt"></span></div><div id="hotbar"></div></div>
 </div>
 <div id="toast"></div>
@@ -324,6 +326,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
     <div id="chestBox" class="hidden"><h3 id="chestTitle">Chest</h3><div class="grid" id="chestGrid"></div><div class="gap"></div></div>
     <div id="craftArea" class="hidden"><h3 id="craftTitle">Crafting</h3><div class="crow"><div id="craftGrid" class="cgrid"></div><img class="arrowimg" data-ic="arrowR"><div id="outSlotBox"></div><button class="smallbtn" id="btnBook">Recipe Book</button></div><div class="gap"></div></div>
     <div id="furnArea" class="hidden"><h3>Furnace</h3><div class="crow"><div class="fcol"><div id="furnIn"></div><div class="flamebox"><img data-ic="flame"><div class="flameon"><img data-ic="flameOn"></div></div><div id="furnFuel"></div></div><div class="progbox"><img data-ic="arrowR"><div class="progon"><img data-ic="arrowRw"></div></div><div id="furnOut"></div><button class="smallbtn" id="btnBook2">Recipe Book</button></div><div class="gap"></div></div>
+    <div id="panelArea" class="hidden"><h3 id="panelTitle"></h3><div class="crow" id="panelBody" style="gap:8px"></div><div class="gap"></div></div>
     <div id="enchArea" class="hidden"><h3>Enchant</h3><div class="crow"><div class="fcol"><div id="enchItem"></div><div id="enchLapis"></div></div><div><button class="eopt" data-i="0"></button><button class="eopt" data-i="1"></button><button class="eopt" data-i="2"></button><div id="enchInfo" style="font-size:18px;color:#555"></div></div></div><div class="gap"></div></div>
     <h3>Inventory</h3>
     <div class="grid" id="mainGrid"></div>
