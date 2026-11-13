@@ -159,10 +159,12 @@ function renderAccount() {
   show('btnSignOut', !!g);
   if (g) a.innerHTML = 'Signed in with Google as <b>' + esc(g.name || g.email || 'you') + '</b>' + (CONFIG.serverUrl ? (profDraft.token ? ' - profile saved to your account' : ' - account server not reached') : ' - profile is kept on this device');
   else if (!CONFIG.googleClientId) a.textContent = 'Google sign-in is not set up on this copy of BlockWild yet (it needs a Google Client ID in the game config). You can still pick a username and skin; they are saved on this device.';
+  else if (!signInHere()) a.innerHTML = 'Google sign-in works on the BlockWild website: <a href="' + esc(CONFIG.siteUrl) + '" target="_blank" rel="noopener">' + esc(CONFIG.siteUrl.replace(/^https:\/\//, '')) + '</a>. Here your username and skin are saved on this device.';
   else a.textContent = 'Sign in with Google to keep your username and skin across devices.';
   const box = $('gsiBox'); box.innerHTML = '';
-  if (!g && CONFIG.googleClientId) loadGIS(() => { try { google.accounts.id.initialize({ client_id: CONFIG.googleClientId, callback: onGoogleCredential, auto_select: false, ux_mode: 'popup' }); google.accounts.id.renderButton(box, { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular' }); } catch (e) { a.textContent = 'Google sign-in could not start here: ' + e.message; } }, () => { a.textContent = 'Could not reach Google sign-in. Check your connection.'; });
+  if (!g && CONFIG.googleClientId && signInHere()) loadGIS(() => { try { google.accounts.id.initialize({ client_id: CONFIG.googleClientId, callback: onGoogleCredential, auto_select: false, ux_mode: 'popup' }); google.accounts.id.renderButton(box, { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular' }); } catch (e) { a.textContent = 'Google sign-in could not start here: ' + e.message; } }, () => { a.textContent = 'Could not reach Google sign-in. Check your connection.'; });
 }
+function signInHere() { const o = location.origin; return (CONFIG.signInOrigins || []).includes(o); }
 let gisLoading = null;
 function loadGIS(ok, fail) {
   if (window.google && google.accounts && google.accounts.id) return ok();
