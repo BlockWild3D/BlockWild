@@ -460,24 +460,24 @@ function openHorseUI(m) {
   S.panel = { title: (g.tamed ? 'Horse' : 'Horse') + '  ' + Math.ceil(m.hp) + '/' + g.hp + ' HP · ' + (g.spd).toFixed(1) + ' blocks/s · jumps ' + horseJumpHeight(g.jmp).toFixed(1) + ' blocks', slots, ghosts: [IT.saddle, IT.iron_horse_armor],
     accept: (i, s) => i === 0 ? ITEMS[s.id].kind === 'saddle' : ITEMS[s.id].kind === 'horse_armor',
     changed: () => { const a = slots[1] ? HORSE_ARMOR.indexOf(ITEMS[slots[1].id].hmat) : -1; const sd = slots[0] ? 1 : 0; if (sd !== (g.saddle ? 1 : 0) || a !== g.armor) { if (sd && !g.saddle) Sfx.play('saddle', 0.8); mset(m, { saddle: sd, armor: a }); } },
-    mob: m };
+    mob: m, single: true };
   openUI('panel');
 }
 { const _ca = contArr; contArr = function (c) { if (c === 'panel') return S.panel ? S.panel.slots : null; return _ca(c); };
   const _sc = slotClick; slotClick = function (cont, i, button, shift) {
     const pn = S.panel;
-    if (pn && cont === 'panel') { const c = S.cursor; if (c && !pn.accept(i, c)) return; if (c && c.count > 1 && !pn.slots[i]) { pn.slots[i] = Object.assign({}, c, { count: 1 }); c.count--; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } const r = _sc(cont, i, button, shift); pn.changed(); return r; }
-    if (pn && cont === 'inv' && shift) { const s = player.inv[i]; if (s) for (let k = 0; k < pn.slots.length; k++) if (!pn.slots[k] && pn.accept(k, s)) { pn.slots[k] = Object.assign({}, s, { count: 1 }); s.count--; if (!s.count) player.inv[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } }
+    if (pn && cont === 'panel') { if (pn.output === i) { pn.take(shift); Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; } const c = S.cursor; if (c && !pn.accept(i, c)) return; if (pn.single && c && c.count > 1 && !pn.slots[i]) { pn.slots[i] = Object.assign({}, c, { count: 1 }); c.count--; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } const r = _sc(cont, i, button, shift); pn.changed(); return r; }
+    if (pn && cont === 'inv' && shift) { const s = player.inv[i]; if (s) for (let k = 0; k < pn.slots.length; k++) if (k !== pn.output && !pn.slots[k] && pn.accept(k, s)) { const n = pn.single ? 1 : s.count; pn.slots[k] = Object.assign({}, s, { count: n }); s.count -= n; if (!s.count) player.inv[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } }
     return _sc(cont, i, button, shift);
   };
-  const _rui = renderInvUI; renderInvUI = function () { const r = _rui.apply(this, arguments); const pn = S.panel; if (pn && S.uiOpen === 'panel') pn.slots.forEach((s, i) => { const el = slotEls.panel[i]; if (!el) return; paintSlot(el, s); el.classList.toggle('empty', !s); if (!s && pn.ghosts && pn.ghosts[i] != null) { el.firstChild.src = ICON[pn.ghosts[i]]; } }); return r; };
+  const _rui = renderInvUI; renderInvUI = function () { const r = _rui.apply(this, arguments); const pn = S.panel; if (pn && S.uiOpen === 'panel') pn.slots.forEach((s, i) => { const el = slotEls.panel[i]; if (!el) return; paintSlot(el, s); el.classList.toggle('empty', !s); if (!s) { if (pn.ghosts && pn.ghosts[i] != null) el.firstChild.src = ICON[pn.ghosts[i]]; else el.firstChild.removeAttribute('src'); } }); return r; };
   const _ou = openUI; openUI = function (kind, key) {
     const r = _ou(kind, key); const on = kind === 'panel' && S.panel; show('panelArea', !!on);
-    if (on) { $('panelTitle').textContent = S.panel.title; const body = $('panelBody'); body.innerHTML = ''; slotEls.panel = []; S.panel.slots.forEach((_, i) => makeSlot('panel', i, body)); show('rightPanel', false); renderInvUI(); }
+    if (on) { $('panelTitle').textContent = S.panel.title; const body = $('panelBody'); body.innerHTML = ''; slotEls.panel = []; if (S.panel.layout) S.panel.layout(body); else S.panel.slots.forEach((_, i) => makeSlot('panel', i, body)); show('rightPanel', false); renderInvUI(); }
     else S.panel = null;
     return r;
   };
-  const _cl = closeInv; closeInv = function (noLock) { const r = _cl(noLock); S.panel = null; show('panelArea', false); return r; };
+  const _cl = closeInv; closeInv = function (noLock) { const pn = S.panel; if (pn && pn.onClose) { S.panel = null; pn.onClose(); } const r = _cl(noLock); S.panel = null; show('panelArea', false); return r; };
 }
 
 // ---------- use action: animals first, then eggs ----------

@@ -1,6 +1,6 @@
 // ================= DURABILITY (Minecraft values) + ITEM TOOLTIPS =================
 const TIER_DUR = { 1: 59, 2: 131, 3: 250, 4: 1561, 5: 2031 };
-const ARMOR_BASE = { head: 11, chest: 16, legs: 15, feet: 13 }, ARMOR_MULT = { leather: 5, golden: 7, iron: 15, diamond: 33 };
+const ARMOR_BASE = { head: 11, chest: 16, legs: 15, feet: 13 }, ARMOR_MULT = { leather: 5, golden: 7, iron: 15, diamond: 33, netherite: 37 };
 for (const id of ITEM_IDS) { const it = ITEMS[id];
   if (it.kind === 'tool') it.dur = it.dur || TIER_DUR[it.tier] || 250;
   if (it.kind === 'tool' && it.gold) it.dur = 32;
