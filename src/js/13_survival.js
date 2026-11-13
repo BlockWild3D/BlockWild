@@ -8,11 +8,11 @@ const BUBBLE = (() => { const mk = (pop) => { const c = document.createElement('
   x.fillStyle = '#1b3b78'; x.beginPath(); x.arc(4.5, 4.5, 4.2, 0, 7); x.fill(); x.fillStyle = '#6fb4ff'; x.beginPath(); x.arc(4.5, 4.5, 3.3, 0, 7); x.fill(); x.fillStyle = '#e8f6ff'; x.fillRect(2, 2, 2, 2); return c.toDataURL(); }; return [mk(false), mk(true)]; })();
 let drownT = 0;
 function updateAir(dt, eyeFluid) {
-  const P = player; const under = eyeFluid === B.WATER && S.mode === 'survival' && !P.dead;
+  const P = player; const under = eyeFluid === B.WATER && isSurv() && !P.dead;
   if (under && !effLevel('water_breathing')) { P.air -= dt * 20; if (P.air <= 0) { P.air = 0; drownT += dt; if (drownT >= 1) { drownT = 0; P.hurtCD = 0; P.hurt(2, null, 'drowning', 0); Particles.emit(P.pos.x, P.pos.y + 1.4, P.pos.z, 6, [0.7, 0.85, 1], 1.5, 0.6, -4, 0.3); } } }
   else { P.air = Math.min(300, P.air + dt * 80); drownT = 0; }
   if (under && Math.random() < dt * 1.5) { const e = P.eye(); Particles.emit(e.x, e.y, e.z, 1, [0.75, 0.9, 1], 0.3, 1.2, -3, 0.15); }
-  const vis = (under || P.air < 300) && S.mode === 'survival'; $('airRow').style.visibility = vis ? 'visible' : 'hidden';
+  const vis = (under || P.air < 300) && isSurv(); $('airRow').style.visibility = vis ? 'visible' : 'hidden';
   if (vis) { const n = Math.ceil(P.air / 30); for (let i = 0; i < 10; i++) { const b = bubbleImgs[9 - i]; if (i < n) { b.src = BUBBLE[0]; b.style.visibility = 'visible'; } else if (i === n && P.air > 0) { b.src = BUBBLE[1]; b.style.visibility = 'visible'; } else b.style.visibility = 'hidden'; } }
 }
 function canStand(P) { for (let dx of [-P.hw, P.hw]) for (let dz of [-P.hw, P.hw]) for (let y = 0.6; y < 1.8; y += 0.5) if (world.solid(Math.floor(P.pos.x + dx), Math.floor(P.pos.y + y), Math.floor(P.pos.z + dz))) return false; return true; }

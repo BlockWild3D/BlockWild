@@ -39,9 +39,9 @@ function spearJab(sp, eye, dir) {
   }
   // Lunge
   const lv = heldEnch('lunge'), P = player;
-  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (S.mode !== 'survival' || P.food > 6)) {
+  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (!isSurv() || P.food > 6)) {
     const h = new V3(dir.x, 0, dir.z); if (h.lengthSq() > 1e-4) { h.normalize(); const v = 9.16 * lv; const along = P.vel.x * h.x + P.vel.z * h.z; if (along < v) { P.vel.x += h.x * (v - along); P.vel.z += h.z * (v - along); } if (P.onGround) P.vel.y = Math.max(P.vel.y, 2.5); P.peak = null; }
-    if (S.mode === 'survival' && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
+    if (isSurv() && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
     damageHeld(1); Sfx.play('vwoop', 0.25, 1.6);
   }
 }

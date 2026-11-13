@@ -419,7 +419,7 @@ function horseRide(P, dt) {
   m.stepOff = Math.max(0, (m.stepOff || 0) - dt * 7);
   // fall damage: Minecraft horses take ceil(fall / 2 - 3), and so does the rider
   if (!m.onGround && !water) m.peak = m.peak == null ? m.pos.y : Math.max(m.peak, m.pos.y);
-  else { if (m.peak != null && m.onGround && S.rules.fallDamage) { const dmg = Math.ceil((m.peak - m.pos.y) * 0.5 - 3); if (dmg > 0) { m.hurt(dmg, null, 0, true); if (S.mode === 'survival') { P.hurtCD = 0; P.hurt(dmg, null, 'fall damage', 0); } } } m.peak = null; }
+  else { if (m.peak != null && m.onGround && S.rules.fallDamage) { const dmg = Math.ceil((m.peak - m.pos.y) * 0.5 - 3); if (dmg > 0) { m.hurt(dmg, null, 0, true); if (isSurv()) { P.hurtCD = 0; P.hurt(dmg, null, 'fall damage', 0); } } } m.peak = null; }
   if (m.pos.y < -80) { m.gone = true; P.riding = null; return; }
   P.sprinting = false; P.sneaking = false; P.swimming = false;
   seatOnHorse(P, m);
@@ -443,7 +443,7 @@ function horseRideSync(m, reliable) {
 // ---------- horse HUD: health hearts instead of food, jump bar over the XP bar ----------
 const mountImgs = [];
 function renderMountHearts() {
-  const m = player.riding; const row = $('mountRow'); const on = !!(m && m.hg && S.mode === 'survival');
+  const m = player.riding; const row = $('mountRow'); const on = !!(m && m.hg && isSurv());
   const key = on ? Math.ceil(m.hp) + '/' + m.maxHp : ''; if (key === renderMountHearts.last) return; renderMountHearts.last = key;
   row.style.display = on ? 'flex' : 'none'; if (!on) return;
   const n = Math.ceil(m.maxHp / 2); while (mountImgs.length < n) { const im = document.createElement('img'); row.appendChild(im); mountImgs.push(im); }

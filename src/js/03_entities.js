@@ -1,4 +1,6 @@
 // ================= ENTITIES: physics, mobs, items, projectiles, particles, sound =================
+// Survival rules (health, hunger, mobs attack) apply in Survival and Adventure; Adventure also can't break or place blocks
+function isSurv() { return S.mode === 'survival' || S.mode === 'adventure'; }
 const G = { world: null, scene: null, player: null, daylight: 1, mode: 'survival', mobs: [], items: [], projectiles: [], tnts: [], clouds: [], eyes: [], shake: 0 };
 const AX = ['x', 'y', 'z'];
 function sweep(e, axis, d) {
@@ -436,7 +438,7 @@ class Mob {
     if (lava && !t.fireproof) { this.lavaT += dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.hurt(4, null, 0); } }
     if (t.waterHurt && water) { this.lavaT += dt; if (this.lavaT > 0.8) { this.lavaT = 0; this.hurt(1, null, 0); this.teleport(); } }
     const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, dy = P.pos.y - this.pos.y; const dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
-    const canTarget = G.mode === 'survival' && !P.dead;
+    const canTarget = isSurv() && !P.dead;
     let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.light < 0.45)));
     if (this.type === 'piglin') { if (this.angry <= 0 && (playerHoldsGold() || this.admireT > 0)) hostileNow = false; if (this.goldHand) { this.goldHand.visible = this.admireT > 0; } }
     if (this.type === 'enderman' && this.angry <= 0 && canTarget && dist < 28 && isLookingAt(this)) { this.angry = 25; Sfx.at('scream', this.pos, 1); }
@@ -634,7 +636,7 @@ function updateProjectiles(dt) {
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
           const cause = a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball';
-          if (G.mode === 'survival') P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
+          if (isSurv()) P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
       }

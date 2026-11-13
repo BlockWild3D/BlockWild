@@ -12,7 +12,7 @@ function addXP(n) {
 }
 function setLevel(L, pts) { XP.level = Math.max(0, L | 0); XP.points = Math.max(0, Math.min(pts || 0, xpToNext(XP.level) - 1)); renderXP(); }
 function renderXP() {
-  const surv = S.mode === 'survival'; $('xpRow').style.visibility = surv ? 'visible' : 'hidden';
+  const surv = isSurv(); $('xpRow').style.visibility = surv ? 'visible' : 'hidden';
   $('xpBar').firstChild.style.width = (XP.points / xpToNext(XP.level) * 100).toFixed(1) + '%'; $('xpLevel').textContent = XP.level > 0 ? XP.level : '';
 }
 // ---- orbs ----
@@ -137,4 +137,4 @@ function enchantedDrop(id, dr) {
   const fo = enchOf(h, 'fortune'); if (fo && dr && FORTUNE_ORES.has(key)) { const m = Math.max(0, Math.floor(Math.random() * (fo + 2)) - 1) + 1; return [dr[0], dr[1] * m]; }
   return dr;
 }
-function oreXP(id, x, y, z) { if (S.mode !== 'survival' || enchOf(player.held(), 'silk_touch')) return; const r = ORE_XP[BL[id].key]; if (r) spawnOrbRange(x + 0.5, y + 0.5, z + 0.5, r[0], r[1]); }
+function oreXP(id, x, y, z) { if (!isSurv() || enchOf(player.held(), 'silk_touch')) return; const r = ORE_XP[BL[id].key]; if (r) spawnOrbRange(x + 0.5, y + 0.5, z + 0.5, r[0], r[1]); }

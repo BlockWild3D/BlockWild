@@ -7,13 +7,13 @@ function armorReduce(dmg, cause) {
   const ps = armorPieces(player.inv); let def = 0, tough = 0, epf = 0;
   for (const s of ps) { const it = ITEMS[s.id]; def += it.def; tough += it.tough; epf += enchOf(s, 'protection'); if (cause === 'lava' || cause === 'a magma block' || cause === 'fire') epf += 2 * enchOf(s, 'fire_protection'); }
   const red = Math.min(20, Math.max(def / 5, def - 4 * dmg / (tough + 8))) / 25;
-  if (ps.length && dmg > 0 && S.mode === 'survival') for (let i = 37; i <= 40; i++) if (player.inv[i]) damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
+  if (ps.length && dmg > 0 && isSurv()) for (let i = 37; i <= 40; i++) if (player.inv[i]) damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
   return dmg * (1 - red) * (1 - Math.min(20, epf) * 0.04);
 }
 const ARMOR_ICON = (() => { const mk = (fill) => { const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d'); const rows = ['.XXX.XXX.', 'XHHHXHHHX', 'XHHHHHHHX', 'XHHHHHHHX', '.XHHHHHX.', '.XHHHHHX.', '.XHHHHHX.', '..XXXXX..'];
   rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch === '.') return; const half = fill === 1 && i > 4; x.fillStyle = ch === 'X' ? '#1a1a1a' : (fill === 0 || half) ? '#4a4a4a' : (y < 2 ? '#f0f0f0' : '#c8c8c8'); x.fillRect(i, y, 1, 1); })); return c.toDataURL(); }; return [mk(0), mk(1), mk(2)]; })();
 const armorImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('armorRow').appendChild(im); armorImgs.push(im); }
-function renderArmorBar() { const a = armorPoints(); const vis = S.mode === 'survival' && a > 0; $('armorRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return; for (let i = 0; i < 10; i++) { const v = a - i * 2; armorImgs[i].src = ARMOR_ICON[v >= 2 ? 2 : v === 1 ? 1 : 0]; } }
+function renderArmorBar() { const a = armorPoints(); const vis = isSurv() && a > 0; $('armorRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return; for (let i = 0; i < 10; i++) { const v = a - i * 2; armorImgs[i].src = ARMOR_ICON[v >= 2 ? 2 : v === 1 ? 1 : 0]; } }
 // armour enchantments
 Object.assign(ENCH, { protection: { name: 'Protection', max: 4, for: 'armor', excl: 'prot', w: 10 }, fire_protection: { name: 'Fire Protection', max: 4, for: 'armor', excl: 'prot', w: 5 }, feather_falling: { name: 'Feather Falling', max: 4, for: 'armor', slot: 'feet', w: 5 } });
 const _enchCat = enchCat; enchCat = function (id) { const it = ITEMS[id]; if (it && it.kind === 'armor') return 'armor'; return _enchCat(id); };

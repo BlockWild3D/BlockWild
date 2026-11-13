@@ -11,6 +11,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'VT323',monospace;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none}
 canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 .hidden{display:none!important}
+body.spectator #hotrow,body.spectator #stats,body.spectator #xpRow,body.spectator #offhud{visibility:hidden!important}
 button{font-family:'VT323',monospace}
 #crosshair{position:fixed;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none;mix-blend-mode:difference;z-index:5}
 #crosshair:before,#crosshair:after{content:'';position:absolute;background:#ddd}
@@ -2528,6 +2529,8 @@ function villageChunk(S, g, cx, cz, vs, hard, r, world) {
 }
 
 // ================= ENTITIES: physics, mobs, items, projectiles, particles, sound =================
+// Survival rules (health, hunger, mobs attack) apply in Survival and Adventure; Adventure also can't break or place blocks
+function isSurv() { return S.mode === 'survival' || S.mode === 'adventure'; }
 const G = { world: null, scene: null, player: null, daylight: 1, mode: 'survival', mobs: [], items: [], projectiles: [], tnts: [], clouds: [], eyes: [], shake: 0 };
 const AX = ['x', 'y', 'z'];
 function sweep(e, axis, d) {
@@ -2965,7 +2968,7 @@ class Mob {
     if (lava && !t.fireproof) { this.lavaT += dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.hurt(4, null, 0); } }
     if (t.waterHurt && water) { this.lavaT += dt; if (this.lavaT > 0.8) { this.lavaT = 0; this.hurt(1, null, 0); this.teleport(); } }
     const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, dy = P.pos.y - this.pos.y; const dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
-    const canTarget = G.mode === 'survival' && !P.dead;
+    const canTarget = isSurv() && !P.dead;
     let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.light < 0.45)));
     if (this.type === 'piglin') { if (this.angry <= 0 && (playerHoldsGold() || this.admireT > 0)) hostileNow = false; if (this.goldHand) { this.goldHand.visible = this.admireT > 0; } }
     if (this.type === 'enderman' && this.angry <= 0 && canTarget && dist < 28 && isLookingAt(this)) { this.angry = 25; Sfx.at('scream', this.pos, 1); }
@@ -3163,7 +3166,7 @@ function updateProjectiles(dt) {
       if (a.owner === 'mob' && !P.dead) {
         if (Math.abs(a.pos.x - P.pos.x) < 0.5 && Math.abs(a.pos.z - P.pos.z) < 0.5 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.9) {
           const cause = a.kind === 'arrow' ? 'an arrow' : a.kind === 'smallfire' ? 'a Blaze' : a.kind === 'breath' ? 'the Shadow Dragon' : 'a Ghast fireball';
-          if (G.mode === 'survival') P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
+          if (isSurv()) P.hurt(a.dmg, a.pos.clone().addScaledVector(a.vel, -0.1), cause);
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
       }
@@ -3323,7 +3326,7 @@ class Player {
   held() { return this.inv[this.sel]; }
   heldDef() { const h = this.held(); return h ? ITEMS[h.id] : null; }
   hurt(dmg, src, cause, kb = 1) {
-    if (this.dead || S.mode !== 'survival' || this.hurtCD > 0 || S.loading) return;
+    if (this.dead || !isSurv() || this.hurtCD > 0 || S.loading) return;
     if (this.blocking && src) {
       const d = new V3(src.x - this.pos.x, 0, src.z - this.pos.z); const L = d.length(); const f = lookDir(); f.y = 0; f.normalize();
       if (L < 0.7 || d.dot(f) / L > -0.05) {
@@ -3344,7 +3347,7 @@ class Player {
   }
   die(cause) {
     if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
-    if (S.mode === 'survival' && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
+    if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
     const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
@@ -3380,7 +3383,7 @@ function paintSlot(el, s) { const img = el.firstChild, cnt = el.lastChild; el.cl
 function renderHotbar() { for (let i = 0; i < 9; i++) { paintSlot(hotSlots[i], player.inv[i]); hotSlots[i].classList.toggle('sel', i === player.sel); } paintSlot($('offhud'), player.inv[36]); $('offhud').style.visibility = player.inv[36] ? 'visible' : 'hidden'; }
 function swapHands() { const a = player.inv[player.sel], b = player.inv[36]; if (!a && !b) return; player.inv[player.sel] = b; player.inv[36] = a; S.bowDraw = -1; invDirty(); Sfx.play('click', 0.6); selectSlot(player.sel); }
 const heartImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('hearts').appendChild(im); heartImgs.push(im); }
-function updateHearts() { if (typeof renderXP === 'function') renderXP(); if (typeof renderArmorBar === 'function') renderArmorBar(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = S.mode === 'survival' ? 'visible' : 'hidden'; }
+function updateHearts() { if (typeof renderXP === 'function') renderXP(); if (typeof renderArmorBar === 'function') renderArmorBar(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = isSurv() ? 'visible' : 'hidden'; }
 let nameT = 0;
 function selectSlot(i) { if (S.bowDraw >= 0) S.bowDraw = -1; player.sel = (i + 9) % 9; invDirty(); const h = player.held(); $('itemname').textContent = h ? ITEMS[h.id].name : ''; $('itemname').style.opacity = 1; nameT = 2; }
 let toastT = 0; function toast(msg, t = 2.5) { const el = $('toast'); el.textContent = msg; el.style.opacity = 1; toastT = t; }
@@ -3670,8 +3673,8 @@ function breakBlock(x, y, z) {
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0); breakBedPair(x, y, z, id);
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 0.9);
-  if (S.mode === 'survival') { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
-  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (S.mode === 'survival') { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
+  if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
+  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
 }
 const PLANT_SOIL = { nether: [B.CRIMSON_NYLIUM, B.WARPED_NYLIUM, B.NETHERRACK, B.SOUL_SAND] };
 function placeBlock(hit, id) {
@@ -3818,10 +3821,10 @@ function updateSpawning(dt) {
   S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1; if (MP.proxyMode) return;
   const P = player; const hostiles = G.mobs.filter(m => m.t.kind !== 'passive' && !m.isBoss);
   if (!S.rules.doMobSpawning) return;
-  if (S.mode === 'survival' || world.dim !== 'overworld') {
+  if (isSurv() || world.dim !== 'overworld') {
     if (world.dim === 'overworld') {
       const night = G.daylight < 0.38; const cap = night ? 18 : 6;
-      if (hostiles.length < cap && S.mode === 'survival' && S.difficulty !== 'peaceful') for (let tries = 0; tries < 4; tries++) {
+      if (hostiles.length < cap && isSurv() && S.difficulty !== 'peaceful') for (let tries = 0; tries < 4; tries++) {
         const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 24; const x = Math.floor(P.pos.x + Math.cos(a) * d), z = Math.floor(P.pos.z + Math.sin(a) * d);
         if (!world.loaded(x, z)) continue; let y = -1;
         if (night && Math.random() < 0.7) y = surfaceSpawnY(x, z);
@@ -3860,7 +3863,7 @@ function updateSpawning(dt) {
     if (world.get(x, y, z) !== B.SPAWNER) continue;
     const t = (spawnerT.get(k) || 0) - 1; spawnerT.set(k, t);
     Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[1, 0.5, 0.1], [0.4, 0.4, 0.4]], 1, 0.6, -2, 0.6);
-    if (t > 0 || S.mode !== 'survival') continue; spawnerT.set(k, 4 + Math.random() * 6);
+    if (t > 0 || !isSurv()) continue; spawnerT.set(k, 4 + Math.random() * 6);
     if (G.mobs.filter(m => m.pos.distanceTo(new V3(x, y, z)) < 9).length >= 4) continue;
     for (let tries = 0; tries < 6; tries++) { const sx = x + (Math.random() * 7 | 0) - 3, sz = z + (Math.random() * 7 | 0) - 3, sy = y + (Math.random() * 3 | 0) - 1; if (freeAt(sx, sy, sz) && SOLID[world.get(sx, sy - 1, sz)]) { spawnMob(type, sx + 0.5, sy, sz + 0.5); Particles.emit(sx + 0.5, sy + 0.8, sz + 0.5, 15, [0.6, 0.6, 0.6], 2, 0.6, -1, 0.6); break; } }
   }
@@ -3877,7 +3880,7 @@ function updatePlayer(dt) {
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
   // sprint: double-tap forward or hold the sprint key while moving forward; sneaking or stopping ends it
-  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying) && (S.mode !== 'survival' || P.food > 6 || P.flying)) P.sprinting = true;
+  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying) && (!isSurv() || P.food > 6 || P.flying)) P.sprinting = true;
   if (f <= 0 || (down && !P.flying && !P.swimming) || (P.hitH && !P.flying && !inWater(P, 0.4))) { P.sprinting = false; if (f <= 0) S.sprintTap = false; }
   const sprint = !!P.sprinting;
   P.sneaking = down && !P.flying && !P.swimming && !S.uiOpen;
@@ -3904,13 +3907,13 @@ function updatePlayer(dt) {
   if (S.mode !== 'creative') P.flying = false;
   if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
-  if (P.pos.y < -64) { if (S.mode === 'survival') { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
-  if (lava && S.mode === 'survival') { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
-  if (under === B.MAGMA_BLOCK && P.onGround && !down && S.mode === 'survival') { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
+  if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
+  if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
+  if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
-  if (S.mode === 'survival') { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
+  if (isSurv()) { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
   // healing comes from food now (23_hunger.js)
   const c = new V3(P.pos.x, P.pos.y + 0.8, P.pos.z);
@@ -4158,7 +4161,7 @@ function finishLoading() {
   else if (S.newWorld) { let x = Math.floor(player.pos.x), z = Math.floor(player.pos.z);
     search: for (let r = 0; r < 20; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const sx = x + dx, sz = z + dz; const sy = world.surfaceY(sx, sz); const below = world.get(sx, sy - 1, sz); if (sy >= world.gen.column(sx, sz).h && (below === B.GRASS || below === B.SNOWY_GRASS || below === B.SAND || below === B.DIRT)) { x = sx; z = sz; break search; } }
     player.pos.x = x + 0.5; player.pos.z = z + 0.5; player.pos.y = world.surfaceY(x, z) + 0.01;
-    player.spawn.copy(player.pos); S.newWorld = false; toast(S.mode === 'survival' ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
+    player.spawn.copy(player.pos); S.newWorld = false; toast(isSurv() ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
   else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) player.pos.y = world.surfaceY(x, z) + 0.01; if (world.dim === 'end') EndFight.enter(); }
   updateHearts(); selectSlot(player.sel);
   if (MODS.hooks.worldStart) modFire('worldStart', { newWorld: !!S.firstStart, dimension: world.dim }); S.firstStart = false;
@@ -4188,7 +4191,7 @@ function tick(dt) {
   const running = !S.loading && (!S.paused || (typeof MP !== 'undefined' && MP.active)); // multiplayer worlds keep running behind the pause menu
   if (running) {
     if (S.rules.doDaylightCycle) { S.time += dt / DAYLEN; if (S.time >= 1) { S.time -= 1; S.day++; } }
-    const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
+    const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && isSurv()) toast('Night falls... monsters roam the land', 3); S.wasNight = night;
     if (!S.paused) { updatePlayer(dt); if (world) updateInteraction(dt); }
     if (MODS.hooks.tick) modFire('tick', dt);
     updateEffects(dt); updateOrbs(dt); randomTicks(dt); updateSleep(dt);
@@ -4438,7 +4441,7 @@ class Dragon {
     }
     let healer = null, hd = 70; for (const c of EndFight.crystals) { if (c.dead) continue; const d = c.pos.distanceTo(this.pos); if (d < hd) { hd = d; healer = c; } } this.healer = healer;
     if (healer && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + dt * 1.2);
-    const active = G.mode === 'survival' && !P.dead; const pe = P.eye(); const dist = this.pos.distanceTo(pe);
+    const active = isSurv() && !P.dead; const pe = P.eye(); const dist = this.pos.distanceTo(pe);
     let tgt, speed = 15, turn = 1.6;
     this.stateT -= dt;
     switch (this.state) {
@@ -4893,7 +4896,7 @@ function updateEffects(dt) {
   for (const k in player.effects) {
     const e = player.effects[k]; e.t -= dt; if (e.t <= 0) { delete player.effects[k]; continue; }
     if (k === 'regeneration') { e.acc = (e.acc || 0) + dt; const iv = 2.5 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health < 20) { player.health = Math.min(20, player.health + 1); updateHearts(); } } }
-    if (k === 'poison') { e.acc = (e.acc || 0) + dt; const iv = 1.25 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health > 1 && S.mode === 'survival') { player.health -= 1; updateHearts(); Sfx.play('hurt', 0.4); } } }
+    if (k === 'poison') { e.acc = (e.acc || 0) + dt; const iv = 1.25 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health > 1 && isSurv()) { player.health -= 1; updateHearts(); Sfx.play('hurt', 0.4); } } }
     const sec = Math.ceil(e.t); txt += EFFECTS[k] + (e.amp ? ' ' + roman(e.amp + 1) : '') + '  ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0') + '<br>';
   }
   $('effects').innerHTML = txt;
@@ -5135,7 +5138,7 @@ function addXP(n) {
 }
 function setLevel(L, pts) { XP.level = Math.max(0, L | 0); XP.points = Math.max(0, Math.min(pts || 0, xpToNext(XP.level) - 1)); renderXP(); }
 function renderXP() {
-  const surv = S.mode === 'survival'; $('xpRow').style.visibility = surv ? 'visible' : 'hidden';
+  const surv = isSurv(); $('xpRow').style.visibility = surv ? 'visible' : 'hidden';
   $('xpBar').firstChild.style.width = (XP.points / xpToNext(XP.level) * 100).toFixed(1) + '%'; $('xpLevel').textContent = XP.level > 0 ? XP.level : '';
 }
 // ---- orbs ----
@@ -5260,7 +5263,7 @@ function enchantedDrop(id, dr) {
   const fo = enchOf(h, 'fortune'); if (fo && dr && FORTUNE_ORES.has(key)) { const m = Math.max(0, Math.floor(Math.random() * (fo + 2)) - 1) + 1; return [dr[0], dr[1] * m]; }
   return dr;
 }
-function oreXP(id, x, y, z) { if (S.mode !== 'survival' || enchOf(player.held(), 'silk_touch')) return; const r = ORE_XP[BL[id].key]; if (r) spawnOrbRange(x + 0.5, y + 0.5, z + 0.5, r[0], r[1]); }
+function oreXP(id, x, y, z) { if (!isSurv() || enchOf(player.held(), 'silk_touch')) return; const r = ORE_XP[BL[id].key]; if (r) spawnOrbRange(x + 0.5, y + 0.5, z + 0.5, r[0], r[1]); }
 
 // ================= PROFILE: username, Google sign-in, skins, player model =================
 const SKIN_PARTS = ['skin', 'hair', 'eyes', 'shirt', 'accent', 'pants', 'shoes'];
@@ -5482,13 +5485,13 @@ function armorReduce(dmg, cause) {
   const ps = armorPieces(player.inv); let def = 0, tough = 0, epf = 0;
   for (const s of ps) { const it = ITEMS[s.id]; def += it.def; tough += it.tough; epf += enchOf(s, 'protection'); if (cause === 'lava' || cause === 'a magma block' || cause === 'fire') epf += 2 * enchOf(s, 'fire_protection'); }
   const red = Math.min(20, Math.max(def / 5, def - 4 * dmg / (tough + 8))) / 25;
-  if (ps.length && dmg > 0 && S.mode === 'survival') for (let i = 37; i <= 40; i++) if (player.inv[i]) damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
+  if (ps.length && dmg > 0 && isSurv()) for (let i = 37; i <= 40; i++) if (player.inv[i]) damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
   return dmg * (1 - red) * (1 - Math.min(20, epf) * 0.04);
 }
 const ARMOR_ICON = (() => { const mk = (fill) => { const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d'); const rows = ['.XXX.XXX.', 'XHHHXHHHX', 'XHHHHHHHX', 'XHHHHHHHX', '.XHHHHHX.', '.XHHHHHX.', '.XHHHHHX.', '..XXXXX..'];
   rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch === '.') return; const half = fill === 1 && i > 4; x.fillStyle = ch === 'X' ? '#1a1a1a' : (fill === 0 || half) ? '#4a4a4a' : (y < 2 ? '#f0f0f0' : '#c8c8c8'); x.fillRect(i, y, 1, 1); })); return c.toDataURL(); }; return [mk(0), mk(1), mk(2)]; })();
 const armorImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('armorRow').appendChild(im); armorImgs.push(im); }
-function renderArmorBar() { const a = armorPoints(); const vis = S.mode === 'survival' && a > 0; $('armorRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return; for (let i = 0; i < 10; i++) { const v = a - i * 2; armorImgs[i].src = ARMOR_ICON[v >= 2 ? 2 : v === 1 ? 1 : 0]; } }
+function renderArmorBar() { const a = armorPoints(); const vis = isSurv() && a > 0; $('armorRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return; for (let i = 0; i < 10; i++) { const v = a - i * 2; armorImgs[i].src = ARMOR_ICON[v >= 2 ? 2 : v === 1 ? 1 : 0]; } }
 // armour enchantments
 Object.assign(ENCH, { protection: { name: 'Protection', max: 4, for: 'armor', excl: 'prot', w: 10 }, fire_protection: { name: 'Fire Protection', max: 4, for: 'armor', excl: 'prot', w: 5 }, feather_falling: { name: 'Feather Falling', max: 4, for: 'armor', slot: 'feet', w: 5 } });
 const _enchCat = enchCat; enchCat = function (id) { const it = ITEMS[id]; if (it && it.kind === 'armor') return 'armor'; return _enchCat(id); };
@@ -5600,11 +5603,11 @@ const BUBBLE = (() => { const mk = (pop) => { const c = document.createElement('
   x.fillStyle = '#1b3b78'; x.beginPath(); x.arc(4.5, 4.5, 4.2, 0, 7); x.fill(); x.fillStyle = '#6fb4ff'; x.beginPath(); x.arc(4.5, 4.5, 3.3, 0, 7); x.fill(); x.fillStyle = '#e8f6ff'; x.fillRect(2, 2, 2, 2); return c.toDataURL(); }; return [mk(false), mk(true)]; })();
 let drownT = 0;
 function updateAir(dt, eyeFluid) {
-  const P = player; const under = eyeFluid === B.WATER && S.mode === 'survival' && !P.dead;
+  const P = player; const under = eyeFluid === B.WATER && isSurv() && !P.dead;
   if (under && !effLevel('water_breathing')) { P.air -= dt * 20; if (P.air <= 0) { P.air = 0; drownT += dt; if (drownT >= 1) { drownT = 0; P.hurtCD = 0; P.hurt(2, null, 'drowning', 0); Particles.emit(P.pos.x, P.pos.y + 1.4, P.pos.z, 6, [0.7, 0.85, 1], 1.5, 0.6, -4, 0.3); } } }
   else { P.air = Math.min(300, P.air + dt * 80); drownT = 0; }
   if (under && Math.random() < dt * 1.5) { const e = P.eye(); Particles.emit(e.x, e.y, e.z, 1, [0.75, 0.9, 1], 0.3, 1.2, -3, 0.15); }
-  const vis = (under || P.air < 300) && S.mode === 'survival'; $('airRow').style.visibility = vis ? 'visible' : 'hidden';
+  const vis = (under || P.air < 300) && isSurv(); $('airRow').style.visibility = vis ? 'visible' : 'hidden';
   if (vis) { const n = Math.ceil(P.air / 30); for (let i = 0; i < 10; i++) { const b = bubbleImgs[9 - i]; if (i < n) { b.src = BUBBLE[0]; b.style.visibility = 'visible'; } else if (i === n && P.air > 0) { b.src = BUBBLE[1]; b.style.visibility = 'visible'; } else b.style.visibility = 'hidden'; } }
 }
 function canStand(P) { for (let dx of [-P.hw, P.hw]) for (let dz of [-P.hw, P.hw]) for (let y = 0.6; y < 1.8; y += 0.5) if (world.solid(Math.floor(P.pos.x + dx), Math.floor(P.pos.y + y), Math.floor(P.pos.z + dz))) return false; return true; }
@@ -5641,7 +5644,7 @@ enchantFits = ((f) => (id, en) => (ENCH[en] && ENCH[en].for === '*' && enchCat(i
 function maxDur(id) { return (ITEMS[id] && ITEMS[id].dur) || 0; }
 // damage the item in an inventory slot; returns true if it broke
 function damageSlot(idx, amount = 1) {
-  if (S.mode !== 'survival') return false; const s = player.inv[idx]; if (!s) return false; const max = maxDur(s.id); if (!max) return false;
+  if (!isSurv()) return false; const s = player.inv[idx]; if (!s) return false; const max = maxDur(s.id); if (!max) return false;
   const ub = enchOf(s, 'unbreaking'); let used = 0;
   for (let i = 0; i < amount; i++) { const keep = ITEMS[s.id].kind === 'armor' ? 0.6 + 0.4 / (ub + 1) : 1 / (ub + 1); if (Math.random() < keep) used++; }
   s.dmg = (s.dmg || 0) + used; invDirty();
@@ -5673,7 +5676,7 @@ function placeBed(hit) {
   world.set(x, y, z, B.BED_FOOT); world.set(hx, y, hz, B.BED_HEAD); Sfx.play('wool', 0.8); return true;
 }
 function bedPartner(x, y, z) { const id = world.get(x, y, z); const want = id === B.BED_HEAD ? B.BED_FOOT : B.BED_HEAD; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
-function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (S.mode === 'survival' && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
+function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (isSurv() && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
 function useBed(x, y, z) {
   if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
   const head = world.get(x, y, z) === B.BED_HEAD ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
@@ -5682,7 +5685,7 @@ function useBed(x, y, z) {
   if (!night) { toast('You can sleep only at night', 2); return; }
   const foot = bedPartner(head[0], head[1], head[2]) || head; if (Math.min(player.pos.distanceTo(new V3(head[0] + 0.5, head[1], head[2] + 0.5)), player.pos.distanceTo(new V3(foot[0] + 0.5, foot[1], foot[2] + 0.5))) > 3.2) { toast('You may not rest now; the bed is too far away', 2); return; }
   const near = G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8 && Math.abs(m.pos.y - player.pos.y) < 5);
-  if (near && S.mode === 'survival') { toast('You may not rest now; there are monsters nearby', 2); return; }
+  if (near && isSurv()) { toast('You may not rest now; there are monsters nearby', 2); return; }
   // lie down, fade to black, wake up at sunrise
   S.sleeping = { t: 0, head }; player.vel.set(0, 0, 0); player.pos.set(head[0] + 0.5, head[1] + 0.56, head[2] + 0.5); show('sleepfx', true);
 }
@@ -5805,7 +5808,7 @@ function updateAvatars(dt) {
   for (const av of MP.avatars.values()) {
     const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * 12)); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
     av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
-    if (!av.model) continue; const vis = av.dim === world.dim; av.model.root.visible = vis; if (!vis) continue;
+    if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
     swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
@@ -5852,7 +5855,7 @@ function onPeerMsg(peer, m) {
     case 'hello': return hostWelcome(peer, m);
     case 'welcome': return clientWelcome(m);
     case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
-      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; if (m.swing) av.swing = 1; av.seen = performance.now();
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
       if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
       if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
       return; }
@@ -6556,7 +6559,7 @@ for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kin
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
 player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0;
 const H = { regenT: 0, starveT: 0, lastPos: null, wasGround: true, eatT: 0, eatSnd: 0 };
-const hungerOn = () => S.mode === 'survival' && !player.dead;
+const hungerOn = () => isSurv() && !player.dead;
 function exhaust(v) { if (!hungerOn() || S.difficulty === 'peaceful') return; player.exh += v; while (player.exh >= 4) { player.exh -= 4; if (player.sat > 0) player.sat = Math.max(0, player.sat - 1); else player.food = Math.max(0, player.food - 1); } }
 // drumstick icons: 0 empty, 1 half, 2 full; green ones while you have the Hunger effect
 function foodURL(kind, sick) {
@@ -6576,19 +6579,19 @@ const FOOD_ICON = [foodURL(0), foodURL(1), foodURL(2)], FOOD_ICON_SICK = [foodUR
 const foodImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('foodRow').appendChild(im); foodImgs.push(im); }
 let foodShown = -1;
 function renderFood() {
-  const vis = S.mode === 'survival' && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
+  const vis = isSurv() && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
   const sick = !!effLevel('hunger') || (player.effects && player.effects.hunger); const key = player.food * 2 + (sick ? 1 : 0); if (key === foodShown && !(player.food <= 6 && player.sat <= 0)) return; foodShown = key;
   const I = sick ? FOOD_ICON_SICK : FOOD_ICON; const shake = player.sat <= 0 && player.food <= 6;
   for (let i = 0; i < 10; i++) { const v = player.food - i * 2; foodImgs[i].src = I[v >= 2 ? 2 : v === 1 ? 1 : 0]; foodImgs[i].style.transform = shake && Math.random() < 0.3 ? 'translateY(' + (Math.random() < 0.5 ? -2 : 2) + 'px)' : ''; }
 }
 // absorption hearts (golden apples): extra golden hearts used up before health
 { const absImgs = []; for (let i = 0; i < 2; i++) { const im = document.createElement('img'); im.className = 'absorb'; $('hearts').appendChild(im); absImgs.push(im); }
-  const _uh = updateHearts; updateHearts = function () { _uh.apply(this, arguments); const a = Math.ceil(player.absorb || 0); for (let i = 0; i < 2; i++) { const v = a - i * 2; absImgs[i].style.display = a > i * 2 && S.mode === 'survival' ? '' : 'none'; absImgs[i].src = GOLD_HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } renderFood(); }; }
+  const _uh = updateHearts; updateHearts = function () { _uh.apply(this, arguments); const a = Math.ceil(player.absorb || 0); for (let i = 0; i < 2; i++) { const v = a - i * 2; absImgs[i].style.display = a > i * 2 && isSurv() ? '' : 'none'; absImgs[i].src = GOLD_HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } renderFood(); }; }
 { const _hurt = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
     const A = this.absorb || 0; const h0 = this.health; const cd = this.hurtCD;
-    if (A > 0 && S.mode === 'survival') this.health = h0 + A;
+    if (A > 0 && isSurv()) this.health = h0 + A;
     const r = _hurt.call(this, dmg, src, cause, kb);
-    if (A > 0 && S.mode === 'survival') { if (this.dead) this.absorb = 0; else { const lost = h0 + A - this.health; if (lost <= A) { this.absorb = A - lost; this.health = h0; } else { this.absorb = 0; this.health = h0 - (lost - A); } } updateHearts(); }
+    if (A > 0 && isSurv()) { if (this.dead) this.absorb = 0; else { const lost = h0 + A - this.health; if (lost <= A) { this.absorb = A - lost; this.health = h0; } else { this.absorb = 0; this.health = h0 - (lost - A); } } updateHearts(); }
     if (this.hurtCD > cd || this.health < h0) exhaust(0.1);
     return r; }; }
 // effects that act on hunger
@@ -6625,7 +6628,7 @@ function updateEating(dt) {
   if (H.eatSnd <= 0 && H.eatT > 0.25) { H.eatSnd = 0.22; Sfx.play('eat', 0.5 + Math.random() * 0.2); const e = P.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.45, e.y - 0.25, e.z + d.z * 0.45, 4, [[0.75, 0.5, 0.35], [0.6, 0.35, 0.2]], 1.4, 0.4, 12, 0.15); }
   if (H.eatT >= 1.6) {
     H.eatT = 0; S.eating = 0; mouseR = false;
-    if (S.mode === 'survival') { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
+    if (isSurv()) { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
     if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
     Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
@@ -7063,7 +7066,7 @@ function horseRide(P, dt) {
   m.stepOff = Math.max(0, (m.stepOff || 0) - dt * 7);
   // fall damage: Minecraft horses take ceil(fall / 2 - 3), and so does the rider
   if (!m.onGround && !water) m.peak = m.peak == null ? m.pos.y : Math.max(m.peak, m.pos.y);
-  else { if (m.peak != null && m.onGround && S.rules.fallDamage) { const dmg = Math.ceil((m.peak - m.pos.y) * 0.5 - 3); if (dmg > 0) { m.hurt(dmg, null, 0, true); if (S.mode === 'survival') { P.hurtCD = 0; P.hurt(dmg, null, 'fall damage', 0); } } } m.peak = null; }
+  else { if (m.peak != null && m.onGround && S.rules.fallDamage) { const dmg = Math.ceil((m.peak - m.pos.y) * 0.5 - 3); if (dmg > 0) { m.hurt(dmg, null, 0, true); if (isSurv()) { P.hurtCD = 0; P.hurt(dmg, null, 'fall damage', 0); } } } m.peak = null; }
   if (m.pos.y < -80) { m.gone = true; P.riding = null; return; }
   P.sprinting = false; P.sneaking = false; P.swimming = false;
   seatOnHorse(P, m);
@@ -7087,7 +7090,7 @@ function horseRideSync(m, reliable) {
 // ---------- horse HUD: health hearts instead of food, jump bar over the XP bar ----------
 const mountImgs = [];
 function renderMountHearts() {
-  const m = player.riding; const row = $('mountRow'); const on = !!(m && m.hg && S.mode === 'survival');
+  const m = player.riding; const row = $('mountRow'); const on = !!(m && m.hg && isSurv());
   const key = on ? Math.ceil(m.hp) + '/' + m.maxHp : ''; if (key === renderMountHearts.last) return; renderMountHearts.last = key;
   row.style.display = on ? 'flex' : 'none'; if (!on) return;
   const n = Math.ceil(m.maxHp / 2); while (mountImgs.length < n) { const im = document.createElement('img'); row.appendChild(im); mountImgs.push(im); }
@@ -7199,9 +7202,9 @@ function spearJab(sp, eye, dir) {
   }
   // Lunge
   const lv = heldEnch('lunge'), P = player;
-  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (S.mode !== 'survival' || P.food > 6)) {
+  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (!isSurv() || P.food > 6)) {
     const h = new V3(dir.x, 0, dir.z); if (h.lengthSq() > 1e-4) { h.normalize(); const v = 9.16 * lv; const along = P.vel.x * h.x + P.vel.z * h.z; if (along < v) { P.vel.x += h.x * (v - along); P.vel.z += h.z * (v - along); } if (P.onGround) P.vel.y = Math.max(P.vel.y, 2.5); P.peak = null; }
-    if (S.mode === 'survival' && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
+    if (isSurv() && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
     damageHeld(1); Sfx.play('vwoop', 0.25, 1.6);
   }
 }
@@ -7298,6 +7301,81 @@ function openSmithUI() {
     return _ua(eye, dir);
   }; }
 { const _p = Sfx.play.bind(Sfx); Sfx.play = function (name, v = 1, rate) { if (name === 'anvil' && this.ctx && !(this.has && this.has('anvil'))) { this.tone(1600, 1500, 0.35, 0.06 * v, 'triangle'); this.tone(2380, 2300, 0.25, 0.04 * v, 'sine'); this.nz(0.08, 3000, 0.3 * v, 'bandpass', 3); return; } return _p(name, v, rate); }; }
+
+// ================= ADVENTURE AND SPECTATOR MODES (Minecraft) =================
+// Adventure: Survival rules, but you can't break or place blocks (you can still fight, eat, open chests, ride).
+// Spectator: fly through blocks, invisible to mobs and other players, no hotbar or health. Scroll to change flying
+// speed. Left-click a mob to see through its eyes; sneak to leave it.
+function isSpec() { return S.mode === 'spectator'; }
+function isAdv() { return S.mode === 'adventure'; }
+const MODE_NAMES = { survival: 'Survival', creative: 'Creative', adventure: 'Adventure', spectator: 'Spectator' };
+// the pause menu gets all four modes
+{ const seg = $('modeSeg2'); for (const m of ['adventure', 'spectator']) if (!seg.querySelector('[data-m="' + m + '"]')) { const b = document.createElement('button'); b.dataset.m = m; b.textContent = MODE_NAMES[m]; seg.appendChild(b); b.addEventListener('click', () => { for (const x of seg.children) x.classList.toggle('on', x === b); setMode(m); }); } }
+{ const _sm = setMode; setMode = function (m) {
+    const was = S.mode; _sm(m);
+    if (m === 'spectator') { if (player.riding) dismount(); player.flying = true; S.charge = null; S.bowDraw = -1; player.blocking = false; toast('Spectator mode: fly through blocks; scroll to change speed; left-click a mob to watch from it', 3); }
+    else if (m === 'adventure') toast('Adventure mode', 2);
+    if (was === 'spectator' && m !== 'spectator') { S.specMob = null; if (m !== 'creative') { player.flying = false; unstickPlayer(); } }
+    applySpecHud();
+  }; }
+function applySpecHud() { const on = isSpec(); document.body.classList.toggle('spectator', on); if (typeof handGroup !== 'undefined') handGroup.visible = !on; if (typeof offGroup !== 'undefined') offGroup.visible = !on; }
+// leaving spectator inside a wall: move up to the first open space
+function unstickPlayer() { const P = player; for (let k = 0; k < 400; k++) { const x = Math.floor(P.pos.x), y = Math.floor(P.pos.y), z = Math.floor(P.pos.z); if (!world.solid(x, y, z) && !world.solid(x, y + 1, z)) return; P.pos.y = Math.floor(P.pos.y) + 1; } }
+// /gamemode understands all four (and their short forms)
+{ const c = CMDS.gamemode; c.usage = '<survival|creative|adventure|spectator> [target]';
+  c.run = function (a, ctx) {
+    const m = { survival: 'survival', s: 'survival', '0': 'survival', creative: 'creative', c: 'creative', '1': 'creative', adventure: 'adventure', a: 'adventure', '2': 'adventure', spectator: 'spectator', sp: 'spectator', '3': 'spectator' }[String(a[0]).toLowerCase()];
+    if (!m) throw new CmdError('Unknown game mode: ' + a[0]);
+    for (const t of selectTargets(a[1], ctx, false)) { if (onlyLocal(t, '/gamemode ' + m)) { setMode(m); ok('Set own game mode to ' + MODE_NAMES[m] + ' Mode'); } else ok('Set ' + t.name + "'s game mode to " + MODE_NAMES[m] + ' Mode'); }
+  };
+  if (c.args) c.args = [['survival', 'creative', 'adventure', 'spectator']]; }
+
+// ---- spectator movement: fly with no collisions ----
+S.specSpeed = 1;
+{ const _up = updatePlayer; updatePlayer = function (dt) {
+    if (!isSpec()) return _up.apply(this, arguments);
+    const P = player; if (P.dead) return; P.flying = true; P.sneaking = false; P.swimming = false; P.riding = null; P.hurtCD = 1; P.peak = null;
+    P.eyeH = 1.62;
+    if (S.specMob) { const m = S.specMob; const down = !S.uiOpen && kd('sneak');
+      if (m.dead || m.gone || down || !G.mobs.includes(m)) { S.specMob = null; toast('Stopped spectating', 1); }
+      else { const eh = Math.min(m.h * 0.88, m.h - 0.1); P.pos.set(m.pos.x, m.pos.y + eh - 1.62, m.pos.z); P.vel.set(0, 0, 0); P.yaw = (m.yaw || 0) + Math.PI + (m.head ? -m.head.rotation.y : 0); P.pitch = m.head ? clamp(-m.head.rotation.x * 0.8, -1.2, 1.2) : 0; if (m.root) m.root.visible = false; return; }
+    }
+    let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
+    const up = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
+    if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
+    const sprint = !S.uiOpen && (kd('sprint') || S.sprintTap) && f > 0; if (f <= 0) S.sprintTap = false; P.sprinting = sprint;
+    const speed = (sprint ? 21.6 : 10.9) * S.specSpeed;
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+    let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; }
+    const k = 1 - Math.exp(-dt * 8); P.vel.x += (wx * speed - P.vel.x) * k; P.vel.z += (wz * speed - P.vel.z) * k;
+    P.vel.y += (((up ? 1 : 0) - (down ? 1 : 0)) * speed * 0.75 - P.vel.y) * (1 - Math.exp(-dt * 10));
+    P.pos.addScaledVector(P.vel, dt); P.pos.y = clamp(P.pos.y, -160, WH + 200); P.onGround = false;
+  }; }
+// the mob you were watching becomes visible again when you leave it
+{ const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); for (const m of G.mobs) if (m.root && !m.root.visible && m !== S.specMob && !m.hiddenByGame) m.root.visible = true; return r; }; }
+// ---- spectator: no digging, attacking or using; left-click a mob to watch from it ----
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    if (!isSpec()) {
+      if (isAdv() && mouseL) { // Adventure: attacks work, digging doesn't
+        const eye = player.eye(), dir = lookDir(); let mob = false; for (const m of G.mobs) { if (m.dead || m === player.riding) continue; const t = mobRay(m, eye, dir); if (t >= 0 && t < 4.5) { mob = true; break; } }
+        if (!mob && !targetBoat) { const ml = mouseL; mouseL = false; try { return _ui.apply(this, arguments); } finally { mouseL = ml; } }
+      }
+      return _ui.apply(this, arguments);
+    }
+    selBox.visible = false; crackMesh.visible = false; show('mineBar', false); target = null; targetBoat = null; targetMob = null;
+    if (mouseL && !S.specMob) { mouseL = false; const eye = player.eye(), dir = lookDir(); let best = null, bd = 32; for (const m of G.mobs) { if (m.dead || m.isBoss) continue; const t = mobRay(m, eye, dir); if (t >= 0 && t < bd) { bd = t; best = m; } } if (best) { S.specMob = best; toast('Spectating ' + (best.t ? best.t.name : 'mob') + ' (sneak to leave)', 2); } }
+  }; }
+{ const _pb = placeBlock; placeBlock = function () { if (isSpec() || isAdv()) return false; return _pb.apply(this, arguments); };
+  const _fu = farmUse; farmUse = function () { if (isSpec() || isAdv()) return false; return _fu.apply(this, arguments); };
+  const _oi = openInv; openInv = function () { if (isSpec()) return; return _oi.apply(this, arguments); };
+}
+// scroll changes spectator flying speed instead of the hotbar slot
+addEventListener('wheel', (e) => { if (!S.started || S.uiOpen || S.paused || !isSpec()) return; S.specSpeed = clamp(S.specSpeed * (e.deltaY > 0 ? 0.8 : 1.25), 0.1, 5); toast('Flying speed ' + Math.round(S.specSpeed * 100) + '%', 0.8); }, { passive: true });
+{ const _sel = selectSlot; selectSlot = function (i) { if (isSpec()) return; return _sel.apply(this, arguments); }; }
+// mode is shown with the time and biome; the world remembers Spectator and Adventure too
+{ const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); if (data && (data.mode === 'adventure' || data.mode === 'spectator')) setMode(data.mode); applySpecHud(); return r; }; }
+// multiplayer: spectators are invisible to everyone else
+{ const _ms = myState; myState = function () { const o = _ms.apply(this, arguments); if (isSpec()) o.spec = 1; return o; }; }
 
 </script>
 </body>

@@ -16,7 +16,7 @@ for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kin
 Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
 player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0;
 const H = { regenT: 0, starveT: 0, lastPos: null, wasGround: true, eatT: 0, eatSnd: 0 };
-const hungerOn = () => S.mode === 'survival' && !player.dead;
+const hungerOn = () => isSurv() && !player.dead;
 function exhaust(v) { if (!hungerOn() || S.difficulty === 'peaceful') return; player.exh += v; while (player.exh >= 4) { player.exh -= 4; if (player.sat > 0) player.sat = Math.max(0, player.sat - 1); else player.food = Math.max(0, player.food - 1); } }
 // drumstick icons: 0 empty, 1 half, 2 full; green ones while you have the Hunger effect
 function foodURL(kind, sick) {
@@ -36,19 +36,19 @@ const FOOD_ICON = [foodURL(0), foodURL(1), foodURL(2)], FOOD_ICON_SICK = [foodUR
 const foodImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('foodRow').appendChild(im); foodImgs.push(im); }
 let foodShown = -1;
 function renderFood() {
-  const vis = S.mode === 'survival' && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
+  const vis = isSurv() && !(player.riding && player.riding.hg); $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
   const sick = !!effLevel('hunger') || (player.effects && player.effects.hunger); const key = player.food * 2 + (sick ? 1 : 0); if (key === foodShown && !(player.food <= 6 && player.sat <= 0)) return; foodShown = key;
   const I = sick ? FOOD_ICON_SICK : FOOD_ICON; const shake = player.sat <= 0 && player.food <= 6;
   for (let i = 0; i < 10; i++) { const v = player.food - i * 2; foodImgs[i].src = I[v >= 2 ? 2 : v === 1 ? 1 : 0]; foodImgs[i].style.transform = shake && Math.random() < 0.3 ? 'translateY(' + (Math.random() < 0.5 ? -2 : 2) + 'px)' : ''; }
 }
 // absorption hearts (golden apples): extra golden hearts used up before health
 { const absImgs = []; for (let i = 0; i < 2; i++) { const im = document.createElement('img'); im.className = 'absorb'; $('hearts').appendChild(im); absImgs.push(im); }
-  const _uh = updateHearts; updateHearts = function () { _uh.apply(this, arguments); const a = Math.ceil(player.absorb || 0); for (let i = 0; i < 2; i++) { const v = a - i * 2; absImgs[i].style.display = a > i * 2 && S.mode === 'survival' ? '' : 'none'; absImgs[i].src = GOLD_HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } renderFood(); }; }
+  const _uh = updateHearts; updateHearts = function () { _uh.apply(this, arguments); const a = Math.ceil(player.absorb || 0); for (let i = 0; i < 2; i++) { const v = a - i * 2; absImgs[i].style.display = a > i * 2 && isSurv() ? '' : 'none'; absImgs[i].src = GOLD_HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } renderFood(); }; }
 { const _hurt = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
     const A = this.absorb || 0; const h0 = this.health; const cd = this.hurtCD;
-    if (A > 0 && S.mode === 'survival') this.health = h0 + A;
+    if (A > 0 && isSurv()) this.health = h0 + A;
     const r = _hurt.call(this, dmg, src, cause, kb);
-    if (A > 0 && S.mode === 'survival') { if (this.dead) this.absorb = 0; else { const lost = h0 + A - this.health; if (lost <= A) { this.absorb = A - lost; this.health = h0; } else { this.absorb = 0; this.health = h0 - (lost - A); } } updateHearts(); }
+    if (A > 0 && isSurv()) { if (this.dead) this.absorb = 0; else { const lost = h0 + A - this.health; if (lost <= A) { this.absorb = A - lost; this.health = h0; } else { this.absorb = 0; this.health = h0 - (lost - A); } } updateHearts(); }
     if (this.hurtCD > cd || this.health < h0) exhaust(0.1);
     return r; }; }
 // effects that act on hunger
@@ -85,7 +85,7 @@ function updateEating(dt) {
   if (H.eatSnd <= 0 && H.eatT > 0.25) { H.eatSnd = 0.22; Sfx.play('eat', 0.5 + Math.random() * 0.2); const e = P.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.45, e.y - 0.25, e.z + d.z * 0.45, 4, [[0.75, 0.5, 0.35], [0.6, 0.35, 0.2]], 1.4, 0.4, 12, 0.15); }
   if (H.eatT >= 1.6) {
     H.eatT = 0; S.eating = 0; mouseR = false;
-    if (S.mode === 'survival') { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
+    if (isSurv()) { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
     if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
     Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;

@@ -8,7 +8,7 @@ function placeBed(hit) {
   world.set(x, y, z, B.BED_FOOT); world.set(hx, y, hz, B.BED_HEAD); Sfx.play('wool', 0.8); return true;
 }
 function bedPartner(x, y, z) { const id = world.get(x, y, z); const want = id === B.BED_HEAD ? B.BED_FOOT : B.BED_HEAD; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
-function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (S.mode === 'survival' && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
+function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (isSurv() && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
 function useBed(x, y, z) {
   if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
   const head = world.get(x, y, z) === B.BED_HEAD ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
@@ -17,7 +17,7 @@ function useBed(x, y, z) {
   if (!night) { toast('You can sleep only at night', 2); return; }
   const foot = bedPartner(head[0], head[1], head[2]) || head; if (Math.min(player.pos.distanceTo(new V3(head[0] + 0.5, head[1], head[2] + 0.5)), player.pos.distanceTo(new V3(foot[0] + 0.5, foot[1], foot[2] + 0.5))) > 3.2) { toast('You may not rest now; the bed is too far away', 2); return; }
   const near = G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8 && Math.abs(m.pos.y - player.pos.y) < 5);
-  if (near && S.mode === 'survival') { toast('You may not rest now; there are monsters nearby', 2); return; }
+  if (near && isSurv()) { toast('You may not rest now; there are monsters nearby', 2); return; }
   // lie down, fade to black, wake up at sunrise
   S.sleeping = { t: 0, head }; player.vel.set(0, 0, 0); player.pos.set(head[0] + 0.5, head[1] + 0.56, head[2] + 0.5); show('sleepfx', true);
 }

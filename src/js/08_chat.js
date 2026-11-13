@@ -60,7 +60,7 @@ function updateEffects(dt) {
   for (const k in player.effects) {
     const e = player.effects[k]; e.t -= dt; if (e.t <= 0) { delete player.effects[k]; continue; }
     if (k === 'regeneration') { e.acc = (e.acc || 0) + dt; const iv = 2.5 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health < 20) { player.health = Math.min(20, player.health + 1); updateHearts(); } } }
-    if (k === 'poison') { e.acc = (e.acc || 0) + dt; const iv = 1.25 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health > 1 && S.mode === 'survival') { player.health -= 1; updateHearts(); Sfx.play('hurt', 0.4); } } }
+    if (k === 'poison') { e.acc = (e.acc || 0) + dt; const iv = 1.25 / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (player.health > 1 && isSurv()) { player.health -= 1; updateHearts(); Sfx.play('hurt', 0.4); } } }
     const sec = Math.ceil(e.t); txt += EFFECTS[k] + (e.amp ? ' ' + roman(e.amp + 1) : '') + '  ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0') + '<br>';
   }
   $('effects').innerHTML = txt;

@@ -201,7 +201,7 @@ class Dragon {
     }
     let healer = null, hd = 70; for (const c of EndFight.crystals) { if (c.dead) continue; const d = c.pos.distanceTo(this.pos); if (d < hd) { hd = d; healer = c; } } this.healer = healer;
     if (healer && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + dt * 1.2);
-    const active = G.mode === 'survival' && !P.dead; const pe = P.eye(); const dist = this.pos.distanceTo(pe);
+    const active = isSurv() && !P.dead; const pe = P.eye(); const dist = this.pos.distanceTo(pe);
     let tgt, speed = 15, turn = 1.6;
     this.stateT -= dt;
     switch (this.state) {

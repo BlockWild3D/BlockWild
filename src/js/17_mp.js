@@ -26,7 +26,7 @@ function updateAvatars(dt) {
   for (const av of MP.avatars.values()) {
     const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * 12)); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
     av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
-    if (!av.model) continue; const vis = av.dim === world.dim; av.model.root.visible = vis; if (!vis) continue;
+    if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
     av.model.animate(dt, Math.min(sp, 8), av.pitch, av.swing, av.sneak, av.hurtT);
     swimPose(av.model, { swimming: av.swim, pitch: av.pitch, pos: av.pos, hw: 0.3, h: av.swim ? 0.6 : 1.8 }, dt);
@@ -73,7 +73,7 @@ function onPeerMsg(peer, m) {
     case 'hello': return hostWelcome(peer, m);
     case 'welcome': return clientWelcome(m);
     case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
-      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; if (m.swing) av.swing = 1; av.seen = performance.now();
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
       if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
       if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
       return; }

@@ -12,7 +12,7 @@ enchantFits = ((f) => (id, en) => (ENCH[en] && ENCH[en].for === '*' && enchCat(i
 function maxDur(id) { return (ITEMS[id] && ITEMS[id].dur) || 0; }
 // damage the item in an inventory slot; returns true if it broke
 function damageSlot(idx, amount = 1) {
-  if (S.mode !== 'survival') return false; const s = player.inv[idx]; if (!s) return false; const max = maxDur(s.id); if (!max) return false;
+  if (!isSurv()) return false; const s = player.inv[idx]; if (!s) return false; const max = maxDur(s.id); if (!max) return false;
   const ub = enchOf(s, 'unbreaking'); let used = 0;
   for (let i = 0; i < amount; i++) { const keep = ITEMS[s.id].kind === 'armor' ? 0.6 + 0.4 / (ub + 1) : 1 / (ub + 1); if (Math.random() < keep) used++; }
   s.dmg = (s.dmg || 0) + used; invDirty();
