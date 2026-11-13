@@ -22,6 +22,7 @@ button{font-family:'VT323',monospace}
 #itemname{height:24px;font-size:24px;text-shadow:2px 2px 0 #222;transition:opacity .5s;white-space:nowrap}
 #stats{display:flex;justify-content:space-between;width:100%;height:18px;align-items:flex-end}
 #hearts,#armorRow{display:flex;gap:0}
+#armorRow img{width:18px;height:18px;image-rendering:pixelated}
 #hearts img{width:18px;height:18px;image-rendering:pixelated}
 #hotrow{display:flex;gap:10px;align-items:flex-end}
 #offhud{width:44px;height:44px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
@@ -85,6 +86,19 @@ button{font-family:'VT323',monospace}
 #chatHint{display:none;color:#bbb;font-size:18px;background:rgba(0,0,0,.6);padding:2px 6px}
 #chat.open #chatHint{display:block}
 #effects{position:fixed;right:8px;top:70px;z-index:6;font-size:19px;text-align:right;text-shadow:2px 2px 0 #000;pointer-events:none;line-height:1.1}
+/* profile */
+#profile{justify-content:flex-start;padding-top:2vh;overflow:auto;background:rgba(0,0,0,.72)}
+#profile .title{font-size:clamp(24px,4.5vw,44px)}
+.pcols{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:min(820px,96vw)}
+.pcol{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(420px,92vw)}
+.pcol h4{margin:6px 0 0;font-weight:normal;font-size:24px;color:#fff}
+.pmsg{font-size:19px;color:#ccc;min-height:4px}
+.pbox{background:rgba(0,0,0,.45);border:2px solid #000;padding:8px;display:flex;flex-direction:column;gap:6px}
+.pwrap{display:flex;flex-wrap:wrap;gap:6px}
+.pcolor{display:flex;align-items:center;gap:6px;font-size:20px;background:rgba(0,0,0,.35);padding:2px 6px}
+.pcolor input[type=color]{width:36px;height:26px;border:1px solid #000;padding:0;background:none}
+.pcolor select{font-family:'VT323';font-size:19px;background:#222;color:#fff;border:1px solid #888}
+#pPreview{image-rendering:pixelated;background:radial-gradient(#3a4a5a,#1a2028);border:2px solid #000}
 /* mods */
 #mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
 #mods .title{font-size:clamp(24px,4.5vw,44px)}
@@ -200,6 +214,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
@@ -210,6 +225,25 @@ body.touch #hotbar .slot{width:40px;height:40px}
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
     follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.
   </div>
+</div>
+
+<div id="profile" class="screen hidden">
+  <div class="title">PROFILE</div>
+  <div class="pcols">
+    <div class="pcol">
+      <div class="row" style="width:100%"><label>Username</label><input type="text" id="pName" maxlength="16" autocomplete="off" spellcheck="false"></div>
+      <div id="pNameMsg" class="pmsg" style="color:#ff9a8a"></div>
+      <div class="pbox"><div id="gsiBox"></div><div id="pAcct" class="pmsg"></div><button class="sbtn hidden" id="btnSignOut">Sign out</button></div>
+      <h4>Skin</h4>
+      <div id="pPresets" class="pwrap"></div>
+      <div id="pColors" class="pwrap"></div>
+      <div class="pwrap"><button class="sbtn" id="btnSkinUpload">Upload skin (64x64 PNG)</button><button class="sbtn" id="btnSkinDownload">Download skin</button><button class="sbtn" id="btnSkinRandom">Random</button></div>
+      <div id="pSkinNote" class="pmsg"></div>
+    </div>
+    <div class="pcol" style="align-items:center"><canvas id="pPreview" width="234" height="216"></canvas><div class="pmsg">Front and back</div></div>
+  </div>
+  <button class="mbtn" id="btnProfileDone">Done</button>
+  <input type="file" id="skinFile" accept="image/png" style="display:none">
 </div>
 
 <div id="mods" class="screen hidden">
@@ -259,7 +293,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
     <div class="grid" id="mainGrid"></div>
     <div class="gap"></div>
     <div class="grid" id="hotGrid"></div>
-    <div class="offrow"><div id="offSlotBox"></div><span>Offhand</span></div>
+    <div class="offrow"><span>Armour</span><div id="armorSlots" style="display:flex;gap:2px"></div><div id="offSlotBox"></div><span>Offhand</span></div>
     <div class="invhint">Click: pick up / place · Right-click: split / place one · Shift-click: quick move or craft all · X: swap hands · E / Esc: close</div>
   </div>
   <button id="invClose" title="Close"><img data-ic="close" style="width:20px;height:20px;image-rendering:pixelated"></button>
@@ -280,6 +314,20 @@ body.touch #hotbar .slot{width:40px;height:40px}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ================= CONFIG (edit these, then run: python3 tools/build.py) =================
+// googleClientId: the OAuth 2.0 Client ID (Web) from Google Cloud. Add your site, e.g. https://blockwild3d.github.io,
+//   to its "Authorized JavaScript origins". The Client ID is public; never put a client SECRET here.
+// accountsUrl: optional Cloudflare Worker from tools/accounts_worker.js (see ACCOUNTS_SETUP.md). With it, usernames are
+//   unique and your profile follows your Google account to any device. Without it, the profile stays on this device.
+// mqttBrokers: public MQTT-over-WebSocket brokers used only to introduce players to each other for multiplayer.
+// iceServers: STUN servers for peer-to-peer connections. Add a TURN server here if friends behind strict networks can't connect.
+const CONFIG = {
+  googleClientId: '',
+  accountsUrl: '',
+  mqttBrokers: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'],
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }],
+};
+
 'use strict';
 // ================= CORE: utils, noise, textures, blocks, items =================
 const CS = 16, WH = 96, SEA = 32;
@@ -591,6 +639,11 @@ M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'B
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
+// armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
+const ARMOR_MATS = [['leather', 'Leather', [1, 3, 2, 1], 0, [150, 90, 50], 'leather'], ['golden', 'Golden', [2, 5, 3, 1], 0, [240, 200, 60], 'gold_ingot'], ['iron', 'Iron', [2, 6, 5, 2], 0, [210, 210, 214], 'iron_ingot'], ['diamond', 'Diamond', [3, 8, 6, 3], 2, [80, 220, 210], 'diamond']];
+const ARMOR_PIECES = [['helmet', 'Helmet', 'head'], ['chestplate', 'Chestplate', 'chest'], ['leggings', 'Leggings', 'legs'], ['boots', 'Boots', 'feet']];
+const ARMOR_SLOT = { head: 37, chest: 38, legs: 39, feet: 40 };
+for (const [mk, mn, pts, tough, col] of ARMOR_MATS) ARMOR_PIECES.forEach(([pk, pn, slot], i) => M(mk + '_' + pk, mn + ' ' + pn, { kind: 'armor', stack: 1, slot, def: pts[i], tough, color: col, mat: mk }));
 const ITEM_IDS = ITEMS.map((x, i) => x ? i : -1).filter(i => i > 0);
 function itemDef(id) { return ITEMS[id]; }
 function stackMax(id) { return ITEMS[id] ? ITEMS[id].stack : 64; }
@@ -631,6 +684,11 @@ function ingot(s, c, hi, dk) { for (let y = 6; y <= 11; y++) { const x0 = 2 + Ma
 function pickIcon(col, hi) { return (s) => { pLine(s, 2, 14, 10, 6, BROWN); pLine(s, 3, 14, 10, 7, BROWN2); for (let a = -110; a <= 20; a += 3) { const t = a * Math.PI / 180; s(4 + 9.5 * Math.cos(t), 11 + 9.5 * Math.sin(t), hi); s(4 + 8.5 * Math.cos(t), 11 + 8.5 * Math.sin(t), col); } }; }
 function swordIcon(col, hi) { return (s) => { pLine(s, 5, 10, 13, 2, col); pLine(s, 6, 11, 14, 3, col); pLine(s, 5, 11, 13, 3, hi); pLine(s, 3, 9, 7, 13, [70, 60, 50]); pLine(s, 2, 13, 4, 11, BROWN); s(1, 14, BROWN2); }; }
 for (const [k, , , , col, hi] of TOOLMATS) { ICONP[k + '_pickaxe'] = pickIcon(col, hi); ICONP[k + '_sword'] = swordIcon(col, hi); }
+const ARMOR_SHAPES = { helmet: ['..XXXXXXXXXX..', '.XHHHHHHHHHHX.', '.XHXXXXXXXXHX.', '.XX........XX.', '.XX........XX.', '.XX........XX.'],
+  chestplate: ['XXXX....XXXX', 'XHHXXXXXXHHX', 'XHHHHHHHHHHX', 'XXXHHHHHHXXX', '..XHHHHHHX..', '..XHHHHHHX..', '..XHHHHHHX..', '..XHHHHHHX..', '..XXXXXXXX..'],
+  leggings: ['XXXXXXXXXX', 'XHHHHHHHHX', 'XHHHXXHHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XXXX..XXXX'],
+  boots: ['XXX....XXX', 'XHX....XHX', 'XHX....XHX', 'XHHX..XHHX', 'XXXX..XXXX'] };
+for (const [mk, , , , col] of ARMOR_MATS) for (const [pk] of ARMOR_PIECES) ICONP[mk + '_' + pk] = (s, r) => { const sh = ARMOR_SHAPES[pk]; const oy = Math.round((16 - sh.length) / 2), ox = Math.round((16 - sh[0].length) / 2); const dk = mixc(col, [0, 0, 0], 0.45), hi = mixc(col, [255, 255, 255], 0.35); sh.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === 'X') s(ox + x, oy + y, dk); else if (ch === 'H') s(ox + x, oy + y, (y < 2 || x < 3) ? hi : vary(col, r, 8)); })); };
 function bucketIcon(fill) { return (s) => { for (let y = 4; y <= 13; y++) { const w = 6 - (y - 4) * 0.25; for (let x = Math.round(8 - w); x <= Math.round(7 + w); x++) s(x, y, (x === Math.round(8 - w) || x === Math.round(7 + w) || y === 13) ? [120, 120, 124] : y === 4 ? [90, 90, 94] : [200, 200, 206]); } if (fill) for (let x = 3; x <= 12; x++) { s(x, 5, fill[0]); s(x, 6, fill[1]); } pLine(s, 2, 4, 5, 1, [140, 140, 146]); pLine(s, 13, 4, 10, 1, [140, 140, 146]); pLine(s, 5, 1, 10, 1, [140, 140, 146]); }; }
 Object.assign(ICONP, {
   flint: (s, r) => { blob(s, 8, 8, 4.5, 6, [60, 60, 66], r, [30, 30, 34]); s(6, 5, [130, 130, 140]); s(7, 4, [110, 110, 120]); },
@@ -731,6 +789,7 @@ RECIPES.push(
   RSH('bookshelf', 1, ['PPP', 'LLL', 'PPP'], { P: 'planks', L: 'book' }),
   RSH('paper', 3, ['SSS'], { S: 'sugar_cane' }),
   RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
+  ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
   RSH('lapis_block', 1, ['LLL', 'LLL', 'LLL'], { L: 'lapis_lazuli' }),
   RSL('lapis_lazuli', 9, ['lapis_block']),
@@ -1951,6 +2010,7 @@ const Sfx = {
       case 'sand': case 'snow': case 'wool': this.nz(0.14, 1800, 0.3 * v, 'lowpass'); break;
       case 'glass': this.tone(1800, 2400, 0.08, 0.08 * v, 'triangle'); this.nz(0.2, 4000, 0.3 * v, 'highpass'); break;
       case 'pop': this.tone(500, 900, 0.07, 0.12 * v, 'sine'); break;
+      case 'armor': this.nz(0.18, 2600, 0.25 * v, 'bandpass', 2); this.tone(300, 260, 0.08, 0.05 * v, 'square'); break;
       case 'orb': this.tone(1400 + Math.random() * 600, 2200, 0.06, 0.05 * v, 'sine'); break;
       case 'levelup': this.tone(520, 520, 0.12, 0.1 * v, 'triangle'); setTimeout(() => this.tone(660, 660, 0.12, 0.1 * v, 'triangle'), 110); setTimeout(() => this.tone(880, 880, 0.25, 0.1 * v, 'triangle'), 220); break;
       case 'hurt': this.tone(260, 120, 0.16, 0.18 * v, 'square'); break;
@@ -2691,7 +2751,7 @@ const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.002, 1.002, 1.002), cra
 
 // ---- Player ----
 class Player {
-  constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(37).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
+  constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(41).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
   eye() { return new V3(this.pos.x, this.pos.y + 1.62, this.pos.z); }
   held() { return this.inv[this.sel]; }
   heldDef() { const h = this.held(); return h ? ITEMS[h.id] : null; }
@@ -2708,7 +2768,7 @@ class Player {
     }
     if (effLevel('fire_resistance') && (cause === 'lava' || cause === 'a magma block' || cause === 'fire')) return;
     if (src && cause !== 'fall damage') { if (S.difficulty === 'peaceful') dmg = 0; else if (S.difficulty === 'easy') dmg = Math.min(dmg, dmg / 2 + 1); else if (S.difficulty === 'hard') dmg *= 1.5; }
-    dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
+    dmg = armorReduce(dmg, cause); dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; Sfx.play('hurt', 1);
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) { const d = new V3(this.pos.x - src.x, 0, this.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); this.vel.x += d.x * 7 * kb; this.vel.z += d.z * 7 * kb; this.vel.y = Math.max(this.vel.y, 4.5 * Math.min(kb, 1.6)); }
@@ -2751,7 +2811,7 @@ function paintSlot(el, s) { const img = el.firstChild, cnt = el.lastChild; el.cl
 function renderHotbar() { for (let i = 0; i < 9; i++) { paintSlot(hotSlots[i], player.inv[i]); hotSlots[i].classList.toggle('sel', i === player.sel); } paintSlot($('offhud'), player.inv[36]); $('offhud').style.visibility = player.inv[36] ? 'visible' : 'hidden'; }
 function swapHands() { const a = player.inv[player.sel], b = player.inv[36]; if (!a && !b) return; player.inv[player.sel] = b; player.inv[36] = a; S.bowDraw = -1; invDirty(); Sfx.play('click', 0.6); selectSlot(player.sel); }
 const heartImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('hearts').appendChild(im); heartImgs.push(im); }
-function updateHearts() { if (typeof renderXP === 'function') renderXP(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = S.mode === 'survival' ? 'visible' : 'hidden'; }
+function updateHearts() { if (typeof renderXP === 'function') renderXP(); if (typeof renderArmorBar === 'function') renderArmorBar(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = S.mode === 'survival' ? 'visible' : 'hidden'; }
 let nameT = 0;
 function selectSlot(i) { if (S.bowDraw >= 0) S.bowDraw = -1; player.sel = (i + 9) % 9; invDirty(); const h = player.held(); $('itemname').textContent = h ? ITEMS[h.id].name : ''; $('itemname').style.opacity = 1; nameT = 2; }
 let toastT = 0; function toast(msg, t = 2.5) { const el = $('toast'); el.textContent = msg; el.style.opacity = 1; toastT = t; }
@@ -2770,6 +2830,7 @@ function makeSlot(cont, idx, parent) {
 }
 for (let i = 9; i < 36; i++) makeSlot('inv', i, $('mainGrid'));
 for (let i = 0; i < 9; i++) makeSlot('inv', i, $('hotGrid'));
+for (let i = 37; i <= 40; i++) makeSlot('inv', i, $('armorSlots'));
 makeSlot('inv', 36, $('offSlotBox'));
 for (let i = 0; i < 27; i++) makeSlot('chest', i, $('chestGrid'));
 makeSlot('furn', 0, $('furnIn')); makeSlot('furn', 1, $('furnFuel')); makeSlot('furn', 2, $('furnOut'));
@@ -2794,8 +2855,10 @@ function slotClick(cont, i, button, shift) {
     else if (!c) { S.cursor = s; arr[i] = null; } else if (c.id === s.id && c.count + s.count <= stackMax(s.id)) { c.count += s.count; arr[i] = null; }
     Sfx.play('click', 0.5); invDirty(); renderInvUI(); return;
   }
+  if (cont === 'inv' && i >= 37 && c && !(ITEMS[c.id].kind === 'armor' && ARMOR_SLOT[ITEMS[c.id].slot] === i)) return;
   if (shift && s) {
     let tgt, order;
+    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
     if (cont !== 'inv') { tgt = player.inv; order = [...Array(9).keys()].concat([...Array(27).keys()].map(k => k + 9)); }
     else if (chestArr) { tgt = chestArr; order = [...Array(27).keys()]; }
     else if (furnState) { tgt = furnState.s; order = FUEL[s.id] && !SMELT[s.id] ? [1] : [0]; }
@@ -2823,7 +2886,8 @@ function takeOutput(shift) {
 }
 function renderCursor() { const el = $('cursorItem'); const c = S.cursor; if (!c || !S.uiOpen) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.innerHTML = '<img src="' + ICON[c.id] + '">' + (c.count > 1 ? '<span class="cnt">' + c.count + '</span>' : ''); el.style.left = mouseX + 'px'; el.style.top = mouseY + 'px'; }
 function renderInvUI() {
-  for (let i = 0; i < 37; i++) paintSlot(slotEls.inv[i], player.inv[i]); slotEls.inv[36].classList.toggle('empty', !player.inv[36]); if (!player.inv[36]) { const im = slotEls.inv[36].firstChild; im.src = ICON[IT.shield]; }
+  for (let i = 0; i < 41; i++) paintSlot(slotEls.inv[i], player.inv[i]);
+  for (let i = 37; i <= 40; i++) { const el = slotEls.inv[i]; el.classList.toggle('empty', !player.inv[i]); if (!player.inv[i]) el.firstChild.src = ICON[IT[['iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'][i - 37]]]; } slotEls.inv[36].classList.toggle('empty', !player.inv[36]); if (!player.inv[36]) { const im = slotEls.inv[36].firstChild; im.src = ICON[IT.shield]; }
   if (chestArr) for (let i = 0; i < 27; i++) paintSlot(slotEls.chest[i], chestArr[i]);
   if (S.uiOpen === 'inv' || S.uiOpen === 'table') { for (let i = 0; i < S.gridN * S.gridN; i++) paintSlot(slotEls.grid[i], craftGrid[i]); const r = currentRecipe(); paintSlot(outEl, r ? { id: IT[r.out[0]], count: r.out[1] } : null); }
   if (furnState) for (let i = 0; i < 3; i++) paintSlot(slotEls.furn[i], furnState.s[i]);
@@ -3109,6 +3173,7 @@ function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
+  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
     const bd = BL[target.id];
@@ -3421,7 +3486,7 @@ function startWorld(data) {
   REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
-  player.inv = new Array(37).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
+  player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
   for (let i = 0; i < 9; i++) craftGrid[i] = null;
   S.arrival = null; S.portalLock = true;
   if (data.player) {
@@ -3491,6 +3556,7 @@ function tick(dt) {
     const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
   camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
+  applyPov(P, dt);
   const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (sprinting ? 80 : 72) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = BL[eb] && BL[eb].fluid ? eb : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
@@ -3498,7 +3564,7 @@ function tick(dt) {
   G.minLight = Math.max(MODS.graphics.minLight, effLevel('night_vision') ? 0.85 : 0); chunkUniforms.minLight.value = G.minLight;
   const light = Math.max(G.minLight, world.lightAt(eye.x, eye.y, eye.z, G.daylight));
   updateHand(dt, light);
-  if (_invDirty) { _invDirty = false; renderHotbar(); if (S.uiOpen && S.uiOpen !== 'chat') renderInvUI(); }
+  if (_invDirty) { _invDirty = false; renderHotbar(); renderArmorBar(); if (S.uiOpen && S.uiOpen !== 'chat') renderInvUI(); }
   hudT -= dt;
   if (hudT <= 0) {
     hudT = 0.25;
@@ -3508,7 +3574,7 @@ function tick(dt) {
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + P.pos.y.toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + target.y + ',' + target.z : '');
   }
   renderFrame(); updateModHuds(dt);
-  if (!P.dead) { renderer.clearDepth(); renderer.render(handScene, handCam); }
+  if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
 requestAnimationFrame(frame);
 addEventListener('beforeunload', () => { if (S.started && !S.loading) saveGame(false); });
@@ -4531,6 +4597,293 @@ function enchantedDrop(id, dr) {
   return dr;
 }
 function oreXP(id, x, y, z) { if (S.mode !== 'survival' || enchOf(player.held(), 'silk_touch')) return; const r = ORE_XP[BL[id].key]; if (r) spawnOrbRange(x + 0.5, y + 0.5, z + 0.5, r[0], r[1]); }
+
+// ================= PROFILE: username, Google sign-in, skins, player model =================
+const SKIN_PARTS = ['skin', 'hair', 'eyes', 'shirt', 'accent', 'pants', 'shoes'];
+const SKIN_LABEL = { skin: 'Skin', hair: 'Hair', eyes: 'Eyes', shirt: 'Top', accent: 'Accent', pants: 'Pants', shoes: 'Shoes' };
+const HAIR_STYLES = ['short', 'long', 'buzz', 'cap', 'bald'], TOP_STYLES = ['tee', 'hoodie', 'jacket', 'tank'];
+const SKIN_PRESETS = {
+  Explorer: { skin: '#c58c64', hair: '#4a2c17', eyes: '#3a6ea8', shirt: '#2a9d8f', accent: '#e9c46a', pants: '#2f4a7a', shoes: '#3b2a1e', hairStyle: 'short', top: 'tee' },
+  Miner: { skin: '#e8b99a', hair: '#1d1d1d', eyes: '#5a3a1a', shirt: '#e07a1f', accent: '#ffd23f', pants: '#4b4b52', shoes: '#262626', hairStyle: 'cap', top: 'hoodie' },
+  Ranger: { skin: '#6b4430', hair: '#141010', eyes: '#2f5d2a', shirt: '#3d6b35', accent: '#8a5a2b', pants: '#5c4128', shoes: '#2d2016', hairStyle: 'long', top: 'jacket' },
+  Builder: { skin: '#f0c8a8', hair: '#c9772f', eyes: '#2a5b8f', shirt: '#3567c4', accent: '#f2c230', pants: '#3a3a40', shoes: '#5a3a22', hairStyle: 'buzz', top: 'tee' },
+  Mystic: { skin: '#a8755a', hair: '#e8e8f0', eyes: '#8a3fd1', shirt: '#5b2c86', accent: '#d4af37', pants: '#2b1840', shoes: '#1a1020', hairStyle: 'long', top: 'hoodie' },
+  Skyrunner: { skin: '#f3d2b8', hair: '#e8c35a', eyes: '#2f8fd8', shirt: '#7fd1ff', accent: '#ffffff', pants: '#e8e8e8', shoes: '#ff5a5a', hairStyle: 'short', top: 'tank' },
+};
+function loadProfile() { try { return JSON.parse(localStorage.getItem('blockwild_profile') || 'null'); } catch (e) { return null; } }
+const PROFILE = loadProfile() || { name: 'Player' + (100 + Math.floor(Math.random() * 900)), skin: Object.assign({}, SKIN_PRESETS.Explorer), png: null, google: null, token: null };
+function saveProfile() { try { localStorage.setItem('blockwild_profile', JSON.stringify(PROFILE)); } catch (e) { } }
+saveProfile();
+const validName = (n) => /^[A-Za-z0-9_]{3,16}$/.test(n);
+
+// ---- skin painting (Minecraft 64x64 layout) ----
+function hexToRgb(h) { return hexc(h); }
+function faceRects(u, v, w, h, d) { return { top: [u + d, v, w, d], bottom: [u + d + w, v, w, d], right: [u, v + d, d, h], front: [u + d, v + d, w, h], left: [u + d + w, v + d, d, h], back: [u + d + w + d, v + d, w, h] }; }
+function paintBox(ctx, u, v, w, h, d, fn) { const R = faceRects(u, v, w, h, d); for (const f in R) { const [x0, y0, fw, fh] = R[f]; for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const c = fn(f, x, y, fw, fh); if (c) { ctx.fillStyle = c; ctx.fillRect(x0 + x, y0 + y, 1, 1); } } } }
+function makeSkinCanvas(cfg) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const ctx = cv.getContext('2d');
+  const r = mulberry32(12345); const tone = (hex, amt = 7, dark = 0) => { const c = hexToRgb(hex); const f = (r() * 2 - 1) * amt - dark; return 'rgb(' + clamp(c[0] + f, 0, 255) + ',' + clamp(c[1] + f, 0, 255) + ',' + clamp(c[2] + f, 0, 255) + ')'; };
+  const hs = cfg.hairStyle || 'short', top = cfg.top || 'tee';
+  // head
+  paintBox(ctx, 0, 0, 8, 8, 8, (f, x, y) => {
+    if (f === 'top') return hs === 'bald' ? tone(cfg.skin) : tone(cfg.hair, 8);
+    if (f === 'bottom') return tone(cfg.skin, 4, 18);
+    const hairRows = hs === 'bald' ? -1 : f === 'front' ? (hs === 'buzz' ? 0 : 1) : f === 'back' ? (hs === 'long' ? 7 : hs === 'buzz' ? 2 : 4) : (hs === 'long' ? 6 : hs === 'buzz' ? 1 : 2);
+    if (y <= hairRows && !(f === 'front' && hs === 'long' && y === 1 && x > 1 && x < 6)) return tone(cfg.hair, 8);
+    if (f === 'front') {
+      if (y === 4 && (x === 1 || x === 6)) return '#f4f4f4';
+      if (y === 4 && (x === 2 || x === 5)) return cfg.eyes;
+      if (y === 3 && (x >= 1 && x <= 2 || x >= 5 && x <= 6) && hs !== 'bald') return tone(cfg.hair, 4, 10);
+      if (y === 6 && (x === 3 || x === 4)) return tone(cfg.skin, 3, 40);
+      if (y === 5 && (x === 3 || x === 4)) return tone(cfg.skin, 3, 14);
+    }
+    return tone(cfg.skin, 5);
+  });
+  // hat layer: cap
+  if (hs === 'cap') paintBox(ctx, 32, 0, 8, 8, 8, (f, x, y) => (f === 'top' || (f !== 'bottom' && y <= 2) || (f === 'front' && y === 3)) ? tone(cfg.accent, 8, f === 'front' && y === 3 ? 25 : 0) : null);
+  // body
+  const shirt = (f, x, y, fw) => {
+    if (f === 'bottom') return tone(cfg.pants, 5, 10);
+    if (f === 'front' && y === 11) return tone(cfg.pants, 3, 30);
+    if (top === 'jacket' && f === 'front' && (x === 3 || x === 4)) return tone(cfg.accent, 6);
+    if (top === 'hoodie' && f === 'front' && y >= 7 && y <= 9 && x >= 2 && x <= 5) return tone(cfg.shirt, 4, 22);
+    if (top === 'hoodie' && f === 'front' && y >= 1 && y <= 4 && (x === 2 || x === 5) && y % 2) return tone(cfg.accent, 3);
+    if (top === 'tank' && f === 'front' && y <= 1 && x >= 2 && x <= 5) return tone(cfg.skin, 5);
+    if (top === 'tee' && f === 'front' && y === 0 && x >= 3 && x <= 4) return tone(cfg.skin, 5);
+    return tone(cfg.shirt, 6);
+  };
+  paintBox(ctx, 16, 16, 8, 12, 4, shirt);
+  const arm = (f, x, y) => {
+    if (f === 'top') return top === 'tank' ? tone(cfg.skin, 5) : tone(cfg.shirt, 6);
+    if (f === 'bottom') return tone(cfg.skin, 4, 12);
+    const sleeve = top === 'tank' ? -1 : top === 'tee' ? 3 : 9;
+    if (y <= sleeve) return tone(cfg.shirt, 6, y === sleeve && top !== 'tee' ? 18 : 0);
+    if (top === 'jacket' && y === sleeve + 1) return tone(cfg.accent, 4);
+    return tone(cfg.skin, 5);
+  };
+  paintBox(ctx, 40, 16, 4, 12, 4, arm); paintBox(ctx, 32, 48, 4, 12, 4, arm);
+  const leg = (f, x, y) => { if (f === 'top') return tone(cfg.pants, 5); if (f === 'bottom') return tone(cfg.shoes, 4, 15); if (y >= 10) return tone(cfg.shoes, 5); if (y === 9) return tone(cfg.pants, 4, 18); return tone(cfg.pants, 6); };
+  paintBox(ctx, 0, 16, 4, 12, 4, leg); paintBox(ctx, 16, 48, 4, 12, 4, leg);
+  return cv;
+}
+let SKIN_CANVAS = null;
+function profileSkinCanvas(cb) {
+  if (PROFILE.png) { const img = new Image(); img.onload = () => { const cv = normalizeSkin(img); SKIN_CANVAS = cv; cb && cb(cv); }; img.onerror = () => { PROFILE.png = null; SKIN_CANVAS = makeSkinCanvas(PROFILE.skin); cb && cb(SKIN_CANVAS); }; img.src = PROFILE.png; return; }
+  SKIN_CANVAS = makeSkinCanvas(PROFILE.skin); cb && cb(SKIN_CANVAS);
+}
+// accepts 64x64 skins and old 64x32 ones (left limbs copied from the right)
+function normalizeSkin(img) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+  if (img.height === 32) { x.drawImage(img, 0, 0); x.save(); x.drawImage(cv, 0, 16, 16, 16, 16, 48, 16, 16); x.drawImage(cv, 40, 16, 16, 16, 32, 48, 16, 16); x.restore(); }
+  else x.drawImage(img, 0, 0, 64, 64); return cv;
+}
+// 2D preview: front and back views, overlays included
+function drawSkinPreview(canvas, skin) {
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false; const s = 6;
+  const blit = (sx, sy, w, h, dx, dy) => ctx.drawImage(skin, sx, sy, w, h, dx * s, dy * s, w * s, h * s);
+  const view = (ox, back) => {
+    const F = back ? 'back' : 'front'; const R = (u, v, w, h, d) => faceRects(u, v, w, h, d)[F];
+    const parts = back ? [[R(0, 0, 8, 8, 8), 4, 0], [R(16, 16, 8, 12, 4), 4, 8], [R(40, 16, 4, 12, 4), 12, 8], [R(32, 48, 4, 12, 4), 0, 8], [R(0, 16, 4, 12, 4), 8, 20], [R(16, 48, 4, 12, 4), 4, 20]]
+      : [[R(0, 0, 8, 8, 8), 4, 0], [R(16, 16, 8, 12, 4), 4, 8], [R(40, 16, 4, 12, 4), 0, 8], [R(32, 48, 4, 12, 4), 12, 8], [R(0, 16, 4, 12, 4), 4, 20], [R(16, 48, 4, 12, 4), 8, 20]];
+    const over = back ? [[R(32, 0, 8, 8, 8), 4, 0], [R(16, 32, 8, 12, 4), 4, 8], [R(40, 32, 4, 12, 4), 12, 8], [R(48, 48, 4, 12, 4), 0, 8], [R(0, 32, 4, 12, 4), 8, 20], [R(0, 48, 4, 12, 4), 4, 20]]
+      : [[R(32, 0, 8, 8, 8), 4, 0], [R(16, 32, 8, 12, 4), 4, 8], [R(40, 32, 4, 12, 4), 0, 8], [R(48, 48, 4, 12, 4), 12, 8], [R(0, 32, 4, 12, 4), 4, 20], [R(0, 48, 4, 12, 4), 8, 20]];
+    for (const [[u, v, w, h], dx, dy] of parts.concat(over)) blit(u, v, w, h, ox + dx, dy + 2);
+  };
+  view(1, false); view(20, true);
+}
+
+// ---- 3D player model (used for other players in multiplayer) ----
+function boxUV(geo, u, v, w, h, d) {
+  const R = faceRects(u, v, w, h, d); const order = ['left', 'right', 'top', 'bottom', 'front', 'back']; // px, nx, py, ny, pz, nz
+  const uv = geo.attributes.uv;
+  order.forEach((f, i) => { const [x, y, fw, fh] = R[f]; const u0 = x / 64, u1 = (x + fw) / 64, v0 = 1 - y / 64, v1 = 1 - (y + fh) / 64;
+    const flipTop = f === 'bottom'; uv.setXY(i * 4, u0, flipTop ? v1 : v0); uv.setXY(i * 4 + 1, u1, flipTop ? v1 : v0); uv.setXY(i * 4 + 2, u0, flipTop ? v0 : v1); uv.setXY(i * 4 + 3, u1, flipTop ? v0 : v1); });
+  uv.needsUpdate = true; return geo;
+}
+const PX = 1.8 / 32;
+function makePlayerModel(skinCanvas, name) {
+  const tex = new THREE.CanvasTexture(skinCanvas); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+  const mat = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, transparent: false }); const omat = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+  const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
+  const part = (u, v, w, h, d, ou, ov, px, py, pz, ox, oy, oz) => { // pivot at (px,py,pz) pixels; box offset (ox,oy,oz)
+    const g = new THREE.Group(); g.position.set(px * PX, py * PX, pz * PX);
+    const m = new THREE.Mesh(boxUV(new THREE.BoxGeometry(w * PX, h * PX, d * PX), u, v, w, h, d), mat); m.position.set(ox * PX, oy * PX, oz * PX); g.add(m);
+    const o = new THREE.Mesh(boxUV(new THREE.BoxGeometry((w + 0.5) * PX, (h + 0.5) * PX, (d + 0.5) * PX), ou, ov, w, h, d), omat); o.position.copy(m.position); g.add(o);
+    for (const x of [m, o]) x.layers.enable(1);
+    body.add(g); return g;
+  };
+  const P = {};
+  P.legR = part(0, 16, 4, 12, 4, 0, 32, -2, 12, 0, 0, -6, 0); P.legL = part(16, 48, 4, 12, 4, 0, 48, 2, 12, 0, 0, -6, 0);
+  P.torso = part(16, 16, 8, 12, 4, 16, 32, 0, 12, 0, 0, 6, 0);
+  P.armR = part(40, 16, 4, 12, 4, 40, 32, -6, 22, 0, 0, -4, 0); P.armL = part(32, 48, 4, 12, 4, 48, 48, 6, 22, 0, 0, -4, 0);
+  P.head = part(0, 0, 8, 8, 8, 32, 0, 0, 24, 0, 0, 4, 0);
+  // name tag
+  let tag = null; if (name) { const c = document.createElement('canvas'); const x = c.getContext('2d'); x.font = '28px monospace'; const w = Math.ceil(x.measureText(name).width) + 16; c.width = w; c.height = 40; x.fillStyle = 'rgba(0,0,0,0.45)'; x.fillRect(0, 0, w, 40); x.font = '28px monospace'; x.fillStyle = '#fff'; x.textBaseline = 'middle'; x.fillText(name, 8, 21);
+    const t = new THREE.CanvasTexture(c); tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true })); tag.scale.set(w / 40 * 0.32, 0.32, 1); tag.position.y = 2.15; root.add(tag); }
+  // held item
+  const held = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, alphaTest: 0.3 })); held.scale.setScalar(0.45); held.position.set(0, -10 * PX, -3 * PX); held.visible = false; P.armR.add(held);
+  return { root, body, P, tex, mat, omat, tag, held, heldId: 0, walk: 0,
+    setSkin(cv) { tex.image = cv; tex.needsUpdate = true; },
+    setHeld(id) { if (id === this.heldId) return; this.heldId = id; if (!id || !ICON_CANVAS[id]) { held.visible = false; return; } const t = new THREE.CanvasTexture(ICON_CANVAS[id]); t.magFilter = THREE.NearestFilter; held.material.map = t; held.material.needsUpdate = true; held.visible = true; },
+    animate(dt, speed, pitch, swing, sneak, hurt) {
+      this.walk += dt * Math.min(speed, 6) * 2.2; const a = Math.sin(this.walk) * Math.min(1, speed / 4) * 0.8;
+      P.legR.rotation.x = a; P.legL.rotation.x = -a; P.armR.rotation.x = -a * 0.8 - (swing > 0 ? Math.sin(swing * Math.PI) * 1.4 : 0); P.armL.rotation.x = a * 0.8;
+      P.head.rotation.x = -pitch; body.position.y = sneak ? -0.12 : 0; body.rotation.x = sneak ? 0.35 : 0;
+      mat.color.setRGB(1, hurt > 0 ? 0.5 : 1, hurt > 0 ? 0.5 : 1); omat.color.copy(mat.color);
+    },
+    dispose() { tex.dispose(); mat.dispose(); omat.dispose(); if (tag) { tag.material.map.dispose(); tag.material.dispose(); } },
+  };
+}
+
+// ---- profile screen ----
+let profDraft = null;
+function openProfile() {
+  profDraft = JSON.parse(JSON.stringify(PROFILE)); show('menu', false); show('profile', true);
+  $('pName').value = profDraft.name; $('pNameMsg').textContent = ''; renderSkinEditor(); renderAccount(); refreshPreview();
+}
+function renderSkinEditor() {
+  const pr = $('pPresets'); pr.innerHTML = '';
+  for (const k in SKIN_PRESETS) { const b = document.createElement('button'); b.className = 'sbtn'; b.textContent = k; b.onclick = () => { profDraft.skin = Object.assign({}, SKIN_PRESETS[k]); profDraft.png = null; renderSkinEditor(); refreshPreview(); }; pr.appendChild(b); }
+  const box = $('pColors'); box.innerHTML = '';
+  for (const k of SKIN_PARTS) { const l = document.createElement('label'); l.className = 'pcolor'; l.innerHTML = '<span>' + SKIN_LABEL[k] + '</span>'; const inp = document.createElement('input'); inp.type = 'color'; inp.value = profDraft.skin[k] || '#888888'; inp.oninput = () => { profDraft.skin[k] = inp.value; profDraft.png = null; refreshPreview(); }; l.appendChild(inp); box.appendChild(l); }
+  const sel = (label, key, opts) => { const l = document.createElement('label'); l.className = 'pcolor'; l.innerHTML = '<span>' + label + '</span>'; const s = document.createElement('select'); for (const o of opts) { const op = document.createElement('option'); op.value = o; op.textContent = o[0].toUpperCase() + o.slice(1); s.appendChild(op); } s.value = profDraft.skin[key]; s.onchange = () => { profDraft.skin[key] = s.value; profDraft.png = null; refreshPreview(); }; l.appendChild(s); box.appendChild(l); };
+  sel('Hair style', 'hairStyle', HAIR_STYLES); sel('Top style', 'top', TOP_STYLES);
+  $('pSkinNote').textContent = profDraft.png ? 'Using an uploaded skin. Pick a preset or change a colour to go back to the editor.' : '';
+}
+function refreshPreview() {
+  const draw = (cv) => drawSkinPreview($('pPreview'), cv);
+  if (profDraft.png) { const img = new Image(); img.onload = () => draw(normalizeSkin(img)); img.src = profDraft.png; } else draw(makeSkinCanvas(profDraft.skin));
+}
+function renderAccount() {
+  const g = profDraft.google; const a = $('pAcct');
+  show('btnSignOut', !!g);
+  if (g) a.innerHTML = 'Signed in with Google as <b>' + esc(g.name || g.email || 'you') + '</b>' + (CONFIG.accountsUrl ? (profDraft.token ? ' - profile saved to your account' : ' - account server not reached') : ' - profile is kept on this device');
+  else if (!CONFIG.googleClientId) a.textContent = 'Google sign-in is not set up on this copy of BlockWild yet (it needs a Google Client ID in the game config). You can still pick a username and skin; they are saved on this device.';
+  else a.textContent = 'Sign in with Google to keep your username and skin across devices.';
+  const box = $('gsiBox'); box.innerHTML = '';
+  if (!g && CONFIG.googleClientId) loadGIS(() => { try { google.accounts.id.initialize({ client_id: CONFIG.googleClientId, callback: onGoogleCredential, auto_select: false, ux_mode: 'popup' }); google.accounts.id.renderButton(box, { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular' }); } catch (e) { a.textContent = 'Google sign-in could not start here: ' + e.message; } }, () => { a.textContent = 'Could not reach Google sign-in. Check your connection.'; });
+}
+let gisLoading = null;
+function loadGIS(ok, fail) {
+  if (window.google && google.accounts && google.accounts.id) return ok();
+  if (!gisLoading) gisLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  gisLoading.then(ok, fail);
+}
+function decodeJwt(t) { try { const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(p + '==='.slice((p.length + 3) % 4))))); } catch (e) { return null; } }
+async function onGoogleCredential(resp) {
+  const claims = decodeJwt(resp.credential); if (!claims) return;
+  profDraft.google = { sub: claims.sub, email: claims.email, name: claims.name || claims.given_name, picture: claims.picture };
+  if (!validName(profDraft.name) || /^Player\d+$/.test(profDraft.name)) { const n = String(claims.given_name || claims.name || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); if (n.length >= 3) { profDraft.name = n; $('pName').value = n; } }
+  if (CONFIG.accountsUrl) {
+    try { const r = await fetch(CONFIG.accountsUrl.replace(/\/$/, '') + '/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) }); const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      profDraft.token = j.token; if (j.user) { if (j.user.username) { profDraft.name = j.user.username; $('pName').value = j.user.username; } if (j.user.skin) { try { const sk = JSON.parse(j.user.skin); if (sk.png) profDraft.png = sk.png; else if (sk.cfg) { profDraft.skin = sk.cfg; profDraft.png = null; } } catch (e) { } } }
+    } catch (e) { profDraft.token = null; $('pNameMsg').textContent = 'Signed in, but the account server could not be reached: ' + e.message; }
+  }
+  Object.assign(PROFILE, profDraft); saveProfile(); renderSkinEditor(); renderAccount(); refreshPreview(); updateMenuProfile();
+}
+async function saveProfileDraft() {
+  const n = $('pName').value.trim(); if (!validName(n)) { $('pNameMsg').textContent = 'Usernames are 3-16 letters, numbers or _'; return false; }
+  profDraft.name = n;
+  if (CONFIG.accountsUrl && profDraft.token) {
+    try { const r = await fetch(CONFIG.accountsUrl.replace(/\/$/, '') + '/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + profDraft.token }, body: JSON.stringify({ username: n, skin: JSON.stringify(profDraft.png ? { png: profDraft.png } : { cfg: profDraft.skin }) }) }); const j = await r.json().catch(() => ({}));
+      if (r.status === 409) { $('pNameMsg').textContent = 'That username is taken. Try another.'; return false; }
+      if (r.status === 401) { profDraft.token = null; } else if (!r.ok) { $('pNameMsg').textContent = 'Could not save to your account (' + (j.error || r.status) + '). Saved on this device.'; }
+    } catch (e) { $('pNameMsg').textContent = 'Account server not reached. Saved on this device.'; }
+  }
+  Object.assign(PROFILE, profDraft); saveProfile(); profileSkinCanvas(); updateMenuProfile(); return true;
+}
+function updateMenuProfile() { $('btnProfile').textContent = 'Profile & Skin: ' + PROFILE.name; }
+$('btnProfile').addEventListener('click', openProfile);
+$('btnProfileDone').addEventListener('click', async () => { if (await saveProfileDraft()) { show('profile', false); show('menu', true); } });
+$('btnSignOut').addEventListener('click', () => { profDraft.google = null; profDraft.token = null; try { google.accounts.id.disableAutoSelect(); } catch (e) { } renderAccount(); });
+$('btnSkinUpload').addEventListener('click', () => $('skinFile').click());
+$('skinFile').addEventListener('change', (e) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const rd = new FileReader(); rd.onload = () => { const img = new Image(); img.onload = () => { if (img.width !== 64 || (img.height !== 64 && img.height !== 32)) { $('pSkinNote').textContent = 'Skins must be 64x64 (or 64x32) PNG files in the Minecraft skin layout.'; return; } profDraft.png = normalizeSkin(img).toDataURL(); renderSkinEditor(); refreshPreview(); }; img.src = rd.result; }; rd.readAsDataURL(f);
+});
+$('btnSkinDownload').addEventListener('click', () => { const cv = profDraft.png ? null : makeSkinCanvas(profDraft.skin); const url = profDraft.png || cv.toDataURL(); const a = document.createElement('a'); a.href = url; a.download = (profDraft.name || 'skin') + '.png'; a.click(); });
+$('btnSkinRandom').addEventListener('click', () => { const rc = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0'); const tones = ['#f3d2b8', '#e8b99a', '#c58c64', '#a8755a', '#6b4430', '#4a2e20']; profDraft.skin = { skin: tones[Math.random() * tones.length | 0], hair: rc(), eyes: rc(), shirt: rc(), accent: rc(), pants: rc(), shoes: rc(), hairStyle: HAIR_STYLES[Math.random() * 5 | 0], top: TOP_STYLES[Math.random() * 4 | 0] }; profDraft.png = null; renderSkinEditor(); refreshPreview(); });
+$('pName').addEventListener('keydown', (e) => e.stopPropagation());
+updateMenuProfile(); profileSkinCanvas();
+
+// ================= ARMOUR, CAMERA VIEWS (F5), YOUR OWN PLAYER MODEL =================
+function armorPieces(inv) { const out = []; for (let i = 37; i <= 40; i++) { const s = inv && inv[i]; if (s && ITEMS[s.id] && ITEMS[s.id].kind === 'armor') out.push(s); } return out; }
+function armorPoints() { return armorPieces(player.inv).reduce((a, s) => a + ITEMS[s.id].def, 0); }
+// Minecraft: damage * (1 - min(20, max(def/5, def - 4*dmg/(toughness+8))) / 25), then Protection enchantments
+function armorReduce(dmg, cause) {
+  if (cause === 'fall damage' || cause === 'the void' || cause === 'magic') { if (cause === 'fall damage') { const ff = enchOf(player.inv[40], 'feather_falling'); if (ff) dmg *= Math.max(0.2, 1 - 0.12 * ff); } return dmg; }
+  const ps = armorPieces(player.inv); let def = 0, tough = 0, epf = 0;
+  for (const s of ps) { const it = ITEMS[s.id]; def += it.def; tough += it.tough; epf += enchOf(s, 'protection'); if (cause === 'lava' || cause === 'a magma block' || cause === 'fire') epf += 2 * enchOf(s, 'fire_protection'); }
+  const red = Math.min(20, Math.max(def / 5, def - 4 * dmg / (tough + 8))) / 25;
+  return dmg * (1 - red) * (1 - Math.min(20, epf) * 0.04);
+}
+const ARMOR_ICON = (() => { const mk = (fill) => { const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d'); const rows = ['.XXX.XXX.', 'XHHHXHHHX', 'XHHHHHHHX', 'XHHHHHHHX', '.XHHHHHX.', '.XHHHHHX.', '.XHHHHHX.', '..XXXXX..'];
+  rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch === '.') return; const half = fill === 1 && i > 4; x.fillStyle = ch === 'X' ? '#1a1a1a' : (fill === 0 || half) ? '#4a4a4a' : (y < 2 ? '#f0f0f0' : '#c8c8c8'); x.fillRect(i, y, 1, 1); })); return c.toDataURL(); }; return [mk(0), mk(1), mk(2)]; })();
+const armorImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('armorRow').appendChild(im); armorImgs.push(im); }
+function renderArmorBar() { const a = armorPoints(); const vis = S.mode === 'survival' && a > 0; $('armorRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return; for (let i = 0; i < 10; i++) { const v = a - i * 2; armorImgs[i].src = ARMOR_ICON[v >= 2 ? 2 : v === 1 ? 1 : 0]; } }
+// armour enchantments
+Object.assign(ENCH, { protection: { name: 'Protection', max: 4, for: 'armor', excl: 'prot', w: 10 }, fire_protection: { name: 'Fire Protection', max: 4, for: 'armor', excl: 'prot', w: 5 }, feather_falling: { name: 'Feather Falling', max: 4, for: 'armor', slot: 'feet', w: 5 } });
+const _enchCat = enchCat; enchCat = function (id) { const it = ITEMS[id]; if (it && it.kind === 'armor') return 'armor'; return _enchCat(id); };
+const _enchFits = enchantFits; enchantFits = function (id, en) { const E = ENCH[en]; if (E && E.slot && ITEMS[id].slot !== E.slot) return false; return _enchFits(id, en); };
+const _enchab = enchantability; enchantability = function (id) { const it = ITEMS[id]; if (it && it.kind === 'armor') return { leather: 15, golden: 25, iron: 9, diamond: 10 }[it.mat] || 10; return _enchab(id); };
+
+// ---- armour look on player models ----
+const armorTex = {}; const HELMET_GAP = new THREE.MeshBasicMaterial({ visible: false });
+function armorTexture(mat) {
+  if (armorTex[mat]) return armorTex[mat]; const col = ARMOR_MATS.find(m => m[0] === mat)[4];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); const r = mulberry32(mat.length * 97);
+  for (let y = 0; y < 16; y++) for (let i = 0; i < 16; i++) { const e = y === 0 || y === 15 || i === 0 || i === 15; const v = vary(e ? mixc(col, [0, 0, 0], 0.35) : (y < 3 ? mixc(col, [255, 255, 255], 0.25) : col), r, mat === 'leather' ? 10 : 6); x.fillStyle = 'rgb(' + v.map(q => clamp(q, 0, 255) | 0).join(',') + ')'; x.fillRect(i, y, 1, 1); }
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return armorTex[mat] = new THREE.MeshLambertMaterial({ map: t });
+}
+function addArmorSlots(model) {
+  const P = model.P; const mk = (parent, w, h, d, ox, oy, oz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, d * PX)); m.position.set(ox * PX, oy * PX, oz * PX); m.visible = false; m.layers.enable(1); parent.add(m); return m; };
+  model.armor = {
+    head: [mk(P.head, 9.4, 9.4, 9.4, 0, 4, 0)],
+    chest: [mk(P.torso, 9, 12.6, 5, 0, 6, 0), mk(P.armR, 5, 6, 5, 0, -1.5, 0), mk(P.armL, 5, 6, 5, 0, -1.5, 0)],
+    legs: [mk(P.torso, 8.6, 3, 4.6, 0, 1.2, 0), mk(P.legR, 4.6, 8.4, 4.6, 0, -4, 0), mk(P.legL, 4.6, 8.4, 4.6, 0, -4, 0)],
+    feet: [mk(P.legR, 4.9, 4.2, 4.9, 0, -10, 0), mk(P.legL, 4.9, 4.2, 4.9, 0, -10, 0)],
+  };
+  model.setArmor = (mats) => { for (const slot in model.armor) { const m = mats[slot]; for (const mesh of model.armor[slot]) { mesh.visible = !!m; if (m) { const am = armorTexture(m); mesh.material = slot === 'head' ? [am, am, am, am, HELMET_GAP, am] : am; } } } };
+}
+function armorMats(inv) { const out = {}; for (const slot in ARMOR_SLOT) { const s = inv && inv[ARMOR_SLOT[slot]]; out[slot] = s && ITEMS[s.id] && ITEMS[s.id].kind === 'armor' ? ITEMS[s.id].mat : null; } return out; }
+
+// ---- camera views ----
+S.pov = 0; // 0 first person, 1 behind, 2 in front
+let myModel = null;
+function ensureMyModel() {
+  if (myModel && myModel.skin === SKIN_CANVAS) return;
+  if (myModel) { scene.remove(myModel.root); myModel.dispose(); }
+  if (!SKIN_CANVAS) return; myModel = makePlayerModel(SKIN_CANVAS, null); myModel.skin = SKIN_CANVAS; addArmorSlots(myModel); scene.add(myModel.root);
+}
+function cyclePov() { S.pov = (S.pov + 1) % 3; toast(['First person', 'Third person (back)', 'Third person (front)'][S.pov], 1); }
+addEventListener('keydown', (e) => {
+  if (e.code === 'F5' || (e.code === 'KeyV' && !e.repeat)) { if (!S.started || S.loading) return; if (e.code === 'F5') e.preventDefault(); if (S.uiOpen === 'chat' || (e.target && e.target.tagName === 'INPUT')) return; cyclePov(); }
+});
+const _camTmp = new V3();
+function applyPov(P, dt) {
+  const light = Math.max(G.minLight || 0, world.lightAt(P.pos.x, P.pos.y + 1, P.pos.z, G.daylight));
+  ensureMyModel();
+  const third = S.pov > 0 && !P.dead;
+  if (myModel) {
+    myModel.root.visible = third;
+    if (third) {
+      myModel.root.position.copy(P.pos); myModel.root.rotation.y = P.yaw + Math.PI;
+      const sp = Math.hypot(P.vel.x, P.vel.z) * (P.onGround || P.flying ? 1 : 0.3); const h = P.held();
+      myModel.setHeld(h ? h.id : 0); myModel.setArmor(armorMats(P.inv));
+      myModel.animate(dt, sp, P.pitch, S.swing || 0, (keys.ShiftLeft || keys.ShiftRight) && !P.flying, performance.now() / 1000 - P.lastHurt < 0.3);
+      const l = clamp(light, 0.08, 1); myModel.mat.color.multiplyScalar(l); myModel.omat.color.multiplyScalar(l);
+    }
+  }
+  if (!third) return false;
+  const eye = P.eye(); const d = lookDir(); const back = S.pov === 1 ? -1 : 1;
+  const dir = d.clone().multiplyScalar(back); let dist = 4;
+  for (let t = 0.2; t <= 4; t += 0.2) { const q = _camTmp.copy(eye).addScaledVector(dir, t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.max(0.2, t - 0.35); break; } }
+  if (myModel) myModel.root.visible = dist > 0.9;
+  camera.position.copy(eye).addScaledVector(dir, dist);
+  if (S.pov === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.rotation.set(-P.pitch, P.yaw + Math.PI, 0);
+  return true;
+}
 
 </script>
 </body>

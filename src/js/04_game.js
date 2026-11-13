@@ -48,7 +48,7 @@ const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.002, 1.002, 1.002), cra
 
 // ---- Player ----
 class Player {
-  constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(37).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
+  constructor() { this.pos = new V3(0, 60, 0); this.vel = new V3(); this.hw = 0.3; this.h = 1.8; this.yaw = 0; this.pitch = 0; this.onGround = false; this.flying = false; this.health = 20; this.dead = false; this.inv = new Array(41).fill(null); this.sel = 0; this.blocking = false; this.spawn = new V3(0, 60, 0); this.hurtCD = 0; this.lastHurt = -99; this.peak = null; this.stepD = 0; this.regenT = 0; this.lavaT = 0; }
   eye() { return new V3(this.pos.x, this.pos.y + 1.62, this.pos.z); }
   held() { return this.inv[this.sel]; }
   heldDef() { const h = this.held(); return h ? ITEMS[h.id] : null; }
@@ -65,7 +65,7 @@ class Player {
     }
     if (effLevel('fire_resistance') && (cause === 'lava' || cause === 'a magma block' || cause === 'fire')) return;
     if (src && cause !== 'fall damage') { if (S.difficulty === 'peaceful') dmg = 0; else if (S.difficulty === 'easy') dmg = Math.min(dmg, dmg / 2 + 1); else if (S.difficulty === 'hard') dmg *= 1.5; }
-    dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
+    dmg = armorReduce(dmg, cause); dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; Sfx.play('hurt', 1);
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) { const d = new V3(this.pos.x - src.x, 0, this.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); this.vel.x += d.x * 7 * kb; this.vel.z += d.z * 7 * kb; this.vel.y = Math.max(this.vel.y, 4.5 * Math.min(kb, 1.6)); }
@@ -108,7 +108,7 @@ function paintSlot(el, s) { const img = el.firstChild, cnt = el.lastChild; el.cl
 function renderHotbar() { for (let i = 0; i < 9; i++) { paintSlot(hotSlots[i], player.inv[i]); hotSlots[i].classList.toggle('sel', i === player.sel); } paintSlot($('offhud'), player.inv[36]); $('offhud').style.visibility = player.inv[36] ? 'visible' : 'hidden'; }
 function swapHands() { const a = player.inv[player.sel], b = player.inv[36]; if (!a && !b) return; player.inv[player.sel] = b; player.inv[36] = a; S.bowDraw = -1; invDirty(); Sfx.play('click', 0.6); selectSlot(player.sel); }
 const heartImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('hearts').appendChild(im); heartImgs.push(im); }
-function updateHearts() { if (typeof renderXP === 'function') renderXP(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = S.mode === 'survival' ? 'visible' : 'hidden'; }
+function updateHearts() { if (typeof renderXP === 'function') renderXP(); if (typeof renderArmorBar === 'function') renderArmorBar(); const h = Math.max(0, Math.ceil(player.health)); for (let i = 0; i < 10; i++) { const v = h - i * 2; heartImgs[i].src = HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } $('hearts').style.visibility = S.mode === 'survival' ? 'visible' : 'hidden'; }
 let nameT = 0;
 function selectSlot(i) { if (S.bowDraw >= 0) S.bowDraw = -1; player.sel = (i + 9) % 9; invDirty(); const h = player.held(); $('itemname').textContent = h ? ITEMS[h.id].name : ''; $('itemname').style.opacity = 1; nameT = 2; }
 let toastT = 0; function toast(msg, t = 2.5) { const el = $('toast'); el.textContent = msg; el.style.opacity = 1; toastT = t; }
@@ -127,6 +127,7 @@ function makeSlot(cont, idx, parent) {
 }
 for (let i = 9; i < 36; i++) makeSlot('inv', i, $('mainGrid'));
 for (let i = 0; i < 9; i++) makeSlot('inv', i, $('hotGrid'));
+for (let i = 37; i <= 40; i++) makeSlot('inv', i, $('armorSlots'));
 makeSlot('inv', 36, $('offSlotBox'));
 for (let i = 0; i < 27; i++) makeSlot('chest', i, $('chestGrid'));
 makeSlot('furn', 0, $('furnIn')); makeSlot('furn', 1, $('furnFuel')); makeSlot('furn', 2, $('furnOut'));
@@ -151,8 +152,10 @@ function slotClick(cont, i, button, shift) {
     else if (!c) { S.cursor = s; arr[i] = null; } else if (c.id === s.id && c.count + s.count <= stackMax(s.id)) { c.count += s.count; arr[i] = null; }
     Sfx.play('click', 0.5); invDirty(); renderInvUI(); return;
   }
+  if (cont === 'inv' && i >= 37 && c && !(ITEMS[c.id].kind === 'armor' && ARMOR_SLOT[ITEMS[c.id].slot] === i)) return;
   if (shift && s) {
     let tgt, order;
+    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
     if (cont !== 'inv') { tgt = player.inv; order = [...Array(9).keys()].concat([...Array(27).keys()].map(k => k + 9)); }
     else if (chestArr) { tgt = chestArr; order = [...Array(27).keys()]; }
     else if (furnState) { tgt = furnState.s; order = FUEL[s.id] && !SMELT[s.id] ? [1] : [0]; }
@@ -180,7 +183,8 @@ function takeOutput(shift) {
 }
 function renderCursor() { const el = $('cursorItem'); const c = S.cursor; if (!c || !S.uiOpen) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.innerHTML = '<img src="' + ICON[c.id] + '">' + (c.count > 1 ? '<span class="cnt">' + c.count + '</span>' : ''); el.style.left = mouseX + 'px'; el.style.top = mouseY + 'px'; }
 function renderInvUI() {
-  for (let i = 0; i < 37; i++) paintSlot(slotEls.inv[i], player.inv[i]); slotEls.inv[36].classList.toggle('empty', !player.inv[36]); if (!player.inv[36]) { const im = slotEls.inv[36].firstChild; im.src = ICON[IT.shield]; }
+  for (let i = 0; i < 41; i++) paintSlot(slotEls.inv[i], player.inv[i]);
+  for (let i = 37; i <= 40; i++) { const el = slotEls.inv[i]; el.classList.toggle('empty', !player.inv[i]); if (!player.inv[i]) el.firstChild.src = ICON[IT[['iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'][i - 37]]]; } slotEls.inv[36].classList.toggle('empty', !player.inv[36]); if (!player.inv[36]) { const im = slotEls.inv[36].firstChild; im.src = ICON[IT.shield]; }
   if (chestArr) for (let i = 0; i < 27; i++) paintSlot(slotEls.chest[i], chestArr[i]);
   if (S.uiOpen === 'inv' || S.uiOpen === 'table') { for (let i = 0; i < S.gridN * S.gridN; i++) paintSlot(slotEls.grid[i], craftGrid[i]); const r = currentRecipe(); paintSlot(outEl, r ? { id: IT[r.out[0]], count: r.out[1] } : null); }
   if (furnState) for (let i = 0; i < 3; i++) paintSlot(slotEls.furn[i], furnState.s[i]);
@@ -466,6 +470,7 @@ function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
+  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
     const bd = BL[target.id];
@@ -778,7 +783,7 @@ function startWorld(data) {
   REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
-  player.inv = new Array(37).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
+  player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
   for (let i = 0; i < 9; i++) craftGrid[i] = null;
   S.arrival = null; S.portalLock = true;
   if (data.player) {
@@ -848,6 +853,7 @@ function tick(dt) {
     const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
   camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
+  applyPov(P, dt);
   const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (sprinting ? 80 : 72) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = BL[eb] && BL[eb].fluid ? eb : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
@@ -855,7 +861,7 @@ function tick(dt) {
   G.minLight = Math.max(MODS.graphics.minLight, effLevel('night_vision') ? 0.85 : 0); chunkUniforms.minLight.value = G.minLight;
   const light = Math.max(G.minLight, world.lightAt(eye.x, eye.y, eye.z, G.daylight));
   updateHand(dt, light);
-  if (_invDirty) { _invDirty = false; renderHotbar(); if (S.uiOpen && S.uiOpen !== 'chat') renderInvUI(); }
+  if (_invDirty) { _invDirty = false; renderHotbar(); renderArmorBar(); if (S.uiOpen && S.uiOpen !== 'chat') renderInvUI(); }
   hudT -= dt;
   if (hudT <= 0) {
     hudT = 0.25;
@@ -865,7 +871,7 @@ function tick(dt) {
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + P.pos.y.toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + target.y + ',' + target.z : '');
   }
   renderFrame(); updateModHuds(dt);
-  if (!P.dead) { renderer.clearDepth(); renderer.render(handScene, handCam); }
+  if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
 requestAnimationFrame(frame);
 addEventListener('beforeunload', () => { if (S.started && !S.loading) saveGame(false); });

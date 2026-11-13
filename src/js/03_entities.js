@@ -52,6 +52,7 @@ const Sfx = {
       case 'sand': case 'snow': case 'wool': this.nz(0.14, 1800, 0.3 * v, 'lowpass'); break;
       case 'glass': this.tone(1800, 2400, 0.08, 0.08 * v, 'triangle'); this.nz(0.2, 4000, 0.3 * v, 'highpass'); break;
       case 'pop': this.tone(500, 900, 0.07, 0.12 * v, 'sine'); break;
+      case 'armor': this.nz(0.18, 2600, 0.25 * v, 'bandpass', 2); this.tone(300, 260, 0.08, 0.05 * v, 'square'); break;
       case 'orb': this.tone(1400 + Math.random() * 600, 2200, 0.06, 0.05 * v, 'sine'); break;
       case 'levelup': this.tone(520, 520, 0.12, 0.1 * v, 'triangle'); setTimeout(() => this.tone(660, 660, 0.12, 0.1 * v, 'triangle'), 110); setTimeout(() => this.tone(880, 880, 0.25, 0.1 * v, 'triangle'), 220); break;
       case 'hurt': this.tone(260, 120, 0.16, 0.18 * v, 'square'); break;

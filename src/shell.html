@@ -22,6 +22,7 @@ button{font-family:'VT323',monospace}
 #itemname{height:24px;font-size:24px;text-shadow:2px 2px 0 #222;transition:opacity .5s;white-space:nowrap}
 #stats{display:flex;justify-content:space-between;width:100%;height:18px;align-items:flex-end}
 #hearts,#armorRow{display:flex;gap:0}
+#armorRow img{width:18px;height:18px;image-rendering:pixelated}
 #hearts img{width:18px;height:18px;image-rendering:pixelated}
 #hotrow{display:flex;gap:10px;align-items:flex-end}
 #offhud{width:44px;height:44px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
@@ -85,6 +86,19 @@ button{font-family:'VT323',monospace}
 #chatHint{display:none;color:#bbb;font-size:18px;background:rgba(0,0,0,.6);padding:2px 6px}
 #chat.open #chatHint{display:block}
 #effects{position:fixed;right:8px;top:70px;z-index:6;font-size:19px;text-align:right;text-shadow:2px 2px 0 #000;pointer-events:none;line-height:1.1}
+/* profile */
+#profile{justify-content:flex-start;padding-top:2vh;overflow:auto;background:rgba(0,0,0,.72)}
+#profile .title{font-size:clamp(24px,4.5vw,44px)}
+.pcols{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:min(820px,96vw)}
+.pcol{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(420px,92vw)}
+.pcol h4{margin:6px 0 0;font-weight:normal;font-size:24px;color:#fff}
+.pmsg{font-size:19px;color:#ccc;min-height:4px}
+.pbox{background:rgba(0,0,0,.45);border:2px solid #000;padding:8px;display:flex;flex-direction:column;gap:6px}
+.pwrap{display:flex;flex-wrap:wrap;gap:6px}
+.pcolor{display:flex;align-items:center;gap:6px;font-size:20px;background:rgba(0,0,0,.35);padding:2px 6px}
+.pcolor input[type=color]{width:36px;height:26px;border:1px solid #000;padding:0;background:none}
+.pcolor select{font-family:'VT323';font-size:19px;background:#222;color:#fff;border:1px solid #888}
+#pPreview{image-rendering:pixelated;background:radial-gradient(#3a4a5a,#1a2028);border:2px solid #000}
 /* mods */
 #mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
 #mods .title{font-size:clamp(24px,4.5vw,44px)}
@@ -200,6 +214,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnProfile">Profile &amp; Skin</button>
   <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
@@ -210,6 +225,25 @@ body.touch #hotbar .slot{width:40px;height:40px}
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
     follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.
   </div>
+</div>
+
+<div id="profile" class="screen hidden">
+  <div class="title">PROFILE</div>
+  <div class="pcols">
+    <div class="pcol">
+      <div class="row" style="width:100%"><label>Username</label><input type="text" id="pName" maxlength="16" autocomplete="off" spellcheck="false"></div>
+      <div id="pNameMsg" class="pmsg" style="color:#ff9a8a"></div>
+      <div class="pbox"><div id="gsiBox"></div><div id="pAcct" class="pmsg"></div><button class="sbtn hidden" id="btnSignOut">Sign out</button></div>
+      <h4>Skin</h4>
+      <div id="pPresets" class="pwrap"></div>
+      <div id="pColors" class="pwrap"></div>
+      <div class="pwrap"><button class="sbtn" id="btnSkinUpload">Upload skin (64x64 PNG)</button><button class="sbtn" id="btnSkinDownload">Download skin</button><button class="sbtn" id="btnSkinRandom">Random</button></div>
+      <div id="pSkinNote" class="pmsg"></div>
+    </div>
+    <div class="pcol" style="align-items:center"><canvas id="pPreview" width="234" height="216"></canvas><div class="pmsg">Front and back</div></div>
+  </div>
+  <button class="mbtn" id="btnProfileDone">Done</button>
+  <input type="file" id="skinFile" accept="image/png" style="display:none">
 </div>
 
 <div id="mods" class="screen hidden">
@@ -259,7 +293,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
     <div class="grid" id="mainGrid"></div>
     <div class="gap"></div>
     <div class="grid" id="hotGrid"></div>
-    <div class="offrow"><div id="offSlotBox"></div><span>Offhand</span></div>
+    <div class="offrow"><span>Armour</span><div id="armorSlots" style="display:flex;gap:2px"></div><div id="offSlotBox"></div><span>Offhand</span></div>
     <div class="invhint">Click: pick up / place · Right-click: split / place one · Shift-click: quick move or craft all · X: swap hands · E / Esc: close</div>
   </div>
   <button id="invClose" title="Close"><img data-ic="close" style="width:20px;height:20px;image-rendering:pixelated"></button>

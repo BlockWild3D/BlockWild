@@ -309,6 +309,11 @@ M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'B
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
+// armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
+const ARMOR_MATS = [['leather', 'Leather', [1, 3, 2, 1], 0, [150, 90, 50], 'leather'], ['golden', 'Golden', [2, 5, 3, 1], 0, [240, 200, 60], 'gold_ingot'], ['iron', 'Iron', [2, 6, 5, 2], 0, [210, 210, 214], 'iron_ingot'], ['diamond', 'Diamond', [3, 8, 6, 3], 2, [80, 220, 210], 'diamond']];
+const ARMOR_PIECES = [['helmet', 'Helmet', 'head'], ['chestplate', 'Chestplate', 'chest'], ['leggings', 'Leggings', 'legs'], ['boots', 'Boots', 'feet']];
+const ARMOR_SLOT = { head: 37, chest: 38, legs: 39, feet: 40 };
+for (const [mk, mn, pts, tough, col] of ARMOR_MATS) ARMOR_PIECES.forEach(([pk, pn, slot], i) => M(mk + '_' + pk, mn + ' ' + pn, { kind: 'armor', stack: 1, slot, def: pts[i], tough, color: col, mat: mk }));
 const ITEM_IDS = ITEMS.map((x, i) => x ? i : -1).filter(i => i > 0);
 function itemDef(id) { return ITEMS[id]; }
 function stackMax(id) { return ITEMS[id] ? ITEMS[id].stack : 64; }
@@ -349,6 +354,11 @@ function ingot(s, c, hi, dk) { for (let y = 6; y <= 11; y++) { const x0 = 2 + Ma
 function pickIcon(col, hi) { return (s) => { pLine(s, 2, 14, 10, 6, BROWN); pLine(s, 3, 14, 10, 7, BROWN2); for (let a = -110; a <= 20; a += 3) { const t = a * Math.PI / 180; s(4 + 9.5 * Math.cos(t), 11 + 9.5 * Math.sin(t), hi); s(4 + 8.5 * Math.cos(t), 11 + 8.5 * Math.sin(t), col); } }; }
 function swordIcon(col, hi) { return (s) => { pLine(s, 5, 10, 13, 2, col); pLine(s, 6, 11, 14, 3, col); pLine(s, 5, 11, 13, 3, hi); pLine(s, 3, 9, 7, 13, [70, 60, 50]); pLine(s, 2, 13, 4, 11, BROWN); s(1, 14, BROWN2); }; }
 for (const [k, , , , col, hi] of TOOLMATS) { ICONP[k + '_pickaxe'] = pickIcon(col, hi); ICONP[k + '_sword'] = swordIcon(col, hi); }
+const ARMOR_SHAPES = { helmet: ['..XXXXXXXXXX..', '.XHHHHHHHHHHX.', '.XHXXXXXXXXHX.', '.XX........XX.', '.XX........XX.', '.XX........XX.'],
+  chestplate: ['XXXX....XXXX', 'XHHXXXXXXHHX', 'XHHHHHHHHHHX', 'XXXHHHHHHXXX', '..XHHHHHHX..', '..XHHHHHHX..', '..XHHHHHHX..', '..XHHHHHHX..', '..XXXXXXXX..'],
+  leggings: ['XXXXXXXXXX', 'XHHHHHHHHX', 'XHHHXXHHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XHHX..XHHX', 'XXXX..XXXX'],
+  boots: ['XXX....XXX', 'XHX....XHX', 'XHX....XHX', 'XHHX..XHHX', 'XXXX..XXXX'] };
+for (const [mk, , , , col] of ARMOR_MATS) for (const [pk] of ARMOR_PIECES) ICONP[mk + '_' + pk] = (s, r) => { const sh = ARMOR_SHAPES[pk]; const oy = Math.round((16 - sh.length) / 2), ox = Math.round((16 - sh[0].length) / 2); const dk = mixc(col, [0, 0, 0], 0.45), hi = mixc(col, [255, 255, 255], 0.35); sh.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === 'X') s(ox + x, oy + y, dk); else if (ch === 'H') s(ox + x, oy + y, (y < 2 || x < 3) ? hi : vary(col, r, 8)); })); };
 function bucketIcon(fill) { return (s) => { for (let y = 4; y <= 13; y++) { const w = 6 - (y - 4) * 0.25; for (let x = Math.round(8 - w); x <= Math.round(7 + w); x++) s(x, y, (x === Math.round(8 - w) || x === Math.round(7 + w) || y === 13) ? [120, 120, 124] : y === 4 ? [90, 90, 94] : [200, 200, 206]); } if (fill) for (let x = 3; x <= 12; x++) { s(x, 5, fill[0]); s(x, 6, fill[1]); } pLine(s, 2, 4, 5, 1, [140, 140, 146]); pLine(s, 13, 4, 10, 1, [140, 140, 146]); pLine(s, 5, 1, 10, 1, [140, 140, 146]); }; }
 Object.assign(ICONP, {
   flint: (s, r) => { blob(s, 8, 8, 4.5, 6, [60, 60, 66], r, [30, 30, 34]); s(6, 5, [130, 130, 140]); s(7, 4, [110, 110, 120]); },
@@ -449,6 +459,7 @@ RECIPES.push(
   RSH('bookshelf', 1, ['PPP', 'LLL', 'PPP'], { P: 'planks', L: 'book' }),
   RSH('paper', 3, ['SSS'], { S: 'sugar_cane' }),
   RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
+  ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
   RSH('lapis_block', 1, ['LLL', 'LLL', 'LLL'], { L: 'lapis_lazuli' }),
   RSL('lapis_lazuli', 9, ['lapis_block']),
