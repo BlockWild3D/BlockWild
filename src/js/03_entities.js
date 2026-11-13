@@ -687,18 +687,28 @@ function updateTNT(dt) {
   G.tnts = G.tnts.filter(t => { if (t.done) { G.scene.remove(t.mesh); t.mat.dispose(); } return !t.done; });
 }
 const BLAST_PROOF = new Set();
+// Minecraft blast resistance by block family
+function blastRes(id) { const d = BL[id]; if (!d) return 0; if (BLAST_PROOF.has(id)) return 1200; const k = d.key;
+  if (d.leaves || /leaves/.test(k)) return 0.2; if (/glass|glowstone|sea_lantern/.test(k)) return 0.3; if (/^(dirt|grass|sand|farmland|dirt_path|snow|soul_sand|clay)|gravel|cactus|hay|sponge|netherrack|crimson_nylium|warped_nylium/.test(k)) return k === 'netherrack' ? 0.4 : 0.6;
+  if (/wool|ladder|torch|rail|vine|cobweb|carpet|bed/.test(k)) return 0.8; if (/end_stone/.test(k)) return 9; if (/ore/.test(k)) return 3; if (d.tool === 'axe' || d.snd === 'wood') return 3; if (d.tool === 'pick') return 6; return Math.max(0.5, (d.hardness || 1)); }
 function explode(cx, cy, cz, r, src, opts = {}) {
   if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < 256; i++) if (FKIND[i]) BLAST_PROOF.add(i);
   const w = G.world; const R = Math.ceil(r);
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
-  if (!opts.noBlocks) for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
-    const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > r * (0.75 + Math.random() * 0.35)) continue;
-    const x = Math.floor(cx + dx), y = Math.floor(cy + dy), z = Math.floor(cz + dz); const id = w.get(x, y, z);
-    if (!id || BLAST_PROOF.has(id)) continue;
-    if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.4 + Math.random() * 0.6); continue; }
-    onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
-    if (Math.random() < 0.25) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); }
-  }
+  // Minecraft's explosion: 16x16x16 rays from the centre, each starting at power x (0.7..1.3) and losing
+  // (blast resistance + 0.3) x 0.3 per 0.3-block step; obsidian and other blast-proof blocks stop rays completely,
+  // so the block under an end crystal sitting on obsidian survives
+  if (!opts.noBlocks) { const hit = new Set();
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) { if (i && i < 15 && j && j < 15 && k && k < 15) continue;
+      let dx = i / 15 * 2 - 1, dy = j / 15 * 2 - 1, dz = k / 15 * 2 - 1; const L = Math.hypot(dx, dy, dz); dx /= L; dy /= L; dz /= L;
+      let p = r * (0.7 + Math.random() * 0.6), x = cx, y = cy, z = cz;
+      for (; p > 0; p -= 0.225) { const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z); const id = w.get(bx, by, bz);
+        if (id) { const res = blastRes(id); p -= (res + 0.3) * 0.3; if (p > 0 && !BLAST_PROOF.has(id)) hit.add(bx + ',' + by + ',' + bz); }
+        x += dx * 0.3; y += dy * 0.3; z += dz * 0.3; } }
+    for (const key of hit) { const [x, y, z] = key.split(',').map(Number); const id = w.get(x, y, z); if (!id || BLAST_PROOF.has(id)) continue;
+      if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.4 + Math.random() * 0.6); continue; }
+      onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
+      if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } } }
   const c = new V3(cx, cy, cz);
   const hitE = (e, isP) => { const ec = new V3(e.pos.x, e.pos.y + (e.h || 1.8) * 0.5, e.pos.z); const d = ec.distanceTo(c); if (d > r * 2) return; const f = 1 - d / (r * 2); const dmg = Math.round(f * f * 7 * r + 1); if (isP) { e.hurtCD = 0; e.hurt(dmg, c, opts.cause || 'an explosion', 2.2); } else e.hurt(dmg, c, 2.2, !(src === G.player)); };
   for (const m of G.mobs) if (m !== src && !(m.isBoss && src && src.isCrystal === undefined && false)) hitE(m, false);
