@@ -64,6 +64,27 @@ button{font-family:'VT323',monospace}
 #loading .bar{width:280px;height:10px;border:2px solid #fff}
 #loading .bar i{display:block;height:100%;background:#7cc84b;width:0}
 #clickplay{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;font-size:32px;text-shadow:2px 2px 0 #000;background:rgba(0,0,0,.25);cursor:pointer}
+#xpRow{position:relative;width:100%;height:8px;margin-top:6px}
+#xpBar{height:6px;border:1px solid #000;background:rgba(20,20,20,.7);margin:0 1px}
+#xpBar i{display:block;height:100%;background:linear-gradient(#b6ff5a,#5fc219);width:0}
+#xpLevel{position:absolute;left:50%;top:-17px;transform:translateX(-50%);color:#80ff20;font-size:22px;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
+.slot.ench::after{content:'';position:absolute;inset:2px;background:linear-gradient(115deg,transparent 35%,rgba(200,120,255,.6) 48%,transparent 62%);background-size:300% 300%;animation:glint 2.6s linear infinite;pointer-events:none;mix-blend-mode:screen}
+@keyframes glint{from{background-position:100% 0}to{background-position:0 0}}
+.eopt{display:flex;justify-content:space-between;gap:10px;width:min(300px,62vw);height:40px;margin:2px 0;background:#8a6a8c;border:2px solid #333;color:#efe;font-family:'VT323';font-size:19px;cursor:pointer;align-items:center;padding:0 8px;text-align:left}
+.eopt:hover:not(:disabled){background:#a07ca4}.eopt:disabled{background:#5d535d;color:#9a9a9a;cursor:default}.eopt b{color:#80ff20}
+#enchItem .slot::before{content:'';}
+/* chat */
+#chat{position:fixed;left:6px;bottom:96px;width:min(560px,70vw);z-index:12;pointer-events:none;font-size:21px}
+#chatLog{display:flex;flex-direction:column;gap:1px;max-height:40vh;overflow:hidden}
+#chat.open #chatLog{overflow-y:auto;pointer-events:auto}
+.cl{background:rgba(0,0,0,.45);padding:1px 6px;text-shadow:2px 2px 0 #000;white-space:pre-wrap;word-break:break-word;transition:opacity .6s}
+.cl.fade{opacity:0}
+#chat.open .cl.fade{opacity:1}
+#chatInput{display:none;margin-top:4px;width:100%;height:32px;background:rgba(0,0,0,.6);border:none;outline:2px solid #888;color:#fff;font-family:'VT323';font-size:22px;padding:0 6px;pointer-events:auto}
+#chat.open #chatInput{display:block}
+#chatHint{display:none;color:#bbb;font-size:18px;background:rgba(0,0,0,.6);padding:2px 6px}
+#chat.open #chatHint{display:block}
+#effects{position:fixed;right:8px;top:70px;z-index:6;font-size:19px;text-align:right;text-shadow:2px 2px 0 #000;pointer-events:none;line-height:1.1}
 /* mods */
 #mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
 #mods .title{font-size:clamp(24px,4.5vw,44px)}
@@ -153,9 +174,12 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="hud" class="hidden">
   <div id="itemname"></div>
   <div id="stats"><div id="hearts"></div><div id="armorRow"></div></div>
+  <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span></div>
   <div id="hotrow"><div id="offhud" class="slot"><img><span class="cnt"></span></div><div id="hotbar"></div></div>
 </div>
 <div id="toast"></div>
+<div id="chat"><div id="chatLog"></div><div id="chatHint"></div><input id="chatInput" type="text" maxlength="256" autocomplete="off" spellcheck="false"></div>
+<div id="effects"></div>
 <div id="info" class="hidden"></div>
 <div id="debug" class="hidden"></div>
 <div id="touch" class="hidden">
@@ -213,6 +237,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="row"><label>View dist</label><input type="range" id="rdRange" min="3" max="9" step="1"><span id="rdVal" style="font-size:22px;width:28px"></span></div>
   <div class="row"><label>Sensitivity</label><input type="range" id="sensRange" min="0.3" max="2.5" step="0.1"></div>
   <div class="row"><label>Graphics</label><div class="seg" id="gfxSeg"><button data-m="low">Low</button><button data-m="medium">Medium</button><button data-m="high">High</button></div></div>
+  <div class="row"><label>Allow cheats</label><div class="seg" id="cheatSeg"><button data-m="off">Off</button><button data-m="on">On</button></div></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
   <button class="mbtn" id="btnSave">Save World</button>
   <button class="mbtn" id="btnQuit">Save &amp; Quit to Title</button>
@@ -229,6 +254,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
     <div id="chestBox" class="hidden"><h3 id="chestTitle">Chest</h3><div class="grid" id="chestGrid"></div><div class="gap"></div></div>
     <div id="craftArea" class="hidden"><h3 id="craftTitle">Crafting</h3><div class="crow"><div id="craftGrid" class="cgrid"></div><img class="arrowimg" data-ic="arrowR"><div id="outSlotBox"></div><button class="smallbtn" id="btnBook">Recipe Book</button></div><div class="gap"></div></div>
     <div id="furnArea" class="hidden"><h3>Furnace</h3><div class="crow"><div class="fcol"><div id="furnIn"></div><div class="flamebox"><img data-ic="flame"><div class="flameon"><img data-ic="flameOn"></div></div><div id="furnFuel"></div></div><div class="progbox"><img data-ic="arrowR"><div class="progon"><img data-ic="arrowRw"></div></div><div id="furnOut"></div><button class="smallbtn" id="btnBook2">Recipe Book</button></div><div class="gap"></div></div>
+    <div id="enchArea" class="hidden"><h3>Enchant</h3><div class="crow"><div class="fcol"><div id="enchItem"></div><div id="enchLapis"></div></div><div><button class="eopt" data-i="0"></button><button class="eopt" data-i="1"></button><button class="eopt" data-i="2"></button><div id="enchInfo" style="font-size:18px;color:#555"></div></div></div><div class="gap"></div></div>
     <h3>Inventory</h3>
     <div class="grid" id="mainGrid"></div>
     <div class="gap"></div>

@@ -52,6 +52,8 @@ const Sfx = {
       case 'sand': case 'snow': case 'wool': this.nz(0.14, 1800, 0.3 * v, 'lowpass'); break;
       case 'glass': this.tone(1800, 2400, 0.08, 0.08 * v, 'triangle'); this.nz(0.2, 4000, 0.3 * v, 'highpass'); break;
       case 'pop': this.tone(500, 900, 0.07, 0.12 * v, 'sine'); break;
+      case 'orb': this.tone(1400 + Math.random() * 600, 2200, 0.06, 0.05 * v, 'sine'); break;
+      case 'levelup': this.tone(520, 520, 0.12, 0.1 * v, 'triangle'); setTimeout(() => this.tone(660, 660, 0.12, 0.1 * v, 'triangle'), 110); setTimeout(() => this.tone(880, 880, 0.25, 0.1 * v, 'triangle'), 220); break;
       case 'hurt': this.tone(260, 120, 0.16, 0.18 * v, 'square'); break;
       case 'boom': this.nz(1.4, 260, 1.2 * v, 'lowpass'); this.tone(80, 30, 0.8, 0.5 * v, 'sine'); break;
       case 'hiss': this.nz(1.4, 3000, 0.25 * v, 'highpass'); break;
@@ -163,11 +165,11 @@ class ItemEnt {
   }
   remove() { G.scene.remove(this.mesh); }
 }
-function dropItem(id, count, x, y, z, burst = true) {
+function dropItem(id, count, x, y, z, burst = true, ench) {
   if (!id || count <= 0) return;
   if (G.items.length > 250) { const o = G.items.shift(); o.remove(); }
   const it = new ItemEnt(id, count, x, y, z, burst ? (Math.random() - 0.5) * 3 : 0, burst ? 3 + Math.random() * 2 : 0, burst ? (Math.random() - 0.5) * 3 : 0);
-  G.items.push(it); return it;
+  if (ench) it.ench = ench; G.items.push(it); return it;
 }
 
 
@@ -414,7 +416,7 @@ class Mob {
   update(dt) {
     const P = G.player, w = G.world, t = this.t; this.age += dt;
     this.hurtT = Math.max(0, this.hurtT - dt); this.atkCD -= dt; this.flee -= dt; this.angry -= dt;
-    this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = t.glowAll ? 1 : w.lightAt(this.pos.x, this.pos.y + Math.min(this.h, 2) * 0.7, this.pos.z, G.daylight); }
+    this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = t.glowAll ? 1 : w.lightAt(this.pos.x, this.pos.y + Math.min(this.h, 2) * 0.7, this.pos.z, G.daylight); this.light = Math.max(this.light, G.minLight || 0); }
     if (this.dead) {
       this.deadT += dt; const k = Math.min(1, this.deadT * 3.5); this.root.rotation.z = (1 - Math.pow(1 - k, 3)) * Math.PI / 2 * (this.deathSide || (this.deathSide = Math.random() < 0.5 ? -1 : 1)); if (t.fly) this.pos.y -= dt * 2;
       this.root.position.set(this.pos.x, this.pos.y - Math.max(0, this.deadT - 0.35) * 0.6, this.pos.z); this.hurtT = 0.2; this.colorize();
@@ -628,7 +630,7 @@ function updateProjectiles(dt) {
           if (a.kind === 'arrow') a.done = true; else projImpact(a, null);
         }
       }
-      if (a.owner === 'player' && !a.done) for (const m of G.mobs) { if (m.dead || m === a.src) continue; if (hitsMob(m, a.pos)) { if (a.kind === 'arrow') { m.hurt(a.dmg, P.pos, 0.6); a.done = true; } else projImpact(a, m); break; } }
+      if (a.owner === 'player' && !a.done) for (const m of G.mobs) { if (m.dead || m === a.src) continue; if (hitsMob(m, a.pos)) { if (a.kind === 'arrow') { m.hurt(a.dmg, P.pos, 0.6 + (a.punch || 0) * 0.9); if (a.flame) m.burnT = 5; a.done = true; } else projImpact(a, m); break; } }
     }
     a.mesh.position.copy(a.pos);
     if (a.kind === 'arrow') a.mesh.lookAt(a.pos.x + a.vel.x, a.pos.y + a.vel.y, a.pos.z + a.vel.z); else { a.mesh.rotation.x += dt * 4; a.mesh.rotation.y += dt * 5; }
@@ -674,6 +676,7 @@ const BLAST_PROOF = new Set();
 function explode(cx, cy, cz, r, src, opts = {}) {
   if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG']) BLAST_PROOF.add(B[k]);
   const w = G.world; const R = Math.ceil(r);
+  if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
   if (!opts.noBlocks) for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > r * (0.75 + Math.random() * 0.35)) continue;
     const x = Math.floor(cx + dx), y = Math.floor(cy + dy), z = Math.floor(cz + dz); const id = w.get(x, y, z);

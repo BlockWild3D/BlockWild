@@ -2,7 +2,7 @@
 // Mods are plain JavaScript stored in localStorage. Enabled mods run here, after the base blocks/items/recipes exist and
 // before textures, icons, the atlas and the creative palette are built, so anything a mod registers behaves like base content.
 // Each mod's code runs as `function (api) { ... }`. See MODDING.md for the full API.
-const MODS = { list: [], loaded: [], errors: {}, hooks: {}, ores: [], physics: { gravity: 28, jump: 8.6, speed: 1, fallDamage: 1 } };
+const MODS = { list: [], loaded: [], errors: {}, hooks: {}, ores: [], physics: { gravity: 28, jump: 8.6, speed: 1, fallDamage: 1 }, graphics: { minLight: 0 }, huds: [] };
 function modsLoad() { try { return JSON.parse(localStorage.getItem('blockwild_mods') || '[]'); } catch (e) { return []; } }
 function modsSave(list) { try { localStorage.setItem('blockwild_mods', JSON.stringify(list)); return true; } catch (e) { return false; } }
 function modMeta(code, fallback) {
@@ -110,6 +110,11 @@ function makeModApi(mod) {
     on(event, fn) { (MODS.hooks[event] = MODS.hooks[event] || []).push({ fn, mod: mod.name }); },
     // ---- game access (valid once a world is running) ----
     get physics() { return MODS.physics; },
+    get graphics() { return MODS.graphics; },
+    // a canvas drawn on top of the game; draw(ctx, canvas, dt) runs every frame while playing
+    addHud(o = {}) { const h = { mod: mod.name, w: o.width || 160, h: o.height || 160, corner: o.corner || 'top-right', draw: o.draw, every: o.every || 0, t: 0, el: null }; MODS.huds.push(h); return h; },
+    keyDown(code) { return typeof keys !== 'undefined' && !!keys[code]; },
+    onKey(code, fn) { api.on('key', (e) => { if (e.code === code) return fn(e); }); },
     get player() { return typeof player !== 'undefined' ? player : null; },
     get world() { return typeof world !== 'undefined' ? world : null; },
     get dimension() { return typeof world !== 'undefined' && world ? world.dim : null; },
@@ -121,6 +126,18 @@ function makeModApi(mod) {
     give(item, count = 1) { const id = typeof item === 'number' ? item : IT[ns(item)]; if (id === undefined) throw new Error('Unknown item ' + item); return addItem(id, count); },
     spawnMob(type, x, y, z) { return spawnMob(type, x, y, z); },
     lookingAt(maxDist = 6) { const h = raycast(player.eye(), lookDir(), maxDist); return h ? { x: h.x, y: h.y, z: h.z, key: BL[h.id].key, face: [h.nx, h.ny, h.nz] } : null; },
+    // colour of the block seen from above at (x, z); below maxY when given (for caves and the Nether). null if not loaded
+    surfaceColor(x, z, maxY) {
+      x = Math.floor(x); z = Math.floor(z); const c = world.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return null;
+      const lx = x & 15, lz = z & 15; let y = maxY != null ? Math.min(WH - 1, Math.floor(maxY)) : c.top[lz * 16 + lx];
+      if (maxY == null || world.flatSky) { if (maxY == null) y = Math.min(WH - 1, y); }
+      let id = 0; for (let k = 0; k < 48 && y > 0; k++, y--) { id = c.d[(y * 16 + lz) * 16 + lx]; if (id && BL[id].render !== 'none') break; }
+      if (!id || !BL[id].texIds) return [0, 0, 0];
+      const a = TILE_AVG[BL[id].texIds[2]] || [1, 0, 1]; const sh = 0.75 + Math.min(1, Math.max(0, (y - 20) / 60)) * 0.4;
+      return [a[0] * 255 * sh, a[1] * 255 * sh, a[2] * 255 * sh, y];
+    },
+    mobs() { return G.mobs.filter(m => !m.dead && !m.gone).map(m => ({ type: m.type, x: m.pos.x, y: m.pos.y, z: m.pos.z, hostile: m.t.kind !== 'passive', boss: !!m.isBoss })); },
+    players() { return (typeof allPlayers === 'function' ? allPlayers() : []).map(p => ({ name: p.name, x: p.pos.x, y: p.pos.y, z: p.pos.z, me: !!p.local })); },
     heal(n) { player.health = Math.min(20, player.health + n); updateHearts(); },
     message(text, seconds) { toast(String(text), seconds || 3); },
     explode(x, y, z, power) { explode(x, y, z, power || 3); },

@@ -180,6 +180,12 @@ makeTile('end_frame_top_eye', (set, r) => each((x, y) => { const e = x < 2 || y 
 makeTile('end_portal', (set, r) => each((x, y) => { const q = r(); set(x, y, q < 0.06 ? [120, 220, 210] : q < 0.1 ? [180, 120, 255] : q < 0.13 ? [255, 255, 255] : vary([10, 14, 20], r, 4)); }));
 makeTile('dragon_egg', (set, r) => each((x, y) => { let c = vary([20, 10, 26], r, 5); if (r() < 0.12) c = vary([90, 40, 130], r, 10); set(x, y, c); }));
 makeTile('quartz_block', (set, r) => each((x, y) => set(x, y, vary([236, 230, 222], r, 4))));
+makeTile('sugar_cane', (set, r) => { clear(set); for (const cx of [3, 8, 12]) { for (let y = 0; y < 16; y++) { const j = (y + cx) % 5 === 0; set(cx, y, j ? [150, 196, 110] : vary([118, 172, 82], r, 10)); set(cx + 1, y, j ? [120, 160, 90] : vary([92, 146, 62], r, 8)); } set(cx - 1, (cx * 3) % 14 + 1, [110, 170, 80]); set(cx + 2, (cx * 5) % 13 + 2, [100, 160, 70]); } });
+makeTile('lapis_ore', (set, r) => pOre(set, r, [36, 70, 190], [80, 130, 236]));
+makeTile('lapis_block', (set, r) => each((x, y) => { let c = vary([34, 66, 170], r, 10); if (r() < 0.15) c = vary([70, 110, 220], r, 8); if (x === 0 || y === 0 || x === 15 || y === 15) c = [24, 44, 120]; set(x, y, c); }));
+makeTile('ench_top', (set, r) => each((x, y) => { const e = x < 2 || y < 2 || x > 13 || y > 13; let c = e ? vary([40, 20, 30], r, 6) : vary([150, 30, 40], r, 12); if (!e && (x === 7 || x === 8) && y > 3 && y < 12) c = [230, 220, 200]; if (!e && y > 4 && y < 11 && (x === 6 || x === 9)) c = [200, 190, 170]; set(x, y, c); }));
+makeTile('ench_side', (set, r) => each((x, y) => { let c = y < 4 ? vary([150, 30, 40], r, 10) : vary([28, 22, 36], r, 6); if (y === 4) c = [60, 20, 30]; if (y > 6 && r() < 0.05) c = [80, 220, 200]; set(x, y, c); }));
+makeTile('ench_bottom', (set, r) => each((x, y) => set(x, y, vary([22, 18, 30], r, 6))));
 
 // crack overlays
 const crackTex = [];
@@ -268,6 +274,10 @@ defBlock('end_portal_frame_eye', 'End Portal Frame (Eye)', { tex: { s: 'end_fram
 defBlock('end_portal', 'End Portal', { tex: 'end_portal', solid: false, opaque: false, render: 'endportal', hardness: -1, drop: null, light: 0.8, noTarget: true });
 defBlock('dragon_egg', 'Shadow Dragon Egg', { tex: 'dragon_egg', hardness: 3, light: 0.15 });
 defBlock('quartz_block', 'Block of Quartz', { tex: 'quartz_block', hardness: 0.8, tool: 'pick', tier: 1 });
+defBlock('sugar_cane', 'Sugar Cane', { tex: 'sugar_cane', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
+defBlock('lapis_ore', 'Lapis Lazuli Ore', { tex: 'lapis_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['lapis_lazuli', 4 + (r * 6 | 0)] });
+defBlock('lapis_block', 'Block of Lapis Lazuli', { tex: 'lapis_block', hardness: 3, tool: 'pick', tier: 2 });
+defBlock('enchanting_table', 'Enchanting Table', { tex: { s: 'ench_side', t: 'ench_top', b: 'ench_bottom' }, hardness: 5, tool: 'pick', tier: 1, light: 0.45, use: 'enchant' });
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -298,6 +308,7 @@ M('quartz', 'Nether Quartz'); M('nether_brick', 'Nether Brick'); M('gold_nugget'
 M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'Blaze Powder'); M('magma_cream', 'Magma Cream');
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
+M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
 const ITEM_IDS = ITEMS.map((x, i) => x ? i : -1).filter(i => i > 0);
 function itemDef(id) { return ITEMS[id]; }
 function stackMax(id) { return ITEMS[id] ? ITEMS[id].stack : 64; }
@@ -352,6 +363,9 @@ Object.assign(ICONP, {
   magma_cream: (s, r) => { blob(s, 8, 8, 5, 5, [220, 120, 40], r, [140, 60, 20]); s(7, 7, [255, 220, 100]); s(9, 9, [255, 200, 80]); },
   ender_pearl: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [20, 90, 80], r, [10, 50, 46]); s(6, 6, [120, 220, 200]); s(7, 6, [80, 180, 160]); s(6, 7, [80, 180, 160]); },
   shield: (s, r) => { for (let y = 1; y <= 14; y++) { const w = y < 10 ? 5.5 : 5.5 - (y - 9) * 1.1; for (let x = Math.round(7.5 - w); x <= Math.round(7.5 + w); x++) { const edge = y === 1 || y === 14 || x === Math.round(7.5 - w) || x === Math.round(7.5 + w); const plank = (x % 3 === 0) ? [128, 92, 52] : [158, 116, 68]; s(x, y, edge ? [178, 178, 186] : vary(plank, r, 6)); } } for (let y = 6; y <= 8; y++) for (let x = 6; x <= 9; x++) s(x, y, (x === 6 && y === 6) ? [235, 235, 240] : [186, 186, 194]); },
+  paper: (s) => { for (let y = 3; y <= 13; y++) for (let x = 3; x <= 12; x++) s(x, y, (x === 12 || y === 13) ? [200, 200, 190] : [246, 246, 240]); for (const y of [5, 7, 9, 11]) for (let x = 5; x <= 10; x++) s(x, y, [210, 210, 204]); },
+  book: (s) => { for (let y = 2; y <= 14; y++) for (let x = 3; x <= 12; x++) s(x, y, x <= 4 ? [90, 50, 30] : (y === 2 || y === 14 || x === 12) ? [110, 60, 34] : [150, 84, 46]); for (let y = 3; y <= 13; y++) s(13, y, [236, 232, 220]); },
+  lapis_lazuli: (s, r) => { blob(s, 8, 8, 5, 5.5, [40, 80, 200], r, [24, 44, 130]); s(6, 6, [120, 170, 255]); s(7, 6, [90, 140, 240]); s(9, 10, [30, 60, 170]); },
   eye_of_ender: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [40, 130, 90], r, [20, 70, 50]); blob(s, 8, 8, 3, 2, [200, 230, 120], r); for (let y = 6; y <= 10; y++) s(8, y, [10, 30, 20]); s(6, 6, [160, 240, 200]); },
 });
 
@@ -432,7 +446,12 @@ RECIPES.push(
   RSH('sandstone', 1, ['SS', 'SS'], { S: 'sand' }),
   RSH('stone_bricks', 4, ['SS', 'SS'], { S: 'stone' }),
   RSH('brick', 2, ['SG', 'GS'], { S: 'sand', G: 'gravel' }),
-  RSH('bookshelf', 1, ['PPP', 'LLL', 'PPP'], { P: 'planks', L: 'leather' }),
+  RSH('bookshelf', 1, ['PPP', 'LLL', 'PPP'], { P: 'planks', L: 'book' }),
+  RSH('paper', 3, ['SSS'], { S: 'sugar_cane' }),
+  RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
+  RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
+  RSH('lapis_block', 1, ['LLL', 'LLL', 'LLL'], { L: 'lapis_lazuli' }),
+  RSL('lapis_lazuli', 9, ['lapis_block']),
   RSH('glowstone', 1, [' T ', 'TGT', ' T '], { T: 'torch', G: 'glass' }),
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('gold_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'gold_nugget' }),

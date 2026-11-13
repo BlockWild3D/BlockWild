@@ -311,7 +311,7 @@ const atlasTex = new THREE.CanvasTexture(atlasCanvas); atlasTex.magFilter = THRE
 const dummyDepth = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 },
   shadowOn: { value: 0 }, shadowMap: { value: dummyDepth }, shadowMatrix: { value: new THREE.Matrix4() }, shadowTexel: { value: 1 / 2048 }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunK: { value: 0 },
-  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 } };
+  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 }, minLight: { value: 0 } };
 const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 uniform float fogNear; uniform float fogFar; uniform float time;
 void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
@@ -321,7 +321,7 @@ void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
  vec4 wp=modelMatrix*vec4(p,1.0); vWorld=wp.xyz; vec4 mv=viewMatrix*wp; vDist=length(mv.xyz); vFog=smoothstep(fogNear,fogFar,vDist); gl_Position=projectionMatrix*mv; }`;
 const FS_COMMON = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV; uniform float time;
 uniform float shadowOn; uniform sampler2D shadowMap; uniform mat4 shadowMatrix; uniform float shadowTexel; uniform vec3 sunDir; uniform float sunK;
-uniform vec3 skyRefl; uniform float mist; uniform float mistY;
+uniform vec3 skyRefl; uniform float mist; uniform float mistY; uniform float minLight;
 varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 float shadowAt(vec3 wp, vec3 n){
  vec4 sc=shadowMatrix*vec4(wp+n*0.05,1.0); vec3 s=sc.xyz*0.5+0.5;
@@ -334,7 +334,7 @@ vec3 lightFor(vec3 n){
  float sky=vLight.x*daylight;
  if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0){ float ndl=dot(n,sunDir); float lit= ndl>0.0 ? shadowAt(vWorld,n)*smoothstep(0.0,0.3,ndl) : 0.0; sky*=mix(1.0-0.38*sunK, 1.0+0.06*sunK, lit); }
  float fl=0.92+0.08*sin(time*7.0+vWorld.x*1.3+vWorld.z*0.7)*sin(time*11.3+vWorld.y*2.1);
- vec3 l=max(skyTint*sky, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(0.07)); }`;
+ vec3 l=max(skyTint*sky, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(max(0.07,minLight))); }`;
 const FS = FS_COMMON + `
 void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
  float f=fogMix();
@@ -469,6 +469,7 @@ class World {
       [B.IRON_ORE, 4, 8, 6, 30, 'tri'], [B.IRON_ORE, 3, 4, 1, 34, 'uni'], [B.IRON_ORE, 5, 8, 52, 95, 'tri'],
       [B.GOLD_ORE, 2, 8, 1, 24, 'tri'], [B.GOLD_ORE, 1, 3, 1, 12, 'uni'],
       [B.DIAMOND_ORE, 3, 4, 1, 20, 'low'], [B.DIAMOND_ORE, 1, 9, 1, 12, 'rare'],
+      [B.LAPIS_ORE, 2, 6, 1, 32, 'tri'], [B.LAPIS_ORE, 1, 6, 1, 40, 'uni'],
       [B.GRAVEL, 4, 24, 1, 95, 'uni'], [B.DIRT, 2, 24, 16, 56, 'uni']];
     for (const [id, cnt, sz, mnY, mxY, shape] of ores) for (let i = 0; i < cnt; i++) {
       if (shape === 'rare' && r() > 0.11) continue;
@@ -496,6 +497,10 @@ class World {
       const col = cols[z * 16 + x]; const y = col.h; if (y >= WH - 4) continue;
       const below = d[((y - 1) * 16 + z) * 16 + x], here = d[(y * 16 + z) * 16 + x]; if (here) continue;
       const wx = bx + x, wz = bz + z; const q = rnd01(wx, 7, wz, seed);
+      // sugar cane: on grass, dirt or sand right next to water (Minecraft rule)
+      if ((below === B.GRASS || below === B.SAND || below === B.DIRT) && x > 0 && x < 15 && z > 0 && z < 15 && q > 0.82 && q < 0.9) {
+        const j = (y - 1) * 256 + z * 16 + x; if (d[j - 1] === B.WATER || d[j + 1] === B.WATER || d[j - 16] === B.WATER || d[j + 16] === B.WATER) {
+          const H = 1 + (rnd01(wx, 9, wz, seed) * 3 | 0); for (let k = 0; k < H && y + k < WH - 1; k++) d[((y + k) * 16 + z) * 16 + x] = B.SUGAR_CANE; continue; } }
       if (below === B.GRASS) {
         if (col.b === BIO.PLAINS) { if (q < 0.14) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.165) d[(y * 16 + z) * 16 + x] = q < 0.152 ? B.ROSE : B.DANDELION; }
         else if (col.b === BIO.FOREST) { if (q < 0.1) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.11) d[(y * 16 + z) * 16 + x] = B.ROSE; }

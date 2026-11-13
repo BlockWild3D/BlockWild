@@ -78,6 +78,44 @@ api.on('chunkGenerate', (c) => {
   if (c.random() < 0.5) { c.set(cx + 2, top + 1, cz, 'chest'); }
 });
 `,
+`// @name Fullbright
+// @description See clearly everywhere: caves, night and the Nether are fully lit. Press B to turn it on or off.
+// @author BlockWild
+// @version 1.0
+let on = true;
+api.graphics.minLight = 1;
+api.onKey('KeyB', () => {
+  on = !on; api.graphics.minLight = on ? 1 : 0;
+  api.message('Fullbright ' + (on ? 'on' : 'off'), 1.5);
+});
+`,
+`// @name Mini Map
+// @description A round map in the corner showing the land around you, players and mobs. Press M to zoom.
+// @author BlockWild
+// @version 1.0
+const SIZE = 136, R = SIZE / 2;
+let zoom = 1; // pixels per block
+api.onKey('KeyM', () => { zoom = zoom === 1 ? 2 : zoom === 2 ? 0.5 : 1; api.message('Map zoom ' + zoom + 'x', 1); });
+api.addHud({ width: SIZE, height: SIZE, corner: 'top-left', every: 0.15, draw(ctx) {
+  const p = api.player.pos; const img = ctx.createImageData(SIZE, SIZE); const d = img.data;
+  const under = api.dimension !== 'overworld' || api.surfaceColor(p.x, p.z)[3] > p.y + 3; // in a cave or the Nether: slice at your height
+  for (let py = 0; py < SIZE; py++) for (let px = 0; px < SIZE; px++) {
+    const dx = px - R, dy = py - R; if (dx * dx + dy * dy > (R - 3) * (R - 3)) continue;
+    const c = api.surfaceColor(p.x + dx / zoom, p.z + dy / zoom, under ? p.y + 1.5 : undefined) || [20, 20, 24];
+    const k = (py * SIZE + px) * 4; d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(R, R, R - 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 2; ctx.stroke();
+  const dot = (x, z, col, r) => { const sx = R + (x - p.x) * zoom, sy = R + (z - p.z) * zoom; if ((sx - R) ** 2 + (sy - R) ** 2 > (R - 6) ** 2) return; ctx.fillStyle = '#000'; ctx.fillRect(sx - r - 1, sy - r - 1, r * 2 + 2, r * 2 + 2); ctx.fillStyle = col; ctx.fillRect(sx - r, sy - r, r * 2, r * 2); };
+  for (const m of api.mobs()) dot(m.x, m.z, m.boss ? '#c070ff' : m.hostile ? '#ff4a3a' : '#f4f4f4', 1.5);
+  for (const pl of api.players()) if (!pl.me) dot(pl.x, pl.z, '#4ab0ff', 2.5);
+  // you: an arrow pointing where you look (north is up)
+  const yaw = api.player.yaw; ctx.save(); ctx.translate(R, R); ctx.rotate(-yaw); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.fillText('N', R, 13);
+} });
+`,
 `// @name Endless Day
 // @description The sun never sets: time stops at midday.
 // @author BlockWild
