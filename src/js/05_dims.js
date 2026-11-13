@@ -24,7 +24,8 @@ function handleArrival() {
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { world.set(100 + dx, 48, dz, B.OBSIDIAN); for (let y = 49; y <= 51; y++) world.set(100 + dx, y, dz, 0); }
     player.pos.set(100.5, 49.01, 0.5); player.yaw = Math.PI / 2; player.pitch = 0.05;
     toast('Destroy the End Crystals on the pillars, then defeat the Shadow Dragon', 6);
-  } else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
+  } else if (a.type === 'bed' && a.pos) { player.pos.set(a.pos.x, a.pos.y, a.pos.z); }
+  else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
   player.vel.set(0, 0, 0); player.peak = null; S.portalLock = true;
   if (world.dim === 'end') EndFight.enter();
   return true;

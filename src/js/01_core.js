@@ -191,6 +191,9 @@ makeTile('farmland', (set, r) => each((x, y) => { let c = vary([92, 62, 38], r, 
 for (let st = 0; st < 4; st++) makeTile('wheat' + st, (set, r) => { clear(set); const H = 4 + st * 3.6; const col = st < 3 ? [70 + st * 20, 150 - st * 6, 40] : [196, 170, 70]; for (const cx of [2, 5, 8, 11, 14]) { const h = Math.round(H - r() * 2); for (let y = 0; y < h; y++) set(cx + (y > h - 3 && st === 3 ? (cx % 2) : 0), 15 - y, vary(y > h - 4 && st === 3 ? [214, 186, 90] : col, r, 10)); if (st === 3) { set(cx - 1, 15 - h + 1, [180, 150, 60]); set(cx + 1, 15 - h + 2, [180, 150, 60]); } } });
 makeTile('hay_side', (set, r) => each((x, y) => { let c = vary([196, 160, 52], r, 12); if (y === 3 || y === 12) c = [120, 70, 30]; if (x % 3 === 0 && y !== 3 && y !== 12) c = vary([170, 136, 40], r, 8); set(x, y, c); }));
 makeTile('hay_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(d > 6.5 ? [120, 70, 30] : (Math.floor(d) % 2 ? [176, 140, 40] : [206, 170, 62]), r, 8)); }));
+makeTile('bed_head_top', (set, r) => each((x, y) => { const pil = y < 9 && x > 1 && x < 14 && y > 1; let c = pil ? vary([236, 236, 230], r, 5) : vary([176, 36, 36], r, 9); if (pil && (y === 2 || x === 2 || x === 13)) c = [214, 214, 206]; if (!pil && (x === 0 || x === 15)) c = [140, 26, 26]; set(x, y, c); }));
+makeTile('bed_foot_top', (set, r) => each((x, y) => { let c = vary([176, 36, 36], r, 9); if (x === 0 || x === 15) c = [140, 26, 26]; if (y % 5 === 0) c = vary([196, 50, 50], r, 6); set(x, y, c); }));
+makeTile('bed_side', (set, r) => each((x, y) => { if (y < 7) { set(x, y, [0, 0, 0], 0); return; } let c = y < 11 ? vary([176, 36, 36], r, 8) : y < 13 ? vary([164, 132, 80], r, 8) : vary([130, 100, 60], r, 6); if (y === 7) c = [196, 56, 56]; if (y === 10) c = [140, 26, 26]; set(x, y, c, (y >= 13 && x >= 3 && x <= 12) ? 0 : 255); }));
 makeTile('ench_bottom', (set, r) => each((x, y) => set(x, y, vary([22, 18, 30], r, 6))));
 
 // crack overlays
@@ -283,6 +286,8 @@ defBlock('quartz_block', 'Block of Quartz', { tex: 'quartz_block', hardness: 0.8
 defBlock('sugar_cane', 'Sugar Cane', { tex: 'sugar_cane', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
 defBlock('lapis_ore', 'Lapis Lazuli Ore', { tex: 'lapis_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['lapis_lazuli', 4 + (r * 6 | 0)] });
 defBlock('lapis_block', 'Block of Lapis Lazuli', { tex: 'lapis_block', hardness: 3, tool: 'pick', tier: 2 });
+defBlock('bed_head', 'Bed', { tex: { s: 'bed_side', t: 'bed_head_top', b: 'planks' }, opaque: false, render: 'cube', h: 9 / 16, hardness: 0.2, snd: 'wool', drop: 'bed', use: 'bed', hidden: true });
+defBlock('bed_foot', 'Bed', { tex: { s: 'bed_side', t: 'bed_foot_top', b: 'planks' }, opaque: false, render: 'cube', h: 9 / 16, hardness: 0.2, snd: 'wool', drop: null, use: 'bed', hidden: true });
 defBlock('dirt_path', 'Dirt Path', { tex: { s: 'path_side', t: 'path_top', b: 'dirt' }, hardness: 0.65, snd: 'grass', drop: 'dirt' });
 defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' }, hardness: 0.6, snd: 'grass', drop: 'dirt' });
 for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
@@ -319,6 +324,7 @@ M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'B
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
+M('bed', 'Bed', { kind: 'bed', stack: 1 });
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
@@ -368,6 +374,7 @@ function swordIcon(col, hi) { return (s) => { pLine(s, 5, 10, 13, 2, col); pLine
 for (const [k, , , , col, hi] of TOOLMATS) { ICONP[k + '_pickaxe'] = pickIcon(col, hi); ICONP[k + '_sword'] = swordIcon(col, hi); }
 for (const [k, , , , col, hi] of TOOLMATS) ICONP[k + '_hoe'] = (s) => { pLine(s, 3, 14, 10, 7, BROWN); pLine(s, 4, 14, 11, 7, BROWN2); for (const [x, y] of [[9, 3], [10, 3], [11, 3], [12, 4], [8, 4], [9, 4], [10, 4], [11, 5], [12, 5], [12, 6]]) s(x, y, (y < 4) ? hi : col); };
 Object.assign(ICONP, {
+  bed: (s) => { for (let y = 6; y <= 11; y++) for (let x = 1; x <= 14; x++) s(x, y, y < 8 ? (x < 5 ? [236, 236, 230] : [196, 44, 44]) : y < 10 ? [176, 36, 36] : (x < 3 || x > 12 ? [130, 100, 60] : [0, 0, 0, 0])); for (let x = 1; x <= 14; x++) s(x, 10, [164, 132, 80]); },
   wheat_seeds: (s, r) => { for (let i = 0; i < 9; i++) { const x = 4 + r() * 8, y = 5 + r() * 7; s(x, y, [90, 150, 50]); s(x + 1, y, [60, 120, 30]); } },
   wheat: (s, r) => { for (const ox of [-2, 0, 2]) { pLine(s, 8 + ox, 14, 8 + ox * 1.5, 4, [170, 140, 50]); for (let y = 3; y < 9; y++) s(8 + ox * 1.5 + (y % 2 ? 1 : -1), y, [214, 186, 90]); } },
   bread: (s, r) => { blob(s, 8, 9, 6.5, 3.8, [190, 130, 60], r, [130, 80, 30]); for (const x of [5, 8, 11]) pLine(s, x, 7, x + 1, 9, [230, 190, 120]); },
@@ -479,6 +486,7 @@ RECIPES.push(
   RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
   ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('bread', 1, ['WWW'], { W: 'wheat' }),
+  RSH('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' }),
   RSH('hay_block', 1, ['WWW', 'WWW', 'WWW'], { W: 'wheat' }), RSL('wheat', 9, ['hay_block']),
   ...[['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].map(([k, m]) => RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' })),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),

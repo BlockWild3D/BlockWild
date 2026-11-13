@@ -185,6 +185,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="water" class="hidden"></div>
 <div id="lavafx" class="hidden"></div>
 <div id="portalfx"></div>
+<div id="sleepfx" class="hidden" style="position:fixed;inset:0;background:#000;opacity:0;z-index:9;pointer-events:none"></div>
 <div id="bossbar" class="hidden"><div id="bossname">Shadow Dragon</div><div class="bbar"><i id="bossfill"></i></div></div>
 <div id="hurt"></div>
 <div id="crosshair" class="hidden"></div>
@@ -528,6 +529,9 @@ makeTile('farmland', (set, r) => each((x, y) => { let c = vary([92, 62, 38], r, 
 for (let st = 0; st < 4; st++) makeTile('wheat' + st, (set, r) => { clear(set); const H = 4 + st * 3.6; const col = st < 3 ? [70 + st * 20, 150 - st * 6, 40] : [196, 170, 70]; for (const cx of [2, 5, 8, 11, 14]) { const h = Math.round(H - r() * 2); for (let y = 0; y < h; y++) set(cx + (y > h - 3 && st === 3 ? (cx % 2) : 0), 15 - y, vary(y > h - 4 && st === 3 ? [214, 186, 90] : col, r, 10)); if (st === 3) { set(cx - 1, 15 - h + 1, [180, 150, 60]); set(cx + 1, 15 - h + 2, [180, 150, 60]); } } });
 makeTile('hay_side', (set, r) => each((x, y) => { let c = vary([196, 160, 52], r, 12); if (y === 3 || y === 12) c = [120, 70, 30]; if (x % 3 === 0 && y !== 3 && y !== 12) c = vary([170, 136, 40], r, 8); set(x, y, c); }));
 makeTile('hay_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(d > 6.5 ? [120, 70, 30] : (Math.floor(d) % 2 ? [176, 140, 40] : [206, 170, 62]), r, 8)); }));
+makeTile('bed_head_top', (set, r) => each((x, y) => { const pil = y < 9 && x > 1 && x < 14 && y > 1; let c = pil ? vary([236, 236, 230], r, 5) : vary([176, 36, 36], r, 9); if (pil && (y === 2 || x === 2 || x === 13)) c = [214, 214, 206]; if (!pil && (x === 0 || x === 15)) c = [140, 26, 26]; set(x, y, c); }));
+makeTile('bed_foot_top', (set, r) => each((x, y) => { let c = vary([176, 36, 36], r, 9); if (x === 0 || x === 15) c = [140, 26, 26]; if (y % 5 === 0) c = vary([196, 50, 50], r, 6); set(x, y, c); }));
+makeTile('bed_side', (set, r) => each((x, y) => { if (y < 7) { set(x, y, [0, 0, 0], 0); return; } let c = y < 11 ? vary([176, 36, 36], r, 8) : y < 13 ? vary([164, 132, 80], r, 8) : vary([130, 100, 60], r, 6); if (y === 7) c = [196, 56, 56]; if (y === 10) c = [140, 26, 26]; set(x, y, c, (y >= 13 && x >= 3 && x <= 12) ? 0 : 255); }));
 makeTile('ench_bottom', (set, r) => each((x, y) => set(x, y, vary([22, 18, 30], r, 6))));
 
 // crack overlays
@@ -620,6 +624,8 @@ defBlock('quartz_block', 'Block of Quartz', { tex: 'quartz_block', hardness: 0.8
 defBlock('sugar_cane', 'Sugar Cane', { tex: 'sugar_cane', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
 defBlock('lapis_ore', 'Lapis Lazuli Ore', { tex: 'lapis_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['lapis_lazuli', 4 + (r * 6 | 0)] });
 defBlock('lapis_block', 'Block of Lapis Lazuli', { tex: 'lapis_block', hardness: 3, tool: 'pick', tier: 2 });
+defBlock('bed_head', 'Bed', { tex: { s: 'bed_side', t: 'bed_head_top', b: 'planks' }, opaque: false, render: 'cube', h: 9 / 16, hardness: 0.2, snd: 'wool', drop: 'bed', use: 'bed', hidden: true });
+defBlock('bed_foot', 'Bed', { tex: { s: 'bed_side', t: 'bed_foot_top', b: 'planks' }, opaque: false, render: 'cube', h: 9 / 16, hardness: 0.2, snd: 'wool', drop: null, use: 'bed', hidden: true });
 defBlock('dirt_path', 'Dirt Path', { tex: { s: 'path_side', t: 'path_top', b: 'dirt' }, hardness: 0.65, snd: 'grass', drop: 'dirt' });
 defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' }, hardness: 0.6, snd: 'grass', drop: 'dirt' });
 for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
@@ -656,6 +662,7 @@ M('ghast_tear', 'Ghast Tear'); M('blaze_rod', 'Blaze Rod'); M('blaze_powder', 'B
 M('ender_pearl', 'Ender Pearl', { kind: 'pearl', stack: 16 }); M('eye_of_ender', 'Eye of Ender', { kind: 'eye' });
 M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
+M('bed', 'Bed', { kind: 'bed', stack: 1 });
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
@@ -705,6 +712,7 @@ function swordIcon(col, hi) { return (s) => { pLine(s, 5, 10, 13, 2, col); pLine
 for (const [k, , , , col, hi] of TOOLMATS) { ICONP[k + '_pickaxe'] = pickIcon(col, hi); ICONP[k + '_sword'] = swordIcon(col, hi); }
 for (const [k, , , , col, hi] of TOOLMATS) ICONP[k + '_hoe'] = (s) => { pLine(s, 3, 14, 10, 7, BROWN); pLine(s, 4, 14, 11, 7, BROWN2); for (const [x, y] of [[9, 3], [10, 3], [11, 3], [12, 4], [8, 4], [9, 4], [10, 4], [11, 5], [12, 5], [12, 6]]) s(x, y, (y < 4) ? hi : col); };
 Object.assign(ICONP, {
+  bed: (s) => { for (let y = 6; y <= 11; y++) for (let x = 1; x <= 14; x++) s(x, y, y < 8 ? (x < 5 ? [236, 236, 230] : [196, 44, 44]) : y < 10 ? [176, 36, 36] : (x < 3 || x > 12 ? [130, 100, 60] : [0, 0, 0, 0])); for (let x = 1; x <= 14; x++) s(x, 10, [164, 132, 80]); },
   wheat_seeds: (s, r) => { for (let i = 0; i < 9; i++) { const x = 4 + r() * 8, y = 5 + r() * 7; s(x, y, [90, 150, 50]); s(x + 1, y, [60, 120, 30]); } },
   wheat: (s, r) => { for (const ox of [-2, 0, 2]) { pLine(s, 8 + ox, 14, 8 + ox * 1.5, 4, [170, 140, 50]); for (let y = 3; y < 9; y++) s(8 + ox * 1.5 + (y % 2 ? 1 : -1), y, [214, 186, 90]); } },
   bread: (s, r) => { blob(s, 8, 9, 6.5, 3.8, [190, 130, 60], r, [130, 80, 30]); for (const x of [5, 8, 11]) pLine(s, x, 7, x + 1, 9, [230, 190, 120]); },
@@ -816,6 +824,7 @@ RECIPES.push(
   RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
   ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('bread', 1, ['WWW'], { W: 'wheat' }),
+  RSH('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' }),
   RSH('hay_block', 1, ['WWW', 'WWW', 'WWW'], { W: 'wheat' }), RSL('wheat', 9, ['hay_block']),
   ...[['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].map(([k, m]) => RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' })),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
@@ -1729,11 +1738,11 @@ class World {
       for (let f = 0; f < 6; f++) {
         const F = FACES[f]; const nx = x + F.n[0], ny = y + F.n[1], nz = z + F.n[2]; const nb = get(nx, ny, nz);
         if (isW) { if (nb === id || OPAQUE[nb]) continue; if (f !== 2 && nb && SOLID[nb] && !OPAQUE[nb]) { } }
-        else { if (OPAQUE[nb]) continue; if (nb === id && def.cullSame) continue; }
+        else { if (OPAQUE[nb] && !(def.h && f === 2)) continue; if (nb === id && def.cullSame) continue; if (def.h && f !== 2 && f !== 3 && BL[nb] && BL[nb].h) continue; }
         const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
         for (let k = 0; k < 4; k++) {
-          const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (waterTop && cc[1] ? 0.875 : cc[1]); vtmp[k * 3 + 2] = z + cc[2];
-          uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? uv[3] : uv[1];
+          const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (waterTop && cc[1] ? 0.875 : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
+          uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
           wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
           if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
           else aov[k] = 3;
@@ -3248,7 +3257,7 @@ function breakTime(id, tool) {
 function breakBlock(x, y, z) {
   const id = world.get(x, y, z); if (!id) return;
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
-  onBlockRemoved(x, y, z, id); world.set(x, y, z, 0);
+  onBlockRemoved(x, y, z, id); world.set(x, y, z, 0); breakBedPair(x, y, z, id);
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 0.9);
   if (S.mode === 'survival') { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
@@ -3332,6 +3341,7 @@ function useAction(eye, dir) {
   if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
+  if (hd && hd.kind === 'bed' && target && !(BL[target.id].use && !sneaking)) { mouseR = false; if (placeBed(target)) useHeld(1); S.swing = 1; return; }
   if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[player.sel] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
@@ -3339,6 +3349,7 @@ function useAction(eye, dir) {
     if (bd.use === 'chest') { mouseR = false; openChest(target.x, target.y, target.z); return; }
     if (target.id === B.CRAFTING_TABLE) { mouseR = false; openUI('table'); return; }
     if (target.id === B.FURNACE) { mouseR = false; openUI('furnace', target.x + ',' + target.y + ',' + target.z); return; }
+    if (bd.use === 'bed') { mouseR = false; useBed(target.x, target.y, target.z); return; }
     if (target.id === B.ENCHANTING_TABLE) { mouseR = false; openUI('enchant', target.x + ',' + target.y + ',' + target.z); return; }
     if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
   }
@@ -3624,7 +3635,7 @@ $('btnSave').addEventListener('click', () => saveGame(true));
 $('btnQuit').addEventListener('click', () => { saveGame(false); quitToTitle(); });
 $('btnRespawn').addEventListener('click', () => {
   player.dead = false; player.health = 20; player.vel.set(0, 0, 0); player.peak = null; updateHearts(); show('death', false);
-  if (world.dim !== 'overworld') travelTo('overworld', { type: 'spawn' }); else { player.pos.copy(player.spawn); world.lastCenter = null; requestLock(); }
+  S.sleeping = null; const bs = bedSpawnPos(); if (world.dim !== 'overworld') travelTo('overworld', bs ? { type: 'bed', x: Math.floor(bs.x), z: Math.floor(bs.z), pos: bs } : { type: 'spawn' }); else { player.pos.copy(bs || player.spawn); world.lastCenter = null; requestLock(); }
 });
 function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.stringify({ rd: S.renderDist, sens: S.sens, fov: S.fov, sim: S.simDist, gfx: (typeof GFX !== 'undefined' ? GFX.quality : undefined) })); } catch (e) { } }
 
@@ -3647,7 +3658,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -3669,7 +3680,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
-  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
+  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(41).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
@@ -3726,7 +3737,7 @@ function tick(dt) {
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
     updatePlayer(dt); if (world) updateInteraction(dt);
     if (MODS.hooks.tick) modFire('tick', dt);
-    updateEffects(dt); updateOrbs(dt); randomTicks(dt);
+    updateEffects(dt); updateOrbs(dt); randomTicks(dt); updateSleep(dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;
@@ -3794,7 +3805,8 @@ function handleArrival() {
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { world.set(100 + dx, 48, dz, B.OBSIDIAN); for (let y = 49; y <= 51; y++) world.set(100 + dx, y, dz, 0); }
     player.pos.set(100.5, 49.01, 0.5); player.yaw = Math.PI / 2; player.pitch = 0.05;
     toast('Destroy the End Crystals on the pillars, then defeat the Shadow Dragon', 6);
-  } else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
+  } else if (a.type === 'bed' && a.pos) { player.pos.set(a.pos.x, a.pos.y, a.pos.z); }
+  else { const sp = player.spawn; const y = world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)); player.pos.set(sp.x, y + 0.01, sp.z); }
   player.vel.set(0, 0, 0); player.peak = null; S.portalLock = true;
   if (world.dim === 'end') EndFight.enter();
   return true;
@@ -5179,6 +5191,41 @@ function itemTooltip(s) {
   if (it.kind === 'food') L.push('', 'Restores ' + (it.heal / 2) + ' hearts');
   const max = maxDur(s.id); if (max) L.push('Durability: ' + (max - (s.dmg || 0)) + ' / ' + max);
   return L.join('\n');
+}
+
+// ================= BEDS: place (2 blocks), sleep through the night, respawn point =================
+function placeBed(hit) {
+  const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; const d = lookDir(); const ax = Math.abs(d.x) > Math.abs(d.z);
+  const hx = x + (ax ? Math.sign(d.x) : 0), hz = z + (ax ? 0 : Math.sign(d.z));
+  const free = (a, b, c) => { const id = world.get(a, b, c); return !id || PLANT[id] || BL[id].fluid; };
+  if (!free(x, y, z) || !free(hx, y, hz) || !SOLID[world.get(x, y - 1, z)] || !SOLID[world.get(hx, y - 1, hz)]) { toast("There isn't room for a bed here", 1.5); return false; }
+  if (boxIntersectsBlock(player, x, y, z) || boxIntersectsBlock(player, hx, y, hz)) return false;
+  world.set(x, y, z, B.BED_FOOT); world.set(hx, y, hz, B.BED_HEAD); Sfx.play('wool', 0.8); return true;
+}
+function bedPartner(x, y, z) { const id = world.get(x, y, z); const want = id === B.BED_HEAD ? B.BED_FOOT : B.BED_HEAD; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
+function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (S.mode === 'survival' && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
+function useBed(x, y, z) {
+  if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
+  const head = world.get(x, y, z) === B.BED_HEAD ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
+  S.bed = head; toast('Respawn point set', 2); chatPrint('Respawn point set', '#ccc');
+  const ticks = timeTicks(); const night = ticks >= 12542 && ticks <= 23459;
+  if (!night) { toast('You can sleep only at night', 2); return; }
+  const foot = bedPartner(head[0], head[1], head[2]) || head; if (Math.min(player.pos.distanceTo(new V3(head[0] + 0.5, head[1], head[2] + 0.5)), player.pos.distanceTo(new V3(foot[0] + 0.5, foot[1], foot[2] + 0.5))) > 3.2) { toast('You may not rest now; the bed is too far away', 2); return; }
+  const near = G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8 && Math.abs(m.pos.y - player.pos.y) < 5);
+  if (near && S.mode === 'survival') { toast('You may not rest now; there are monsters nearby', 2); return; }
+  // lie down, fade to black, wake up at sunrise
+  S.sleeping = { t: 0, head }; player.vel.set(0, 0, 0); player.pos.set(head[0] + 0.5, head[1] + 0.56, head[2] + 0.5); show('sleepfx', true);
+}
+function updateSleep(dt) {
+  const sl = S.sleeping; if (!sl) return; sl.t += dt; player.vel.set(0, 0, 0); player.pitch = Math.max(player.pitch, 0.4);
+  $('sleepfx').style.opacity = Math.min(1, sl.t / 2.2);
+  if (sl.t >= 2.6) { S.sleeping = null; S.time = 0.0; S.day++; $('sleepfx').style.opacity = 0; show('sleepfx', false); player.pos.y += 0.5; toast('Good morning!', 2); if (typeof MP !== 'undefined' && MP.timeChanged) MP.timeChanged(); }
+}
+function bedSpawnPos() {
+  if (!S.bed) return null; const [x, y, z] = S.bed; const w = Dim.get('overworld');
+  if (w.loaded(x, z) && w.get(x, y, z) !== B.BED_HEAD) { S.bed = null; toast('You have no home bed, or it was obstructed', 3); return null; }
+  for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) { if (!w.loaded(x + a, z + b)) return new V3(x + 0.5, y + 0.6, z + 0.5); if (!w.solid(x + a, y, z + b) && !w.solid(x + a, y + 1, z + b)) return new V3(x + a + 0.5, y, z + b + 0.5); }
+  return new V3(x + 0.5, y + 0.6, z + 0.5);
 }
 
 </script>
