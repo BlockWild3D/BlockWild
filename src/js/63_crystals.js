@@ -61,7 +61,7 @@ armorReduce = function (dmg, cause) {
   const fall = c === 'fall damage' || c === 'an ender pearl', fire = c === 'lava' || c === 'a magma block' || c === 'fire' || c === 'burning';
   let out = dmg;
   if (!fall && c !== 'magic') { const ps = armorPieces(player.inv); let def = 0, tough = 0; for (const s of ps) { const it = ITEMS[s.id]; def += it.def || 0; tough += it.tough || 0; }
-    const red = Math.min(20, Math.max(def / 5, def - dmg / (2 + tough / 4))) / 25;
+    const red = Math.min(20, Math.max(def / 5, def - dmg / (2 + tough / 4))) / 25 * (1 - 0.15 * (player.breachIn || 0)); // Breach on the attacker's mace
     if (ps.length && dmg > 0 && isSurv()) for (let i = 37; i <= 40; i++) if (player.inv[i] && ITEMS[player.inv[i].id].kind === 'armor') damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
     out *= 1 - red; }
   let epf = 0; for (let i = 37; i <= 40; i++) { const s = player.inv[i]; if (!s) continue; epf += enchOf(s, 'protection');
