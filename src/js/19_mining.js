@@ -7,16 +7,20 @@ const HARD = { grass: 0.6, dirt: 0.5, stone: 1.5, sand: 0.5, log: 2, leaves: 0.2
   crafting_table: 2.5, chest: 2.5, gravel: 0.6, cactus: 0.4, mossy_cobblestone: 2, bookshelf: 1.5, tnt: 0, sandstone: 0.8, wool: 0.8, glowstone: 0.3, furnace: 3.5, birch_log: 2, birch_leaves: 0.2,
   spruce_log: 2, spruce_leaves: 0.2, spawner: 5, stone_bricks: 1.5, snow_block: 0.2, obsidian: 50, netherrack: 0.4, soul_sand: 0.5, quartz_ore: 3, nether_gold_ore: 3, nether_bricks: 2, magma_block: 0.5,
   crimson_nylium: 0.4, warped_nylium: 0.4, crimson_stem: 2, warped_stem: 2, nether_wart_block: 1, warped_wart_block: 1, shroomlight: 1, end_stone: 3, dragon_egg: 3, quartz_block: 0.8,
-  lapis_ore: 3, lapis_block: 3, enchanting_table: 5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
+  lapis_ore: 3, lapis_block: 3, enchanting_table: 5, deepslate: 3, cobbled_deepslate: 3.5, tuff: 1.5, granite: 1.5, diorite: 1.5, andesite: 1.5, copper_ore: 3, redstone_ore: 3, emerald_ore: 3,
+  deepslate_coal_ore: 4.5, deepslate_iron_ore: 4.5, deepslate_gold_ore: 4.5, deepslate_diamond_ore: 4.5, deepslate_lapis_ore: 4.5, deepslate_copper_ore: 4.5, deepslate_redstone_ore: 4.5, deepslate_emerald_ore: 4.5, copper_block: 3,
+  ancient_debris: 30, netherite_block: 50, smithing_table: 2.5, bed_head: 0.2, bed_foot: 0.2, dirt_path: 0.65, farmland: 0.6, hay_block: 0.5 };
 const MINE_WITH = {
-  pick: ['stone', 'cobblestone', 'brick', 'coal_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'mossy_cobblestone', 'sandstone', 'furnace', 'spawner', 'stone_bricks', 'obsidian', 'netherrack', 'quartz_ore', 'nether_gold_ore', 'nether_bricks', 'magma_block', 'crimson_nylium', 'warped_nylium', 'end_stone', 'quartz_block', 'lapis_ore', 'lapis_block', 'enchanting_table'],
-  axe: ['log', 'planks', 'crafting_table', 'chest', 'bookshelf', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem', 'bed_head', 'bed_foot'],
+  pick: ['stone', 'cobblestone', 'brick', 'coal_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'mossy_cobblestone', 'sandstone', 'furnace', 'spawner', 'stone_bricks', 'obsidian', 'netherrack', 'quartz_ore', 'nether_gold_ore', 'nether_bricks', 'magma_block', 'crimson_nylium', 'warped_nylium', 'end_stone', 'quartz_block', 'lapis_ore', 'lapis_block', 'enchanting_table', 'deepslate', 'cobbled_deepslate', 'tuff', 'granite', 'diorite', 'andesite', 'copper_ore', 'redstone_ore', 'emerald_ore', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_gold_ore', 'deepslate_diamond_ore', 'deepslate_lapis_ore', 'deepslate_copper_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore', 'copper_block', 'ancient_debris', 'netherite_block'],
+  axe: ['log', 'planks', 'crafting_table', 'chest', 'bookshelf', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem', 'bed_head', 'bed_foot', 'smithing_table'],
   shovel: ['grass', 'dirt', 'sand', 'gravel', 'snowy_grass', 'snow_block', 'soul_sand', 'dirt_path', 'farmland'],
   hoe: ['leaves', 'birch_leaves', 'spruce_leaves', 'nether_wart_block', 'warped_wart_block', 'shroomlight', 'hay_block'],
 };
 // blocks that drop nothing unless mined with at least this pickaxe tier (1 wood, 2 stone, 3 iron, 4 diamond)
 const NEED_PICK = { stone: 1, cobblestone: 1, brick: 1, coal_ore: 1, mossy_cobblestone: 1, sandstone: 1, furnace: 1, spawner: 1, stone_bricks: 1, netherrack: 1, quartz_ore: 1, nether_gold_ore: 1, nether_bricks: 1, magma_block: 1, crimson_nylium: 1, warped_nylium: 1, end_stone: 1, quartz_block: 1, enchanting_table: 1,
-  iron_ore: 2, lapis_ore: 2, lapis_block: 2, gold_ore: 3, diamond_ore: 3, obsidian: 4 };
+  iron_ore: 2, lapis_ore: 2, lapis_block: 2, gold_ore: 3, diamond_ore: 3, obsidian: 4,
+  deepslate: 1, cobbled_deepslate: 1, tuff: 1, granite: 1, diorite: 1, andesite: 1, deepslate_coal_ore: 1, copper_ore: 2, deepslate_copper_ore: 2, copper_block: 2, deepslate_iron_ore: 2, deepslate_lapis_ore: 2,
+  deepslate_gold_ore: 3, deepslate_diamond_ore: 3, redstone_ore: 3, deepslate_redstone_ore: 3, emerald_ore: 3, deepslate_emerald_ore: 3, ancient_debris: 4, netherite_block: 4 };
 for (const d of BL) {
   if (!d || !d.key) continue;
   if (HARD[d.key] !== undefined) d.hardness = HARD[d.key];
@@ -35,7 +39,7 @@ breakTime = function (id, tool) {
   else if (tool && tool.tool === 'sword') speed = /leaves/.test(def.key) || id === B.CACTUS ? 1.5 : 1;
   speed *= 1 + 0.2 * effLevel('haste');
   if (!player.onGround && !player.flying && !inWater(player, 0.4)) speed /= 5;
-  { const e = player.eye(); if (world.get(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z)) === B.WATER) speed /= 5; }
+  { const e = player.eye(); if (isWaterId(world.get(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z)))) speed /= 5; }
   const canHarvest = def.tool !== 'pick' || (tool && tool.tool === 'pick' && tool.tier >= def.tier);
   const dmg = speed / def.hardness / (canHarvest ? 30 : 100);
   if (dmg > 1) return 0;
@@ -44,8 +48,9 @@ breakTime = function (id, tool) {
 // attack speeds (attacks per second) from Minecraft; the attack cooldown is 1 / speed
 const ATK = { sword: 1.6, pick: 1.2, shovel: 1.0, hoe: 2, axe: 0.9 };
 for (const id of ITEM_IDS) { const it = ITEMS[id]; if (it.kind !== 'tool') continue;
-  if (it.tool === 'axe') it.atk = it.gold ? 1.0 : [0.8, 0.8, 0.9, 1.0][it.tier - 1] || 0.9;
-  else if (it.tool === 'hoe') { it.atk = it.gold ? 1 : [1, 2, 3, 4][it.tier - 1] || 2; it.speed = it.gold ? 12 : [2, 4, 6, 8][it.tier - 1] || 2; }
+  if (it.tool === 'axe') it.atk = it.gold ? 1.0 : [0.8, 0.8, 0.9, 1.0, 1.0][it.tier - 1] || 0.9;
+  else if (it.tool === 'hoe') { it.atk = it.gold ? 1 : [1, 2, 3, 4, 4][it.tier - 1] || 2; it.speed = it.gold ? 12 : [2, 4, 6, 8, 9][it.tier - 1] || 2; }
+  else if (it.tool === 'spear') it.atk = 1 / it.cool;
   else it.atk = ATK[it.tool] || 1.2; }
 // which tool a block wants, shown when you hover it in the inventory
-function blockToolLine(id) { const d = BL[id]; if (!d || !d.mine) return ''; return 'Best tool: ' + TOOL_SPEED_NAME[d.mine] + (d.tool === 'pick' ? ' (needs ' + ['', 'wood', 'stone', 'iron', 'diamond'][d.tier] + ' or better to drop)' : ''); }
+function blockToolLine(id) { const d = BL[id]; if (!d || !d.mine) return ''; return 'Best tool: ' + TOOL_SPEED_NAME[d.mine] + (d.tool === 'pick' ? ' (needs ' + ['', 'wood', 'stone', 'iron', 'diamond', 'netherite'][d.tier] + ' or better to drop)' : ''); }

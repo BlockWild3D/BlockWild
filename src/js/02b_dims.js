@@ -1,14 +1,14 @@
 // ================= DIMENSION GENERATORS: Nether, End, strongholds, fortresses, ruined portals =================
 const NBIO_NAME = ['Nether Wastes', 'Crimson Forest', 'Warped Forest', 'Soul Sand Valley'];
-const NSEA = 31;
+const NSEA = 31, NH = 128; // Minecraft's Nether: lava sea at y 31, bedrock floor and roof, 128 tall
 class NetherGen {
   constructor(seed) { this.seed = seed; this.n1 = new Perlin(seed + 101); this.n2 = new Perlin(seed + 102); this.nb = new Perlin(seed + 103); this.nb2 = new Perlin(seed + 104); this.n3 = new Perlin(seed + 105); }
   biome(x, z) { const a = this.nb.f2(x / 170, z / 170, 2), b = this.nb2.f2(x / 150, z / 150, 2); if (a > 0.1) return b > 0 ? 1 : 2; if (a < -0.14) return 3; if (b > 0.2) return 1; return 0; }
   column(x, z) { return { h: 0, b: this.biome(x, z) }; }
   biomeName(x, z) { return NBIO_NAME[this.biome(x, z)]; }
-  density(x, y, z) { let v = this.n1.n3(x / 52, y / 30, z / 52) + this.n2.n3(x / 18, y / 14, z / 18) * 0.4; if (y < 26) v += (26 - y) / 12; if (y > 78) v += (y - 78) / 9; return v; }
-  solidAt(x, y, z) { if (y < 6 || y > WH - 7) return true; return this.density(x, y, z) > 0.06; }
-  floorNear(x, z) { for (let y = NSEA + 2; y < 84; y++) if (this.solidAt(x, y - 1, z) && !this.solidAt(x, y, z) && !this.solidAt(x, y + 1, z) && !this.solidAt(x, y + 3, z)) return y; return -1; }
+  density(x, y, z) { let v = this.n1.n3(x / 52, y / 30, z / 52) + this.n2.n3(x / 18, y / 14, z / 18) * 0.4; if (y < 26) v += (26 - y) / 12; if (y > 104) v += (y - 104) / 9; return v; }
+  solidAt(x, y, z) { if (y < 6 || y > NH - 7) return true; return this.density(x, y, z) > 0.06; }
+  floorNear(x, z) { for (let y = NSEA + 2; y < 112; y++) if (this.solidAt(x, y - 1, z) && !this.solidAt(x, y, z) && !this.solidAt(x, y + 1, z) && !this.solidAt(x, y + 3, z)) return y; return -1; }
   // Minecraft: fortresses and bastions share one grid (spacing 27, separation 4); 2 in 5 starts are fortresses, the rest bastions
   fortress(rx, rz) { const h = ihash(rx, rz, 909, this.seed) >>> 0; if (h % 5 >= 2) return null; return { ccx: rx * 27 + ((h >>> 8) % 23), ccz: rz * 27 + ((h >>> 16) % 23), fy: 44 + ((h >>> 24) % 14) }; }
   fortressesNear(cx, cz) { const out = []; const seen = new Set(); for (const dx of [-3, 0, 3]) for (const dz of [-3, 0, 3]) { const rx = Math.floor((cx + dx) / 27), rz = Math.floor((cz + dz) / 27); const k = rx + ',' + rz; if (seen.has(k)) continue; seen.add(k); const f = this.fortress(rx, rz); if (f) out.push(f); } return out; }
@@ -18,15 +18,15 @@ function genNetherChunk(world, c) {
   const idx = (x, y, z) => (y * 16 + z) * 16 + x;
   for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
     const wx = bx + x, wz = bz + z; const b = g.biome(wx, wz);
-    for (let y = 0; y < WH; y++) {
+    for (let y = 0; y < NH; y++) {
       let id;
-      if (y === 0 || y === WH - 1) id = B.BEDROCK;
-      else if ((y < 4 || y > WH - 5) && rnd01(wx, y, wz, seed) < 0.45) id = B.BEDROCK;
+      if (y === 0 || y === NH - 1) id = B.BEDROCK;
+      else if ((y < 5 || y > NH - 6) && rnd01(wx, y, wz, seed) < (y < 5 ? (5 - y) / 5 : (y - NH + 6) / 5)) id = B.BEDROCK;
       else id = g.solidAt(wx, y, wz) ? B.NETHERRACK : (y <= NSEA ? B.LAVA : 0);
       d[idx(x, y, z)] = id;
     }
     // surfaces
-    for (let y = WH - 3; y > 1; y--) {
+    for (let y = NH - 3; y > 1; y--) {
       const i = idx(x, y, z); if (d[i] !== B.NETHERRACK || d[idx(x, y + 1, z)] !== 0) continue;
       const q = rnd01(wx, y, wz, seed + 9);
       if (b === 1) { d[i] = B.CRIMSON_NYLIUM; if (q < 0.12) d[idx(x, y + 1, z)] = B.CRIMSON_ROOTS; else if (q < 0.15) d[idx(x, y + 1, z)] = B.CRIMSON_FUNGUS; }
@@ -36,15 +36,11 @@ function genNetherChunk(world, c) {
     }
   }
   const r = mulberry32(ihash(c.cx, c.cz, 7, seed));
-  const veins = [[B.QUARTZ_ORE, 14, 3, 8, 10, 86], [B.NETHER_GOLD_ORE, 7, 3, 7, 10, 86], [B.MAGMA_BLOCK, 4, 4, 10, 24, 38], [B.SOUL_SAND, 2, 6, 14, 20, 60]];
-  for (const [id, cnt, mn, mx, y0, y1] of veins) for (let i = 0; i < cnt; i++) {
-    let x = r() * 16 | 0, y = y0 + (r() * (y1 - y0) | 0), z = r() * 16 | 0; const n = mn + (r() * (mx - mn) | 0);
-    for (let k = 0; k < n; k++) { if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH) { const j = idx(x, y, z); if (d[j] === B.NETHERRACK) d[j] = id; } const q = r() * 6 | 0; if (q === 0) x++; else if (q === 1) x--; else if (q === 2) y++; else if (q === 3) y--; else if (q === 4) z++; else z--; }
-  }
+  placeNetherOres(world, c);
   // glowstone clusters hanging from ceilings
   for (let i = 0; i < 3; i++) {
     const x = 2 + (r() * 12 | 0), z = 2 + (r() * 12 | 0); let y0 = -1;
-    for (let y = 88; y > 46; y--) if (d[idx(x, y, z)] === 0 && SOLID[d[idx(x, y + 1, z)]]) { y0 = y; break; }
+    for (let y = 118; y > 46; y--) if (d[idx(x, y, z)] === 0 && SOLID[d[idx(x, y + 1, z)]]) { y0 = y; break; }
     if (y0 < 0) continue;
     let px = x, py = y0, pz = z;
     for (let k = 0; k < 26; k++) { if (px >= 0 && px < 16 && pz >= 0 && pz < 16 && d[idx(px, py, pz)] === 0) d[idx(px, py, pz)] = B.GLOWSTONE; const q = r() * 5 | 0; if (q === 0) px++; else if (q === 1) px--; else if (q === 2) pz++; else if (q === 3) pz--; else py--; if (py < y0 - 5) py = y0; }
@@ -66,7 +62,7 @@ function netherStructures(world, cx, cz) {
 }
 function buildFortressChunk(world, c, hints) {
   const g = world.gen, d = c.d, bx = c.cx * 16, bz = c.cz * 16, cx = c.cx, cz = c.cz;
-  const set = (lx, y, lz, id) => { if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= WH - 1) return; d[(y * 16 + lz) * 16 + lx] = id; };
+  const set = (lx, y, lz, id) => { if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= NH - 1) return; d[(y * 16 + lz) * 16 + lx] = id; };
   const get = (lx, y, lz) => d[(y * 16 + lz) * 16 + lx];
   for (const f of g.fortressesNear(cx, cz)) {
     const fy = f.fy;
@@ -178,4 +174,30 @@ function endStructures(world, cx, cz) {
     S.kinds.push(['fountain', 0, 0, ey]);
   }
   return S;
+}
+
+// Minecraft's Nether ore features (same vein shape and neighbour replay as the Overworld's placeOres)
+// [block, tries, size, shape, min y, max y, chance to skip a block touching air]
+const NETHER_ORES = [['soul_sand', 12, 12, 'uni', 0, 31, 0], ['gravel', 2, 33, 'uni', 5, 41, 0], ['magma_block', 4, 33, 'uni', 27, 36, 0],
+  ['nether_gold_ore', 10, 10, 'uni', 10, 118, 0], ['quartz_ore', 16, 14, 'uni', 10, 118, 0],
+  ['ancient_debris', 1, 3, 'tri', 8, 24, 1], ['ancient_debris', 1, 2, 'uni', 8, 119, 1]];
+function placeNetherOres(world, c) {
+  const d = c.d, seed = world.seed, bx = c.cx * 16, bz = c.cz * 16;
+  const exposed = (lx, y, lz) => { const i = (y * 16 + lz) * 16 + lx; return !SOLID[d[i + 256]] || !SOLID[d[i - 256]] || (lx > 0 && !SOLID[d[i - 1]]) || (lx < 15 && !SOLID[d[i + 1]]) || (lz > 0 && !SOLID[d[i - 16]]) || (lz < 15 && !SOLID[d[i + 16]]); };
+  NETHER_ORES.forEach(([key, n, size, shape, lo, hi, air], k) => {
+    const id = B[key.toUpperCase()]; const salt = 5003 * (k + 1) + 7; const reach = size / 8 + size / 16 + 1.5;
+    for (let ncx = c.cx - 1; ncx <= c.cx + 1; ncx++) for (let ncz = c.cz - 1; ncz <= c.cz + 1; ncz++) {
+      const rnd = mulberry32(ihash(ncx, ncz, salt, seed));
+      for (let t = 0; t < n; t++) {
+        const ox = ncx * 16 + (rnd() * 16 | 0), oz = ncz * 16 + (rnd() * 16 | 0); const q = shape === 'tri' ? (rnd() + rnd()) / 2 : rnd(); const oy = Math.floor(lo + q * (hi - lo));
+        if (ox + reach < bx || ox - reach > bx + 15 || oz + reach < bz || oz - reach > bz + 15) continue;
+        const vr = mulberry32(ihash(ox, oy, oz, salt ^ seed));
+        oreVein(vr, ox, oy, oz, size, bx, bz, (x, y, z) => {
+          if (y >= NH - 1) return;
+          const lx = x - bx, lz = z - bz, i = (y * 16 + lz) * 16 + lx; if (d[i] !== B.NETHERRACK) return;
+          if (air > 0 && exposed(lx, y, lz) && vr() < air) return; d[i] = id;
+        });
+      }
+    }
+  });
 }

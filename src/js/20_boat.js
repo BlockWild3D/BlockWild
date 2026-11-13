@@ -45,7 +45,7 @@ const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.P
 function waterTopAt(x, y, z) {
   const bx = Math.floor(x), bz = Math.floor(z);
   for (let yy = Math.floor(y + 0.9); yy >= Math.floor(y - 1); yy--) {
-    if (world.get(bx, yy, bz) === B.WATER) { let t = yy; while (t < yy + 8 && world.get(bx, t + 1, bz) === B.WATER) t++; return t + 0.875; }
+    if (isWaterId(world.get(bx, yy, bz))) { let t = yy; while (t < yy + 8 && isWaterId(world.get(bx, t + 1, bz))) t++; return t + FH[world.get(bx, t, bz)]; }
   }
   return null;
 }
@@ -68,6 +68,7 @@ function boatPhysics(b, dt, f, turn) {
     const fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw); const along = b.vel.x * fx + b.vel.z * fz; const sx = b.vel.x - fx * along, sz = b.vel.z - fz * along;
     const kk = Math.exp(-dt * (floating ? 2.5 : 1)); b.vel.x = fx * along + sx * kk; b.vel.z = fz * along + sz * kk;
   }
+  if (floating) fluidPush(b, dt, 0.8);
   moveEntity(b, dt);
   return floating;
 }
@@ -119,7 +120,7 @@ function sitPose(model, on, rowing) {
 // ---- placing and breaking ----
 function placeBoatItem(eye, dir) {
   const ft = raycast(eye, dir, 5, true); let x, y, z;
-  if (ft && ft.id === B.WATER) { x = ft.x + 0.5; z = ft.z + 0.5; let t = ft.y; while (world.get(ft.x, t + 1, ft.z) === B.WATER) t++; y = t + 0.875 - BOAT.draft; }
+  if (ft && isWaterId(ft.id)) { x = ft.x + 0.5; z = ft.z + 0.5; let t = ft.y; while (isWaterId(world.get(ft.x, t + 1, ft.z))) t++; y = t + FH[world.get(ft.x, t, ft.z)] - BOAT.draft; }
   else if (target) { x = target.x + target.nx + 0.5; z = target.z + target.nz + 0.5; y = target.y + target.ny; }
   else return false;
   if (world.solid(Math.floor(x), Math.floor(y + 0.3), Math.floor(z))) return false;

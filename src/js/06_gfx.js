@@ -56,10 +56,14 @@ function ensureBloomRT() {
   blurC = new THREE.WebGLRenderTarget(w >> 2 || 1, h >> 2 || 1, Object.assign({ depthBuffer: false }, o)); blurD = new THREE.WebGLRenderTarget(w >> 2 || 1, h >> 2 || 1, Object.assign({ depthBuffer: false }, o));
 }
 function blurPass(src, dst, dx, dy) { blurMat.uniforms.tex.value = src.texture; blurMat.uniforms.dir.value.set(dx / src.width, dy / src.height); fsQuad.material = blurMat; renderer.setRenderTarget(dst); renderer.render(fsScene, fsCam); }
+const occludeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 function renderBloom() {
   ensureBloomRT();
   renderer.setRenderTarget(glowRT); renderer.setClearColor(0x000000, 1); renderer.clear(true, true, false);
-  const prevMask = camera.layers.mask; camera.layers.set(2); scene.overrideMaterial = glowMat;
+  // first lay down depth from everything solid (mobs, players and blocks) in black, so glowing blocks behind a mob are
+  // hidden by it; then draw only the glowing parts of the world on top with the same depth
+  const prevMask = camera.layers.mask; camera.layers.set(1); scene.overrideMaterial = occludeMat; renderer.render(scene, camera);
+  camera.layers.set(2); scene.overrideMaterial = glowMat;
   renderer.render(scene, camera);
   scene.overrideMaterial = null; camera.layers.mask = prevMask;
   blurPass(glowRT, blurA, 1, 0); blurPass(blurA, blurB, 0, 1);       // tight glow

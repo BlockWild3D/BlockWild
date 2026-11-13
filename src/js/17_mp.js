@@ -264,7 +264,7 @@ async function joinWorld(code) {
 function clientWelcome(m) {
   MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
-  const data = { seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
+  const data = { v: 4, seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
   const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
   show('mpScreen', false); startWorld(data);

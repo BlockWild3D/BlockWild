@@ -8,6 +8,7 @@ class Gen {
     this.seed = seed;
     this.nC = new Perlin(seed); this.nH = new Perlin(seed + 11); this.nM = new Perlin(seed + 22); this.nT = new Perlin(seed + 33);
     this.nW = new Perlin(seed + 44); this.nA = new Perlin(seed + 55); this.nB = new Perlin(seed + 66); this.nK = new Perlin(seed + 77);
+    this.nN = new Perlin(seed + 88); this.nP = new Perlin(seed + 99); this.nQ = new Perlin(seed + 111);
     this.colCache = new Map();
     // strongholds: Minecraft's concentric rings (distance 32, spread 3). Ring 1 holds 3 strongholds 1280-2816 blocks out,
     // ring 2 holds 6, ring 3 holds 10 ... (first 4 rings generated, 34 strongholds)
@@ -15,24 +16,27 @@ class Gen {
     for (let i = 0; i < total; i++) {
       const dist = (4 * 32 + 32 * ring * 6) + (r() - 0.5) * 32 * 2.5;
       const cx = Math.round(Math.cos(ang) * dist), cz = Math.round(Math.sin(ang) * dist);
-      this.strongholds.push({ cx, cz, x: cx * 16 + 8, z: cz * 16 + 8, y: 16 });
+      this.strongholds.push({ cx, cz, x: cx * 16 + 8, z: cz * 16 + 8, y: YOFF + 18 });
       ang += Math.PI * 2 / ringCount; inRing++;
       if (inRing === ringCount) { ring++; inRing = 0; ringCount += Math.floor(2 * ringCount / (ring + 1)); ringCount = Math.min(ringCount, total - i - 1); ang += r() * Math.PI * 2; }
     }
   }
-  biomeName(x, z) { return BIO_NAME[this.column(x, z).b]; }
+  biomeName(x, z) { const c = this.column(x, z); return c.b === BIO.OCEAN && c.h < SEA - 28 ? 'Deep Ocean' : BIO_NAME[c.b]; }
   column(x, z) {
     const k = x * 100003 + z; const c = this.colCache.get(k); if (c) return c;
     const cont = this.nC.f2(x / 420, z / 420, 4), hills = this.nH.f2(x / 90, z / 90, 4), mnt = this.nM.f2(x / 260 + 50, z / 260 + 50, 3);
     const temp = this.nT.f2(x / 560, z / 560, 2), moist = this.nW.f2(x / 480, z / 480, 2);
     const desertness = smoothstep(0.06, 0.18, temp) * smoothstep(0.12, -0.02, moist);
-    let h = SEA + 4 + cont * 40 + hills * (10 - 6 * desertness);
-    const m = Math.max(0, mnt - 0.08); h += m * m * 320;
-    h = Math.floor(clamp(h, 4, WH - 10));
+    // land rises gently from the coast; the sea floor drops faster so oceans are ~15-25 blocks deep and deep oceans 30-45
+    // continental shelf: past the coast the floor drops to ~y 45 (ocean), and further out to ~y 25-35 (deep ocean)
+    const off = cont < 0 ? cont * 40 - smoothstep(0.02, 0.22, -cont) * 22 - smoothstep(0.22, 0.42, -cont) * 16 : cont * 46;
+    let h = SEA + 4 + off + hills * (14 - 8 * desertness);
+    const m = Math.max(0, mnt - 0.08); h += m * m * 760;
+    h = Math.floor(clamp(h, 12, YOFF + 258));
     let b;
     if (h < SEA) b = BIO.OCEAN;
     else if (h <= SEA + 1 && temp > -0.2 && m < 0.05) b = BIO.BEACH;
-    else if (m > 0.12 && h > SEA + 16) b = BIO.MOUNTAINS;
+    else if (m > 0.12 && h > SEA + 26) b = BIO.MOUNTAINS;
     else if (desertness > 0.5) b = BIO.DESERT;
     else if (temp < -0.2) b = BIO.SNOWY;
     else if (moist > 0.05) b = BIO.FOREST;
@@ -41,11 +45,45 @@ class Gen {
     if (this.colCache.size > 60000) this.colCache.clear();
     this.colCache.set(k, res); return res;
   }
-  cave(x, y, z) {
-    const a = this.nA.n3(x / 30, y / 18, z / 30), c = this.nB.n3(x / 30, y / 18, z / 30);
-    if (a * a + c * c < 0.005) return true;
-    if (y < 40) { const v = this.nK.n3(x / 56, y / 24, z / 56); if (v > 0.45 - (y < 14 ? 0.05 : 0)) return true; }
+  // Minecraft 1.18-style noise caves:
+  //  spaghetti - long winding tunnels where two noise fields both cross zero, wider below y 0
+  //  noodle    - thin twisty passages that link the others (only in some regions)
+  //  cheese    - big caverns deep underground, broken up by stone pillars where a finer noise dips
+  // Like Minecraft, the noise is sampled on a 4-block grid and interpolated between the samples.
+  caveSample(x, y, z, o, k) { // raw noise at a grid point (x, y, z multiples of 4) into o[k..k+6]
+    o[k] = this.nA.n3(x / 30, y / 18, z / 30); o[k + 1] = this.nB.n3(x / 30, y / 18, z / 30); o[k + 2] = this.nN.n3(x / 90, 7.3, z / 90);
+    o[k + 3] = this.nP.n3(x / 20, y / 12, z / 20); o[k + 4] = this.nQ.n3(x / 20, y / 12, z / 20); o[k + 5] = this.nK.n3(x / 60, y / 22, z / 60); o[k + 6] = this.nN.n3(x / 8, y / 24, z / 8);
+  }
+  caveTest(y, f, k) {
+    const Y = y - YOFF; const a = f[k], c = f[k + 1];
+    if (a * a + c * c < (Y < 0 ? 0.0078 : 0.0055)) return true;
+    if (Y > -60 && Y < 130 && f[k + 2] > 0.05) { const p = f[k + 3], q = f[k + 4]; if (p * p + q * q < 0.0016) return true; }
+    if (Y < 50) { const v = f[k + 5]; const th = 0.34 - (Y < -8 ? 0.07 : 0) + (Y > 30 ? (Y - 30) * 0.035 : 0); if (v > th - 0.12 && v + f[k + 6] * 0.2 > th) return true; }
     return false;
+  }
+  // grid samples for one chunk: 5 x 5 columns of points (every 4 blocks) up to height ny*4
+  caveGrid(bx, bz, ny) {
+    const g = new Float32Array(25 * (ny + 1) * 7);
+    for (let iy = 0; iy <= ny; iy++) for (let iz = 0; iz < 5; iz++) for (let ix = 0; ix < 5; ix++) this.caveSample(bx + ix * 4, iy * 4, bz + iz * 4, g, ((iy * 5 + iz) * 5 + ix) * 7);
+    return g;
+  }
+  // interpolated fields for one column of a chunk grid, all heights: out[y*7 + f]
+  caveColumn(g, lx, lz, ny, out) {
+    const ix = lx >> 2, iz = lz >> 2, tx = (lx & 3) / 4, tz = (lz & 3) / 4; const lv = new Float32Array((ny + 1) * 7);
+    for (let iy = 0; iy <= ny; iy++) for (let f = 0; f < 7; f++) {
+      const b = iy * 25; const v00 = g[((b + iz * 5 + ix)) * 7 + f], v10 = g[((b + iz * 5 + ix + 1)) * 7 + f], v01 = g[((b + (iz + 1) * 5 + ix)) * 7 + f], v11 = g[((b + (iz + 1) * 5 + ix + 1)) * 7 + f];
+      const a0 = v00 + (v10 - v00) * tx, a1 = v01 + (v11 - v01) * tx; lv[iy * 7 + f] = a0 + (a1 - a0) * tz;
+    }
+    for (let y = 0; y < ny * 4; y++) { const iy = y >> 2, t = (y & 3) / 4; for (let f = 0; f < 7; f++) { const a = lv[iy * 7 + f]; out[y * 7 + f] = a + (lv[(iy + 1) * 7 + f] - a) * t; } }
+  }
+  // single-block query used by structures (dungeons, strongholds); same grid and interpolation as chunk generation
+  cave(x, y, z) {
+    if (!this.cavePts) this.cavePts = new Map();
+    const gx = Math.floor(x / 4) * 4, gy = Math.floor(y / 4) * 4, gz = Math.floor(z / 4) * 4; const f = new Float32Array(7); const c = new Float32Array(8 * 7);
+    let i = 0; for (const dy of [0, 4]) for (const dz of [0, 4]) for (const dx of [0, 4]) { const key = (gx + dx) + ',' + (gy + dy) + ',' + (gz + dz); let v = this.cavePts.get(key); if (!v) { v = new Float32Array(7); this.caveSample(gx + dx, gy + dy, gz + dz, v, 0); if (this.cavePts.size > 30000) this.cavePts.clear(); this.cavePts.set(key, v); } c.set(v, i * 7); i++; }
+    const tx = (x - gx) / 4, ty = (y - gy) / 4, tz = (z - gz) / 4;
+    for (let k = 0; k < 7; k++) { const L = (a, b, t) => a + (b - a) * t; const x00 = L(c[k], c[7 + k], tx), x01 = L(c[14 + k], c[21 + k], tx), x10 = L(c[28 + k], c[35 + k], tx), x11 = L(c[42 + k], c[49 + k], tx); f[k] = L(L(x00, x01, tz), L(x10, x11, tz), ty); }
+    return this.caveTest(y, f, 0);
   }
 }
 
@@ -139,8 +177,9 @@ function structuresFor(world, cx, cz) {
     else if (cc0.b === BIO.DESERT && rnd01(cx, cz, 4417, seed) < 0.001) { buildWell(S, g, bx + 6, bz + 6, hard, { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE }); S.kinds.push(['desert_well', bx + 8, bz + 8]); }
   }
   // --- dungeon (monster room): a few attempts per chunk, kept only where it breaks into a cave ---
-  for (let a = 0; a < 4 && cc0.h > 20; a++) {
-    const x0 = bx + 1 + (r() * 8 | 0), z0 = bz + 1 + (r() * 8 | 0), y = 4 + (r() * Math.max(1, Math.min(cc0.h - 12, 60)) | 0);
+  // Minecraft: 10 tries between y 0 and the surface, 4 tries between y -58 and -1
+  for (let a = 0; a < 14 && cc0.h > 20; a++) {
+    const x0 = bx + 1 + (r() * 8 | 0), z0 = bz + 1 + (r() * 8 | 0), y = a < 10 ? YOFF + (r() * Math.max(1, cc0.h - YOFF - 8) | 0) : YOFF - 58 + (r() * 57 | 0);
     if (dungeonFits(g, x0, y, z0)) { buildDungeon(S, x0, y, z0, hard, r, world); S.kinds.push(['dungeon', x0 + 3, z0 + 3, y]); break; }
   }
   if (world.structCache.size > 3000) world.structCache.clear();
@@ -260,15 +299,15 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
 
 // ---- Chunk ----
 class Chunk {
-  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint8Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
+  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
   calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
-  isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return this.d[(l[1] * 16 + lz) * 16 + lx] === B.LAVA; }
+  isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return FKIND[this.d[(l[1] * 16 + lz) * 16 + lx]] === 2; }
   scanMeta() {
     const d = this.d; this.lights = []; let maxY = 0;
     // light sources. Lava seas would add hundreds of lights per chunk (slow meshing in the Nether), so only exposed lava on a
     // 3-block grid counts; the lava itself still glows at full brightness.
     for (let y = 0; y < WH; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const i = (y * 16 + z) * 16 + x; const id = d[i]; if (id) { maxY = y; if (LIGHT[id]) {
-      if (id === B.LAVA && (x % 4 || z % 4 || (y < WH - 1 && d[i + 256] && OPAQUE[d[i + 256]]) || (y < WH - 1 && d[i + 256] === B.LAVA))) continue;
+      if (FKIND[id] === 2 && (x % 4 || z % 4 || (y < WH - 1 && d[i + 256] && OPAQUE[d[i + 256]]) || (y < WH - 1 && FKIND[d[i + 256]] === 2))) continue;
       this.lights.push([this.cx * 16 + x, y, this.cz * 16 + z, LIGHT[id]]); } } }
     if (this.lights.length > 16) { const L = this.lights, step = L.length / 16; this.lights = []; for (let k = 0; k < 16; k++) { const l = L[Math.floor(k * step)]; this.lights.push([l[0], l[1], l[2], Math.min(1, l[3] * 1.1)]); } }
     this.maxY = maxY;
@@ -395,7 +434,7 @@ for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: tru
 // ---- World ----
 class World {
   constructor(seed, scene, dim = 'overworld') {
-    this.seed = seed; this.dim = dim; this.scene = scene; this.flatSky = dim !== 'overworld'; this.furnaces = new Map();
+    this.seed = seed; this.dim = dim; this.scene = scene; this.yOff = dim === 'overworld' ? YOFF : 0; this.flatSky = dim !== 'overworld'; this.furnaces = new Map();
     this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : new Gen(seed);
     this.chunks = new Map(); this.edits = new Map(); this.chestInv = new Map(); this.chestLoot = new Map(); this.spawners = new Map();
     this.structCache = new Map(); this.hintsDone = new Set(); this.urgent = new Set(); this.onChunkGen = null;
@@ -435,7 +474,7 @@ class World {
     return best;
   }
   lightAt(x, y, z, day) { return Math.max(this.skyAt(Math.floor(x), Math.floor(y), Math.floor(z)) * day, this.blockLightAt(x, y, z)); }
-  surfaceY(x, z) { for (let y = WH - 1; y > 0; y--) { const id = this.get(x, y, z); if (SOLID[id] || id === B.WATER) return y + 1; } return WH; }
+  surfaceY(x, z) { for (let y = WH - 1; y > 0; y--) { const id = this.get(x, y, z); if (SOLID[id] || FKIND[id] === 1) return y + 1; } return WH; }
 
   generate(cx, cz) {
     const c = new Chunk(cx, cz); const d = c.d; const g = this.gen; const bx = cx * 16, bz = cz * 16;
@@ -464,52 +503,39 @@ class World {
   }
   genOverworld(c) {
     const cx = c.cx, cz = c.cz; const d = c.d; const g = this.gen; const seed = this.seed; const bx = cx * 16, bz = cz * 16;
-    const cols = new Array(256);
+    const cols = new Array(256); let maxH = 0;
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const col = g.column(bx + x, bz + z); cols[z * 16 + x] = col; if (col.h > maxH) maxH = col.h; }
+    const ny = Math.ceil((maxH + 1) / 4) + 1; const cgrid = g.caveGrid(bx, bz, ny); const cf = new Float32Array(ny * 4 * 7);
     for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
-      const wx = bx + x, wz = bz + z; const col = g.column(wx, wz); cols[z * 16 + x] = col; const h = col.h, b = col.b;
+      const wx = bx + x, wz = bz + z; const col = cols[z * 16 + x]; const h = col.h, b = col.b; g.caveColumn(cgrid, x, z, ny, cf);
       const top = Math.max(h, SEA);
       for (let y = 0; y < top; y++) {
         let id = 0;
-        if (y === 0) id = B.BEDROCK;
+        if (y < 5 && (y === 0 || rnd01(wx, y, wz, seed) < (5 - y) / 5)) id = B.BEDROCK; // bedrock floor, y -64 to -60
         else if (y < h) {
           const depth = h - 1 - y;
-          if (y < 4 && rnd01(wx, y, wz, seed) < 0.5 - y * 0.15) id = B.BEDROCK;
-          else {
+          // stone turns to deepslate below y 0, blending over y 0-8 like Minecraft
+          const STONE = y < YOFF || (y < YOFF + 8 && rnd01(wx, y + 700, wz, seed) < (YOFF + 8 - y) / 8) ? B.DEEPSLATE : B.STONE;
+          {
             switch (b) {
-              case BIO.OCEAN: id = depth < 3 ? (h < SEA - 7 ? B.GRAVEL : B.SAND) : B.STONE; break;
-              case BIO.BEACH: id = depth < 3 ? B.SAND : depth < 5 ? B.SANDSTONE : B.STONE; break;
-              case BIO.DESERT: id = depth < 4 ? B.SAND : depth < 8 ? B.SANDSTONE : B.STONE; break;
-              case BIO.SNOWY: id = depth === 0 ? B.SNOWY_GRASS : depth < 4 ? B.DIRT : B.STONE; break;
-              case BIO.MOUNTAINS: id = h >= 74 ? (depth === 0 ? B.SNOW_BLOCK : B.STONE) : h >= 60 ? B.STONE : (depth === 0 ? B.GRASS : depth < 3 ? B.DIRT : B.STONE); break;
-              default: id = depth === 0 ? B.GRASS : depth < 4 ? B.DIRT : B.STONE;
+              case BIO.OCEAN: id = depth < 3 ? (h < SEA - 12 ? B.GRAVEL : B.SAND) : STONE; break;
+              case BIO.BEACH: id = depth < 3 ? B.SAND : depth < 5 ? B.SANDSTONE : STONE; break;
+              case BIO.DESERT: id = depth < 4 ? B.SAND : depth < 8 ? B.SANDSTONE : STONE; break;
+              case BIO.SNOWY: id = depth === 0 ? B.SNOWY_GRASS : depth < 4 ? B.DIRT : STONE; break;
+              case BIO.MOUNTAINS: id = h >= SEA + 72 ? (depth === 0 ? B.SNOW_BLOCK : STONE) : h >= SEA + 44 ? STONE : (depth === 0 ? B.GRASS : depth < 3 ? B.DIRT : STONE); break;
+              default: id = depth === 0 ? B.GRASS : depth < 4 ? B.DIRT : STONE;
             }
-            const carveOk = y > 4 && (b === BIO.OCEAN || b === BIO.BEACH ? y < h - 5 : (y < h - 1 || h > SEA + 3));
-            if (carveOk && g.cave(wx, y, wz)) id = (y < 5) ? B.LAVA : 0;
+            const carveOk = y > 5 && (b === BIO.OCEAN || b === BIO.BEACH ? y < h - 5 : (y < h - 1 || h > SEA + 3));
+            if (carveOk && g.caveTest(y, cf, y * 7)) id = y < YOFF - 54 ? B.LAVA : 0; // caves below y -54 fill with lava
           }
         } else if (y < SEA) id = B.WATER;
         if (id) d[(y * 16 + z) * 16 + x] = id;
       }
     }
-    // ores
+    carveRavines(this, c, cols);
+    placeLavaLakes(this, c, cols);
+    placeOres(this, c, cols);
     const r = mulberry32(ihash(cx, cz, 1, seed));
-    // [block, attempts, vein size, minY, maxY, shape]  tri = most common in the middle, low = most common at the bottom
-    const ores = [[B.COAL_ORE, 7, 13, 16, 64, 'tri'], [B.COAL_ORE, 6, 13, 50, 95, 'uni'],
-      [B.IRON_ORE, 4, 8, 6, 30, 'tri'], [B.IRON_ORE, 3, 4, 1, 34, 'uni'], [B.IRON_ORE, 5, 8, 52, 95, 'tri'],
-      [B.GOLD_ORE, 2, 8, 1, 24, 'tri'], [B.GOLD_ORE, 1, 3, 1, 12, 'uni'],
-      [B.DIAMOND_ORE, 3, 4, 1, 20, 'low'], [B.DIAMOND_ORE, 1, 9, 1, 12, 'rare'],
-      [B.LAPIS_ORE, 2, 6, 1, 32, 'tri'], [B.LAPIS_ORE, 1, 6, 1, 40, 'uni'],
-      [B.GRAVEL, 4, 24, 1, 95, 'uni'], [B.DIRT, 2, 24, 16, 56, 'uni']];
-    for (const [id, cnt, sz, mnY, mxY, shape] of ores) for (let i = 0; i < cnt; i++) {
-      if (shape === 'rare' && r() > 0.11) continue;
-      const q = shape === 'tri' ? (r() + r()) / 2 : shape === 'low' ? Math.min(r(), r()) : r();
-      let x = r() * 16 | 0, y = mnY + (q * (mxY - mnY) | 0), z = r() * 16 | 0; const n = Math.max(1, Math.round(sz * (0.6 + r() * 0.6)));
-      for (let k = 0; k < n; k++) {
-        if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH - 1) { const j = (y * 16 + z) * 16 + x;
-          // diamonds (like MC) are often skipped where they would touch open air
-          if (d[j] === B.STONE && !(id === B.DIAMOND_ORE && r() < 0.5 && (d[j + 256] === 0 || d[j - 256] === 0 || (x > 0 && d[j - 1] === 0) || (x < 15 && d[j + 1] === 0)))) d[j] = id; }
-        const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--;
-      }
-    }
     // ores added by mods
     for (const [key, cnt, sz, mnY, mxY, shape, rep, biomes] of MODS.ores) {
       const id = B[String(key).toUpperCase()], repId = B[String(rep).toUpperCase()]; if (!id || !repId) continue;
@@ -557,7 +583,7 @@ class World {
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const n = this.getChunk(c.cx + dx, c.cz + dz); if (!n) continue; for (const L of n.lights) { const lx = L[0] - bx, lz = L[2] - bz; if (lx > -9 && lx < 25 && lz > -9 && lz < 25) lights.push([lx + 0.5, L[1] + 0.5, lz + 0.5, L[3]]); } }
     const nL = lights.length;
     const blk = (x, y, z) => { let best = 0; for (let k = 0; k < nL; k++) { const L = lights[k]; const a = x - L[0], b = y - L[1], e = z - L[2]; const d2 = a * a + b * b + e * e; if (d2 < 64) { const v = L[3] * (1 - Math.sqrt(d2) / 8); if (v > best) best = v; } } return best; };
-    const O = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, W = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }; const SW_TOP = [0, 0, 1, 1]; const wsw = [0, 0, 0, 0];
+    const O = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, W = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, CV = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }; const SW_TOP = [0, 0, 1, 1]; const wsw = [0, 0, 0, 0];
     const quad = (G, verts, uvs, skyL, blks, shades, flip, sway) => {
       const b = G.n;
       for (let k = 0; k < 4; k++) { G.p.push(verts[k * 3], verts[k * 3 + 1], verts[k * 3 + 2]); G.u.push(uvs[k * 2], uvs[k * 2 + 1]); G.l.push(skyL, blks[k]); G.s.push(shades[k]); G.w.push(sway ? (typeof sway === 'number' ? sway : sway[k]) : 0); }
@@ -567,7 +593,11 @@ class World {
     const vtmp = new Array(12), uvtmp = new Array(8), bl = [0, 0, 0, 0], sh = [0, 0, 0, 0], aov = [0, 0, 0, 0];
     const d = c.d; const maxY = Math.min(WH - 1, c.maxY + 1);
     for (let y = 0; y <= maxY; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
-      const id = d[(y * 16 + z) * 16 + x]; if (!id) continue; const def = BL[id];
+      const ii = (y * 16 + z) * 16 + x; const id = d[ii]; if (!id) continue; const def = BL[id];
+      // block light only matters near a light source: check once per block whether any light is within reach
+      let litHere = false; if (nL) { const cx0 = x + 0.5, cy0 = y + 0.5, cz0 = z + 0.5; for (let k = 0; k < nL; k++) { const L = lights[k]; const a = cx0 - L[0], b2 = cy0 - L[1], e = cz0 - L[2]; if (a * a + b2 * b2 + e * e < 90) { litHere = true; break; } } }
+      // fast path: a full block buried on all six sides has nothing to draw (most of the underground)
+      if (OPAQUE[id] && !def.h && y > 0 && x > 0 && x < 15 && z > 0 && z < 15 && OPAQUE[d[ii - 1]] && OPAQUE[d[ii + 1]] && OPAQUE[d[ii - 16]] && OPAQUE[d[ii + 16]] && OPAQUE[d[ii - 256]] && OPAQUE[d[ii + 256]]) continue;
       if (def.render === 'cross') {
         const uv = TILE_UV[def.texIds[0]]; const s = sky(x, y, z); const b0 = nL ? blk(x + 0.5, y + 0.5, z + 0.5) : 0;
         const P = [[0.15, 0.15, 0.85, 0.85], [0.15, 0.85, 0.85, 0.15]];
@@ -601,23 +631,26 @@ class World {
         quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1.8, 1.8, 1.8, 1.8], false); continue;
       }
       const isW = def.render === 'water' || def.render === 'lava'; const isLava = def.render === 'lava';
-      const waterTop = isW && get(x, y + 1, z) !== id; const leafy = def.cullSame && def.render === 'cutout' && id !== B.GLASS;
+      const fk = FKIND[id]; const waterTop = isW && FKIND[get(x, y + 1, z)] !== fk; const hereH = waterTop ? FH[id] : 1; const leafy = def.cullSame && def.render === 'cutout' && id !== B.GLASS;
       for (let f = 0; f < 6; f++) {
         const F = FACES[f]; const nx = x + F.n[0], ny = y + F.n[1], nz = z + F.n[2]; const nb = get(nx, ny, nz);
-        if (isW) { if (nb === id || OPAQUE[nb]) continue; if (f !== 2 && nb && SOLID[nb] && !OPAQUE[nb]) { } }
+        let sideBase = 0;
+        if (isW) { if (OPAQUE[nb]) continue; if (FKIND[nb] === fk) { if (F.n[1] !== 0) continue; const nbH = FKIND[get(nx, ny + 1, nz)] === fk ? 1 : FH[nb]; if (nbH >= hereH - 0.001) continue; sideBase = nbH; } }
         else { if (OPAQUE[nb] && !(def.h && f === 2)) continue; if (nb === id && def.cullSame) continue; if (def.h && f !== 2 && f !== 3 && BL[nb] && BL[nb].h) continue; }
         const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
         for (let k = 0; k < 4; k++) {
-          const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (waterTop && cc[1] ? 0.875 : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
+          const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (isW ? (cc[1] ? hereH : sideBase) : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
           uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
           wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
           if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
           else aov[k] = 3;
           sh[k] = F.s * AO_LV[aov[k]];
-          bl[k] = nL ? blk(x + cc[0] + F.n[0] * 0.5, y + cc[1] + F.n[1] * 0.5, z + cc[2] + F.n[2] * 0.5) : 0;
+          bl[k] = litHere ? blk(x + cc[0] + F.n[0] * 0.5, y + cc[1] + F.n[1] * 0.5, z + cc[2] + F.n[2] * 0.5) : 0;
         }
         if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1 + LIGHT[id]; }
-        quad(isW && !isLava ? W : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
+        // faces looking into deep covered space (cave air under 6+ blocks, below sea level) go to the cave mesh, which is only drawn near the player or when they are underground
+        const caveFace = !this.flatSky && ny < SEA && ny < topAt(nx, nz) - 6;
+        quad(isW && !isLava ? W : caveFace ? CV : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
       }
     }
     const mk = (G, mat) => {
@@ -631,13 +664,15 @@ class World {
     };
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); c.wmesh = null; }
-    c.mesh = mk(O, chunkMat); c.wmesh = mk(W, waterMat);
-    if (c.mesh) this.scene.add(c.mesh); if (c.wmesh) this.scene.add(c.wmesh);
+    if (c.cmesh) { this.scene.remove(c.cmesh); c.cmesh.geometry.dispose(); c.cmesh = null; }
+    c.mesh = mk(O, chunkMat); c.wmesh = mk(W, waterMat); c.cmesh = mk(CV, chunkMat);
+    if (c.mesh) this.scene.add(c.mesh); if (c.wmesh) this.scene.add(c.wmesh); if (c.cmesh) { c.cmesh.visible = this.caveView !== false; this.scene.add(c.cmesh); }
     c.dirty = false;
   }
   unload(c) {
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); }
+    if (c.cmesh) { this.scene.remove(c.cmesh); c.cmesh.geometry.dispose(); }
     this.chunks.delete(c.key); this.urgent.delete(c);
   }
   update(px, pz, R, budgetMs) {
@@ -666,3 +701,165 @@ class World {
   meshedAround(px, pz, r) { const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16); let ok = 0, tot = 0; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { tot++; const c = this.getChunk(pcx + dx, pcz + dz); if (c && !c.dirty) ok++; } return ok / tot; }
 }
 
+
+// ---- ravines (Minecraft canyon carver) ----
+// A ravine can start in about 1 chunk in 80 and run up to ~110 blocks, so every chunk checks the starts within 7 chunks
+// around it and carves only the part that crosses it. Tall and narrow (vertical radius 3x the width, like Minecraft), jagged walls,
+// and lava at the bottom below y -54 (the same lava level as caves).
+function ravinePath(seed, sx, sz) {
+  const r = mulberry32(ihash(sx, sz, 5051, seed)); if (r() > 0.0125) return null;
+  let x = sx * 16 + r() * 16, z = sz * 16 + r() * 16, y = YOFF + 10 + r() * 57; let yaw = r() * Math.PI * 2, pitch = (r() - 0.5) * 0.25;
+  const len = 70 + (r() * 40 | 0), maxW = 1.8 + r() * 2.2; const pts = []; let dyaw = 0, dpitch = 0;
+  const layer = []; for (let i = 0; i < WH; i++) layer.push(i === 0 || r() < 0.33 ? 1 + r() * r() : layer[i - 1]);
+  for (let i = 0; i < len; i++) {
+    const w = 1.2 + Math.sin(i / len * Math.PI) * maxW; pts.push([x, y, z, w, w * 3]);
+    x += Math.cos(yaw) * Math.cos(pitch); z += Math.sin(yaw) * Math.cos(pitch); y += Math.sin(pitch);
+    pitch *= 0.7; pitch += dpitch * 0.05; yaw += dyaw * 0.05; dpitch = dpitch * 0.8 + (r() - r()) * r() * 2; dyaw = dyaw * 0.5 + (r() - r()) * r() * 4;
+  }
+  return { pts, layer };
+}
+function carveRavines(world, c, cols) {
+  const d = c.d, bx = c.cx * 16, bz = c.cz * 16, seed = world.seed;
+  if (!world.ravineCache) world.ravineCache = new Map();
+  for (let sx = c.cx - 7; sx <= c.cx + 7; sx++) for (let sz = c.cz - 7; sz <= c.cz + 7; sz++) {
+    const k = sx * 100003 + sz; let rv = world.ravineCache.get(k); if (rv === undefined) { rv = ravinePath(seed, sx, sz); if (world.ravineCache.size > 4000) world.ravineCache.clear(); world.ravineCache.set(k, rv); }
+    if (!rv) continue;
+    for (const [px, py, pz, rw, rh] of rv.pts) {
+      if (px + rw < bx - 1 || px - rw > bx + 16 || pz + rw < bz - 1 || pz - rw > bz + 16) continue;
+      const x0 = Math.max(0, Math.floor(px - rw - bx)), x1 = Math.min(15, Math.floor(px + rw - bx)), z0 = Math.max(0, Math.floor(pz - rw - bz)), z1 = Math.min(15, Math.floor(pz + rw - bz));
+      const y0 = Math.max(6, Math.floor(py - rh)), y1 = Math.min(WH - 2, Math.floor(py + rh));
+      for (let lz = z0; lz <= z1; lz++) for (let lx = x0; lx <= x1; lx++) {
+        const col = cols[lz * 16 + lx]; const wet = col.h <= SEA + 1; const dx = (bx + lx + 0.5 - px) / rw, dz = (bz + lz + 0.5 - pz) / rw; const h2 = dx * dx + dz * dz; if (h2 >= 1) continue;
+        for (let y = y0; y <= y1; y++) {
+          const dy = (y + 0.5 - py) / rh; if (h2 * rv.layer[y] + dy * dy / 6 >= 1) continue;
+          if (wet && y >= col.h - 3) continue; // never break into the sea floor
+          const i = (y * 16 + lz) * 16 + lx; const cur = d[i]; if (!cur || cur === B.BEDROCK || FKIND[cur] === 1) continue;
+          if (y + 1 < WH && FKIND[d[i + 256]] === 1) continue;
+          d[i] = y < YOFF - 54 ? B.LAVA : 0;
+          if (cur === B.GRASS || cur === B.SNOWY_GRASS) continue;
+          if (y > 0 && d[i - 256] === B.DIRT && y - 1 >= col.h - 2) d[i - 256] = col.b === BIO.SNOWY ? B.SNOWY_GRASS : B.GRASS;
+        }
+      }
+    }
+  }
+}
+// ---- lava lakes (Minecraft lake feature) ----
+// Underground lava lakes in about 1 chunk in 9, rare ones on the surface (1 in 200). A lake is a blob of 4-7 overlapping
+// ellipsoids in a 16x8x16 box: the bottom 4 layers are lava, the top 4 are air. It is only placed if the lava is sealed
+// by solid blocks; stone lines its edges like Minecraft's lava lakes.
+function placeLavaLakes(world, c, cols) {
+  const d = c.d, seed = world.seed; const r = mulberry32(ihash(c.cx, c.cz, 7331, seed));
+  let minH = WH; for (const col of cols) minH = Math.min(minH, col.h);
+  const surface = r() < 1 / 200, under = r() < 1 / 9; let y0;
+  if (surface) { const cc = cols[136]; if (cc.h <= SEA + 1 || cc.b === BIO.OCEAN || cc.b === BIO.BEACH) return; y0 = cc.h - 4; }
+  else if (under) { if (minH < 40) return; y0 = 8 + (r() * Math.max(1, minH - 30) | 0); }
+  else return;
+  if (y0 < 5 || y0 + 8 >= WH) return;
+  const mask = new Uint8Array(16 * 8 * 16); const M = (x, y, z) => (y * 16 + z) * 16 + x;
+  const n = 4 + (r() * 4 | 0);
+  for (let k = 0; k < n; k++) {
+    const sx = r() * 6 + 3, sy = r() * 4 + 2, sz = r() * 6 + 3; const cx = r() * (16 - sx - 2) + 1 + sx / 2, cy = r() * (8 - sy - 4) + 2 + sy / 2, cz = r() * (16 - sz - 2) + 1 + sz / 2;
+    for (let x = 1; x < 15; x++) for (let z = 1; z < 15; z++) for (let y = 1; y < 7; y++) { const a = (x - cx) / (sx / 2), b = (y - cy) / (sy / 2), e = (z - cz) / (sz / 2); if (a * a + b * b + e * e < 1) mask[M(x, y, z)] = 1; }
+  }
+  const at = (x, y, z) => d[((y0 + y) * 16 + z) * 16 + x];
+  for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 0; y < 8; y++) {
+    if (mask[M(x, y, z)]) continue;
+    const edge = (x < 15 && mask[M(x + 1, y, z)]) || (x > 0 && mask[M(x - 1, y, z)]) || (z < 15 && mask[M(x, y, z + 1)]) || (z > 0 && mask[M(x, y, z - 1)]) || (y < 7 && mask[M(x, y + 1, z)]) || (y > 0 && mask[M(x, y - 1, z)]);
+    if (!edge) continue; const id = at(x, y, z);
+    if (y >= 4 && FKIND[id]) return; if (y < 4 && !SOLID[id] && !isLavaId(id)) return;
+  }
+  for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 0; y < 8; y++) if (mask[M(x, y, z)]) d[((y0 + y) * 16 + z) * 16 + x] = y < 4 ? B.LAVA : 0;
+  for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 0; y < 8; y++) {
+    if (mask[M(x, y, z)]) continue;
+    const edge = (x < 15 && mask[M(x + 1, y, z)]) || (x > 0 && mask[M(x - 1, y, z)]) || (z < 15 && mask[M(x, y, z + 1)]) || (z > 0 && mask[M(x, y, z - 1)]) || (y < 7 && mask[M(x, y + 1, z)]) || (y > 0 && mask[M(x, y - 1, z)]);
+    const i = ((y0 + y) * 16 + z) * 16 + x;
+    if (edge && y < 4 && SOLID[d[i]] && r() < 0.6) d[i] = B.STONE;
+    if (surface && y >= 3 && y < 7 && mask[M(x, y + 1, z)] && d[i] === B.DIRT) d[i] = B.GRASS; // grass grows back on the exposed banks
+  }
+}
+
+// ---- ores: Minecraft 1.18+ ore features ----
+// [name, block, deepslate variant, tries per chunk, vein size, height shape, min y, max y, chance to skip a block touching air]
+// Heights are the y values the player sees; 'tri' is Minecraft's trapezoid (a triangle peaking mid-range), 'uni' uniform.
+// A fractional try count is a chance (e.g. large diamond veins in 1 chunk out of 9). Features run in Minecraft's order:
+// dirt, gravel and stone blobs first, then ores, so ores also appear inside granite, diorite, andesite and tuff.
+const ORE_FEATURES = [
+  ['dirt', 'dirt', null, 7, 33, 'uni', 0, 160, 0],
+  ['gravel', 'gravel', null, 14, 33, 'uni', -64, 320, 0],
+  ['granite_upper', 'granite', null, 1 / 6, 64, 'uni', 64, 128, 0], ['granite_lower', 'granite', null, 2, 64, 'uni', 0, 60, 0],
+  ['diorite_upper', 'diorite', null, 1 / 6, 64, 'uni', 64, 128, 0], ['diorite_lower', 'diorite', null, 2, 64, 'uni', 0, 60, 0],
+  ['andesite_upper', 'andesite', null, 1 / 6, 64, 'uni', 64, 128, 0], ['andesite_lower', 'andesite', null, 2, 64, 'uni', 0, 60, 0],
+  ['tuff', 'tuff', null, 2, 64, 'uni', -64, 0, 0],
+  ['coal_upper', 'coal_ore', 'deepslate_coal_ore', 30, 17, 'uni', 136, 320, 0],
+  ['coal_lower', 'coal_ore', 'deepslate_coal_ore', 20, 17, 'tri', 0, 192, 0.5],
+  ['iron_upper', 'iron_ore', 'deepslate_iron_ore', 90, 9, 'tri', 80, 384, 0],
+  ['iron_middle', 'iron_ore', 'deepslate_iron_ore', 10, 9, 'tri', -24, 56, 0],
+  ['iron_small', 'iron_ore', 'deepslate_iron_ore', 10, 4, 'uni', -64, 72, 0],
+  ['gold', 'gold_ore', 'deepslate_gold_ore', 4, 9, 'tri', -64, 32, 0.5],
+  ['gold_lower', 'gold_ore', 'deepslate_gold_ore', 0.5, 9, 'uni', -64, -48, 0.5],
+  ['redstone', 'redstone_ore', 'deepslate_redstone_ore', 4, 8, 'uni', -64, 15, 0],
+  ['redstone_lower', 'redstone_ore', 'deepslate_redstone_ore', 8, 8, 'tri', -96, -32, 0],
+  ['diamond', 'diamond_ore', 'deepslate_diamond_ore', 7, 4, 'tri', -144, 16, 0.5],
+  ['diamond_medium', 'diamond_ore', 'deepslate_diamond_ore', 2, 8, 'uni', -64, -4, 0.5],
+  ['diamond_large', 'diamond_ore', 'deepslate_diamond_ore', 1 / 9, 12, 'tri', -144, 16, 0.7],
+  ['diamond_buried', 'diamond_ore', 'deepslate_diamond_ore', 4, 8, 'tri', -144, 16, 1],
+  ['lapis', 'lapis_ore', 'deepslate_lapis_ore', 2, 7, 'tri', -32, 32, 0],
+  ['lapis_buried', 'lapis_ore', 'deepslate_lapis_ore', 4, 7, 'uni', -64, 64, 1],
+  ['copper', 'copper_ore', 'deepslate_copper_ore', 16, 10, 'tri', -16, 112, 0],
+  ['emerald', 'emerald_ore', 'deepslate_emerald_ore', 100, 3, 'tri', -16, 480, 0, 'mountains'],
+];
+let ORE_IDS = null;
+function oreIds() {
+  if (ORE_IDS) return ORE_IDS;
+  ORE_IDS = ORE_FEATURES.map(([name, ore, deep, n, size, shape, lo, hi, air, biome], k) => ({ name, o: B[ore.toUpperCase()], dp: deep ? B[deep.toUpperCase()] : 0, ore: !!deep, n, size, shape, lo: lo + YOFF, hi: hi + YOFF, air, biome, salt: 7919 * (k + 1) + 13 }));
+  return ORE_IDS;
+}
+// Minecraft's OreFeature: a line of overlapping spheres between two points size/8 from the origin, thickest in the middle.
+// Only spheres that reach the box [bx0, bx0+15] x [bz0, bz0+15] are filled (the rest of the vein belongs to other chunks).
+function oreVein(rnd, ox, oy, oz, size, bx0, bz0, put) {
+  const f = rnd() * Math.PI, g = size / 8; const x0 = ox + Math.sin(f) * g, x1 = ox - Math.sin(f) * g, z0 = oz + Math.cos(f) * g, z1 = oz - Math.cos(f) * g;
+  const y0 = oy + (rnd() * 3 | 0) - 2, y1 = oy + (rnd() * 3 | 0) - 2;
+  for (let j = 0; j < size; j++) {
+    const t = j / size; const cx = x0 + (x1 - x0) * t, cy = y0 + (y1 - y0) * t, cz = z0 + (z1 - z0) * t; const rad = rnd() * size / 16; const h = ((Math.sin(Math.PI * t) + 1) * rad + 1) / 2;
+    const xa = Math.max(bx0, Math.floor(cx - h)), xb = Math.min(bx0 + 15, Math.floor(cx + h)), za = Math.max(bz0, Math.floor(cz - h)), zb = Math.min(bz0 + 15, Math.floor(cz + h)); if (xa > xb || za > zb) continue;
+    const ya = Math.max(1, Math.floor(cy - h)), yb = Math.min(WH - 2, Math.floor(cy + h)); const ih = 1 / h;
+    for (let x = xa; x <= xb; x++) { const a = (x + 0.5 - cx) * ih, a2 = a * a; if (a2 >= 1) continue;
+      for (let z = za; z <= zb; z++) { const c = (z + 0.5 - cz) * ih, ac = a2 + c * c; if (ac >= 1) continue;
+        for (let y = ya; y <= yb; y++) { const bb = (y + 0.5 - cy) * ih; if (ac + bb * bb < 1) put(x, y, z); } } }
+  }
+}
+// Every chunk rolls its own veins from its corner (like Minecraft), and also replays the neighbouring chunks' veins,
+// keeping only the blocks that land inside itself, so veins crossing a chunk edge come out whole.
+function placeOres(world, c, cols) {
+  const d = c.d, seed = world.seed, bx = c.cx * 16, bz = c.cz * 16;
+  const exposed = (lx, y, lz) => { const i = (y * 16 + lz) * 16 + lx; return d[i + 256] === 0 || d[i - 256] === 0 || (lx > 0 && d[i - 1] === 0) || (lx < 15 && d[i + 1] === 0) || (lz > 0 && d[i - 16] === 0) || (lz < 15 && d[i + 16] === 0); };
+  const base = (id) => id === B.STONE || id === B.GRANITE || id === B.DIORITE || id === B.ANDESITE || id === B.TUFF || id === B.DEEPSLATE;
+  for (const F of oreIds()) for (let ncx = c.cx - 1; ncx <= c.cx + 1; ncx++) for (let ncz = c.cz - 1; ncz <= c.cz + 1; ncz++) {
+    const nbx = ncx * 16, nbz = ncz * 16; const rnd = mulberry32(ihash(ncx, ncz, F.salt, seed));
+    let tries = Math.floor(F.n); if (rnd() < F.n - tries) tries++;
+    if (!tries || (F.biome === 'mountains' && world.gen.column(nbx + 8, nbz + 8).b !== BIO.MOUNTAINS)) continue;
+    const reach = F.size / 8 + F.size / 16 + 1.5;
+    for (let t = 0; t < tries; t++) {
+      const ox = nbx + (rnd() * 16 | 0), oz = nbz + (rnd() * 16 | 0); const q = F.shape === 'tri' ? (rnd() + rnd()) / 2 : rnd(); const oy = Math.floor(F.lo + q * (F.hi - F.lo));
+      if (oy < 1 || oy >= WH - 1 || ox + reach < bx || ox - reach > bx + 15 || oz + reach < bz || oz - reach > bz + 15) continue;
+      const vr = mulberry32(ihash(ox, oy, oz, F.salt ^ seed));
+      oreVein(vr, ox, oy, oz, F.size, bx, bz, (x, y, z) => {
+        const lx = x - bx, lz = z - bz, i = (y * 16 + lz) * 16 + lx; const cur = d[i]; let to = 0;
+        if (F.ore) { if (cur === B.STONE || cur === B.GRANITE || cur === B.DIORITE || cur === B.ANDESITE) to = F.o; else if (cur === B.DEEPSLATE || cur === B.TUFF) to = F.dp; }
+        else if (base(cur)) to = F.o;
+        if (!to) return;
+        if (F.air > 0 && exposed(lx, y, lz) && vr() < F.air) return;
+        d[i] = to;
+      });
+    }
+  }
+}
+
+// cave culling: deep cave faces are drawn only within 3 chunks of the camera, or everywhere once the camera is underground
+// (below sea level with blocks overhead), like a much simpler version of Minecraft's cave culling
+function updateCaveCulling(w, cam) {
+  if (!w || w.flatSky) return; const cx = Math.floor(cam.x / 16), cz = Math.floor(cam.z / 16);
+  const c0 = w.getChunk(cx, cz); const under = cam.y < SEA && c0 && cam.y < c0.top[(Math.floor(cam.z) & 15) * 16 + (Math.floor(cam.x) & 15)] - 2;
+  w.caveView = under;
+  for (const c of w.chunks.values()) if (c.cmesh) c.cmesh.visible = under || (Math.abs(c.cx - cx) <= 2 && Math.abs(c.cz - cz) <= 2);
+}

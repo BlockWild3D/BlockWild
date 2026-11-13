@@ -1,6 +1,8 @@
 'use strict';
 // ================= CORE: utils, noise, textures, blocks, items =================
-const CS = 16, WH = 96, SEA = 32;
+// Minecraft heights: the Overworld runs from y -64 to 319 (384 blocks). Inside the game the block arrays start at 0, so an
+// Overworld y shown to the player is the stored y minus 64 (YOFF). Sea level 63 is stored at 127.
+const CS = 16, WH = 384, YOFF = 64, SEA = 127;
 const V3 = THREE.Vector3;
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
@@ -81,7 +83,7 @@ function pPlanks(set, r, base) {
 function pLogSide(set, r, base, dark) { for (let x = 0; x < 16; x++) { const s = r(); for (let y = 0; y < 16; y++) { let c = vary(mixc(base, dark, (x % 4 === 0 ? 0.55 : 0) + s * 0.25), r, 5); if (r() < 0.05) c = mixc(base, dark, 0.8); set(x, y, c); } } }
 function pLogTop(set, r, inner, ring, bark) { each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, d > 6.5 ? vary(bark, r, 6) : vary((Math.floor(d) % 2) ? ring : inner, r, 5)); }); }
 function pLeaves(set, r, base) { each((x, y) => { if (r() < 0.2) { set(x, y, [0, 0, 0], 0); return; } let c = vary(base, r, 20); if (r() < 0.22) c = mixc(c, [0, 0, 0], 0.3); set(x, y, c); }); }
-function pOre(set, r, col, hi) { pStone(set, r); for (let k = 0; k < 5; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0; const n = 3 + r() * 3 | 0; for (let i = 0; i < n; i++) { const x = cx + (r() * 3 | 0) - 1, y = cy + (r() * 3 | 0) - 1; set(x, y, r() < 0.35 ? hi : vary(col, r, 10)); } } }
+function pOre(set, r, col, hi, base) { (base || pStone)(set, r); for (let k = 0; k < 5; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0; const n = 3 + r() * 3 | 0; for (let i = 0; i < n; i++) { const x = cx + (r() * 3 | 0) - 1, y = cy + (r() * 3 | 0) - 1; set(x, y, r() < 0.35 ? hi : vary(col, r, 10)); } } }
 function pBricks(set, r, base, mort, bw, bh) { each((x, y) => { const row = Math.floor(y / bh); const m = (y % bh) === bh - 1 || ((x + (row % 2) * (bw / 2)) % bw) === bw - 1; set(x, y, m ? vary(mort, r, 6) : vary(base, r, 10)); }); }
 function pFlower(set, r, pet, ctr) {
   clear(set); const G = [52, 125, 38];
@@ -89,6 +91,11 @@ function pFlower(set, r, pet, ctr) {
   for (const [x, y] of [[7, 4], [6, 5], [8, 5], [5, 6], [9, 6], [6, 7], [8, 7], [7, 8], [7, 5], [7, 7], [6, 6], [8, 6]]) set(x, y, vary(pet, r, 14));
   set(7, 6, ctr);
 }
+function pDeepslate(set, r) {
+  each((x, y) => { let c = vary([78, 78, 84], r, 7); const q = r(); if (q < 0.14) c = vary([62, 62, 68], r, 4); else if (q < 0.2) c = vary([96, 96, 102], r, 4); set(x, y, c); });
+  for (let k = 0; k < 9; k++) { const x = r() * 16 | 0, y = r() * 16 | 0, l = 3 + r() * 5 | 0; for (let i = 0; i < l; i++) set((x + i) & 15, y, vary([56, 56, 62], r, 3)); }
+}
+function pSpeckled(set, r, base, a, b, pa, pb) { each((x, y) => { let c = vary(base, r, 8); const q = r(); if (q < pa) c = vary(a, r, 6); else if (q < pa + pb) c = vary(b, r, 6); set(x, y, c); }); }
 // --- block tiles ---
 makeTile('dirt', pDirt);
 makeTile('grass_top', (set, r) => each((x, y) => { let c = vary(C_GRASS, r, 16); if (r() < 0.16) c = vary([72, 126, 40], r, 7); set(x, y, c); }));
@@ -149,6 +156,27 @@ makeTile('spawner', (set, r) => each((x, y) => { if (x % 5 === 0 || y % 5 === 0 
 makeTile('stone_bricks', (set, r) => each((x, y) => { const row = y >> 3; const m = (y & 7) === 7 || ((x + row * 8) & 15) === 15 || ((x + row * 8) & 15) === 7 && false; let c = m ? vary([84, 84, 84], r, 4) : vary([124, 124, 124], r, 7); if (!m && ((y & 7) === 0)) c = vary([140, 140, 140], r, 4); set(x, y, c); }));
 // --- nether & end tiles ---
 function pNetherrack(set, r) { each((x, y) => { let c = vary([112, 48, 46], r, 10); const q = r(); if (q < 0.18) c = vary([84, 32, 32], r, 6); else if (q < 0.26) c = vary([140, 66, 62], r, 6); set(x, y, c); }); }
+makeTile('debris_side', (set, r) => each((x, y) => { let c = vary([98, 66, 58], r, 8); const band = (x * 3 + y * 7 + Math.floor(r() * 3)) % 9; if (band < 2) c = vary([128, 92, 80], r, 6); else if (band > 7) c = vary([62, 42, 38], r, 5); if ((y === 3 || y === 9 || y === 14) && r() < 0.8) c = vary([70, 48, 44], r, 4); set(x, y, c); }));
+makeTile('debris_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); const ring = Math.floor(d) % 3; let c = vary(ring === 0 ? [118, 82, 72] : ring === 1 ? [92, 62, 56] : [72, 50, 46], r, 6); if (d > 6.5) c = vary([60, 40, 36], r, 4); set(x, y, c); }));
+makeTile('netherite_block', (set, r) => each((x, y) => { let c = vary([66, 60, 64], r, 5); if (x === 0 || y === 0) c = [96, 88, 92]; else if (x === 15 || y === 15) c = [40, 36, 40]; else if ((x === 5 || x === 10) && r() < 0.6) c = vary([54, 48, 52], r, 3); set(x, y, c); }));
+makeTile('smith_top', (set, r) => each((x, y) => { let c = vary([58, 60, 70], r, 6); if (x === 0 || y === 0 || x === 15 || y === 15) c = [34, 36, 44]; else if (y === 7 || y === 8) c = vary([84, 86, 96], r, 4); set(x, y, c); }));
+makeTile('smith_side', (set, r) => { pPlanks(set, r, [112, 72, 48]); for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) set(x, y, vary(y === 3 ? [34, 36, 44] : [58, 60, 70], r, 5)); });
+makeTile('smith_front', (set, r) => { pPlanks(set, r, [112, 72, 48]); for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) set(x, y, vary(y === 3 ? [34, 36, 44] : [58, 60, 70], r, 5)); for (const [x, y] of [[5, 7], [6, 7], [9, 7], [10, 7], [5, 8], [10, 8], [5, 11], [6, 11], [9, 11], [10, 11]]) set(x, y, [200, 200, 210]); });
+makeTile('smith_bottom', (set, r) => pPlanks(set, r, [96, 62, 40]));
+makeTile('deepslate', pDeepslate);
+makeTile('deepslate_top', (set, r) => { each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); let c = vary([82, 82, 88], r, 6); if (Math.floor(d) % 3 === 0) c = vary([66, 66, 72], r, 4); set(x, y, c); }); });
+makeTile('cobbled_deepslate', (set, r) => { pCobble(set, r, false); each((x, y) => { }); });
+makeTile('tuff', (set, r) => pSpeckled(set, r, [108, 109, 102], [88, 90, 84], [132, 132, 122], 0.18, 0.1));
+makeTile('granite', (set, r) => pSpeckled(set, r, [152, 106, 88], [118, 78, 62], [190, 146, 128], 0.2, 0.14));
+makeTile('diorite', (set, r) => pSpeckled(set, r, [192, 192, 194], [128, 128, 130], [232, 232, 232], 0.16, 0.18));
+makeTile('andesite', (set, r) => pSpeckled(set, r, [134, 134, 136], [112, 112, 114], [158, 158, 160], 0.2, 0.12));
+makeTile('copper_ore', (set, r) => pOre(set, r, [198, 112, 74], [126, 178, 140]));
+makeTile('redstone_ore', (set, r) => pOre(set, r, [176, 16, 14], [255, 70, 60]));
+makeTile('emerald_ore', (set, r) => pOre(set, r, [40, 190, 80], [150, 255, 170]));
+makeTile('lapis_ore_d', (set, r) => pOre(set, r, [36, 70, 176], [90, 130, 230], pDeepslate));
+for (const [k, c, h] of [['coal', [38, 38, 38], [70, 70, 70]], ['iron', [200, 160, 128], [228, 196, 170]], ['gold', [236, 204, 44], [255, 246, 140]], ['diamond', [80, 220, 214], [200, 255, 250]], ['copper', [198, 112, 74], [126, 178, 140]], ['redstone', [176, 16, 14], [255, 70, 60]], ['emerald', [40, 190, 80], [150, 255, 170]]])
+  makeTile('deepslate_' + k + '_ore', (set, r) => pOre(set, r, c, h, pDeepslate));
+makeTile('copper_block', (set, r) => each((x, y) => { let c = vary([192, 108, 78], r, 7); if (x === 0 || y === 0) c = [222, 140, 104]; else if (x === 15 || y === 15) c = [140, 72, 50]; set(x, y, c); }));
 makeTile('obsidian', (set, r) => each((x, y) => { let c = vary([22, 16, 34], r, 5); const q = r(); if (q < 0.1) c = vary([60, 38, 96], r, 8); else if (q < 0.16) c = [8, 6, 14]; set(x, y, c); }));
 makeTile('netherrack', pNetherrack);
 makeTile('soul_sand', (set, r) => { each((x, y) => set(x, y, vary([86, 66, 52], r, 8))); for (let k = 0; k < 4; k++) { const cx = 2 + r() * 11 | 0, cy = 2 + r() * 11 | 0; set(cx, cy, [50, 36, 28]); set(cx + 2, cy, [50, 36, 28]); set(cx + 1, cy + 2, [44, 30, 24]); set(cx, cy + 2, [58, 42, 32]); set(cx + 2, cy + 2, [58, 42, 32]); } });
@@ -228,8 +256,8 @@ defBlock('cobblestone', 'Cobblestone', { tex: 'cobble', hardness: 2, tool: 'pick
 defBlock('glass', 'Glass', { tex: 'glass', opaque: false, render: 'cutout', cullSame: true, hardness: 0.3, drop: null, snd: 'glass' });
 defBlock('brick', 'Bricks', { tex: 'brick', hardness: 2, tool: 'pick', tier: 1 });
 defBlock('coal_ore', 'Coal Ore', { tex: 'coal_ore', hardness: 3, tool: 'pick', tier: 1, drop: 'coal' });
-defBlock('iron_ore', 'Iron Ore', { tex: 'iron_ore', hardness: 3, tool: 'pick', tier: 2 });
-defBlock('gold_ore', 'Gold Ore', { tex: 'gold_ore', hardness: 3, tool: 'pick', tier: 3 });
+defBlock('iron_ore', 'Iron Ore', { tex: 'iron_ore', hardness: 3, tool: 'pick', tier: 2, drop: 'raw_iron' });
+defBlock('gold_ore', 'Gold Ore', { tex: 'gold_ore', hardness: 3, tool: 'pick', tier: 3, drop: 'raw_gold' });
 defBlock('diamond_ore', 'Diamond Ore', { tex: 'diamond_ore', hardness: 3, tool: 'pick', tier: 3, drop: 'diamond' });
 defBlock('snowy_grass', 'Snowy Grass', { tex: { s: 'snow_side', t: 'snow', b: 'dirt' }, hardness: 0.6, drop: 'dirt', snd: 'snow' });
 defBlock('bedrock', 'Bedrock', { tex: 'bedrock', hardness: -1, drop: null });
@@ -293,11 +321,35 @@ defBlock('farmland', 'Farmland', { tex: { s: 'dirt', t: 'farmland', b: 'dirt' },
 for (let st = 0; st < 4; st++) defBlock('wheat_' + st, 'Wheat Crops', { tex: 'wheat' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, hidden: st > 0, crop: st, drop: st < 3 ? 'wheat_seeds' : (r) => ['wheat', 1] });
 defBlock('hay_block', 'Hay Bale', { tex: { s: 'hay_side', t: 'hay_top' }, hardness: 0.5, snd: 'grass' });
 defBlock('enchanting_table', 'Enchanting Table', { tex: { s: 'ench_side', t: 'ench_top', b: 'ench_bottom' }, hardness: 5, tool: 'pick', tier: 1, light: 0.45, use: 'enchant' });
+// flowing liquids: levels 1-7 spread outward, 8 is falling. B.WATER / B.LAVA are the source blocks
+for (let L = 1; L <= 8; L++) defBlock('water_' + L, 'Water', { tex: 'water', solid: false, opaque: false, render: 'water', hardness: -1, drop: null, fluid: true, noTarget: true, hidden: true });
+for (let L = 1; L <= 8; L++) defBlock('lava_' + L, 'Lava', { tex: 'lava', solid: false, opaque: false, render: 'lava', hardness: -1, drop: null, light: 1, fluid: true, noTarget: true, hidden: true });
+// deep stone layers and the rest of Minecraft's Overworld ores
+defBlock('deepslate', 'Deepslate', { tex: { s: 'deepslate', t: 'deepslate_top' }, hardness: 3, tool: 'pick', tier: 1, drop: 'cobbled_deepslate' });
+defBlock('cobbled_deepslate', 'Cobbled Deepslate', { tex: 'cobbled_deepslate', hardness: 3.5, tool: 'pick', tier: 1 });
+defBlock('tuff', 'Tuff', { tex: 'tuff', hardness: 1.5, tool: 'pick', tier: 1 });
+defBlock('granite', 'Granite', { tex: 'granite', hardness: 1.5, tool: 'pick', tier: 1 });
+defBlock('diorite', 'Diorite', { tex: 'diorite', hardness: 1.5, tool: 'pick', tier: 1 });
+defBlock('andesite', 'Andesite', { tex: 'andesite', hardness: 1.5, tool: 'pick', tier: 1 });
+defBlock('copper_ore', 'Copper Ore', { tex: 'copper_ore', hardness: 3, tool: 'pick', tier: 2, drop: (r) => ['raw_copper', 2 + (r * 4 | 0)] });
+defBlock('redstone_ore', 'Redstone Ore', { tex: 'redstone_ore', hardness: 3, tool: 'pick', tier: 3, drop: (r) => ['redstone', 4 + (r * 2 | 0)] });
+defBlock('emerald_ore', 'Emerald Ore', { tex: 'emerald_ore', hardness: 3, tool: 'pick', tier: 3, drop: 'emerald' });
+for (const [k, n, tier, drop] of [['coal', 'Coal', 1, 'coal'], ['iron', 'Iron', 2, 'raw_iron'], ['gold', 'Gold', 3, 'raw_gold'], ['diamond', 'Diamond', 3, 'diamond'], ['lapis', 'Lapis Lazuli', 2, (r) => ['lapis_lazuli', 4 + (r * 6 | 0)]], ['copper', 'Copper', 2, (r) => ['raw_copper', 2 + (r * 4 | 0)]], ['redstone', 'Redstone', 3, (r) => ['redstone', 4 + (r * 2 | 0)]], ['emerald', 'Emerald', 3, 'emerald']])
+  defBlock('deepslate_' + k + '_ore', 'Deepslate ' + n + ' Ore', { tex: k === 'lapis' ? 'lapis_ore_d' : 'deepslate_' + k + '_ore', hardness: 4.5, tool: 'pick', tier, drop });
+defBlock('copper_block', 'Block of Copper', { tex: 'copper_block', hardness: 3, tool: 'pick', tier: 2 });
+defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
+defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
+defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
 const SOLID = new Uint8Array(256), OPAQUE = new Uint8Array(256), PLANT = new Uint8Array(256), LIGHT = new Float32Array(256);
 for (const d of BL) { SOLID[d.id] = d.solid ? 1 : 0; OPAQUE[d.id] = d.opaque ? 1 : 0; PLANT[d.id] = d.plant ? 1 : 0; LIGHT[d.id] = d.light; }
+// liquids: FKIND 1 = water, 2 = lava; FLEVEL 0 = source, 1-7 = flowing (distance), 8 = falling; FH = surface height
+const FKIND = new Uint8Array(256), FLEVEL = new Uint8Array(256), FH = new Float32Array(256); const FLID = { 1: [B.WATER], 2: [B.LAVA] };
+FKIND[B.WATER] = 1; FKIND[B.LAVA] = 2; FH[B.WATER] = FH[B.LAVA] = 0.875;
+for (let L = 1; L <= 8; L++) for (const [k, n] of [[1, 'WATER_'], [2, 'LAVA_']]) { const id = B[n + L]; FLID[k][L] = id; FKIND[id] = k; FLEVEL[id] = L; FH[id] = L === 8 ? 0.875 : 0.875 * (8 - L) / 8 + 0.02; }
+const isWaterId = (id) => FKIND[id] === 1, isLavaId = (id) => FKIND[id] === 2;
 
 // ---------------- Items ----------------
 const ITEMS = []; const IT = {};
@@ -326,6 +378,10 @@ M('shield', 'Shield', { kind: 'shield', stack: 1 });
 M('paper', 'Paper'); M('book', 'Book'); M('lapis_lazuli', 'Lapis Lazuli');
 M('bed', 'Bed', { kind: 'bed', stack: 1 });
 M('boat', 'Oak Boat', { kind: 'boat', stack: 1 });
+M('saddle', 'Saddle', { kind: 'saddle', stack: 1 });
+M('raw_iron', 'Raw Iron'); M('raw_gold', 'Raw Gold'); M('raw_copper', 'Raw Copper'); M('copper_ingot', 'Copper Ingot'); M('redstone', 'Redstone Dust'); M('emerald', 'Emerald');
+M('netherite_scrap', 'Netherite Scrap', { fireproof: true }); M('netherite_ingot', 'Netherite Ingot', { fireproof: true });
+M('netherite_upgrade_smithing_template', 'Netherite Upgrade Smithing Template', { kind: 'template' });
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // axes (strong but slow hits, fast on wood) and shovels (fast on dirt, sand, gravel, snow); Minecraft damage values
@@ -334,10 +390,16 @@ for (const [k, n, tier, sp] of TOOLMATS) M(k + '_axe', n + ' Axe', { kind: 'tool
 for (const [k, n, tool, dmg] of [['pickaxe', 'Pickaxe', 'pick', 2], ['axe', 'Axe', 'axe', 7], ['shovel', 'Shovel', 'shovel', 2.5], ['hoe', 'Hoe', 'hoe', 1], ['sword', 'Sword', 'sword', 4]]) M('golden_' + k, 'Golden ' + n, { kind: 'tool', stack: 1, tool, tier: 1, speed: tool === 'sword' ? 1 : 12, dmg, dur: 32, gold: true });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_shovel', n + ' Shovel', { kind: 'tool', stack: 1, tool: 'shovel', tier, speed: sp, dmg: [2.5, 3.5, 4.5, 5.5][tier - 1] });
 // armour: Minecraft defence points [helmet, chestplate, leggings, boots] and toughness
-const ARMOR_MATS = [['leather', 'Leather', [1, 3, 2, 1], 0, [150, 90, 50], 'leather'], ['golden', 'Golden', [2, 5, 3, 1], 0, [240, 200, 60], 'gold_ingot'], ['iron', 'Iron', [2, 6, 5, 2], 0, [210, 210, 214], 'iron_ingot'], ['diamond', 'Diamond', [3, 8, 6, 3], 2, [80, 220, 210], 'diamond']];
+const ARMOR_MATS_CRAFT = 4; const ARMOR_MATS = [['leather', 'Leather', [1, 3, 2, 1], 0, [150, 90, 50], 'leather'], ['golden', 'Golden', [2, 5, 3, 1], 0, [240, 200, 60], 'gold_ingot'], ['iron', 'Iron', [2, 6, 5, 2], 0, [210, 210, 214], 'iron_ingot'], ['diamond', 'Diamond', [3, 8, 6, 3], 2, [80, 220, 210], 'diamond'], ['netherite', 'Netherite', [3, 8, 6, 3], 3, [74, 66, 72], null]];
 const ARMOR_PIECES = [['helmet', 'Helmet', 'head'], ['chestplate', 'Chestplate', 'chest'], ['leggings', 'Leggings', 'legs'], ['boots', 'Boots', 'feet']];
 const ARMOR_SLOT = { head: 37, chest: 38, legs: 39, feet: 40 };
-for (const [mk, mn, pts, tough, col] of ARMOR_MATS) ARMOR_PIECES.forEach(([pk, pn, slot], i) => M(mk + '_' + pk, mn + ' ' + pn, { kind: 'armor', stack: 1, slot, def: pts[i], tough, color: col, mat: mk }));
+for (const [mk, mn, pts, tough, col] of ARMOR_MATS) ARMOR_PIECES.forEach(([pk, pn, slot], i) => M(mk + '_' + pk, mn + ' ' + pn, { kind: 'armor', stack: 1, slot, def: pts[i], tough, color: col, mat: mk, fireproof: mk === 'netherite', kbRes: mk === 'netherite' ? 0.1 : 0 }));
+// netherite tools: made at a smithing table from diamond tools (Minecraft values: speed 9, durability 2031)
+for (const [k, n, tool, dmg] of [['pickaxe', 'Pickaxe', 'pick', 6], ['sword', 'Sword', 'sword', 8], ['axe', 'Axe', 'axe', 10], ['shovel', 'Shovel', 'shovel', 6.5], ['hoe', 'Hoe', 'hoe', 1]]) M('netherite_' + k, 'Netherite ' + n, { kind: 'tool', stack: 1, tool, tier: 5, speed: tool === 'sword' ? 1 : 9, dmg, fireproof: true });
+// spears (Mounts of Mayhem): jab with attack, hold use to charge. [key, name, tier, jab damage, cooldown s, durability, charge multiplier, delay s, engaged s, tired s, disengaged s, dismount speed]
+const SPEARS = [['wooden', 'Wooden', 1, 1, 0.65, 59, 0.7, 0.75, 5, 5, 5, 14], ['stone', 'Stone', 2, 2, 0.75, 131, 0.82, 0.7, 4.5, 4.5, 4.75, 13], ['copper', 'Copper', 2, 2, 0.85, 190, 0.82, 0.65, 4, 4.25, 4.25, 12], ['iron', 'Iron', 3, 3, 0.95, 250, 0.95, 0.6, 2.5, 4.25, 4.5, 11],
+  ['golden', 'Golden', 1, 1, 0.95, 32, 0.7, 0.7, 3.5, 5, 5.25, 13], ['diamond', 'Diamond', 4, 4, 1.05, 1561, 1.075, 0.5, 3, 3.5, 3.5, 10], ['netherite', 'Netherite', 5, 5, 1.15, 2031, 1.2, 0.4, 2.5, 3, 3.25, 9]];
+for (const [k, n, tier, dmg, cool, dur, mult, delay, eng, tired, dis, dismount] of SPEARS) M(k + '_spear', n + ' Spear', { kind: 'tool', stack: 1, tool: 'spear', tier, speed: 1, dmg, dur, cool, spear: { mult, delay, eng, tired, dis, dismount }, gold: k === 'golden', fireproof: k === 'netherite' });
 const ITEM_IDS = ITEMS.map((x, i) => x ? i : -1).filter(i => i > 0);
 function itemDef(id) { return ITEMS[id]; }
 function stackMax(id) { return ITEMS[id] ? ITEMS[id].stack : 64; }
@@ -385,7 +447,20 @@ for (const [k, , , , col, hi] of TOOLMATS) {
 for (const [k, , , , col, hi] of TOOLMATS) ICONP[k + '_hoe'] = (s) => { pLine(s, 3, 14, 10, 7, BROWN); pLine(s, 4, 14, 11, 7, BROWN2); for (const [x, y] of [[9, 3], [10, 3], [11, 3], [12, 4], [8, 4], [9, 4], [10, 4], [11, 5], [12, 5], [12, 6]]) s(x, y, (y < 4) ? hi : col); };
 { const G0 = [240, 200, 50], G1 = [255, 246, 160]; const src = 'diamond'; ICONP.golden_pickaxe = pickIcon(G0, G1); ICONP.golden_sword = swordIcon(G0, G1);
   for (const k of ['axe', 'shovel', 'hoe']) { const base = ICONP[src + '_' + k]; ICONP['golden_' + k] = (s, r) => base((x, y, c, a) => s(x, y, (c && c[0] === 70 && c[1] === 220) ? G0 : (c && c[0] === 190 && c[1] === 255) ? G1 : c, a), r); } }
+{ const N0 = [70, 62, 68], N1 = [132, 120, 128]; ICONP.netherite_pickaxe = pickIcon(N0, N1); ICONP.netherite_sword = swordIcon(N0, N1);
+  for (const k of ['axe', 'shovel', 'hoe']) { const base = ICONP['diamond_' + k]; ICONP['netherite_' + k] = (s, r) => base((x, y, c, a) => s(x, y, (c && c[0] === 70 && c[1] === 220) ? N0 : (c && c[0] === 190 && c[1] === 255) ? N1 : c, a), r); } }
+const SPEAR_COL = { copper: [[198, 112, 74], [236, 160, 120]], wooden: [[164, 132, 80], [200, 168, 112]], stone: [[120, 120, 120], [168, 168, 168]], iron: [[214, 214, 214], [255, 255, 255]], golden: [[240, 200, 50], [255, 246, 160]], diamond: [[70, 220, 210], [190, 255, 250]], netherite: [[70, 62, 68], [132, 120, 128]] };
+for (const k in SPEAR_COL) { const [col, hi] = SPEAR_COL[k]; ICONP[k + '_spear'] = (s) => { pLine(s, 1, 14, 10, 5, BROWN); pLine(s, 2, 14, 10, 6, BROWN2); for (const [x, y] of [[10, 4], [11, 4], [11, 3], [12, 3], [12, 2], [13, 2], [13, 1], [14, 1], [11, 5], [12, 4], [13, 3], [10, 5]]) s(x, y, (x + y) % 3 === 0 ? hi : col); s(9, 7, [90, 90, 96]); s(8, 6, [90, 90, 96]); }; }
+function rawOre(c, hi, dk) { return (s, r) => { blob(s, 8, 8, 5.5, 5, c, r, dk); for (let i = 0; i < 7; i++) s(5 + r() * 6, 5 + r() * 6, hi); s(6, 6, hi); }; }
 Object.assign(ICONP, {
+  raw_iron: rawOre([214, 178, 150], [240, 214, 190], [150, 116, 92]), raw_gold: rawOre([240, 200, 50], [255, 240, 150], [180, 130, 20]), raw_copper: rawOre([200, 110, 76], [236, 160, 120], [140, 70, 44]),
+  copper_ingot: (s) => ingot(s, [200, 110, 76], [240, 166, 130], [140, 70, 44]),
+  redstone: (s, r) => { for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 5; s(8 + Math.cos(a) * d, 9 + Math.sin(a) * d * 0.8, r() < 0.3 ? [255, 60, 50] : [170, 14, 10]); } },
+  emerald: (s) => { for (let y = 3; y <= 13; y++) { const w = y < 8 ? (y - 3) * 0.9 + 1 : (13 - y) * 0.9 + 1; for (let x = Math.round(8 - w); x <= Math.round(7 + w); x++) s(x, y, (x < 7 && y < 8) ? [170, 255, 190] : (x > 9 || y > 10) ? [10, 120, 50] : [40, 200, 90]); } },
+  saddle: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 2; x <= 13; x++) { const top = y === 5 && (x < 4 || x > 11); if (top || (y < 7 && x > 5 && x < 10)) continue; s(x, y, y === 5 || y === 6 ? [150, 92, 50] : vary([120, 70, 36], r, 6)); } pLine(s, 4, 12, 4, 14, [90, 90, 96]); pLine(s, 11, 12, 11, 14, [90, 90, 96]); s(4, 14, [200, 200, 210]); s(11, 14, [200, 200, 210]); for (let x = 3; x <= 12; x++) s(x, 11, [80, 46, 22]); },
+  netherite_scrap: (s, r) => { blob(s, 8, 8, 5.5, 4.5, [96, 70, 64], r, [62, 44, 40]); pLine(s, 5, 7, 10, 7, [130, 100, 90]); pLine(s, 6, 10, 11, 9, [70, 50, 46]); },
+  netherite_ingot: (s) => ingot(s, [72, 64, 70], [126, 116, 122], [40, 36, 40]),
+  netherite_upgrade_smithing_template: (s, r) => { for (let y = 2; y <= 13; y++) for (let x = 3; x <= 12; x++) { const e = x === 3 || x === 12 || y === 2 || y === 13; s(x, y, e ? [52, 44, 48] : vary([92, 70, 64], r, 8)); } for (const [x, y] of [[7, 5], [8, 5], [6, 6], [9, 6], [6, 7], [9, 7], [7, 8], [8, 8], [7, 9], [8, 10], [7, 11]]) s(x, y, [176, 140, 120]); },
   boat: (s, r) => { const P = [164, 132, 80], D = [104, 76, 40], L = [200, 166, 108];
     pLine(s, 3, 2, 8, 8, [128, 96, 54]); pLine(s, 2, 2, 3, 2, [128, 96, 54]); s(2, 3, [128, 96, 54]);
     for (let x = 1; x <= 14; x++) { const bot = x < 3 || x > 12 ? 10 : 11; for (let y = 7; y <= bot; y++) s(x, y, y === 7 ? L : (y === bot || x === 1 || x === 14) ? D : y === 9 ? [134, 108, 66] : vary(P, r, 6)); }
@@ -471,7 +546,7 @@ function heartURL(kind) {
 const HEART = [heartURL(0), heartURL(1), heartURL(2)];
 
 // ---------------- Recipes & loot ----------------
-const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem'] };
+const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem'], '#stone': ['cobblestone', 'cobbled_deepslate'] };
 const RSH = (out, n, shape, key) => ({ out: [out, n], shape, key });
 const RSL = (out, n, items) => ({ out: [out, n], items });
 const RECIPES = [
@@ -480,9 +555,9 @@ const RECIPES = [
   RSH('crafting_table', 1, ['PP', 'PP'], { P: 'planks' }),
   RSH('torch', 4, ['C', 'S'], { C: 'coal', S: 'stick' }),
   RSH('chest', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }),
-  RSH('furnace', 1, ['CCC', 'C C', 'CCC'], { C: 'cobblestone' }),
+  RSH('furnace', 1, ['CCC', 'C C', 'CCC'], { C: '#stone' }),
 ];
-for (const [k, mat] of [['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']]) {
+for (const [k, mat] of [['wood', 'planks'], ['stone', '#stone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']]) {
   RECIPES.push(RSH(k + '_pickaxe', 1, ['MMM', ' S ', ' S '], { M: mat, S: 'stick' }));
   RECIPES.push(RSH(k + '_sword', 1, ['M', 'M', 'S'], { M: mat, S: 'stick' }));
 }
@@ -500,14 +575,22 @@ RECIPES.push(
   RSH('bookshelf', 1, ['PPP', 'LLL', 'PPP'], { P: 'planks', L: 'book' }),
   RSH('paper', 3, ['SSS'], { S: 'sugar_cane' }),
   RSL('book', 1, ['paper', 'paper', 'paper', 'leather']),
-  ...ARMOR_MATS.flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
+  ...ARMOR_MATS.filter(m => m[5]).flatMap(([mk, , , , , mat]) => [RSH(mk + '_helmet', 1, ['MMM', 'M M'], { M: mat }), RSH(mk + '_chestplate', 1, ['M M', 'MMM', 'MMM'], { M: mat }), RSH(mk + '_leggings', 1, ['MMM', 'M M', 'M M'], { M: mat }), RSH(mk + '_boots', 1, ['M M', 'M M'], { M: mat })]),
   RSH('bread', 1, ['WWW'], { W: 'wheat' }),
   RSH('bed', 1, ['WWW', 'PPP'], { W: 'wool', P: 'planks' }),
   RSH('boat', 1, ['P P', 'PPP'], { P: 'planks' }),
+  RSH('saddle', 1, [' L ', 'LIL'], { L: 'leather', I: 'iron_ingot' }),
+  RSH('copper_block', 1, ['CCC', 'CCC', 'CCC'], { C: 'copper_ingot' }), RSL('copper_ingot', 9, ['copper_block']),
+  RSH('copper_spear', 1, ['  M', ' S ', 'S  '], { M: 'copper_ingot', S: 'stick' }),
+  RSL('netherite_ingot', 1, ['netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot']),
+  RSH('netherite_block', 1, ['NNN', 'NNN', 'NNN'], { N: 'netherite_ingot' }), RSL('netherite_ingot', 9, ['netherite_block']),
+  RSH('smithing_table', 1, ['II', 'PP', 'PP'], { I: 'iron_ingot', P: 'planks' }),
+  RSH('netherite_upgrade_smithing_template', 2, ['DTD', 'DND', 'DDD'], { D: 'diamond', T: 'netherite_upgrade_smithing_template', N: 'netherrack' }),
+  ...[['wooden', 'planks'], ['stone', '#stone'], ['iron', 'iron_ingot'], ['golden', 'gold_ingot'], ['diamond', 'diamond']].map(([k, m]) => RSH(k + '_spear', 1, ['  M', ' S ', 'S  '], { M: m, S: 'stick' })),
   RSH('hay_block', 1, ['WWW', 'WWW', 'WWW'], { W: 'wheat' }), RSL('wheat', 9, ['hay_block']),
   RSH('golden_pickaxe', 1, ['MMM', ' S ', ' S '], { M: 'gold_ingot', S: 'stick' }), RSH('golden_sword', 1, ['M', 'M', 'S'], { M: 'gold_ingot', S: 'stick' }),
   RSH('golden_axe', 1, ['MM', 'MS', ' S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_shovel', 1, ['M', 'S', 'S'], { M: 'gold_ingot', S: 'stick' }), RSH('golden_hoe', 1, ['MM', ' S', ' S'], { M: 'gold_ingot', S: 'stick' }),
-  ...[['wood', 'planks'], ['stone', 'cobblestone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].flatMap(([k, m]) => [RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' }), RSH(k + '_axe', 1, ['MM', 'MS', ' S'], { M: m, S: 'stick' }), RSH(k + '_shovel', 1, ['M', 'S', 'S'], { M: m, S: 'stick' })]),
+  ...[['wood', 'planks'], ['stone', '#stone'], ['iron', 'iron_ingot'], ['diamond', 'diamond']].flatMap(([k, m]) => [RSH(k + '_hoe', 1, ['MM', ' S', ' S'], { M: m, S: 'stick' }), RSH(k + '_axe', 1, ['MM', 'MS', ' S'], { M: m, S: 'stick' }), RSH(k + '_shovel', 1, ['M', 'S', 'S'], { M: m, S: 'stick' })]),
   RSH('enchanting_table', 1, [' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }),
   RSH('lapis_block', 1, ['LLL', 'LLL', 'LLL'], { L: 'lapis_lazuli' }),
   RSL('lapis_lazuli', 9, ['lapis_block']),
@@ -544,17 +627,18 @@ function gridMatch(grid, n) {
   }
   return null;
 }
-const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz']]) SMELT[IT[a]] = IT[b];
-const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60]]) FUEL[IT[a]] = t;
+const SMELT = {}; for (const [a, b] of [['iron_ore', 'iron_ingot'], ['gold_ore', 'gold_ingot'], ['nether_gold_ore', 'gold_ingot'], ['sand', 'glass'], ['cobblestone', 'stone'], ['raw_pork', 'cooked_pork'], ['raw_beef', 'steak'], ['raw_chicken', 'cooked_chicken'], ['log', 'coal'], ['birch_log', 'coal'], ['spruce_log', 'coal'], ['netherrack', 'nether_brick'], ['quartz_ore', 'quartz'], ['ancient_debris', 'netherite_scrap'], ['raw_iron', 'iron_ingot'], ['raw_gold', 'gold_ingot'], ['raw_copper', 'copper_ingot'], ['copper_ore', 'copper_ingot'], ['cobbled_deepslate', 'deepslate'],
+  ['deepslate_iron_ore', 'iron_ingot'], ['deepslate_gold_ore', 'gold_ingot'], ['deepslate_copper_ore', 'copper_ingot'], ['deepslate_coal_ore', 'coal'], ['deepslate_diamond_ore', 'diamond'], ['deepslate_lapis_ore', 'lapis_lazuli'], ['deepslate_redstone_ore', 'redstone'], ['deepslate_emerald_ore', 'emerald'], ['redstone_ore', 'redstone'], ['emerald_ore', 'emerald']]) SMELT[IT[a]] = IT[b];
+const FUEL = {}; for (const [a, t] of [['coal', 40], ['log', 15], ['birch_log', 15], ['spruce_log', 15], ['planks', 15], ['stick', 5], ['crafting_table', 15], ['chest', 15], ['bookshelf', 15], ['blaze_rod', 60], ['lava_bucket', 500], ['wood_pickaxe', 10], ['wood_sword', 10], ['bow', 10], ['shield', 15], ['boat', 60], ['wooden_spear', 10], ['smithing_table', 15]]) FUEL[IT[a]] = t;
 const COOK_TIME = 5;
 const LOOT = {
   ruined_portal: [['obsidian', 3, 7, 0.95], ['flint_and_steel', 1, 1, 0.7], ['gold_ingot', 2, 6, 0.6], ['flint', 1, 4, 0.5], ['golden_apple', 1, 1, 0.15], ['gold_nugget', 4, 12, 0.5]],
-  fortress: [['gold_ingot', 2, 6, 0.7], ['iron_ingot', 1, 5, 0.6], ['diamond', 1, 3, 0.3], ['obsidian', 2, 4, 0.3], ['flint_and_steel', 1, 1, 0.2], ['golden_apple', 1, 1, 0.12], ['nether_brick', 4, 10, 0.4], ['ender_pearl', 1, 2, 0.2], ['blaze_rod', 1, 2, 0.25]],
+  fortress: [['saddle', 1, 1, 0.35], ['netherite_upgrade_smithing_template', 1, 1, 0.12], ['gold_ingot', 2, 6, 0.7], ['iron_ingot', 1, 5, 0.6], ['diamond', 1, 3, 0.3], ['obsidian', 2, 4, 0.3], ['flint_and_steel', 1, 1, 0.2], ['golden_apple', 1, 1, 0.12], ['nether_brick', 4, 10, 0.4], ['ender_pearl', 1, 2, 0.2], ['blaze_rod', 1, 2, 0.25]],
   stronghold: [['ender_pearl', 1, 3, 0.5], ['iron_ingot', 2, 5, 0.6], ['bread', 1, 1, 0], ['apple', 1, 3, 0.5], ['iron_pickaxe', 1, 1, 0.2], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.1], ['eye_of_ender', 1, 1, 0.15]],
   house: [['bread', 1, 4, 0.6], ['wheat_seeds', 1, 5, 0.4], ['apple', 1, 3, 0.7], ['stick', 2, 6, 0.5], ['coal', 1, 4, 0.5], ['iron_ingot', 1, 3, 0.35], ['torch', 2, 6, 0.5], ['cooked_pork', 1, 3, 0.4], ['wool', 1, 3, 0.3], ['stone_pickaxe', 1, 1, 0.2], ['steak', 1, 2, 0.3]],
-  pyramid: [['gold_ingot', 2, 6, 0.8], ['diamond', 1, 3, 0.45], ['iron_ingot', 1, 5, 0.6], ['bone', 2, 6, 0.6], ['rotten_flesh', 1, 4, 0.5], ['golden_apple', 1, 1, 0.25], ['gunpowder', 2, 5, 0.5], ['tnt', 1, 3, 0.35]],
-  dungeon: [['iron_ingot', 1, 4, 0.6], ['gold_ingot', 1, 3, 0.4], ['string', 1, 4, 0.5], ['bone', 1, 5, 0.6], ['gunpowder', 1, 4, 0.5], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.12], ['bow', 1, 1, 0.15], ['arrow', 4, 12, 0.4], ['coal', 2, 8, 0.5]],
-  smithy: [['iron_ingot', 1, 5, 0.7], ['iron_pickaxe', 1, 1, 0.3], ['iron_sword', 1, 1, 0.3], ['iron_helmet', 1, 1, 0.25], ['iron_chestplate', 1, 1, 0.2], ['iron_leggings', 1, 1, 0.2], ['iron_boots', 1, 1, 0.25], ['diamond', 1, 2, 0.12], ['obsidian', 1, 3, 0.2], ['bread', 1, 3, 0.5], ['apple', 1, 3, 0.4]],
+  pyramid: [['saddle', 1, 1, 0.25], ['gold_ingot', 2, 6, 0.8], ['diamond', 1, 3, 0.45], ['iron_ingot', 1, 5, 0.6], ['bone', 2, 6, 0.6], ['rotten_flesh', 1, 4, 0.5], ['golden_apple', 1, 1, 0.25], ['gunpowder', 2, 5, 0.5], ['tnt', 1, 3, 0.35]],
+  dungeon: [['saddle', 1, 1, 0.3], ['iron_ingot', 1, 4, 0.6], ['gold_ingot', 1, 3, 0.4], ['string', 1, 4, 0.5], ['bone', 1, 5, 0.6], ['gunpowder', 1, 4, 0.5], ['diamond', 1, 2, 0.2], ['golden_apple', 1, 1, 0.12], ['bow', 1, 1, 0.15], ['arrow', 4, 12, 0.4], ['coal', 2, 8, 0.5]],
+  smithy: [['saddle', 1, 1, 0.15], ['iron_spear', 1, 1, 0.15], ['iron_ingot', 1, 5, 0.7], ['iron_pickaxe', 1, 1, 0.3], ['iron_sword', 1, 1, 0.3], ['iron_helmet', 1, 1, 0.25], ['iron_chestplate', 1, 1, 0.2], ['iron_leggings', 1, 1, 0.2], ['iron_boots', 1, 1, 0.25], ['diamond', 1, 2, 0.12], ['obsidian', 1, 3, 0.2], ['bread', 1, 3, 0.5], ['apple', 1, 3, 0.4]],
   farm: [['wheat_seeds', 2, 8, 0.8], ['wheat', 2, 6, 0.6], ['bread', 1, 4, 0.6], ['apple', 1, 3, 0.4], ['iron_hoe', 1, 1, 0.15], ['stone_hoe', 1, 1, 0.3]],
   library: [['book', 1, 4, 0.8], ['paper', 2, 8, 0.6], ['lapis_lazuli', 2, 6, 0.4], ['bookshelf', 1, 2, 0.2], ['experience_bottle', 1, 1, 0]],
   tower: [['iron_pickaxe', 1, 1, 0.2], ['iron_sword', 1, 1, 0.25], ['arrow', 4, 16, 0.6], ['bow', 1, 1, 0.3], ['diamond', 1, 2, 0.25], ['torch', 4, 8, 0.5], ['glowstone', 1, 3, 0.3], ['apple', 1, 3, 0.5], ['iron_ingot', 1, 4, 0.5]],

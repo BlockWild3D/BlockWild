@@ -41,10 +41,10 @@ function buildPortalAt(x, y0, z) {
   const ok = (px, py, pz) => { for (let dx = -1; dx <= 2; dx++) { const b = world.get(px + dx, py - 1, pz); if (!SOLID[b]) return false; for (let dy = 0; dy < 4; dy++) { const id = world.get(px + dx, py + dy, pz); if (id && !PLANT[id]) return false; } } return true; };
   for (let r = 0; r <= 10 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (let dz = -r; dz <= r && !spot; dz++) {
     if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const px = x + dx, pz = z + dz;
-    if (world.dim === 'overworld') { const sy = world.surfaceY(px, pz); if (sy > SEA && world.get(px, sy - 1, pz) !== B.WATER && ok(px, sy, pz)) spot = [px, sy, pz]; }
-    else for (let k = 0; k < 50 && !spot; k++) { const py = clamp(Math.round(y0 / 1), 36, 86) + (k % 2 ? 1 : -1) * Math.ceil(k / 2); if (py > 33 && py < 88 && ok(px, py, pz)) spot = [px, py, pz]; }
+    if (world.dim === 'overworld') { const sy = world.surfaceY(px, pz); if (sy > SEA && !isWaterId(world.get(px, sy - 1, pz)) && ok(px, sy, pz)) spot = [px, sy, pz]; }
+    else for (let k = 0; k < 50 && !spot; k++) { const py = clamp(Math.round(y0 / 1), 36, 110) + (k % 2 ? 1 : -1) * Math.ceil(k / 2); if (py > 33 && py < 115 && ok(px, py, pz)) spot = [px, py, pz]; }
   }
-  if (!spot) spot = [x, world.dim === 'overworld' ? Math.max(SEA + 1, world.surfaceY(x, z)) : clamp(Math.round(y0), 40, 80), z];
+  if (!spot) spot = [x, world.dim === 'overworld' ? Math.max(SEA + 1, world.surfaceY(x, z)) : clamp(Math.round(y0), 40, 100), z];
   const [px, py, pz] = spot;
   for (let dx = -1; dx <= 2; dx++) for (let dz = -1; dz <= 1; dz++) { if (!SOLID[world.get(px + dx, py - 1, pz + dz)]) world.set(px + dx, py - 1, pz + dz, B.OBSIDIAN); for (let dy = 0; dy <= 3; dy++) if (dz !== 0) { const id = world.get(px + dx, py + dy, pz + dz); if (id && id !== B.BEDROCK) world.set(px + dx, py + dy, pz + dz, 0); } }
   for (let dx = -1; dx <= 2; dx++) for (let dy = -1; dy <= 3; dy++) { const frame = dx === -1 || dx === 2 || dy === -1 || dy === 3; world.set(px + dx, py + dy, pz, frame ? B.OBSIDIAN : B.NETHER_PORTAL); }
@@ -93,7 +93,7 @@ function checkPortals(dt) {
   S.portalT += dt; $('portalfx').style.opacity = Math.min(1, S.portalT / need) * 0.9;
   if (S.portalT >= need) {
     if (world.dim === 'nether') travelTo('overworld', { type: 'portal', x: Math.floor(P.pos.x * 8), z: Math.floor(P.pos.z * 8), y: P.pos.y });
-    else travelTo('nether', { type: 'portal', x: Math.floor(P.pos.x / 8), z: Math.floor(P.pos.z / 8), y: clamp(P.pos.y, 40, 80) });
+    else travelTo('nether', { type: 'portal', x: Math.floor(P.pos.x / 8), z: Math.floor(P.pos.z / 8), y: clamp(P.pos.y - YOFF, 40, 100) });
   }
 }
 // ---- eyes of ender ----

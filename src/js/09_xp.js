@@ -45,8 +45,9 @@ function updateOrbs(dt) {
 function clearOrbs() { for (const o of G.orbs) G.scene.remove(o.mesh); G.orbs = []; }
 // Minecraft experience values
 const MOB_XP = { pig: [1, 3], cow: [1, 3], sheep: [1, 3], chicken: [1, 3], villager: [0, 0], zombie: [5, 5], skeleton: [5, 5], spider: [5, 5], creeper: [5, 5], enderman: [5, 5], ghast: [5, 5], blaze: [10, 10], magma_cube: [1, 4], zombified_piglin: [5, 5], piglin: [5, 5], hoglin: [5, 5], wither_skeleton: [5, 5], strider: [1, 3] };
-const ORE_XP = { coal_ore: [0, 2], diamond_ore: [3, 7], lapis_ore: [2, 5], quartz_ore: [2, 5], nether_gold_ore: [0, 1] };
-const SMELT_XP = { iron_ingot: 0.7, gold_ingot: 1, glass: 0.1, stone: 0.1, cooked_pork: 0.35, steak: 0.35, cooked_chicken: 0.35, brick: 0.3, nether_brick: 0.1 };
+const ORE_XP = { coal_ore: [0, 2], diamond_ore: [3, 7], lapis_ore: [2, 5], quartz_ore: [2, 5], nether_gold_ore: [0, 1], redstone_ore: [1, 5], emerald_ore: [3, 7],
+  deepslate_coal_ore: [0, 2], deepslate_diamond_ore: [3, 7], deepslate_lapis_ore: [2, 5], deepslate_redstone_ore: [1, 5], deepslate_emerald_ore: [3, 7] };
+const SMELT_XP = { iron_ingot: 0.7, gold_ingot: 1, glass: 0.1, stone: 0.1, cooked_pork: 0.35, steak: 0.35, cooked_chicken: 0.35, brick: 0.3, nether_brick: 0.1, netherite_scrap: 2, copper_ingot: 0.7, deepslate: 0.1, redstone: 0.7, emerald: 1, diamond: 1, coal: 0.1, lapis_lazuli: 0.2 };
 
 // ---- enchantments ----
 const UNDEAD = new Set(['zombie', 'skeleton', 'wither_skeleton', 'zombified_piglin']);
@@ -129,7 +130,7 @@ function meleeBonus(mob) {
   return { dmg, kb: 1 + 0.6 * enchOf(h, 'knockback') };
 }
 // mining drops: Fortune and Silk Touch
-const FORTUNE_ORES = new Set(['coal_ore', 'diamond_ore', 'lapis_ore', 'quartz_ore', 'nether_gold_ore', 'glowstone']);
+const FORTUNE_ORES = new Set(['coal_ore', 'diamond_ore', 'lapis_ore', 'quartz_ore', 'nether_gold_ore', 'glowstone', 'iron_ore', 'gold_ore', 'copper_ore', 'redstone_ore', 'emerald_ore', 'deepslate_coal_ore', 'deepslate_iron_ore', 'deepslate_gold_ore', 'deepslate_diamond_ore', 'deepslate_lapis_ore', 'deepslate_copper_ore', 'deepslate_redstone_ore', 'deepslate_emerald_ore']);
 function enchantedDrop(id, dr) {
   const h = player.held(); const key = BL[id].key;
   if (enchOf(h, 'silk_touch') && ITEMS[id] && !BL[id].hidden && BL[id].hardness >= 0 && (!dr || dr[0] !== id)) return [id, 1];

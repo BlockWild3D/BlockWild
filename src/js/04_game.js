@@ -198,7 +198,7 @@ function renderInvUI() {
 // ---- recipe book ----
 const BOOK = RECIPES.map(r => ({ type: 'craft', r, out: IT[r.out[0]] })).concat(Object.keys(SMELT).map(k => ({ type: 'smelt', from: +k, out: SMELT[k] })));
 function specIcon(spec) { return spec[0] === '#' ? IT[GROUPS[spec][0]] : IT[spec]; }
-function specName(spec) { return spec === '#log' ? 'Any log or stem' : ITEMS[IT[spec]].name; }
+function specName(spec) { return spec === '#log' ? 'Any log or stem' : spec === '#stone' ? 'Cobblestone or Cobbled Deepslate' : ITEMS[IT[spec]].name; }
 function haveFor(e) {
   if (e.type === 'smelt') return countItem(e.from) > 0;
   const need = {}; const add = (spec) => need[spec] = (need[spec] || 0) + 1;
@@ -413,7 +413,7 @@ function placeBlock(hit, id) {
   const cur = world.get(x, y, z); if (cur && !BL[cur].fluid && !PLANT[cur]) return false;
   const below = world.get(x, y - 1, z);
   if (BL[id].crop !== undefined && below !== B.FARMLAND) return false;
-  if (id === B.SUGAR_CANE) { const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.get(x + a, y - 1, z + b) === B.WATER); if (!(below === B.SUGAR_CANE || ((below === B.GRASS || below === B.DIRT || below === B.SAND) && wet))) return false; }
+  if (id === B.SUGAR_CANE) { const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => isWaterId(world.get(x + a, y - 1, z + b))); if (!(below === B.SUGAR_CANE || ((below === B.GRASS || below === B.DIRT || below === B.SAND) && wet))) return false; }
   else if (BL[id].plant && BL[id].crop === undefined) { const netherPlant = id >= B.CRIMSON_FUNGUS && id <= B.WARPED_ROOTS; const ok = netherPlant ? PLANT_SOIL.nether.includes(below) : (below === B.GRASS || below === B.DIRT || below === B.SNOWY_GRASS || (id === B.DEAD_BUSH && below === B.SAND)); if (!ok) return false; }
   if (id === B.TORCH && !SOLID[below]) return false;
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
@@ -513,7 +513,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[player.sel] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -533,10 +533,15 @@ function onChunkGen(c, hints, cols, w) {
     if (col.b === BIO.PLAINS || col.b === BIO.FOREST || col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && col.h < 60)) {
       const types = col.b === BIO.SNOWY ? ['sheep', 'sheep', 'cow'] : ['pig', 'cow', 'sheep', 'chicken'];
       const type = types[Math.random() * types.length | 0]; const n = 2 + (Math.random() * 3 | 0);
-      for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS)) spawnMob(type, x + 0.5, y, z + 0.5); }
+      for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && (world.get(x, y - 1, z) === B.GRASS || world.get(x, y - 1, z) === B.SNOWY_GRASS) && animalLightOk(x, y, z)) spawnMob(type, x + 0.5, y, z + 0.5); }
     }
   }
 }
+// Minecraft spawn light rules, on the 0-15 light scale: monsters need block light 0 and sky light 7 or less (the sky is
+// dimmer at night, so open ground works at night but not by day); in the Nether block light must be 11 or less.
+function lightLevels(x, y, z) { const bl = Math.round(world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) * 15); const sky = world.flatSky ? 0 : Math.round(world.skyAt(x, y, z) * clamp(G.daylight, 0, 1) * 15); return { block: bl, sky, total: Math.max(bl, sky) }; }
+function hostileLightOk(x, y, z) { const L = lightLevels(x, y, z); return world.dim === 'nether' ? L.block <= 11 : (L.block === 0 && L.sky <= 7); }
+function animalLightOk(x, y, z) { return world.dim !== 'overworld' || Math.max(Math.round(world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) * 15), Math.round(world.skyAt(x, y, z) * 15)) >= 9; }
 function pickWeighted(tab) { let tot = 0; for (const k in tab) tot += tab[k]; let q = Math.random() * tot; for (const k in tab) { q -= tab[k]; if (q <= 0) return k; } return Object.keys(tab)[0]; }
 function freeAt(x, y, z, h = 2) { for (let k = 0; k < h; k++) if (world.get(x, y + k, z)) return false; return true; }
 const spawnerT = new Map();
@@ -553,16 +558,16 @@ function updateSpawning(dt) {
         if (night && Math.random() < 0.7) y = surfaceSpawnY(x, z);
         else { const y0 = Math.floor(P.pos.y) + (Math.random() * 20 | 0) - 10; for (let yy = clamp(y0, 2, WH - 3); yy > 2; yy--) { if (freeAt(x, yy, z) && SOLID[world.get(x, yy - 1, z)]) { y = yy; break; } } }
         if (y < 2 || !freeAt(x, y, z, 3) || !SOLID[world.get(x, y - 1, z)]) continue;
-        if (world.lightAt(x + 0.5, y + 0.5, z + 0.5, G.daylight) > 0.4) continue;
+        if (!hostileLightOk(x, y, z)) continue;
         spawnMob(pickWeighted({ zombie: 30, skeleton: 25, spider: 20, creeper: 17, enderman: 8 }), x + 0.5, y, z + 0.5); break;
       }
     } else if (world.dim === 'nether') {
       if (hostiles.length < 18 && S.difficulty !== 'peaceful') for (let tries = 0; tries < 5; tries++) {
         const a = Math.random() * Math.PI * 2, d = 16 + Math.random() * 30; const x = Math.floor(P.pos.x + Math.cos(a) * d), z = Math.floor(P.pos.z + Math.sin(a) * d);
         if (!world.loaded(x, z)) continue; const c = world.getChunk(x >> 4, z >> 4);
-        const y0 = clamp(Math.floor(P.pos.y) + (Math.random() * 30 | 0) - 15, 33, 88); let y = -1;
+        const y0 = clamp(Math.floor(P.pos.y) + (Math.random() * 30 | 0) - 15, 33, 118); let y = -1;
         for (let yy = y0; yy > 32; yy--) if (freeAt(x, yy, z, 3) && SOLID[world.get(x, yy - 1, z)]) { y = yy; break; }
-        if (y < 0) continue; const b = world.gen.biome(x, z);
+        if (y < 0 || !hostileLightOk(x, y, z)) continue; const b = world.gen.biome(x, z);
         let type = c && c.fortress && Math.random() < 0.6 ? pickWeighted({ wither_skeleton: 45, blaze: 35, magma_cube: 20 }) :
           b === 1 ? pickWeighted({ piglin: 45, hoglin: 35, zombified_piglin: 20 }) : b === 2 ? pickWeighted({ enderman: 85, strider: 0, zombified_piglin: 15 }) : b === 3 ? pickWeighted({ skeleton: 50, ghast: 35, enderman: 15 }) : pickWeighted({ zombified_piglin: 45, magma_cube: 22, ghast: 15, piglin: 10, enderman: 8 });
         if (type === 'ghast') { if (!(freeAt(x, y + 4, z, 6) && freeAt(x + 2, y + 5, z, 3) && freeAt(x - 2, y + 5, z, 3))) continue; spawnMob('ghast', x + 0.5, y + 4, z + 0.5); break; }
@@ -608,6 +613,7 @@ function updatePlayer(dt) {
   const sprint = !!P.sprinting;
   P.sneaking = down && !P.flying && !P.swimming && !S.uiOpen;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
+  if ((water || lava) && !P.flying) fluidPush(P, dt, P.swimming ? 0.5 : 1);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
   let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
@@ -629,10 +635,10 @@ function updatePlayer(dt) {
   if (S.mode !== 'creative') P.flying = false;
   if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
-  if (P.pos.y < -30) { if (S.mode === 'survival') { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
+  if (P.pos.y < -64) { if (S.mode === 'survival') { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && S.mode === 'survival') { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
   if (under === B.MAGMA_BLOCK && P.onGround && !down && S.mode === 'survival') { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
-  show('lavafx', lava && world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z)) === B.LAVA);
+  show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (S.mode === 'survival') { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
@@ -815,7 +821,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, mpPlayers: MP.saved, boats: boatList(), worlds };
+    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -831,6 +837,23 @@ function quitToTitle() {
   selBox.visible = false; crackMesh.visible = false; releaseLock(); refreshMenu(); show('menu', true);
 }
 function findSpawn(gen) { for (let r = 0; r < 4000; r += 24) for (let a = 0; a < 12; a++) { const x = Math.round(Math.cos(a * 0.5236) * r), z = Math.round(Math.sin(a * 0.5236) * r); const c = gen.column(x, z); if (c.b !== BIO.OCEAN && c.b !== BIO.BEACH && c.b !== BIO.MOUNTAINS && c.h > SEA + 1) return [x, z]; } return [0, 0]; }
+// Worlds saved before the Minecraft-height update (v3 and older) had sea level at y 32 in a 96-block world. Their
+// Overworld builds, chests, beds, boats and players move up 95 blocks so they keep the same height above sea level
+// (the terrain around them is generated with the new heights). Nether and End coordinates are unchanged.
+function migrateOldHeights(data) {
+  if (!data || (data.v || 0) >= 4 || data.migrated) return; data.migrated = true; const DY = SEA - 32;
+  const ow = data.worlds && data.worlds.overworld;
+  if (ow) {
+    for (const k in (ow.edits || {})) ow.edits[k] = ow.edits[k].map(([i, id]) => [i + DY * 256, id]).filter(([i]) => i < 256 * WH);
+    const shiftKeys = (o) => { if (!o) return o; const n = {}; for (const k in o) { const [x, y, z] = k.split(',').map(Number); n[x + ',' + (y + DY) + ',' + z] = o[k]; } return n; };
+    ow.chests = shiftKeys(ow.chests); ow.furn = shiftKeys(ow.furn);
+  }
+  const up = (a) => { if (Array.isArray(a) && a.length >= 3) a[1] += DY; };
+  if (data.player) { if ((data.dim || 'overworld') === 'overworld') up(data.player.pos); up(data.player.spawn); }
+  up(data.bed); up(data.spawnPoint);
+  for (const b of data.boats || []) if ((b.dim || 'overworld') === 'overworld') b.y += DY;
+  for (const k in (data.mpPlayers || {})) { const m = data.mpPlayers[k]; if ((m.dim || 'overworld') === 'overworld') up(m.pos); up(m.bed); }
+}
 function startWorld(data) {
   show('menu', false); show('loading', true); $('loadBar').style.width = '0%'; $('loadTxt').textContent = 'Generating world...';
   S.seed = data.seed | 0; Dim.worlds = {}; clearEntities();
@@ -838,6 +861,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
+  migrateOldHeights(data);
   REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   clearBoats(); loadBoats(data.boats);
@@ -851,7 +875,7 @@ function startWorld(data) {
     setLevel(p.xp ? p.xp[0] : 0, p.xp ? p.xp[1] : 0); player.effects = p.effects || {};
     S.newWorld = false;
   } else {
-    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, 80, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true; S.firstStart = true;
+    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, SEA + 60, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true; S.firstStart = true;
     if (S.mode === 'creative') ['grass', 'stone', 'planks', 'glass', 'brick', 'log', 'torch', 'tnt', 'glowstone'].forEach((k, i) => player.inv[i] = { id: IT[k], count: stackMax(IT[k]) });
   }
   S.loading = true; S.started = true; S.paused = false; updateHearts(); invDirty();
@@ -916,8 +940,9 @@ function tick(dt) {
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
   camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
   applyPov(P, dt);
+  updateCaveCulling(world, camera.position);
   const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (S.fov + (sprinting ? 8 : 0)) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
-  const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = BL[eb] && BL[eb].fluid ? eb : 0;
+  const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = FKIND[eb] === 1 ? B.WATER : FKIND[eb] === 2 ? B.LAVA : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
   updateSky(eyeFluid); if (!S.loading && !S.paused) updateAir(dt, eyeFluid);
   G.minLight = Math.max(MODS.graphics.minLight, effLevel('night_vision') ? 0.85 : 0); chunkUniforms.minLight.value = G.minLight;
@@ -929,8 +954,8 @@ function tick(dt) {
     hudT = 0.25;
     const hrs = (S.time * 24 + 6) % 24; const hh = Math.floor(hrs), mm = Math.floor((hrs - hh) * 60 / 10) * 10;
     const bname = world.gen.biomeName(Math.floor(P.pos.x), Math.floor(P.pos.z));
-    $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + P.pos.y.toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
-    if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + P.pos.y.toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + target.y + ',' + target.z : '');
+    $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
+    if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
   renderFrame(); updateModHuds(dt);
   if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }

@@ -12,7 +12,7 @@ function farmUse(h, hd) {
   return false;
 }
 function mpBlock(x, y, z, id) { if (typeof MP !== 'undefined' && MP.blockChanged) MP.blockChanged(x, y, z, id); }
-function nearWater(x, y, z) { for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) if (world.get(x + dx, y, z + dz) === B.WATER) return true; return false; }
+function nearWater(x, y, z) { for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) if (isWaterId(world.get(x + dx, y, z + dz))) return true; return false; }
 let tickAcc = 0;
 function randomTicks(dt) {
   tickAcc += dt * 400; const n = Math.floor(tickAcc); if (n < 1) return; tickAcc -= n;

@@ -8,7 +8,7 @@ function sweep(e, axis, d) {
   const X0 = Math.floor(p.x - hw), X1 = Math.floor(p.x + hw - 1e-7), Y0 = Math.floor(p.y), Y1 = Math.floor(p.y + h - 1e-7), Z0 = Math.floor(p.z - hw), Z1 = Math.floor(p.z + hw - 1e-7);
   let hit = false;
   for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) {
-    if (!(w.solid(x, y, z) || (e.lavaWalk && w.get(x, y, z) === B.LAVA))) continue; hit = true;
+    if (!(w.solid(x, y, z) || (e.lavaWalk && isLavaId(w.get(x, y, z))))) continue; hit = true;
     if (axis === 0) { if (d > 0) p.x = Math.min(p.x, x - hw - 1e-4); else p.x = Math.max(p.x, x + 1 + hw + 1e-4); }
     else if (axis === 1) { if (d > 0) p.y = Math.min(p.y, y - h - 1e-4); else p.y = Math.max(p.y, y + 1 + 1e-5); }
     else { if (d > 0) p.z = Math.min(p.z, z - hw - 1e-4); else p.z = Math.max(p.z, z + 1 + hw + 1e-4); }
@@ -27,8 +27,8 @@ function moveEntity(e, dt) {
   }
 }
 function boxIntersectsBlock(e, x, y, z) { return e.pos.x + e.hw > x && e.pos.x - e.hw < x + 1 && e.pos.y + e.h > y && e.pos.y < y + 1 && e.pos.z + e.hw > z && e.pos.z - e.hw < z + 1; }
-function inLava(e, off = 0.3) { return G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z)) === B.LAVA; }
-function inWater(e, off = 0.3) { return G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z)) === B.WATER; }
+function inLava(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 2; }
+function inWater(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 1; }
 function rayAABB(o, d, min, max) {
   let tmin = 0, tmax = 1e9;
   for (const a of AX) { const inv = 1 / (d[a] || 1e-9); let t1 = (min[a] - o[a]) * inv, t2 = (max[a] - o[a]) * inv; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; } tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2); if (tmax < tmin) return -1; }
@@ -162,8 +162,8 @@ class ItemEnt {
   }
   update(dt) {
     this.age += dt;
-    if (inLava(this, 0.1) && this.id !== IT.dragon_egg) { this.gone = true; this.remove(); Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 6, [[1, 0.5, 0.1], [0.3, 0.3, 0.3]], 1, 0.6, -2, 0.3); Sfx.at('fizz', this.pos, 0.4); return; }
-    if (inWater(this, 0.1)) { this.vel.y = Math.min(this.vel.y + 30 * dt, 1.2); } else this.vel.y -= 20 * dt;
+    const fp = ITEMS[this.id] && ITEMS[this.id].fireproof; if (inLava(this, 0.1) && this.id !== IT.dragon_egg && !fp) { this.gone = true; this.remove(); Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 6, [[1, 0.5, 0.1], [0.3, 0.3, 0.3]], 1, 0.6, -2, 0.3); Sfx.at('fizz', this.pos, 0.4); return; }
+    if (inWater(this, 0.1) || (fp && inLava(this, 0.1))) { this.vel.y = Math.min(this.vel.y + 30 * dt, 1.2); fluidPush(this, dt); } else this.vel.y -= 20 * dt;
     const f = this.onGround ? Math.exp(-dt * 8) : Math.exp(-dt * 1);
     this.vel.x *= f; this.vel.z *= f;
     moveEntity(this, dt);
@@ -431,7 +431,7 @@ class Mob {
       if (this.deadT > 1.0) { this.gone = true; Particles.emit(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, [0.8, 0.8, 0.8], 2, 0.8, -1, Math.max(0.8, this.hw * 2), Math.max(0.3, this.light)); this.dropLoot(); }
       return;
     }
-    const water = inWater(this, 0.4), lava = inLava(this, 0.3);
+    const water = inWater(this, 0.4), lava = inLava(this, 0.3); if (water) fluidPush(this, dt, 0.6);
     if (lava && !t.fireproof) { this.lavaT += dt; if (this.lavaT > 0.5) { this.lavaT = 0; this.hurt(4, null, 0); } }
     if (t.waterHurt && water) { this.lavaT += dt; if (this.lavaT > 0.8) { this.lavaT = 0; this.hurt(1, null, 0); this.teleport(); } }
     const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, dy = P.pos.y - this.pos.y; const dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
@@ -470,7 +470,7 @@ class Mob {
         if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; }
       }
     }
-    if (this.lavaWalk) { const below = w.get(Math.floor(this.pos.x + Math.sin(tyaw) * 0.8), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z + Math.cos(tyaw) * 0.8)); if (below !== B.LAVA && w.get(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z)) === B.LAVA && move && !this.chasing) { this.wYaw += Math.PI; tyaw = this.wYaw; } }
+    if (this.lavaWalk) { const below = w.get(Math.floor(this.pos.x + Math.sin(tyaw) * 0.8), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z + Math.cos(tyaw) * 0.8)); if (!isLavaId(below) && isLavaId(w.get(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z))) && move && !this.chasing) { this.wYaw += Math.PI; tyaw = this.wYaw; } }
     if (move !== 0) {
       const hs0 = Math.hypot(this.vel.x, this.vel.z);
       if (this.hitH && hs0 < speed * 0.4) this.stuckT = (this.stuckT || 0) + dt; else this.stuckT = Math.max(0, (this.stuckT || 0) - dt);
@@ -681,7 +681,7 @@ function updateTNT(dt) {
 }
 const BLAST_PROOF = new Set();
 function explode(cx, cy, cz, r, src, opts = {}) {
-  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG']) BLAST_PROOF.add(B[k]);
+  if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < 256; i++) if (FKIND[i]) BLAST_PROOF.add(i);
   const w = G.world; const R = Math.ceil(r);
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
   if (!opts.noBlocks) for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
@@ -718,45 +718,6 @@ function onBlockRemoved(x, y, z, id) {
   if (id === B.FURNACE) { const f = w.furnaces.get(k); if (f) for (const s of f.s) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5); w.furnaces.delete(k); }
   if (id === B.SPAWNER) w.spawners.delete(k);
   if (id === B.OBSIDIAN || id === B.NETHER_PORTAL || id === B.NETHER_PORTAL_Z) setTimeout(() => collapsePortal(x, y, z), 0);
-  for (const [ax, ay, az] of [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]) { const n = w.get(x + ax, y + ay, z + az); if (n === B.WATER || n === B.LAVA) { fluidQueue.push([x, y, z, 0, n === B.LAVA ? 0.8 : 0.25, n]); break; } }
 }
 const fluidQueue = []; const waterQueue = fluidQueue;
-function placeFluid(x, y, z, id) {
-  const w = G.world;
-  if (id === B.WATER && w.dim === 'nether') { Sfx.at('fizz', new V3(x, y, z), 1); Particles.emit(x + 0.5, y + 0.5, z + 0.5, 20, [[0.9, 0.9, 0.9]], 2, 1, -2, 0.8); return false; }
-  w.set(x, y, z, id); fluidReact(x, y, z); return true;
-}
-function fluidReact(x, y, z) {
-  const w = G.world; const id = w.get(x, y, z);
-  for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
-    const n = w.get(x + dx, y + dy, z + dz);
-    if (id === B.WATER && n === B.LAVA) { w.set(x + dx, y + dy, z + dz, B.OBSIDIAN); Sfx.at('fizz', new V3(x, y, z), 1); Particles.emit(x + dx + 0.5, y + dy + 1, z + dz + 0.5, 10, [[0.8, 0.8, 0.8]], 1.5, 1, -2, 0.8); }
-    if (id === B.LAVA && n === B.WATER) { w.set(x, y, z, B.OBSIDIAN); Sfx.at('fizz', new V3(x, y, z), 1); return; }
-  }
-}
-// Minecraft-style fluid ticks: water advances one block every 5 game ticks (0.25 s), lava every 30 ticks (1.5 s; 10 in the Nether).
-// Every flowing edge moves together on the tick, so liquid spreads in visible steps.
-const FLUID = { wt: 0, lt: 0, wTick: 0, lTick: 0 };
-function updateWater(dt) {
-  const w = G.world; if (!w) return; const lavaIv = w.dim === 'nether' ? 0.5 : 1.5;
-  FLUID.wt += dt; FLUID.lt += dt; let doW = false, doL = false;
-  if (FLUID.wt >= 0.25) { FLUID.wt = Math.min(FLUID.wt - 0.25, 0.25); FLUID.wTick++; doW = true; }
-  if (FLUID.lt >= lavaIv) { FLUID.lt = Math.min(FLUID.lt - lavaIv, lavaIv); FLUID.lTick++; doL = true; }
-  for (const q of fluidQueue) if (q.due === undefined) q.due = (q[5] === B.LAVA ? FLUID.lTick : FLUID.wTick) + 1;
-  if (!doW && !doL) return;
-  const now = fluidQueue.filter(q => q[5] === B.LAVA ? (doL && q.due <= FLUID.lTick) : (doW && q.due <= FLUID.wTick)).slice(0, 600);
-  const next = [];
-  for (const q of now) {
-    q.done = true; const [x, y, z, n, , fid] = q; const cur = w.get(x, y, z); if (cur !== 0 && !PLANT[cur]) continue;
-    w.set(x, y, z, fid); fluidReact(x, y, z); if (w.get(x, y, z) !== fid) continue;
-    const isL = fid === B.LAVA; if (n > (isL ? 12 : 40)) continue; const reach = isL ? (w.dim === 'nether' ? 7 : 3) : 7;
-    const due = (isL ? FLUID.lTick : FLUID.wTick) + 1;
-    const below = y > 0 ? w.get(x, y - 1, z) : 1;
-    if (y > 0 && (below === 0 || PLANT[below])) { const e = [x, y - 1, z, n + 1, 0, fid]; e.due = due; next.push(e); }
-    else if (n < reach) for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const id = w.get(x + ax, y, z + az); if (id === 0 || PLANT[id]) { const e = [x + ax, y, z + az, n + 1, 0, fid]; e.due = due; next.push(e); } }
-  }
-  for (let i = fluidQueue.length - 1; i >= 0; i--) if (fluidQueue[i].done) fluidQueue.splice(i, 1);
-  const seen = new Set(fluidQueue.map(q => q[0] + ',' + q[1] + ',' + q[2]));
-  for (const e of next) { const k = e[0] + ',' + e[1] + ',' + e[2]; if (!seen.has(k)) { seen.add(k); fluidQueue.push(e); } }
-  if (fluidQueue.length > 1500) fluidQueue.length = 1500;
-}
+// liquids live in 21_fluids.js

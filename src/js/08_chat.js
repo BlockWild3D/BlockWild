@@ -84,7 +84,8 @@ function parseCoord(tok, base, axis, ctx) { // supports 10, ~, ~-3, ^ ^ ^2 (loca
   if (tok === undefined) throw new CmdError('Expected a coordinate');
   if (tok[0] === '~') { const n = tok.length > 1 ? parseFloat(tok.slice(1)) : 0; if (isNaN(n)) throw new CmdError('Invalid coordinate ' + tok); return base[axis] + n; }
   const n = parseFloat(tok); if (isNaN(n)) throw new CmdError('Invalid coordinate ' + tok);
-  return /^-?\d+$/.test(tok) && axis !== 'y' ? n + 0.5 : n;
+  if (axis === 'y') return n + (world ? world.yOff : 0); // typed heights are Minecraft heights (y -64 to 319)
+  return /^-?\d+$/.test(tok) ? n + 0.5 : n;
 }
 function parsePos(args, i, ctx, block) {
   const base = ctx.pos || player.pos;
@@ -131,6 +132,7 @@ function parseBlock(tok) { const key = strip(tok || ''); if (key === 'air') retu
 function num(tok, what, min = -Infinity, max = Infinity, int = true) { const n = int ? parseInt(tok) : parseFloat(tok); if (tok === undefined || isNaN(n)) throw new CmdError('Expected ' + what); if (n < min || n > max) throw new CmdError(what[0].toUpperCase() + what.slice(1) + ' must be between ' + min + ' and ' + max); return n; }
 function ok(msg) { chatPrint(msg, '#ccc'); }
 function fmt(v) { return (Math.round(v * 100) / 100).toString(); }
+function fmtY(v) { return fmt(v - (world ? world.yOff : 0)); } // heights shown the Minecraft way
 function timeTicks() { return Math.round(S.time * 24000) % 24000; }
 function setBlockCmd(x, y, z, id, mode) {
   if (y < 1 || y >= WH) return false; const cur = world.get(x, y, z);
@@ -166,10 +168,10 @@ const CMDS = {
     else throw new CmdError('Usage: /tp ' + CMDS.tp.usage);
     for (const t of targets) {
       if (t.kind === 'mob') { t.ref.pos.copy(dest); t.ref.vel.set(0, 0, 0); continue; }
-      if (!onlyLocal(t, '/tp @s ' + fmt(dest.x) + ' ' + fmt(dest.y) + ' ' + fmt(dest.z))) continue;
+      if (!onlyLocal(t, '/tp @s ' + fmt(dest.x) + ' ' + fmtY(dest.y) + ' ' + fmt(dest.z))) continue;
       player.pos.copy(dest); player.vel.set(0, 0, 0); player.peak = null; if (yaw !== undefined && !isNaN(yaw)) { player.yaw = -yaw * Math.PI / 180 + Math.PI; player.pitch = -(pitch || 0) * Math.PI / 180; } world.lastCenter = null; S.boost = true;
     }
-    ok('Teleported ' + (targets.length === 1 ? targets[0].name : targets.length + ' entities') + ' to ' + fmt(dest.x) + ', ' + fmt(dest.y) + ', ' + fmt(dest.z)); } },
+    ok('Teleported ' + (targets.length === 1 ? targets[0].name : targets.length + ' entities') + ' to ' + fmt(dest.x) + ', ' + fmtY(dest.y) + ', ' + fmt(dest.z)); } },
   time: { usage: 'set <day|noon|night|midnight|ticks> | add <ticks> | query <daytime|gametime|day>', run(a) {
     const named = { day: 1000, noon: 6000, night: 13000, midnight: 18000, sunrise: 23000, sunset: 12000 };
     const val = (t) => { if (named[t] !== undefined) return named[t]; const m = String(t).match(/^(\d+(?:\.\d+)?)(d|s|t)?$/); if (!m) throw new CmdError('Invalid time ' + t); return parseFloat(m[1]) * (m[2] === 'd' ? 24000 : m[2] === 's' ? 20 : 1); };
@@ -190,7 +192,7 @@ const CMDS = {
     if (ty === 'experience_orb') { spawnOrb(pos.x, pos.y, pos.z, 5); ok('Summoned new Experience Orb'); return; }
     if (!MOBS[ty]) throw new CmdError('Unknown entity: ' + ty + '. Try: ' + MOBNAMES().join(', '));
     spawnMob(ty, pos.x, pos.y, pos.z); ok('Summoned new ' + ty.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())); } },
-  setblock: { usage: '<x y z> <block> [destroy|keep|replace]', run(a, ctx) { const p = parsePos(a, 0, ctx, true); const id = parseBlock(a[3]); if (!world.loaded(p.x, p.z)) throw new CmdError('That position is not loaded'); if (!setBlockCmd(p.x, p.y, p.z, id, a[4] || 'replace')) throw new CmdError('Could not set the block'); ok('Changed the block at ' + p.x + ', ' + p.y + ', ' + p.z); } },
+  setblock: { usage: '<x y z> <block> [destroy|keep|replace]', run(a, ctx) { const p = parsePos(a, 0, ctx, true); const id = parseBlock(a[3]); if (!world.loaded(p.x, p.z)) throw new CmdError('That position is not loaded'); if (!setBlockCmd(p.x, p.y, p.z, id, a[4] || 'replace')) throw new CmdError('Could not set the block'); ok('Changed the block at ' + p.x + ', ' + (p.y - world.yOff) + ', ' + p.z); } },
   fill: { usage: '<from> <to> <block> [replace <filter>|destroy|keep|hollow|outline]', run(a, ctx) {
     const p1 = parsePos(a, 0, ctx, true), p2 = parsePos(a, 3, ctx, true); const id = parseBlock(a[6]); const mode = a[7] || 'replace'; const filter = mode === 'replace' && a[8] ? parseBlock(a[8]) : null;
     const x0 = Math.min(p1.x, p2.x), x1 = Math.max(p1.x, p2.x), y0 = Math.max(1, Math.min(p1.y, p2.y)), y1 = Math.min(WH - 1, Math.max(p1.y, p2.y)), z0 = Math.min(p1.z, p2.z), z1 = Math.max(p1.z, p2.z);
@@ -234,8 +236,8 @@ const CMDS = {
       else throw new CmdError('Usage: /xp ' + CMDS.xp.usage);
     }
     if (op !== 'query') ok((op === 'add' ? 'Gave ' : 'Set ') + a[2] + ' experience ' + (lv ? 'levels' : 'points') + (op === 'add' ? ' to ' : ' on ') + myName()); } },
-  spawnpoint: { usage: '[target] [x y z]', run(a, ctx) { const p = a[1] !== undefined ? parsePos(a, 1, ctx) : player.pos.clone(); for (const t of selectTargets(a[0], ctx, false)) if (onlyLocal(t, '/spawnpoint @s ' + fmt(p.x) + ' ' + fmt(p.y) + ' ' + fmt(p.z))) player.spawn.copy(p); ok('Set spawn point to ' + fmt(p.x) + ', ' + fmt(p.y) + ', ' + fmt(p.z)); } },
-  setworldspawn: { usage: '[x y z]', run(a, ctx) { const p = a[0] !== undefined ? parsePos(a, 0, ctx) : player.pos.clone(); player.spawn.copy(p); ok('Set the world spawn point to ' + fmt(p.x) + ', ' + fmt(p.y) + ', ' + fmt(p.z)); } },
+  spawnpoint: { usage: '[target] [x y z]', run(a, ctx) { const p = a[1] !== undefined ? parsePos(a, 1, ctx) : player.pos.clone(); for (const t of selectTargets(a[0], ctx, false)) if (onlyLocal(t, '/spawnpoint @s ' + fmt(p.x) + ' ' + fmtY(p.y) + ' ' + fmt(p.z))) player.spawn.copy(p); ok('Set spawn point to ' + fmt(p.x) + ', ' + fmtY(p.y) + ', ' + fmt(p.z)); } },
+  setworldspawn: { usage: '[x y z]', run(a, ctx) { const p = a[0] !== undefined ? parsePos(a, 0, ctx) : player.pos.clone(); player.spawn.copy(p); ok('Set the world spawn point to ' + fmt(p.x) + ', ' + fmtY(p.y) + ', ' + fmt(p.z)); } },
   seed: { usage: '', free: true, run() { ok('Seed: [' + world.seed + ']'); } },
   locate: { usage: 'structure <name>', run(a) {
     if (a[0] !== 'structure' && a[0] !== 'biome') throw new CmdError('Usage: /locate structure <name>');
@@ -250,7 +252,7 @@ const CMDS = {
         for (let r = 0; r <= 12 && !best; r++) for (let rx = prx - r; rx <= prx + r; rx++) for (let rz = prz - r; rz <= prz + r; rz++) { if (Math.max(Math.abs(rx - prx), Math.abs(rz - prz)) !== r) continue; const st = regionStart(world, pk, rx, rz); if (!st) continue; const x = st.cx * 16 + 8, z = st.cz * 16 + 8, d = Math.hypot(x - P.x, z - P.z); if (!best || d < best[3]) best = [x, null, z, d]; } }
       else { const k = window.__game.findStruct(kind, kind === 'dungeon' ? 8 : 40); if (k) best = [k[1], k[3], k[2], Math.hypot(k[1] - P.x, k[2] - P.z)]; } }
     if (!best) throw new CmdError('Could not find a structure of type "' + name + '" within reasonable distance');
-    chatPrint('The nearest ' + name + ' is at [' + Math.round(best[0]) + ', ' + (best[1] != null ? Math.round(best[1]) : '~') + ', ' + Math.round(best[2]) + '] (' + Math.round(best[3]) + ' blocks away)', '#7ef'); } },
+    chatPrint('The nearest ' + name + ' is at [' + Math.round(best[0]) + ', ' + (best[1] != null ? Math.round(best[1] - world.yOff) : '~') + ', ' + Math.round(best[2]) + '] (' + Math.round(best[3]) + ' blocks away)', '#7ef'); } },
   difficulty: { usage: '[peaceful|easy|normal|hard]', run(a) { if (!a[0]) { ok('The difficulty is ' + S.difficulty); return; } const d = String(a[0]).toLowerCase(); if (!['peaceful', 'easy', 'normal', 'hard'].includes(d)) throw new CmdError('Invalid difficulty: ' + a[0]); S.difficulty = d; if (d === 'peaceful') for (const m of G.mobs) if (m.t.kind !== 'passive' && !m.isBoss) m.gone = true, m.remove(); ok('The difficulty has been set to ' + d[0].toUpperCase() + d.slice(1)); } },
   gamerule: { usage: '<rule> [value]', run(a) {
     if (!a[0]) { ok('Game rules: ' + Object.keys(S.rules).join(', ')); return; }
