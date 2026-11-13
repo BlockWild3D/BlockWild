@@ -1,0 +1,518 @@
+// ================= WORLD: generation, structures, chunks, meshing =================
+const BIO = { OCEAN: 0, BEACH: 1, PLAINS: 2, FOREST: 3, DESERT: 4, SNOWY: 5, MOUNTAINS: 6 };
+const BIO_NAME = ['Ocean', 'Beach', 'Plains', 'Forest', 'Desert', 'Snowy Tundra', 'Mountains'];
+const ckey = (cx, cz) => (cx + 32768) * 65536 + (cz + 32768);
+
+class Gen {
+  constructor(seed) {
+    this.seed = seed;
+    this.nC = new Perlin(seed); this.nH = new Perlin(seed + 11); this.nM = new Perlin(seed + 22); this.nT = new Perlin(seed + 33);
+    this.nW = new Perlin(seed + 44); this.nA = new Perlin(seed + 55); this.nB = new Perlin(seed + 66); this.nK = new Perlin(seed + 77);
+    this.colCache = new Map();
+    const r = mulberry32(seed ^ 0x51e7); this.strongholds = []; const a0 = r() * Math.PI * 2;
+    for (let k = 0; k < 3; k++) { const a = a0 + k * Math.PI * 2 / 3, d = 380 + r() * 260; const cx = Math.floor(Math.cos(a) * d / 16), cz = Math.floor(Math.sin(a) * d / 16); this.strongholds.push({ cx, cz, x: cx * 16 + 8, z: cz * 16 + 8, y: 16 }); }
+  }
+  biomeName(x, z) { return BIO_NAME[this.column(x, z).b]; }
+  column(x, z) {
+    const k = x * 100003 + z; const c = this.colCache.get(k); if (c) return c;
+    const cont = this.nC.f2(x / 420, z / 420, 4), hills = this.nH.f2(x / 90, z / 90, 4), mnt = this.nM.f2(x / 260 + 50, z / 260 + 50, 3);
+    const temp = this.nT.f2(x / 560, z / 560, 2), moist = this.nW.f2(x / 480, z / 480, 2);
+    const desertness = smoothstep(0.06, 0.18, temp) * smoothstep(0.12, -0.02, moist);
+    let h = SEA + 4 + cont * 40 + hills * (10 - 6 * desertness);
+    const m = Math.max(0, mnt - 0.08); h += m * m * 320;
+    h = Math.floor(clamp(h, 4, WH - 10));
+    let b;
+    if (h < SEA) b = BIO.OCEAN;
+    else if (h <= SEA + 1 && temp > -0.2 && m < 0.05) b = BIO.BEACH;
+    else if (m > 0.12 && h > SEA + 16) b = BIO.MOUNTAINS;
+    else if (desertness > 0.5) b = BIO.DESERT;
+    else if (temp < -0.2) b = BIO.SNOWY;
+    else if (moist > 0.05) b = BIO.FOREST;
+    else b = BIO.PLAINS;
+    const res = { h, b };
+    if (this.colCache.size > 60000) this.colCache.clear();
+    this.colCache.set(k, res); return res;
+  }
+  cave(x, y, z) {
+    const a = this.nA.n3(x / 30, y / 18, z / 30), c = this.nB.n3(x / 30, y / 18, z / 30);
+    if (a * a + c * c < 0.005) return true;
+    if (y < 40) { const v = this.nK.n3(x / 56, y / 24, z / 56); if (v > 0.45 - (y < 14 ? 0.05 : 0)) return true; }
+    return false;
+  }
+}
+
+// ---- Structures (deterministic per chunk; may spill into neighbours) ----
+function structuresFor(world, cx, cz) {
+  const key = ckey(cx, cz); const cached = world.structCache.get(key); if (cached) return cached;
+  if (world.dim !== 'overworld') { const S2 = world.dim === 'nether' ? netherStructures(world, cx, cz) : endStructures(world, cx, cz); if (world.structCache.size > 3000) world.structCache.clear(); world.structCache.set(key, S2); return S2; }
+  const g = world.gen, seed = world.seed;
+  const S = { soft: [], hard: [], mobs: [], kinds: [] };
+  const r = mulberry32(ihash(cx, cz, 99, seed));
+  const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
+  const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
+  const bx = cx * 16, bz = cz * 16;
+  // --- trees ---
+  for (let a = 0; a < 9; a++) {
+    const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
+    const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
+    if (col.h <= SEA || col.h > WH - 14) continue;
+    const p = col.b === BIO.FOREST ? 0.8 : col.b === BIO.PLAINS ? 0.04 : col.b === BIO.SNOWY ? 0.3 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.15 : 0;
+    if (q >= p) continue;
+    if (g.cave(wx, col.h - 1, wz)) continue;
+    const y0 = col.h;
+    if (col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && t < 0.6)) {
+      const H = 6 + (hh * 4 | 0);
+      for (let y = 0; y < H; y++) soft(wx, y0 + y, wz, B.SPRUCE_LOG);
+      let rad = 0;
+      for (let y = H; y >= 2; y--) { const rr = rad; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) + Math.abs(dz) > rr + (rr > 1 ? 1 : 0)) continue; if (dx || dz || y >= H) soft(wx + dx, y0 + y, wz + dz, B.SPRUCE_LEAVES); } rad = rad >= 2 ? 1 : rad + 1; }
+      soft(wx, y0 + H, wz, B.SPRUCE_LEAVES); soft(wx, y0 + H + 1, wz, B.SPRUCE_LEAVES);
+    } else {
+      const birch = col.b === BIO.FOREST && t < 0.3; const log = birch ? B.BIRCH_LOG : B.LOG, lv = birch ? B.BIRCH_LEAVES : B.LEAVES;
+      const H = 4 + (hh * 3 | 0) + (birch ? 1 : 0);
+      for (let y = H - 3; y <= H; y++) { const rr = y >= H - 1 ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) === rr && Math.abs(dz) === rr && (rr === 1 ? y === H : rnd01(wx + dx, y, wz + dz, seed) < 0.5)) continue; soft(wx + dx, y0 + y, wz + dz, lv); } }
+      for (let y = 0; y < H; y++) hard(wx, y0 + y, wz, log);
+    }
+  }
+  // --- village ---
+  const rx = Math.floor(cx / 6), rz = Math.floor(cz / 6); const vh = ihash(rx, rz, 55, seed);
+  let inVillage = false;
+  if (vh % 100 < 28) {
+    const ccx = rx * 6 + 1 + ((vh >> 8) % 4), ccz = rz * 6 + 1 + ((vh >> 12) % 4);
+    const cc = g.column(ccx * 16 + 8, ccz * 16 + 8);
+    if ((cc.b === BIO.PLAINS || cc.b === BIO.DESERT || cc.b === BIO.SNOWY) && Math.abs(cx - ccx) <= 1 && Math.abs(cz - ccz) <= 1) {
+      inVillage = true;
+      const mats = cc.b === BIO.DESERT ? { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE } :
+        cc.b === BIO.SNOWY ? { wall: B.PLANKS, corner: B.SPRUCE_LOG, floor: B.PLANKS, roof: B.SPRUCE_LOG, found: B.COBBLESTONE } :
+          { wall: B.PLANKS, corner: B.LOG, floor: B.PLANKS, roof: [B.PLANKS, B.BRICK, B.COBBLESTONE, B.STONE_BRICKS][(vh >> 4) & 3], found: B.COBBLESTONE };
+      if (cx === ccx && cz === ccz) { buildWell(S, g, bx + 6, bz + 6, hard, mats); S.kinds.push(['village', bx + 8, bz + 8]); }
+      else if (r() < 0.7) {
+        const w = 5 + (r() * 2 | 0) * 2, d = 5 + (r() * 2 | 0) * 2;
+        const x0 = bx + 2 + (r() * (12 - w) | 0), z0 = bz + 2 + (r() * (12 - d) | 0);
+        const dxs = ccx - cx, dzs = ccz - cz; const doorSide = Math.abs(dxs) >= Math.abs(dzs) ? (dxs > 0 ? 0 : 1) : (dzs > 0 ? 2 : 3);
+        buildHouse(S, g, x0, z0, w, d, hard, mats, doorSide, r, world);
+      }
+    }
+  }
+  const cc0 = g.column(bx + 8, bz + 8);
+  if (!inVillage && cc0.h > SEA + 1) {
+    const q = r();
+    if (cc0.b === BIO.DESERT && q < 0.05) { buildPyramid(S, g, bx + 8, bz + 8, hard, r, world); S.kinds.push(['pyramid', bx + 8, bz + 8]); }
+    else if ((cc0.b === BIO.FOREST || cc0.b === BIO.MOUNTAINS || cc0.b === BIO.SNOWY || cc0.b === BIO.PLAINS) && q < 0.035) { buildTower(S, g, bx + 6, bz + 6, hard, r, world); S.kinds.push(['tower', bx + 8, bz + 8]); }
+    else if (q > 0.965 && cc0.b !== BIO.OCEAN) { buildRuinedPortal(S, g, bx + 6, bz + 7, hard, r, world); S.kinds.push(['ruined_portal', bx + 8, bz + 8]); }
+  }
+  // --- dungeon (underground) ---
+  if (r() < 0.12 && cc0.h > 26) {
+    const y = 8 + (r() * Math.min(16, cc0.h - 22) | 0);
+    buildDungeon(S, bx + 4, y, bz + 4, hard, r, world); S.kinds.push(['dungeon', bx + 7, bz + 7, y]);
+  }
+  if (world.structCache.size > 3000) world.structCache.clear();
+  world.structCache.set(key, S);
+  return S;
+}
+function groundFill(g, x, z, fy, hard, id) { const gh = g.column(x, z).h; for (let y = Math.max(1, gh - 1); y < fy; y++) hard(x, y, z, id); }
+function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
+  const fy = g.column(x0 + (w >> 1), z0 + (d >> 1)).h - 1;
+  let mn = 999, mx = -999; for (const [x, z] of [[x0, z0], [x0 + w - 1, z0], [x0, z0 + d - 1], [x0 + w - 1, z0 + d - 1]]) { const h = g.column(x, z).h; mn = Math.min(mn, h); mx = Math.max(mx, h); }
+  if (mx - mn > 5 || fy < SEA) return;
+  for (let x = x0 - 1; x <= x0 + w; x++) for (let z = z0 - 1; z <= z0 + d; z++) {
+    const margin = x < x0 || x >= x0 + w || z < z0 || z >= z0 + d;
+    if (margin) { groundFill(g, x, z, fy, hard, B.DIRT); hard(x, fy, z, M.wall === B.SANDSTONE ? B.SAND : M.corner === B.SPRUCE_LOG ? B.SNOWY_GRASS : B.GRASS); }
+    else { groundFill(g, x, z, fy, hard, M.found); hard(x, fy, z, M.floor); }
+    for (let y = fy + 1; y <= fy + 10; y++) hard(x, y, z, 0);
+  }
+  const doorX = x0 + (w >> 1), doorZ = z0 + (d >> 1);
+  for (let y = fy + 1; y <= fy + 4; y++) for (let x = x0; x < x0 + w; x++) for (let z = z0; z < z0 + d; z++) {
+    const ex = x === x0 || x === x0 + w - 1, ez = z === z0 || z === z0 + d - 1; if (!ex && !ez) continue;
+    let id = (ex && ez) ? M.corner : M.wall;
+    const midX = x === doorX, midZ = z === doorZ;
+    if (!(ex && ez) && (y === fy + 2 || y === fy + 3) && ((ez && Math.abs(x - doorX) === 1) || (ex && Math.abs(z - doorZ) === 1)) && y === fy + 2) id = B.GLASS;
+    if (!(ex && ez) && y === fy + 2 && ((ez && midX) || (ex && midZ))) id = B.GLASS;
+    hard(x, y, z, id);
+  }
+  // door
+  const doors = [[x0 + w - 1, doorZ, 1, 0], [x0, doorZ, -1, 0], [doorX, z0 + d - 1, 0, 1], [doorX, z0, 0, -1]];
+  const [dx0, dz0, ox, oz] = doors[doorSide];
+  hard(dx0, fy + 1, dz0, 0); hard(dx0, fy + 2, dz0, 0);
+  for (let i = 1; i <= 4; i++) { const px = dx0 + ox * i, pz = dz0 + oz * i; const gh = g.column(px, pz).h; if (i > 1) hard(px, gh - 1, pz, B.GRAVEL); }
+  // roof (stepped pyramid)
+  for (let k = 0; ; k++) {
+    const ax = x0 - 1 + k, bx2 = x0 + w - k, az = z0 - 1 + k, bz2 = z0 + d - k; if (ax > bx2 || az > bz2) break;
+    for (let x = ax; x <= bx2; x++) for (let z = az; z <= bz2; z++) hard(x, fy + 5 + k, z, (k === 0 && (x < x0 || x >= x0 + w || z < z0 || z >= z0 + d)) ? M.roof : (k === 0 ? M.wall : M.roof));
+  }
+  hard(doorX, fy + 5, doorZ, B.GLOWSTONE);
+  // interior
+  const ins = [[x0 + 1, z0 + 1], [x0 + w - 2, z0 + 1], [x0 + 1, z0 + d - 2], [x0 + w - 2, z0 + d - 2]].filter(([x, z]) => Math.abs(x - dx0) + Math.abs(z - dz0) > 1);
+  if (ins[0]) hard(ins[0][0], fy + 1, ins[0][1], B.CRAFTING_TABLE);
+  if (ins[1]) { hard(ins[1][0], fy + 1, ins[1][1], B.CHEST); world.chestLoot.set(ins[1][0] + ',' + (fy + 1) + ',' + ins[1][1], 'house'); }
+  if (ins[2] && r() < 0.6) hard(ins[2][0], fy + 1, ins[2][1], r() < 0.5 ? B.BOOKSHELF : B.FURNACE);
+  S.mobs.push(['villager', doorX + 0.5, fy + 1, doorZ + 0.5]);
+}
+function buildWell(S, g, x0, z0, hard, M) {
+  const fy = g.column(x0 + 2, z0 + 2).h - 1; if (fy < SEA) return;
+  for (let x = x0 - 2; x <= x0 + 5; x++) for (let z = z0 - 2; z <= z0 + 5; z++) {
+    const inner = x >= x0 && x <= x0 + 3 && z >= z0 && z <= z0 + 3;
+    groundFill(g, x, z, fy, hard, B.DIRT); hard(x, fy, z, inner ? M.found : B.GRAVEL);
+    for (let y = fy + 1; y <= fy + 6; y++) hard(x, y, z, 0);
+  }
+  for (let x = x0; x <= x0 + 3; x++) for (let z = z0; z <= z0 + 3; z++) {
+    const edge = x === x0 || x === x0 + 3 || z === z0 || z === z0 + 3;
+    if (edge) { hard(x, fy + 1, z, M.found); } else { for (let y = fy - 3; y <= fy; y++) hard(x, y, z, B.WATER); hard(x, fy - 4, z, M.found); }
+    if ((x === x0 || x === x0 + 3) && (z === z0 || z === z0 + 3)) { hard(x, fy + 2, z, B.LOG === M.corner ? B.LOG : M.corner); hard(x, fy + 3, z, M.corner); }
+    hard(x, fy + 4, z, M.roof);
+  }
+  hard(x0 + 1, fy + 5, z0 + 1, B.GLOWSTONE);
+  // lamp posts
+  for (const [x, z] of [[x0 - 2, z0 - 2], [x0 + 5, z0 + 5]]) { hard(x, fy + 1, z, B.COBBLESTONE); hard(x, fy + 2, z, B.LOG); hard(x, fy + 3, z, B.GLOWSTONE); }
+  S.mobs.push(['villager', x0 + 5.5, fy + 1, z0 + 1.5]); S.mobs.push(['villager', x0 - 1.5, fy + 1, z0 + 3.5]);
+}
+function buildPyramid(S, g, cx, cz, hard, r, world) {
+  const by = g.column(cx, cz).h; const R = 10;
+  for (let dx = -R - 1; dx <= R + 1; dx++) for (let dz = -R - 1; dz <= R + 1; dz++) { groundFill(g, cx + dx, cz + dz, by, hard, B.SANDSTONE); for (let y = by; y < by + 13; y++) hard(cx + dx, y, cz + dz, 0); }
+  for (let k = 0; k <= R; k++) {
+    const rr = R - k;
+    for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+      const chamber = k >= 1 && k <= 4 && Math.abs(dx) <= 3 && Math.abs(dz) <= 3;
+      const tunnel = (k === 1 || k === 2) && dx === 0 && dz >= 3;
+      hard(cx + dx, by + k, cz + dz, chamber || tunnel ? 0 : ((k % 3 === 2 && (Math.abs(dx) === rr || Math.abs(dz) === rr)) ? B.STONE_BRICKS : B.SANDSTONE));
+    }
+  }
+  hard(cx, by + R + 1, cz, B.GLOWSTONE);
+  hard(cx, by, cz, B.GLOWSTONE);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) hard(cx + dx, by - 2, cz + dz, B.TNT);
+  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) if (r() < 0.75) { hard(cx + dx, by + 1, cz + dz, B.CHEST); world.chestLoot.set((cx + dx) + ',' + (by + 1) + ',' + (cz + dz), 'pyramid'); }
+  hard(cx - 3, by + 1, cz, B.TORCH); hard(cx + 3, by + 1, cz, B.TORCH);
+}
+function buildTower(S, g, x0, z0, hard, r, world) {
+  const fy = g.column(x0 + 2, z0 + 2).h - 1; const H = 14 + (r() * 6 | 0); if (fy < SEA) return;
+  const wallB = () => { const q = r(); return q < 0.45 ? B.STONE_BRICKS : q < 0.75 ? B.COBBLESTONE : B.MOSSY_COBBLESTONE; };
+  for (let x = x0 - 1; x <= x0 + 5; x++) for (let z = z0 - 1; z <= z0 + 5; z++) { groundFill(g, x, z, fy, hard, B.COBBLESTONE); hard(x, fy, z, B.COBBLESTONE); for (let y = fy + 1; y <= fy + H + 3; y++) hard(x, y, z, 0); }
+  for (let y = fy + 1; y < fy + H; y++) for (let x = x0; x <= x0 + 4; x++) for (let z = z0; z <= z0 + 4; z++) {
+    const edge = x === x0 || x === x0 + 4 || z === z0 || z === z0 + 4; if (!edge) continue;
+    if (y > fy + H - 5 && r() < 0.18) continue;
+    const win = (y - fy) % 5 === 3 && (x === x0 + 2 || z === z0 + 2);
+    hard(x, y, z, win ? 0 : wallB());
+  }
+  hard(x0 + 2, fy + 1, z0 + 4, 0); hard(x0 + 2, fy + 2, z0 + 4, 0);
+  const ring = [[1, 1], [2, 1], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [1, 2]];
+  const last = H - 2;
+  for (let i = 0; i <= last; i++) { const [lx, lz] = ring[i % 8]; hard(x0 + lx, fy + 1 + i, z0 + lz, B.STONE_BRICKS); }
+  const fl = fy + 1 + last;
+  for (let lx = 1; lx <= 3; lx++) for (let lz = 1; lz <= 3; lz++) {
+    const p1 = ring[(last - 1) % 8], p2 = ring[(last - 2) % 8], p3 = ring[(last - 3) % 8];
+    if ((lx === p1[0] && lz === p1[1]) || (lx === p2[0] && lz === p2[1]) || (lx === p3[0] && lz === p3[1])) continue;
+    hard(x0 + lx, fl, z0 + lz, B.STONE_BRICKS);
+  }
+  for (let x = x0; x <= x0 + 4; x++) for (let z = z0; z <= z0 + 4; z++) { const edge = x === x0 || x === x0 + 4 || z === z0 || z === z0 + 4; if (edge) { hard(x, fl, z, wallB()); if ((x + z) % 2 === 0) hard(x, fl + 1, z, wallB()); } }
+  const top = ring[(last + 4) % 8]; hard(x0 + top[0], fl + 1, z0 + top[1], B.CHEST); world.chestLoot.set((x0 + top[0]) + ',' + (fl + 1) + ',' + (z0 + top[1]), 'tower');
+  const tp = ring[(last + 2) % 8]; hard(x0 + tp[0], fl + 1, z0 + tp[1], B.TORCH);
+}
+function buildDungeon(S, x0, y0, z0, hard, r, world) {
+  const W = 7, Hh = 4;
+  for (let x = x0 - 1; x <= x0 + W; x++) for (let z = z0 - 1; z <= z0 + W; z++) for (let y = y0 - 1; y <= y0 + Hh; y++) {
+    const shell = x === x0 - 1 || x === x0 + W || z === z0 - 1 || z === z0 + W || y === y0 - 1 || y === y0 + Hh;
+    if (shell) { if (y === y0 + Hh && r() < 0.1) continue; hard(x, y, z, r() < 0.45 ? B.MOSSY_COBBLESTONE : B.COBBLESTONE); }
+    else hard(x, y, z, 0);
+  }
+  const sx = x0 + 3, sz = z0 + 3; hard(sx, y0, sz, B.SPAWNER);
+  const types = ['zombie', 'skeleton', 'spider']; world.spawners.set(sx + ',' + y0 + ',' + sz, types[r() * 3 | 0]);
+  const spots = [[x0, z0 + 3], [x0 + W - 1, z0 + 3], [x0 + 3, z0], [x0 + 3, z0 + W - 1]];
+  const n = 1 + (r() * 2 | 0);
+  for (let i = 0; i < n; i++) { const [x, z] = spots[(r() * 4 | 0)]; hard(x, y0, z, B.CHEST); world.chestLoot.set(x + ',' + y0 + ',' + z, 'dungeon'); }
+}
+
+// ---- Chunk ----
+class Chunk {
+  constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint8Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
+  calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
+  scanMeta() {
+    const d = this.d; this.lights = []; let maxY = 0;
+    for (let y = 0; y < WH; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const id = d[(y * 16 + z) * 16 + x]; if (id) { maxY = y; if (LIGHT[id]) this.lights.push([this.cx * 16 + x, y, this.cz * 16 + z, LIGHT[id]]); } }
+    this.maxY = maxY;
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) this.calcTop(x, z);
+  }
+}
+
+// ---- Face tables ----
+const FACES = [
+  { n: [1, 0, 0], c: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], s: 0.74 },
+  { n: [-1, 0, 0], c: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], s: 0.74 },
+  { n: [0, 1, 0], c: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], s: 1.0 },
+  { n: [0, -1, 0], c: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], s: 0.52 },
+  { n: [0, 0, 1], c: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], s: 0.88 },
+  { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], s: 0.88 },
+];
+for (const F of FACES) {
+  const t = [0, 1, 2].filter(a => F.n[a] === 0);
+  F.ao = F.c.map(c => {
+    const s1 = c[t[0]] ? 1 : -1, s2 = c[t[1]] ? 1 : -1;
+    const a = F.n.slice(), b = F.n.slice(), d = F.n.slice(); a[t[0]] += s1; b[t[1]] += s2; d[t[0]] += s1; d[t[1]] += s2;
+    return [a, b, d];
+  });
+}
+const UVC = [[0, 0], [1, 0], [1, 1], [0, 1]];
+const AO_LV = [0.42, 0.6, 0.8, 1.0];
+function tileUV(t) { const e = 0.0004; const u0 = (t % ATN) / ATN + e, u1 = (t % ATN + 1) / ATN - e; const vTop = 1 - Math.floor(t / ATN) / ATN - e, vBot = 1 - (Math.floor(t / ATN) + 1) / ATN + e; return [u0, vBot, u1, vTop]; }
+const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
+
+// ---- Materials ----
+const atlasTex = new THREE.CanvasTexture(atlasCanvas); atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false;
+const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 } };
+const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+uniform float fogNear; uniform float fogFar; uniform float time;
+void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
+ if(sway!=0.0){ vec4 wp=modelMatrix*vec4(position,1.0);
+  if(sway>0.0){ float s=sin(time*1.7+wp.x*0.7+wp.z*0.5)*0.07+sin(time*2.9+wp.z*1.1+wp.x*0.3)*0.03; p.x+=s*sway; p.z+=s*0.7*sway; }
+  else { p.y+=((sin(time*1.9+wp.x*0.9+wp.z*0.7)+sin(time*1.3-wp.x*0.6+wp.z*1.1))*0.035-0.04)*(-sway); } }
+ vec4 mv=modelViewMatrix*vec4(p,1.0); vFog=smoothstep(fogNear,fogFar,length(mv.xyz)); gl_Position=projectionMatrix*mv; }`;
+const FS = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV;
+varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog;
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
+ vec3 l=max(skyTint*(vLight.x*daylight), vec3(1.0,0.84,0.62)*vLight.y); l=max(l,vec3(0.07));
+ vec3 c=t.rgb*l*vShade; gl_FragColor=vec4(mix(c,fogColor,vFog), alphaV); }`;
+const chunkMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 1 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS });
+const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.72 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+
+// ---- World ----
+class World {
+  constructor(seed, scene, dim = 'overworld') {
+    this.seed = seed; this.dim = dim; this.scene = scene; this.flatSky = dim !== 'overworld'; this.furnaces = new Map();
+    this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : new Gen(seed);
+    this.chunks = new Map(); this.edits = new Map(); this.chestInv = new Map(); this.chestLoot = new Map(); this.spawners = new Map();
+    this.structCache = new Map(); this.hintsDone = new Set(); this.urgent = new Set(); this.onChunkGen = null;
+    this.wanted = []; this.lastCenter = null;
+  }
+  getChunk(cx, cz) { return this.chunks.get(ckey(cx, cz)); }
+  get(x, y, z) { if (y < 0) return B.BEDROCK; if (y >= WH) return 0; const c = this.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return 0; return c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]; }
+  loaded(x, z) { return this.chunks.has(ckey(x >> 4, z >> 4)); }
+  solid(x, y, z) { if (y < 0) return true; if (y >= WH) return false; const c = this.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return true; return SOLID[c.d[(y * 16 + (z & 15)) * 16 + (x & 15)]] === 1; }
+  set(x, y, z, id, record = true) {
+    if (y < 0 || y >= WH) return false;
+    const cx = x >> 4, cz = z >> 4; const c = this.getChunk(cx, cz); if (!c) return false;
+    const lx = x & 15, lz = z & 15, i = (y * 16 + lz) * 16 + lx; const old = c.d[i]; if (old === id) return false;
+    c.d[i] = id;
+    if (record) { let e = this.edits.get(c.key); if (!e) { e = new Map(); this.edits.set(c.key, e); } e.set(i, id); }
+    const ti = lz * 16 + lx;
+    if (OPAQUE[id] && y + 1 > c.top[ti]) c.top[ti] = y + 1; else if (!OPAQUE[id] && y + 1 === c.top[ti]) c.calcTop(lx, lz);
+    if (y > c.maxY) c.maxY = y;
+    const lightCh = LIGHT[old] || LIGHT[id];
+    if (lightCh) { c.lights = c.lights.filter(L => !(L[0] === x && L[1] === y && L[2] === z)); if (LIGHT[id]) c.lights.push([x, y, z, LIGHT[id]]); }
+    const mark = (ax, az) => { const n = this.getChunk(ax, az); if (n) { n.dirty = true; this.urgent.add(n); } };
+    mark(cx, cz);
+    if (lightCh) { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) mark(cx + dx, cz + dz); }
+    else {
+      const ex = lx === 0 ? -1 : lx === 15 ? 1 : 0, ez = lz === 0 ? -1 : lz === 15 ? 1 : 0;
+      if (ex) mark(cx + ex, cz); if (ez) mark(cx, cz + ez); if (ex && ez) mark(cx + ex, cz + ez);
+    }
+    return true;
+  }
+  skyAt(x, y, z) { if (this.flatSky) return 1; const c = this.chunks.get(ckey(x >> 4, z >> 4)); if (!c) return 1; const t = c.top[(z & 15) * 16 + (x & 15)]; return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); }
+  blockLightAt(x, y, z) {
+    let best = 0; const cx = Math.floor(x) >> 4, cz = Math.floor(z) >> 4;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const c = this.chunks.get(ckey(cx + dx, cz + dz)); if (!c) continue;
+      for (const L of c.lights) { const a = x - L[0] - 0.5, b = y - L[1] - 0.5, e = z - L[2] - 0.5; const d2 = a * a + b * b + e * e; if (d2 < 64) { const v = L[3] * (1 - Math.sqrt(d2) / 8); if (v > best) best = v; } }
+    }
+    return best;
+  }
+  lightAt(x, y, z, day) { return Math.max(this.skyAt(Math.floor(x), Math.floor(y), Math.floor(z)) * day, this.blockLightAt(x, y, z)); }
+  surfaceY(x, z) { for (let y = WH - 1; y > 0; y--) { const id = this.get(x, y, z); if (SOLID[id] || id === B.WATER) return y + 1; } return WH; }
+
+  generate(cx, cz) {
+    const c = new Chunk(cx, cz); const d = c.d; const g = this.gen; const bx = cx * 16, bz = cz * 16;
+    let cols = null;
+    if (this.dim === 'nether') genNetherChunk(this, c); else if (this.dim === 'end') genEndChunk(this, c); else cols = this.genOverworld(c);
+    const lists = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) lists.push(structuresFor(this, cx + dx, cz + dz));
+    const x0 = bx, x1 = bx + 15, z0 = bz, z1 = bz + 15;
+    for (const S of lists) { const a = S.soft; for (let i = 0; i < a.length; i += 4) { const x = a[i], y = a[i + 1], z = a[i + 2]; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const j = (y * 16 + (z - bz)) * 16 + (x - bx); const cur = d[j]; if (cur === 0 || PLANT[cur]) d[j] = a[i + 3]; } }
+    for (const S of lists) { const a = S.hard; for (let i = 0; i < a.length; i += 4) { const x = a[i], y = a[i + 1], z = a[i + 2]; if (x < x0 || x > x1 || z < z0 || z > z1) continue; d[(y * 16 + (z - bz)) * 16 + (x - bx)] = a[i + 3]; } }
+    const localHints = [];
+    if (this.dim === 'overworld') { const sh = g.strongholds.find(s => s.cx === cx && s.cz === cz); if (sh) buildStronghold(this, c, sh); }
+    if (this.dim === 'nether') buildFortressChunk(this, c, localHints);
+    const e = this.edits.get(c.key); if (e) for (const [i, id] of e) d[i] = id;
+    c.scanMeta();
+    this.chunks.set(c.key, c);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) { const n = this.getChunk(cx + dx, cz + dz); if (n) n.dirty = true; }
+    if (!this.hintsDone.has(c.key)) { this.hintsDone.add(c.key); const own = structuresFor(this, cx, cz); if (this.onChunkGen) this.onChunkGen(c, own.mobs.concat(localHints), cols, this); }
+    return c;
+  }
+  genOverworld(c) {
+    const cx = c.cx, cz = c.cz; const d = c.d; const g = this.gen; const seed = this.seed; const bx = cx * 16, bz = cz * 16;
+    const cols = new Array(256);
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const wx = bx + x, wz = bz + z; const col = g.column(wx, wz); cols[z * 16 + x] = col; const h = col.h, b = col.b;
+      const top = Math.max(h, SEA);
+      for (let y = 0; y < top; y++) {
+        let id = 0;
+        if (y === 0) id = B.BEDROCK;
+        else if (y < h) {
+          const depth = h - 1 - y;
+          if (y < 4 && rnd01(wx, y, wz, seed) < 0.5 - y * 0.15) id = B.BEDROCK;
+          else {
+            switch (b) {
+              case BIO.OCEAN: id = depth < 3 ? (h < SEA - 7 ? B.GRAVEL : B.SAND) : B.STONE; break;
+              case BIO.BEACH: id = depth < 3 ? B.SAND : depth < 5 ? B.SANDSTONE : B.STONE; break;
+              case BIO.DESERT: id = depth < 4 ? B.SAND : depth < 8 ? B.SANDSTONE : B.STONE; break;
+              case BIO.SNOWY: id = depth === 0 ? B.SNOWY_GRASS : depth < 4 ? B.DIRT : B.STONE; break;
+              case BIO.MOUNTAINS: id = h >= 74 ? (depth === 0 ? B.SNOW_BLOCK : B.STONE) : h >= 60 ? B.STONE : (depth === 0 ? B.GRASS : depth < 3 ? B.DIRT : B.STONE); break;
+              default: id = depth === 0 ? B.GRASS : depth < 4 ? B.DIRT : B.STONE;
+            }
+            const carveOk = y > 4 && (b === BIO.OCEAN || b === BIO.BEACH ? y < h - 5 : (y < h - 1 || h > SEA + 3));
+            if (carveOk && g.cave(wx, y, wz)) id = (y < 9) ? B.LAVA : 0;
+          }
+        } else if (y < SEA) id = B.WATER;
+        if (id) d[(y * 16 + z) * 16 + x] = id;
+      }
+    }
+    // ores
+    const r = mulberry32(ihash(cx, cz, 1, seed));
+    const ores = [[B.COAL_ORE, 18, 4, 9, 80], [B.IRON_ORE, 10, 3, 6, 56], [B.GOLD_ORE, 3, 2, 6, 30], [B.DIAMOND_ORE, 2, 2, 5, 16], [B.GRAVEL, 4, 6, 14, 60], [B.DIRT, 4, 6, 14, 60]];
+    for (const [id, cnt, mn, mx, maxY] of ores) for (let i = 0; i < cnt; i++) {
+      let x = r() * 16 | 0, y = 1 + (r() * maxY | 0), z = r() * 16 | 0; const n = mn + (r() * (mx - mn) | 0);
+      for (let k = 0; k < n; k++) {
+        if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH) { const j = (y * 16 + z) * 16 + x; if (d[j] === B.STONE) d[j] = id; }
+        const q = r() * 6 | 0; if (q === 0) x++; else if (q === 1) x--; else if (q === 2) y++; else if (q === 3) y--; else if (q === 4) z++; else z--;
+      }
+    }
+    // small decorations
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const col = cols[z * 16 + x]; const y = col.h; if (y >= WH - 4) continue;
+      const below = d[((y - 1) * 16 + z) * 16 + x], here = d[(y * 16 + z) * 16 + x]; if (here) continue;
+      const wx = bx + x, wz = bz + z; const q = rnd01(wx, 7, wz, seed);
+      if (below === B.GRASS) {
+        if (col.b === BIO.PLAINS) { if (q < 0.14) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.165) d[(y * 16 + z) * 16 + x] = q < 0.152 ? B.ROSE : B.DANDELION; }
+        else if (col.b === BIO.FOREST) { if (q < 0.1) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.11) d[(y * 16 + z) * 16 + x] = B.ROSE; }
+        else if (q < 0.05) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS;
+      } else if (below === B.SAND && col.b === BIO.DESERT) {
+        if (q < 0.006 && x > 0 && x < 15 && z > 0 && z < 15) { const H = 1 + (rnd01(wx, 8, wz, seed) * 3 | 0); for (let k = 0; k < H; k++) d[((y + k) * 16 + z) * 16 + x] = B.CACTUS; }
+        else if (q < 0.014) d[(y * 16 + z) * 16 + x] = B.DEAD_BUSH;
+      } else if (below === B.SNOWY_GRASS && q < 0.02) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS;
+    }
+    return cols;
+  }
+  neighborsReady(cx, cz) { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (!this.chunks.has(ckey(cx + dx, cz + dz))) return false; return true; }
+
+  buildMesh(c) {
+    const NB = [], NT = [];
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const n = this.getChunk(c.cx + dx, c.cz + dz); NB.push(n ? n.d : null); NT.push(n ? n.top : null); }
+    const get = (x, y, z) => {
+      if (y < 0) return B.BEDROCK; if (y >= WH) return 0;
+      let i = 4; if (x < 0) { i -= 1; x += 16; } else if (x > 15) { i += 1; x -= 16; } if (z < 0) { i -= 3; z += 16; } else if (z > 15) { i += 3; z -= 16; }
+      const a = NB[i]; return a ? a[(y * 16 + z) * 16 + x] : 0;
+    };
+    const topAt = (x, z) => { let i = 4; if (x < 0) { i -= 1; x += 16; } else if (x > 15) { i += 1; x -= 16; } if (z < 0) { i -= 3; z += 16; } else if (z > 15) { i += 3; z -= 16; } const t = NT[i]; return t ? t[z * 16 + x] : 0; };
+    const flat = this.flatSky; const sky = (x, y, z) => { if (flat) return 1; const t = topAt(x, z); return y >= t ? 1 : Math.max(0.05, 1 - (t - y) * 0.17); };
+    const bx = c.cx * 16, bz = c.cz * 16;
+    const lights = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const n = this.getChunk(c.cx + dx, c.cz + dz); if (!n) continue; for (const L of n.lights) { const lx = L[0] - bx, lz = L[2] - bz; if (lx > -9 && lx < 25 && lz > -9 && lz < 25) lights.push([lx + 0.5, L[1] + 0.5, lz + 0.5, L[3]]); } }
+    const nL = lights.length;
+    const blk = (x, y, z) => { let best = 0; for (let k = 0; k < nL; k++) { const L = lights[k]; const a = x - L[0], b = y - L[1], e = z - L[2]; const d2 = a * a + b * b + e * e; if (d2 < 64) { const v = L[3] * (1 - Math.sqrt(d2) / 8); if (v > best) best = v; } } return best; };
+    const O = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, W = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }; const SW_TOP = [0, 0, 1, 1]; const wsw = [0, 0, 0, 0];
+    const quad = (G, verts, uvs, skyL, blks, shades, flip, sway) => {
+      const b = G.n;
+      for (let k = 0; k < 4; k++) { G.p.push(verts[k * 3], verts[k * 3 + 1], verts[k * 3 + 2]); G.u.push(uvs[k * 2], uvs[k * 2 + 1]); G.l.push(skyL, blks[k]); G.s.push(shades[k]); G.w.push(sway ? (typeof sway === 'number' ? sway : sway[k]) : 0); }
+      if (flip) G.i.push(b + 1, b + 2, b + 3, b + 1, b + 3, b); else G.i.push(b, b + 1, b + 2, b, b + 2, b + 3);
+      G.n += 4;
+    };
+    const vtmp = new Array(12), uvtmp = new Array(8), bl = [0, 0, 0, 0], sh = [0, 0, 0, 0], aov = [0, 0, 0, 0];
+    const d = c.d; const maxY = Math.min(WH - 1, c.maxY + 1);
+    for (let y = 0; y <= maxY; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const id = d[(y * 16 + z) * 16 + x]; if (!id) continue; const def = BL[id];
+      if (def.render === 'cross') {
+        const uv = TILE_UV[def.texIds[0]]; const s = sky(x, y, z); const b0 = nL ? blk(x + 0.5, y + 0.5, z + 0.5) : 0;
+        const P = [[0.15, 0.15, 0.85, 0.85], [0.15, 0.85, 0.85, 0.15]];
+        for (const [ax, az, cx2, cz2] of P) {
+          const v = [x + ax, y, z + az, x + cx2, y, z + cz2, x + cx2, y + 0.95, z + cz2, x + ax, y + 0.95, z + az];
+          const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]];
+          quad(O, v, u, s, [b0, b0, b0, b0], [0.95, 0.95, 0.95, 0.95], false, SW_TOP);
+          const v2 = [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]];
+          const u2 = [uv[2], uv[1], uv[0], uv[1], uv[0], uv[3], uv[2], uv[3]];
+          quad(O, v2, u2, s, [b0, b0, b0, b0], [0.95, 0.95, 0.95, 0.95], false, SW_TOP);
+        }
+        continue;
+      }
+      if (def.render === 'torch') {
+        const t = def.texIds[0]; const u0 = (t % ATN) / ATN, v0 = 1 - Math.floor(t / ATN) / ATN; const px = 1 / (ATN * 16);
+        const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
+        for (let f = 0; f < 6; f++) {
+          const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
+          let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * px; vb = v0 - 6 * px; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * px; vb = v0 - 6 * px; }
+          const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1, 1, 1, 1], false);
+        }
+        continue;
+      }
+      if (def.render === 'portal') {
+        const uv = TILE_UV[def.texIds[0]]; const v = def.axis === 'x' ? [x, y, z + 0.5, x + 1, y, z + 0.5, x + 1, y + 1, z + 0.5, x, y + 1, z + 0.5] : [x + 0.5, y, z + 1, x + 0.5, y, z, x + 0.5, y + 1, z, x + 0.5, y + 1, z + 1];
+        const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]]; quad(W, v, u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false);
+        quad(W, [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]], u, 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+      }
+      if (def.render === 'endportal') {
+        if (OPAQUE[get(x, y + 1, z)]) continue; const uv = TILE_UV[def.texIds[2]]; const yy = y + 0.75;
+        quad(O, [x, yy, z + 1, x + 1, yy, z + 1, x + 1, yy, z, x, yy, z], [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]], 1, [1, 1, 1, 1], [1, 1, 1, 1], false); continue;
+      }
+      const isW = def.render === 'water' || def.render === 'lava'; const isLava = def.render === 'lava';
+      const waterTop = isW && get(x, y + 1, z) !== id; const leafy = def.cullSame && def.render === 'cutout' && id !== B.GLASS;
+      for (let f = 0; f < 6; f++) {
+        const F = FACES[f]; const nx = x + F.n[0], ny = y + F.n[1], nz = z + F.n[2]; const nb = get(nx, ny, nz);
+        if (isW) { if (nb === id || OPAQUE[nb]) continue; if (f !== 2 && nb && SOLID[nb] && !OPAQUE[nb]) { } }
+        else { if (OPAQUE[nb]) continue; if (nb === id && def.cullSame) continue; }
+        const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
+        for (let k = 0; k < 4; k++) {
+          const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (waterTop && cc[1] ? 0.875 : cc[1]); vtmp[k * 3 + 2] = z + cc[2];
+          uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? uv[3] : uv[1];
+          wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
+          if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
+          else aov[k] = 3;
+          sh[k] = F.s * AO_LV[aov[k]];
+          bl[k] = nL ? blk(x + cc[0] + F.n[0] * 0.5, y + cc[1] + F.n[1] * 0.5, z + cc[2] + F.n[2] * 0.5) : 0;
+        }
+        if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1; }
+        quad(isW && !isLava ? W : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
+      }
+    }
+    const mk = (G, mat) => {
+      if (!G.n) return null;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(G.p, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(G.u, 2));
+      geo.setAttribute('light', new THREE.Float32BufferAttribute(G.l, 2)); geo.setAttribute('shade', new THREE.Float32BufferAttribute(G.s, 1)); geo.setAttribute('sway', new THREE.Float32BufferAttribute(G.w, 1));
+      geo.setIndex(G.n > 65535 ? new THREE.Uint32BufferAttribute(G.i, 1) : new THREE.Uint16BufferAttribute(G.i, 1));
+      geo.computeBoundingSphere();
+      const m = new THREE.Mesh(geo, mat); m.position.set(bx, 0, bz); m.matrixAutoUpdate = false; m.updateMatrix(); return m;
+    };
+    if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
+    if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); c.wmesh = null; }
+    c.mesh = mk(O, chunkMat); c.wmesh = mk(W, waterMat);
+    if (c.mesh) this.scene.add(c.mesh); if (c.wmesh) this.scene.add(c.wmesh);
+    c.dirty = false;
+  }
+  unload(c) {
+    if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); }
+    if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); }
+    this.chunks.delete(c.key); this.urgent.delete(c);
+  }
+  update(px, pz, R, budgetMs) {
+    const t0 = performance.now();
+    const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16);
+    const ck = pcx + ',' + pcz + ',' + R;
+    if (ck !== this.lastCenter) {
+      this.lastCenter = ck; const list = [];
+      for (let dx = -R - 1; dx <= R + 1; dx++) for (let dz = -R - 1; dz <= R + 1; dz++) { const d2 = dx * dx + dz * dz; if (d2 <= (R + 1.5) * (R + 1.5)) list.push([pcx + dx, pcz + dz, d2]); }
+      list.sort((a, b) => a[2] - b[2]); this.wanted = list;
+      for (const c of [...this.chunks.values()]) { const dx = c.cx - pcx, dz = c.cz - pcz; if (dx * dx + dz * dz > (R + 3.5) * (R + 3.5)) this.unload(c); }
+    }
+    // urgent remeshes (player edits)
+    for (const c of this.urgent) { if (c.dirty && this.chunks.has(c.key) && this.neighborsReady(c.cx, c.cz) && (c.mesh || c.wmesh || true)) this.buildMesh(c); }
+    this.urgent.clear();
+    let pending = 0;
+    for (const [cx, cz, d2] of this.wanted) {
+      if (performance.now() - t0 > budgetMs) { pending++; continue; }
+      if (!this.chunks.has(ckey(cx, cz))) { this.generate(cx, cz); continue; }
+      if (d2 > (R + 0.5) * (R + 0.5)) continue;
+      const c = this.getChunk(cx, cz);
+      if (c.dirty && this.neighborsReady(cx, cz)) this.buildMesh(c);
+    }
+    return pending;
+  }
+  meshedAround(px, pz, r) { const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16); let ok = 0, tot = 0; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { tot++; const c = this.getChunk(pcx + dx, pcz + dz); if (c && !c.dirty) ok++; } return ok / tot; }
+}
+

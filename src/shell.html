@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Blockwild — Voxel Sandbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'VT323',monospace;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+button{font-family:'VT323',monospace}
+#crosshair{position:fixed;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none;mix-blend-mode:difference;z-index:5}
+#crosshair:before,#crosshair:after{content:'';position:absolute;background:#ddd}
+#crosshair:before{left:9px;top:0;width:2px;height:20px}
+#crosshair:after{top:9px;left:0;height:2px;width:20px}
+#mineBar{position:fixed;left:50%;top:calc(50% + 18px);transform:translateX(-50%);width:40px;height:4px;background:rgba(0,0,0,.5);pointer-events:none;z-index:5}
+#mineBar i{display:block;height:100%;background:#fff;width:0}
+#hud{position:fixed;left:50%;bottom:6px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;z-index:6;pointer-events:none}
+#itemname{height:24px;font-size:24px;text-shadow:2px 2px 0 #222;transition:opacity .5s;white-space:nowrap}
+#stats{display:flex;justify-content:space-between;width:100%;height:18px;align-items:flex-end}
+#hearts,#armorRow{display:flex;gap:0}
+#hearts img{width:18px;height:18px;image-rendering:pixelated}
+#hotrow{display:flex;gap:10px;align-items:flex-end}
+#offhud{width:44px;height:44px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
+.offrow{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:21px;color:#404040}
+.offrow .slot.empty img{visibility:visible!important;opacity:.25}
+#hotbar{display:flex;background:rgba(0,0,0,.4);border:2px solid rgba(0,0,0,.7);padding:2px;gap:2px;pointer-events:auto}
+.slot{width:44px;height:44px;background:#8b8b8b;border:2px solid;border-color:#373737 #fff #fff #373737;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.slot:hover{background:#a0a0a0}
+#hotbar .slot{background:rgba(80,80,80,.55);border-color:rgba(0,0,0,.55);cursor:default}
+#hotbar .slot.sel{border-color:#fff;outline:2px solid #fff;outline-offset:-1px;background:rgba(140,140,140,.6)}
+.slot img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
+.slot .cnt{position:absolute;right:2px;bottom:-3px;font-size:21px;line-height:1;text-shadow:2px 2px 0 #3f3f3f;pointer-events:none;color:#fff}
+#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:7;text-align:center;transition:opacity .4s;opacity:0}
+#debug{position:fixed;left:6px;top:6px;font-size:19px;line-height:1.05;text-shadow:1px 1px 0 #000;white-space:pre;pointer-events:none;z-index:7;background:rgba(0,0,0,.25);padding:3px 6px}
+#info{position:fixed;right:8px;top:6px;font-size:20px;text-shadow:2px 2px 0 #000;text-align:right;pointer-events:none;z-index:6}
+#hurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 160px 40px rgba(200,0,0,.7);opacity:0;transition:opacity .25s;z-index:4}
+#water{position:fixed;inset:0;pointer-events:none;background:rgba(30,70,170,.35);z-index:3}
+#lavafx{position:fixed;inset:0;pointer-events:none;background:rgba(220,80,10,.55);z-index:3}
+#portalfx{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,rgba(150,60,255,.2),rgba(110,20,200,.85));z-index:3;opacity:0}
+#bossbar{position:fixed;top:10px;left:50%;transform:translateX(-50%);width:min(520px,70vw);text-align:center;z-index:6;pointer-events:none}
+#bossname{font-size:22px;text-shadow:2px 2px 0 #000;color:#f0dcff}
+.bbar{height:10px;border:2px solid #000;background:#2a0c3a}
+.bbar i{display:block;height:100%;background:linear-gradient(#e070ff,#8a20c0);width:100%}
+.screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.55)}
+.title{font-family:'Press Start 2P',monospace;font-size:clamp(28px,6vw,64px);color:#e8e8e8;text-shadow:4px 4px 0 #3a3a3a,0 0 30px rgba(120,200,90,.35);letter-spacing:2px;margin-bottom:6px;text-align:center}
+.sub{font-size:24px;color:#ffe66b;text-shadow:2px 2px 0 #3d3200;margin-bottom:22px;transform:rotate(-3deg)}
+.mbtn{width:min(400px,86vw);height:44px;margin:5px;font-size:26px;color:#fff;text-shadow:2px 2px 0 #383838;background:#6f6f6f;border:2px solid #000;box-shadow:inset 2px 2px 0 #aaa,inset -2px -3px 0 #4a4a4a;cursor:pointer}
+.mbtn:hover{background:#7d86b8;box-shadow:inset 2px 2px 0 #b8c0ee,inset -2px -3px 0 #4a5288}
+.mbtn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;width:min(400px,86vw);margin:5px;align-items:center}
+.row label{font-size:22px;flex:0 0 auto;min-width:120px}
+.row input[type=text]{flex:1;height:38px;background:#000;border:2px solid #a0a0a0;color:#fff;font-family:'VT323';font-size:24px;padding:0 8px}
+.row input[type=range]{flex:1}
+.seg{display:flex;flex:1;gap:4px}
+.seg button{flex:1;height:38px;font-size:22px;color:#ddd;background:#3b3b3b;border:2px solid #000;cursor:pointer}
+.seg button.on{background:#5b8a3c;color:#fff;box-shadow:inset 0 0 0 2px #9ed36c}
+.help{margin-top:16px;font-size:19px;color:#ccc;line-height:1.25;text-align:center;max-width:640px;padding:0 10px}
+.help b{color:#fff}
+#loading{position:fixed;inset:0;z-index:30;background:#1d1510;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-size:28px}
+#loading .bar{width:280px;height:10px;border:2px solid #fff}
+#loading .bar i{display:block;height:100%;background:#7cc84b;width:0}
+#clickplay{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;font-size:32px;text-shadow:2px 2px 0 #000;background:rgba(0,0,0,.25);cursor:pointer}
+/* inventory */
+#inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
+.panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;outline:2px solid #000;padding:10px;color:#3f3f3f;border-radius:3px}
+.panel h3{font-family:'VT323';font-weight:normal;font-size:24px;margin:2px 0 6px;color:#404040}
+.grid{display:grid;grid-template-columns:repeat(9,44px);gap:2px}
+.gap{height:10px}
+#bookGrid{display:grid;grid-template-columns:repeat(8,40px);gap:2px;max-height:min(250px,36vh);overflow-y:auto;width:min(340px,86vw)}
+#bookGrid .slot{width:40px;height:40px}
+#bookGrid .slot.have{background:#7fa86a}
+#bookGrid .slot.selb{outline:2px solid #fff;outline-offset:-2px}
+#bookDetail{display:flex;align-items:center;gap:10px;margin-top:8px;min-height:140px;flex-wrap:wrap}
+#bdText{font-size:19px;color:#333;max-width:330px;line-height:1.05}
+.bookbar{display:flex;gap:4px;margin-bottom:6px}
+.smallbtn{font-size:19px;padding:2px 9px;background:#8b8b8b;border:2px solid #555;color:#fff;cursor:pointer;font-family:'VT323',monospace}
+.smallbtn.on{background:#5b8a3c}
+.crow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cgrid{display:grid;gap:2px}
+.arrowimg{width:36px;height:18px;image-rendering:pixelated}
+#outSlotBox .slot,#furnOut .slot{width:52px;height:52px}
+.fcol{display:flex;flex-direction:column;align-items:center;gap:3px}
+.flamebox,.progbox{position:relative;image-rendering:pixelated}
+.flamebox img{width:27px;height:30px;image-rendering:pixelated;display:block}
+.progbox img{width:44px;height:22px;image-rendering:pixelated;display:block}
+.flameon{position:absolute;left:0;bottom:0;width:100%;overflow:hidden;height:0}
+.flameon img{position:absolute;bottom:0}
+.progon{position:absolute;left:0;top:0;height:100%;overflow:hidden;width:0}
+.ghost img{opacity:.85}
+.rec{display:flex;align-items:center;gap:6px;background:#8b8b8b;border:2px solid;border-color:#373737 #fff #fff #373737;padding:3px 5px;cursor:pointer;color:#fff;font-size:20px}
+.rec.no{opacity:.45;cursor:default}
+.rec:not(.no):hover{background:#9fb39a}
+.rec img{width:28px;height:28px;image-rendering:pixelated}
+.rec .nm{flex:1;line-height:1;text-shadow:1px 1px 0 #333}
+.rec .ing{display:flex;gap:3px;align-items:center}
+.rec .ing span{position:relative;display:inline-block}
+.rec .ing img{width:22px;height:22px}
+.rec .ing b{position:absolute;right:-2px;bottom:-5px;font-size:15px;font-weight:normal;text-shadow:1px 1px 0 #000}
+.rec .ing b.miss{color:#ff6b6b}
+.rec .st{font-size:15px;color:#ffe9a0}
+.tabs{display:flex;gap:4px;margin-bottom:6px}
+.tabs button{font-size:20px;padding:2px 10px;background:#8b8b8b;border:2px solid #555;color:#fff;cursor:pointer}
+.tabs button.on{background:#5b8a3c}
+#palette{display:grid;grid-template-columns:repeat(9,44px);gap:2px;max-height:min(330px,50vh);overflow-y:auto}
+#invClose{position:fixed;top:10px;right:12px;width:44px;height:44px;font-size:26px;background:#6f6f6f;color:#fff;border:2px solid #000;box-shadow:inset 2px 2px 0 #aaa,inset -2px -3px 0 #4a4a4a;cursor:pointer;z-index:2}
+.invhint{margin-top:8px;font-size:17px;color:#555;max-width:410px;line-height:1.1}
+@media (max-height:560px),(max-width:700px){.slot{width:34px;height:34px}.slot img{width:24px;height:24px}.slot .cnt{font-size:17px}.grid,#palette{grid-template-columns:repeat(9,34px)}#craftList{max-height:60vh}.invhint{display:none}#inv{align-items:flex-start}.panel{padding:6px}.panel h3{font-size:20px;margin:0 0 3px}.rec{font-size:17px}}
+body.touch #info{right:auto;left:8px;text-align:left}
+body.touch #hotbar .slot{width:40px;height:40px}
+#cursorItem{position:fixed;z-index:40;pointer-events:none;width:44px;height:44px;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center}
+#cursorItem img{width:32px;height:32px;image-rendering:pixelated}
+#cursorItem .cnt{position:absolute;right:2px;bottom:-3px;font-size:21px;text-shadow:2px 2px 0 #3f3f3f}
+#tip{position:fixed;z-index:41;pointer-events:none;background:#100010e8;border:2px solid #2a0a5e;color:#fff;padding:2px 7px;font-size:20px;display:none}
+/* touch */
+#touch{position:fixed;inset:0;z-index:8;pointer-events:none}
+#touch .tb{position:absolute;pointer-events:auto;width:62px;height:62px;border-radius:12px;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);font-size:28px;display:flex;align-items:center;justify-content:center;color:#fff}
+#touch .tb.on{background:rgba(255,255,255,.4)}
+#touch .tb img{width:30px;height:30px;image-rendering:pixelated;pointer-events:none}
+#stick{position:absolute;left:30px;bottom:110px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);pointer-events:none}
+#stick i{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="water" class="hidden"></div>
+<div id="lavafx" class="hidden"></div>
+<div id="portalfx"></div>
+<div id="bossbar" class="hidden"><div id="bossname">Shadow Dragon</div><div class="bbar"><i id="bossfill"></i></div></div>
+<div id="hurt"></div>
+<div id="crosshair" class="hidden"></div>
+<div id="mineBar" class="hidden"><i></i></div>
+<div id="hud" class="hidden">
+  <div id="itemname"></div>
+  <div id="stats"><div id="hearts"></div><div id="armorRow"></div></div>
+  <div id="hotrow"><div id="offhud" class="slot"><img><span class="cnt"></span></div><div id="hotbar"></div></div>
+</div>
+<div id="toast"></div>
+<div id="info" class="hidden"></div>
+<div id="debug" class="hidden"></div>
+<div id="touch" class="hidden">
+  <div id="stick"><i></i></div>
+  <div class="tb" id="tJump" style="right:24px;bottom:120px"><img data-ic="up"></div>
+  <div class="tb" id="tMine" style="right:100px;bottom:180px"><img data-it="stone_pickaxe"></div>
+  <div class="tb" id="tUse" style="right:24px;bottom:200px"><img data-ic="hand"></div>
+  <div class="tb" id="tSneak" style="right:100px;bottom:104px"><img data-ic="down"></div>
+  <div class="tb" id="tInv" style="right:16px;top:60px;width:50px;height:50px"><img data-it="chest"></div>
+  <div class="tb" id="tPause" style="right:74px;top:60px;width:50px;height:50px"><img data-ic="pause"></div>
+  <div class="tb" id="tSwap" style="right:190px;top:60px;width:50px;height:50px"><img data-it="shield"></div>
+  <div class="tb" id="tFly" style="right:132px;top:60px;width:50px;height:50px;font-size:18px">FLY</div>
+</div>
+<div id="clickplay" class="hidden">Click to play</div>
+
+<div id="menu" class="screen">
+  <div class="title">BLOCKWILD</div>
+  <div class="sub">Now with the Nether and the End!</div>
+  <button class="mbtn" id="btnContinue">Continue World</button>
+  <button class="mbtn" id="btnNew">New World</button>
+  <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
+  <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
+  <div class="help">
+    <b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> sprint (fly: down) · <b>Mouse</b> look<br>
+    <b>Left click</b> mine / attack · <b>Right click</b> place / use / eat · <b>1–9</b> / wheel hotbar<br>
+    <b>E</b> inventory &amp; crafting · <b>R</b> recipe book · <b>Q</b> drop · <b>X</b> swap offhand · <b>F</b> fly (creative) · <b>F3</b> debug · <b>Esc</b> pause<br>
+    Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
+    follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="title" style="font-size:clamp(22px,4vw,40px)">Game Paused</div>
+  <div style="height:16px"></div>
+  <button class="mbtn" id="btnResume">Back to Game</button>
+  <div class="row"><label>View dist</label><input type="range" id="rdRange" min="3" max="9" step="1"><span id="rdVal" style="font-size:22px;width:28px"></span></div>
+  <div class="row"><label>Sensitivity</label><input type="range" id="sensRange" min="0.3" max="2.5" step="0.1"></div>
+  <div class="row"><label>Game mode</label><div class="seg" id="modeSeg2"><button data-m="survival">Survival</button><button data-m="creative">Creative</button></div></div>
+  <button class="mbtn" id="btnSave">Save World</button>
+  <button class="mbtn" id="btnQuit">Save &amp; Quit to Title</button>
+</div>
+
+<div id="death" class="screen hidden" style="background:rgba(120,0,0,.45)">
+  <div class="title" style="font-size:clamp(24px,5vw,48px)">You died!</div>
+  <div id="deathMsg" style="font-size:24px;margin:10px 0 20px"></div>
+  <button class="mbtn" id="btnRespawn">Respawn</button>
+</div>
+
+<div id="inv" class="hidden">
+  <div class="panel" id="leftPanel">
+    <div id="chestBox" class="hidden"><h3 id="chestTitle">Chest</h3><div class="grid" id="chestGrid"></div><div class="gap"></div></div>
+    <div id="craftArea" class="hidden"><h3 id="craftTitle">Crafting</h3><div class="crow"><div id="craftGrid" class="cgrid"></div><img class="arrowimg" data-ic="arrowR"><div id="outSlotBox"></div><button class="smallbtn" id="btnBook">Recipe Book</button></div><div class="gap"></div></div>
+    <div id="furnArea" class="hidden"><h3>Furnace</h3><div class="crow"><div class="fcol"><div id="furnIn"></div><div class="flamebox"><img data-ic="flame"><div class="flameon"><img data-ic="flameOn"></div></div><div id="furnFuel"></div></div><div class="progbox"><img data-ic="arrowR"><div class="progon"><img data-ic="arrowRw"></div></div><div id="furnOut"></div><button class="smallbtn" id="btnBook2">Recipe Book</button></div><div class="gap"></div></div>
+    <h3>Inventory</h3>
+    <div class="grid" id="mainGrid"></div>
+    <div class="gap"></div>
+    <div class="grid" id="hotGrid"></div>
+    <div class="offrow"><div id="offSlotBox"></div><span>Offhand</span></div>
+    <div class="invhint">Click: pick up / place · Right-click: split / place one · Shift-click: quick move or craft all · X: swap hands · E / Esc: close</div>
+  </div>
+  <button id="invClose" title="Close"><img data-ic="close" style="width:20px;height:20px;image-rendering:pixelated"></button>
+  <div class="panel" id="rightPanel">
+    <div class="tabs" id="invTabs"><button data-t="craft" class="on">Recipe Book</button><button data-t="creative" id="tabCreative">Creative</button></div>
+    <div id="craftBox"><h3>Recipe Book <span style="font-size:17px;color:#555">(patterns only - place the items yourself)</span></h3>
+      <div class="bookbar"><button class="smallbtn on" data-f="all">All</button><button class="smallbtn" data-f="have">Have items</button><button class="smallbtn" data-f="smelt">Smelting</button></div>
+      <div id="bookGrid"></div>
+      <div id="bookDetail"><div id="bdPattern" class="cgrid"></div><img class="arrowimg" data-ic="arrowR"><div id="bdOut" class="slot"></div><div id="bdText"></div></div>
+    </div>
+    <div id="paletteBox" class="hidden"><h3>All items <span style="font-size:17px;color:#555">(click to take a stack, click with item to delete)</span></h3><div id="palette"></div></div>
+  </div>
+</div>
+<div id="cursorItem" class="hidden"></div>
+<div id="tip"></div>
+
+<div id="loading" class="hidden"><div id="loadTxt">Generating world…</div><div class="bar"><i id="loadBar"></i></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/*GAMEJS*/
+</script>
+</body>
+</html>
