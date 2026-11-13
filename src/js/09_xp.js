@@ -115,7 +115,7 @@ Mob.prototype.update = function (dt) {
 };
 const _dropLoot = Mob.prototype.dropLoot;
 Mob.prototype.dropLoot = function () {
-  const byPlayer = this.playerHitT && performance.now() - this.playerHitT < 5000;
+  const byPlayer = this.playerHitT && performance.now() - this.playerHitT < 5000; Sfx.mob(this, 'death', 0.8);
   if (byPlayer && this.lootingLv) { const t = this.t; const saved = t.drops; t.drops = saved.map(([k, a, b, p]) => [k, a, b + this.lootingLv, Math.min(1, p + 0.01 * this.lootingLv)]); _dropLoot.call(this); t.drops = saved; } else _dropLoot.call(this);
   const xr = MOB_XP[this.type]; if (byPlayer && xr) spawnOrbRange(this.pos.x, this.pos.y + 0.5, this.pos.z, xr[0], xr[1] * (this.type === 'magma_cube' ? (this.size || 1) : 1));
 };

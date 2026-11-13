@@ -38,13 +38,18 @@ function lineOfSight(a, b) { const d = b.clone().sub(a); const L = d.length(); c
 
 // ---------------- Sound ----------------
 const Sfx = {
-  ctx: null, noise: null, vol: 0.5,
-  init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => { }); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); const n = this.ctx.sampleRate * 2; const b = this.ctx.createBuffer(1, n, this.ctx.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noise = b; } catch (e) { this.ctx = null; } },
+  ctx: null, noise: null, vol: 0.5, samples: {},
+  // recorded CC0 / public-domain sounds (see CREDITS.md), decoded once audio starts; synthesized sounds are the fallback
+  loadSamples() { if (typeof SOUND_DATA === 'undefined') return; for (const name in SOUND_DATA) { this.samples[name] = []; SOUND_DATA[name].forEach((b64, i) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); this.ctx.decodeAudioData(u.buffer).then(ab => { this.samples[name][i] = ab; }).catch(() => { }); }); } },
+  sample(name, v, rate) { const sm = this.samples[name]; if (!sm || !sm.length) return false; const list = sm.filter(Boolean); if (!list.length) return false; const c = this.ctx; const s = c.createBufferSource(); s.buffer = list[Math.random() * list.length | 0]; s.playbackRate.value = (rate || 1) * (0.92 + Math.random() * 0.16); const g = c.createGain(); g.gain.value = Math.min(1.5, v * 0.9); s.connect(g); g.connect(c.destination); s.start(); return true; },
+  has(name) { const sm = this.samples[name]; return !!(sm && sm.some(Boolean)); },
+  init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => { }); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); const n = this.ctx.sampleRate * 2; const b = this.ctx.createBuffer(1, n, this.ctx.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; this.noise = b; this.loadSamples(); } catch (e) { this.ctx = null; } },
   env(g, t, a, dur, v) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); },
   nz(dur, freq, v, type = 'lowpass', q = 1) { const c = this.ctx; if (!c) return; const t = c.currentTime; const s = c.createBufferSource(); s.buffer = this.noise; s.playbackRate.value = 0.8 + Math.random() * 0.4; const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = c.createGain(); this.env(g, t, 0.005, dur, v * this.vol); s.connect(f); f.connect(g); g.connect(c.destination); s.start(t, Math.random()); s.stop(t + dur + 0.05); },
   tone(f0, f1, dur, v, type = 'square') { const c = this.ctx; if (!c) return; const t = c.currentTime; const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur); const g = c.createGain(); this.env(g, t, 0.01, dur, v * this.vol); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05); },
-  play(name, v = 1) {
+  play(name, v = 1, rate) {
     if (!this.ctx || v < 0.02) return;
+    if (this.sample(name === 'step' ? 'stone' : name, v, rate)) return;
     switch (name) {
       case 'stone': this.nz(0.12, 1400, 0.5 * v, 'bandpass', 1.2); break;
       case 'wood': this.nz(0.12, 700, 0.55 * v, 'bandpass', 2); this.tone(220, 160, 0.06, 0.08 * v, 'triangle'); break;
@@ -90,7 +95,8 @@ const Sfx = {
       case 'levelup': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, f, 0.25, 0.12 * v, 'triangle'), i * 140)); break;
     }
   },
-  at(name, pos, v = 1) { const P = G.player; if (!P) return; const d = P.pos.distanceTo(pos); this.play(name, v * Math.max(0, 1 - d / 24)); }
+  at(name, pos, v = 1, rate) { const P = G.player; if (!P) return; const d = P.pos.distanceTo(pos); this.play(name, v * Math.max(0, 1 - d / 24), rate); },
+  mob(m, kind, v = 0.6) { const s = m.t.snd; if (!s) return; const rate = MOB_PITCH[m.type] || 1; let n = kind ? s + '_' + kind : s; if (kind && !this.has(n)) n = kind === 'death' && this.has(s + '_hurt') ? s + '_hurt' : (this.has(s) ? s : 'hurt'); this.at(n, m.pos, v, kind === 'death' ? rate * 0.85 : rate); }
 };
 
 // ---------------- Particles ----------------
@@ -371,6 +377,7 @@ function piglinModel(m, r, zombie) {
 }
 const RED = new THREE.Color(1, 0.2, 0.2), WHITE = new THREE.Color(1, 1, 1);
 function playerHoldsGold() { const h = G.player && G.player.held(); return !!(h && (h.id === IT.gold_ingot)); }
+const MOB_PITCH = { wither_skeleton: 0.72, zombified_piglin: 0.82, magma_cube: 0.7, piglin: 1.12, strider: 1.2, blaze: 1.1, chicken: 1.1 };
 class Mob {
   constructor(type, x, y, z, opts = {}) {
     const t = MOBS[type]; this.t = t; this.type = type; this.pos = new V3(x, y, z); this.vel = new V3();
@@ -384,7 +391,7 @@ class Mob {
   }
   get center() { return new V3(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z); }
   hurt(dmg, src, kb = 1, noAnger) {
-    if (this.dead) return; this.hp -= dmg; this.hurtT = 0.35; Sfx.at('hurt', this.pos, 0.5);
+    if (this.dead) return; this.hp -= dmg; this.hurtT = 0.35; Sfx.mob(this, 'hurt', 0.7);
     if (src && !this.t.fly) { const d = new V3(this.pos.x - src.x, 0, this.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); const k = this.type === 'hoglin' || this.type === 'ghast' ? 0.4 : 1; this.vel.x += d.x * 7 * kb * k; this.vel.z += d.z * 7 * kb * k; this.vel.y = Math.max(this.vel.y, 5 * kb * k); }
     if (src && this.t.fly) { const d = this.pos.clone().sub(src); d.y = 0; if (d.lengthSq() > 1e-4) d.normalize(); this.vel.addScaledVector(d, 4 * kb); }
     if (this.t.kind === 'passive') this.flee = 5;
@@ -520,7 +527,7 @@ class Mob {
     moveEntity(this, dt);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; if (this.type === 'ghast') this.root.position.y += Math.sin(this.age * 1.3) * 0.15;
     this.colorize();
-    this.sndT -= dt; if (this.sndT <= 0) { this.sndT = 6 + Math.random() * 10; if (dist < 40) Sfx.at(t.snd, this.pos, 0.6); }
+    this.sndT -= dt; if (this.sndT <= 0) { this.sndT = 6 + Math.random() * 10; if (dist < 40) Sfx.mob(this, null, 0.6); }
   }
   updateMagma(dt, hostile, dist, dx, dz, fluid) {
     const P = G.player;
@@ -563,7 +570,7 @@ class Mob {
     if (this.type === 'enderman' && this.angry > 0) this.root.position.set(this.pos.x + (Math.random() - 0.5) * 0.04, this.pos.y, this.pos.z + (Math.random() - 0.5) * 0.04); else this.root.position.copy(this.pos);
     this.root.rotation.y = this.yaw; this.root.rotation.z = this.hurtT > 0 ? Math.sin(this.hurtT * 30) * 0.08 : 0;
     this.colorize();
-    this.sndT -= dt; if (this.sndT <= 0) { this.sndT = 6 + Math.random() * 12; const d = this.pos.distanceTo(G.player.pos); if (d < 20) Sfx.at(t.snd, this.pos, 0.6); }
+    this.sndT -= dt; if (this.sndT <= 0) { this.sndT = 6 + Math.random() * 12; const d = this.pos.distanceTo(G.player.pos); if (d < 20) Sfx.mob(this, null, 0.6); }
   }
   colorize() {
     if (!this.dead) { const sp = Math.min(1, this.age * 5); this.root.scale.setScalar(sp < 1 ? 0.4 + sp * 0.6 + Math.sin(sp * Math.PI) * 0.15 : 1); }

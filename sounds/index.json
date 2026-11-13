@@ -1,0 +1,188 @@
+{
+"stone": [
+"stone_0.mp3",
+"stone_1.mp3",
+"stone_2.mp3",
+"stone_3.mp3"
+],
+"wood": [
+"wood_0.mp3",
+"wood_1.mp3",
+"wood_2.mp3"
+],
+"grass": [
+"grass_0.mp3",
+"grass_1.mp3",
+"grass_2.mp3",
+"grass_3.mp3",
+"grass_4.mp3",
+"grass_5.mp3"
+],
+"sand": [
+"sand_0.mp3",
+"sand_1.mp3",
+"sand_2.mp3"
+],
+"snow": [
+"snow_0.mp3"
+],
+"glass_break": [
+"glass_break_0.mp3",
+"glass_break_1.mp3",
+"glass_break_2.mp3"
+],
+"glass": [
+"glass_0.mp3",
+"glass_1.mp3"
+],
+"boom": [
+"boom_0.mp3"
+],
+"eat": [
+"eat_0.mp3",
+"eat_1.mp3",
+"eat_2.mp3",
+"eat_3.mp3"
+],
+"splash": [
+"splash_0.mp3",
+"splash_1.mp3"
+],
+"pop": [
+"pop_0.mp3",
+"pop_1.mp3"
+],
+"chest": [
+"chest_0.mp3"
+],
+"armor": [
+"armor_0.mp3",
+"armor_1.mp3"
+],
+"oink": [
+"oink_0.mp3",
+"oink_1.mp3"
+],
+"oink_hurt": [
+"oink_hurt_0.mp3"
+],
+"moo": [
+"moo_0.mp3"
+],
+"moo_hurt": [
+"moo_hurt_0.mp3"
+],
+"baa": [
+"baa_0.mp3"
+],
+"cluck": [
+"cluck_0.mp3"
+],
+"hmm": [
+"hmm_0.mp3",
+"hmm_1.mp3",
+"hmm_2.mp3"
+],
+"groan": [
+"groan_0.mp3",
+"groan_1.mp3",
+"groan_2.mp3",
+"groan_3.mp3"
+],
+"groan_hurt": [
+"groan_hurt_0.mp3",
+"groan_hurt_1.mp3"
+],
+"groan_death": [
+"groan_death_0.mp3"
+],
+"rattle": [
+"rattle_0.mp3",
+"rattle_1.mp3",
+"rattle_2.mp3",
+"rattle_3.mp3"
+],
+"rattle_hurt": [
+"rattle_hurt_0.mp3",
+"rattle_hurt_1.mp3"
+],
+"rattle_death": [
+"rattle_death_0.mp3"
+],
+"chirp": [
+"chirp_0.mp3",
+"chirp_1.mp3",
+"chirp_2.mp3"
+],
+"chirp_hurt": [
+"chirp_hurt_0.mp3"
+],
+"chirp_death": [
+"chirp_death_0.mp3"
+],
+"vwoop": [
+"vwoop_0.mp3",
+"vwoop_1.mp3",
+"vwoop_2.mp3"
+],
+"vwoop_hurt": [
+"vwoop_hurt_0.mp3"
+],
+"scream": [
+"scream_0.mp3",
+"scream_1.mp3"
+],
+"ghast": [
+"ghast_0.mp3",
+"ghast_1.mp3"
+],
+"ghast_hurt": [
+"ghast_hurt_0.mp3"
+],
+"fireball": [
+"fireball_0.mp3"
+],
+"blaze": [
+"blaze_0.mp3",
+"blaze_1.mp3",
+"blaze_2.mp3"
+],
+"blaze_hurt": [
+"blaze_hurt_0.mp3"
+],
+"squish": [
+"squish_0.mp3",
+"squish_1.mp3",
+"squish_2.mp3",
+"squish_3.mp3"
+],
+"grunt": [
+"grunt_0.mp3",
+"grunt_1.mp3",
+"grunt_2.mp3",
+"grunt_3.mp3"
+],
+"grunt_hurt": [
+"grunt_hurt_0.mp3",
+"grunt_hurt_1.mp3"
+],
+"snort": [
+"snort_0.mp3",
+"snort_1.mp3",
+"snort_2.mp3"
+],
+"snort_hurt": [
+"snort_hurt_0.mp3"
+],
+"roar": [
+"roar_0.mp3",
+"roar_1.mp3"
+],
+"roar_death": [
+"roar_death_0.mp3"
+],
+"hurt": [
+"hurt_0.mp3",
+"hurt_1.mp3"
+]
+}

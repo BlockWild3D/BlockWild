@@ -253,7 +253,7 @@ function closeInv(noLock) {
   if (S.cursor) { giveOrDrop(S.cursor.id, S.cursor.count, S.cursor.ench); S.cursor = null; }
   S.uiOpen = null; chestArr = null; furnState = null; S.chestKey = null; S.furnKey = null; show('inv', false); showTip(null); renderCursor(); invDirty(); if (!noLock) requestLock();
 }
-function openChest(x, y, z) {
+function openChest(x, y, z) { Sfx.play('chest', 0.7);
   const k = x + ',' + y + ',' + z;
   if (!world.chestInv.has(k)) world.chestInv.set(k, world.chestLoot.has(k) ? rollLoot(world.chestLoot.get(k), ihash(x, y, z, world.seed)) : new Array(27).fill(null));
   Sfx.play('wood', 0.6); openUI('chest', k);
@@ -391,7 +391,7 @@ function breakBlock(x, y, z) {
   const id = world.get(x, y, z); if (!id) return;
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0);
-  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd, 0.9);
+  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 0.9);
   if (S.mode === 'survival') { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
   for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (S.mode === 'survival') { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
 }
