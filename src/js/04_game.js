@@ -78,7 +78,7 @@ class Player {
     if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
     if (S.mode === 'survival' && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
-    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
+    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
     if (S.uiOpen) closeInv(true);
     show('death', true); releaseLock();
@@ -500,7 +500,7 @@ function useAction(eye, dir) {
     if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
   }
   if (!hd) return;
-  if (hd.kind === 'food') { if (S.mode === 'survival' && player.health < 20) { player.health = Math.min(20, player.health + hd.heal); useHeld(1); Sfx.play('eat', 1); const e = player.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.4, e.y - 0.2, e.z + d.z * 0.4, 8, [0.8, 0.5, 0.4], 1.5, 0.5, 10, 0.2); updateHearts(); S.useCD = 0.6; S.swing = 1; } else if (S.mode === 'survival') toast('You are already at full health', 1.2); return; }
+  if (hd.kind === 'food') return; // eating is a hold-to-use action (23_hunger.js)
   if (hd.kind === 'bow') return;
   if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(20), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
   if (hd.kind === 'eye') { if (throwEye()) { useHeld(1); S.useCD = 1; S.swing = 1; } return; }
@@ -608,14 +608,14 @@ function updatePlayer(dt) {
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
   // sprint: double-tap forward or hold the sprint key while moving forward; sneaking or stopping ends it
-  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying)) P.sprinting = true;
+  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying) && (S.mode !== 'survival' || P.food > 6 || P.flying)) P.sprinting = true;
   if (f <= 0 || (down && !P.flying && !P.swimming) || (P.hitH && !P.flying && !inWater(P, 0.4))) { P.sprinting = false; if (f <= 0) S.sprintTap = false; }
   const sprint = !!P.sprinting;
   P.sneaking = down && !P.flying && !P.swimming && !S.uiOpen;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   if ((water || lava) && !P.flying) fluidPush(P, dt, P.swimming ? 0.5 : 1);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
@@ -643,7 +643,7 @@ function updatePlayer(dt) {
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (S.mode === 'survival') { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
-  if (S.mode === 'survival' && S.rules.naturalRegeneration && P.health < 20 && performance.now() / 1000 - P.lastHurt > 6) { P.regenT += dt; if (P.regenT > 3) { P.regenT = 0; P.health = Math.min(20, P.health + 1); updateHearts(); } }
+  // healing comes from food now (23_hunger.js)
   const c = new V3(P.pos.x, P.pos.y + 0.8, P.pos.z);
   for (const it of G.items) {
     if (it.gone || it.age < (it.pickDelay || 0.5)) continue; const d = it.pos.distanceTo(c);
@@ -821,7 +821,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
+    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, food: player.food, sat: player.sat, exh: player.exh, absorb: player.absorb, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }

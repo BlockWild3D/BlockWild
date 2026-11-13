@@ -532,18 +532,19 @@ function buildIcons() { for (const id of ITEM_IDS) {
 } }
 
 // heart icons
-function heartURL(kind) {
+function heartURL(kind, gold) {
   const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d');
   const H = ['011000110', '111101111', '111111111', '111111111', '011111110', '001111100', '000111000', '000010000'];
   for (let y = 0; y < 8; y++) for (let i = 0; i < 9; i++) if (H[y][i] === '1') {
     const edge = (y === 0 || H[y - 1][i] !== '1' || i === 0 || H[y][i - 1] !== '1' || i === 8 || H[y][i + 1] !== '1' || y === 7 || H[y + 1][i] !== '1');
     let col = edge ? '#1a0000' : '#3a1414';
-    if (!edge && (kind === 2 || (kind === 1 && i < 5))) col = (y === 1 && i === 2) || (y === 2 && i === 1) ? '#ffb0b0' : '#e01828';
+    if (!edge && (kind === 2 || (kind === 1 && i < 5))) col = (y === 1 && i === 2) || (y === 2 && i === 1) ? (gold ? '#fff6b0' : '#ffb0b0') : (gold ? '#e8b818' : '#e01828');
     x.fillStyle = col; x.fillRect(i, y + 0.5 | 0, 1, 1);
   }
   return c.toDataURL();
 }
 const HEART = [heartURL(0), heartURL(1), heartURL(2)];
+const GOLD_HEART = [heartURL(0, 1), heartURL(1, 1), heartURL(2, 1)];
 
 // ---------------- Recipes & loot ----------------
 const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem'], '#stone': ['cobblestone', 'cobbled_deepslate'] };

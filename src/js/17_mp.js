@@ -41,7 +41,7 @@ function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.i
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
 function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? 1 + (P.riding.rowing ? 1 : 0) : 0 }; }
-function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
+function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
 const _wset = World.prototype.set;
@@ -266,7 +266,7 @@ function clientWelcome(m) {
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
   const data = { v: 4, seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
-  const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
+  const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, food: y.food, sat: y.sat, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
   show('mpScreen', false); startWorld(data);
   // chests use item keys over the network
   for (const d in m.worlds) { const w = Dim.get(d); for (const k in (m.worlds[d].chests || {})) w.chestInv.set(k, m.worlds[d].chests[k].map(slotIn)); }

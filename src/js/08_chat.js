@@ -273,7 +273,7 @@ function runCommand(line, ctx) {
   catch (e) { if (e instanceof CmdError) chatPrint(e.message, '#f66'); else { console.error(e); chatPrint('An unexpected error occurred trying to execute that command: ' + e.message, '#f66'); } return false; }
 }
 function deathMessage(cause) {
-  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic', drowning: 'drowned' };
+  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic', drowning: 'drowned', starvation: 'starved to death' };
   return myName() + ' ' + (m[cause] || (cause ? 'was slain by ' + cause.replace(/^(a|an|the) /, '').replace(/\b\w/g, c => c.toUpperCase()) : 'died'));
 }
 // mod HUD canvases (used by the Mini Map example mod and any other mod)

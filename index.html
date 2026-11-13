@@ -20,10 +20,12 @@ button{font-family:'VT323',monospace}
 #mineBar i{display:block;height:100%;background:#fff;width:0}
 #hud{position:fixed;left:50%;bottom:6px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;z-index:6;pointer-events:none}
 #itemname{height:24px;font-size:24px;text-shadow:2px 2px 0 #222;transition:opacity .5s;white-space:nowrap}
-#stats{display:flex;justify-content:space-between;width:100%;height:18px;align-items:flex-end}
+#stats{display:flex;justify-content:space-between;width:100%;align-items:flex-end}
+.scol{display:flex;flex-direction:column;gap:2px}.scol.sright{align-items:flex-end}
+#foodRow{display:flex;gap:0;flex-direction:row-reverse}#foodRow img{width:18px;height:18px;image-rendering:pixelated}
 #hearts,#armorRow{display:flex;gap:0}
 #armorRow img,#airRow img{width:18px;height:18px;image-rendering:pixelated}
-#airRow{display:flex;gap:0;position:absolute;right:0;top:-20px}
+#airRow{display:flex;gap:0;flex-direction:row-reverse;min-height:18px}
 #hearts img{width:18px;height:18px;image-rendering:pixelated}
 #hotrow{display:flex;gap:10px;align-items:flex-end}
 #offhud{width:44px;height:44px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
@@ -196,7 +198,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
 <div id="mineBar" class="hidden"><i></i></div>
 <div id="hud" class="hidden">
   <div id="itemname"></div>
-  <div id="stats"><div id="hearts"></div><div style="position:relative"><div id="airRow" style="visibility:hidden"></div><div id="armorRow"></div></div></div>
+  <div id="stats"><div class="scol"><div id="armorRow"></div><div id="hearts"></div></div><div class="scol sright"><div id="airRow" style="visibility:hidden"></div><div id="foodRow"></div></div></div>
   <div id="xpRow"><div id="xpBar"><i></i></div><span id="xpLevel"></span></div>
   <div id="hotrow"><div id="offhud" class="slot"><img><span class="cnt"></span></div><div id="hotbar"></div></div>
 </div>
@@ -900,18 +902,19 @@ function buildIcons() { for (const id of ITEM_IDS) {
 } }
 
 // heart icons
-function heartURL(kind) {
+function heartURL(kind, gold) {
   const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d');
   const H = ['011000110', '111101111', '111111111', '111111111', '011111110', '001111100', '000111000', '000010000'];
   for (let y = 0; y < 8; y++) for (let i = 0; i < 9; i++) if (H[y][i] === '1') {
     const edge = (y === 0 || H[y - 1][i] !== '1' || i === 0 || H[y][i - 1] !== '1' || i === 8 || H[y][i + 1] !== '1' || y === 7 || H[y + 1][i] !== '1');
     let col = edge ? '#1a0000' : '#3a1414';
-    if (!edge && (kind === 2 || (kind === 1 && i < 5))) col = (y === 1 && i === 2) || (y === 2 && i === 1) ? '#ffb0b0' : '#e01828';
+    if (!edge && (kind === 2 || (kind === 1 && i < 5))) col = (y === 1 && i === 2) || (y === 2 && i === 1) ? (gold ? '#fff6b0' : '#ffb0b0') : (gold ? '#e8b818' : '#e01828');
     x.fillStyle = col; x.fillRect(i, y + 0.5 | 0, 1, 1);
   }
   return c.toDataURL();
 }
 const HEART = [heartURL(0), heartURL(1), heartURL(2)];
+const GOLD_HEART = [heartURL(0, 1), heartURL(1, 1), heartURL(2, 1)];
 
 // ---------------- Recipes & loot ----------------
 const GROUPS = { '#log': ['log', 'birch_log', 'spruce_log', 'crimson_stem', 'warped_stem'], '#stone': ['cobblestone', 'cobbled_deepslate'] };
@@ -3318,7 +3321,7 @@ class Player {
     if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
     if (S.mode === 'survival' && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
-    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
+    const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Shadow Dragon's breath": "You were consumed by the Shadow Dragon's breath", 'the Shadow Dragon': 'You were slain by the Shadow Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
     if (S.uiOpen) closeInv(true);
     show('death', true); releaseLock();
@@ -3740,7 +3743,7 @@ function useAction(eye, dir) {
     if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
   }
   if (!hd) return;
-  if (hd.kind === 'food') { if (S.mode === 'survival' && player.health < 20) { player.health = Math.min(20, player.health + hd.heal); useHeld(1); Sfx.play('eat', 1); const e = player.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.4, e.y - 0.2, e.z + d.z * 0.4, 8, [0.8, 0.5, 0.4], 1.5, 0.5, 10, 0.2); updateHearts(); S.useCD = 0.6; S.swing = 1; } else if (S.mode === 'survival') toast('You are already at full health', 1.2); return; }
+  if (hd.kind === 'food') return; // eating is a hold-to-use action (23_hunger.js)
   if (hd.kind === 'bow') return;
   if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(20), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
   if (hd.kind === 'eye') { if (throwEye()) { useHeld(1); S.useCD = 1; S.swing = 1; } return; }
@@ -3848,14 +3851,14 @@ function updatePlayer(dt) {
   const jump = !S.uiOpen && kd('jump'), down = !S.uiOpen && kd('sneak');
   if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
   // sprint: double-tap forward or hold the sprint key while moving forward; sneaking or stopping ends it
-  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying)) P.sprinting = true;
+  if (f > 0 && (S.sprintTap || kd('sprint')) && !(down && !P.flying) && (S.mode !== 'survival' || P.food > 6 || P.flying)) P.sprinting = true;
   if (f <= 0 || (down && !P.flying && !P.swimming) || (P.hitH && !P.flying && !inWater(P, 0.4))) { P.sprinting = false; if (f <= 0) S.sprintTap = false; }
   const sprint = !!P.sprinting;
   P.sneaking = down && !P.flying && !P.swimming && !S.uiOpen;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   if ((water || lava) && !P.flying) fluidPush(P, dt, P.swimming ? 0.5 : 1);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
@@ -3883,7 +3886,7 @@ function updatePlayer(dt) {
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (S.mode === 'survival') { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
-  if (S.mode === 'survival' && S.rules.naturalRegeneration && P.health < 20 && performance.now() / 1000 - P.lastHurt > 6) { P.regenT += dt; if (P.regenT > 3) { P.regenT = 0; P.health = Math.min(20, P.health + 1); updateHearts(); } }
+  // healing comes from food now (23_hunger.js)
   const c = new V3(P.pos.x, P.pos.y + 0.8, P.pos.z);
   for (const it of G.items) {
     if (it.gone || it.age < (it.pickDelay || 0.5)) continue; const d = it.pos.distanceTo(c);
@@ -4061,7 +4064,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
+    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, food: player.food, sat: player.sat, exh: player.exh, absorb: player.absorb, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -5077,7 +5080,7 @@ function runCommand(line, ctx) {
   catch (e) { if (e instanceof CmdError) chatPrint(e.message, '#f66'); else { console.error(e); chatPrint('An unexpected error occurred trying to execute that command: ' + e.message, '#f66'); } return false; }
 }
 function deathMessage(cause) {
-  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic', drowning: 'drowned' };
+  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic', drowning: 'drowned', starvation: 'starved to death' };
   return myName() + ' ' + (m[cause] || (cause ? 'was slain by ' + cause.replace(/^(a|an|the) /, '').replace(/\b\w/g, c => c.toUpperCase()) : 'died'));
 }
 // mod HUD canvases (used by the Mini Map example mod and any other mod)
@@ -5791,7 +5794,7 @@ function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.i
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
 function myState() { const P = player; const h = P.held(); return { t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? 1 + (P.riding.rowing ? 1 : 0) : 0 }; }
-function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
+function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
 const _wset = World.prototype.set;
@@ -6016,7 +6019,7 @@ function clientWelcome(m) {
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
   const data = { v: 4, seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
-  const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
+  const y = m.you; if (y) { data.dim = y.dim; data.player = { pos: y.pos, yaw: y.yaw, pitch: y.pitch, health: y.health, food: y.food, sat: y.sat, spawn: m.spawn, inv: [], sel: y.sel || 0, xp: y.xp }; data.bed = y.bed; }
   show('mpScreen', false); startWorld(data);
   // chests use item keys over the network
   for (const d in m.worlds) { const w = Dim.get(d); for (const k in (m.worlds[d].chests || {})) w.chestInv.set(k, m.worlds[d].chests[k].map(slotIn)); }
@@ -6507,6 +6510,108 @@ CMDS.gamerule = { usage: '<rule> [value]', run(a) {
   if (typeof S.rules[a[0]] === 'number') { const n = Number(a[1]); if (!Number.isInteger(n)) throw new CmdError('Invalid integer: ' + a[1]); S.rules[a[0]] = n; }
   else { if (a[1] !== 'true' && a[1] !== 'false') throw new CmdError('Value must be true or false'); S.rules[a[0]] = a[1] === 'true'; }
   ok('Gamerule ' + a[0] + ' is now set to: ' + a[1]); if (typeof MP !== 'undefined') MP.rulesChanged(); } };
+
+// ================= HUNGER (Minecraft rules) =================
+// 20 food points (10 drumsticks) plus hidden saturation (starts at 5, never above the food level). Actions add
+// exhaustion; every 4 exhaustion takes 1 saturation, or 1 food point once saturation is gone:
+//   sprinting 0.1 per block, swimming 0.01 per block, jumping 0.05, sprint-jumping 0.2, attacking 0.1, taking damage 0.1,
+//   breaking a block 0.005, healing 1 health 6.
+// Healing: with a full bar and saturation left, 1 health every 0.5 s; with 18 or more food, 1 health every 4 s.
+// Starving at 0 food: 1 damage every 4 s, down to 10 health on Easy, 1 on Normal, and to death on Hard.
+// You can't sprint with 6 food or less. Peaceful refills hunger. Eating takes 1.6 s of holding use.
+const FOOD = { // [food points, saturation, effect chance list]
+  apple: [4, 2.4], bread: [5, 6], raw_pork: [3, 1.8], cooked_pork: [8, 12.8], raw_beef: [3, 1.8], steak: [8, 12.8],
+  raw_chicken: [2, 1.2, [['hunger', 30, 0, 0.3]]], cooked_chicken: [6, 7.2], rotten_flesh: [4, 0.8, [['hunger', 30, 0, 0.8]]],
+  golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],
+};
+for (const k in FOOD) if (IT[k] !== undefined) { const it = ITEMS[IT[k]]; it.kind = 'food'; it.food = FOOD[k][0]; it.sat = FOOD[k][1]; it.eatFx = FOOD[k][2] || null; it.alwaysEat = !!FOOD[k][3]; }
+Object.assign(EFFECTS, { hunger: 'Hunger', saturation: 'Saturation', absorption: 'Absorption' });
+player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0;
+const H = { regenT: 0, starveT: 0, lastPos: null, wasGround: true, eatT: 0, eatSnd: 0 };
+const hungerOn = () => S.mode === 'survival' && !player.dead;
+function exhaust(v) { if (!hungerOn() || S.difficulty === 'peaceful') return; player.exh += v; while (player.exh >= 4) { player.exh -= 4; if (player.sat > 0) player.sat = Math.max(0, player.sat - 1); else player.food = Math.max(0, player.food - 1); } }
+// drumstick icons: 0 empty, 1 half, 2 full; green ones while you have the Hunger effect
+function foodURL(kind, sick) {
+  const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d');
+  const M = ['000001110', '000011111', '000111111', '001111111', '011111110', '011111100', '110111000', '111000000', '010000000'];
+  for (let y = 0; y < 9; y++) for (let i = 0; i < 9; i++) if (M[y][i] === '1') {
+    const edge = y === 0 || M[y - 1][i] !== '1' || i === 0 || M[y][i - 1] !== '1' || i === 8 || M[y][i + 1] !== '1' || y === 8 || M[y + 1][i] !== '1';
+    const bone = (y >= 6 && i <= 2); const filled = kind === 2 || (kind === 1 && i >= 4);
+    let col = edge ? '#1c0f04' : '#3a2410';
+    if (!edge && filled) col = bone ? '#e8e2d4' : sick ? ((y + i) % 3 ? '#7a9a2a' : '#5a7a1a') : ((y === 2 && i === 5) ? '#f0b070' : (y + i) % 3 ? '#c66a24' : '#a04c14');
+    else if (!edge && bone && kind === 0) col = '#3a2410';
+    x.fillStyle = col; x.fillRect(i, y, 1, 1);
+  }
+  return c.toDataURL();
+}
+const FOOD_ICON = [foodURL(0), foodURL(1), foodURL(2)], FOOD_ICON_SICK = [foodURL(0, true), foodURL(1, true), foodURL(2, true)];
+const foodImgs = []; for (let i = 0; i < 10; i++) { const im = document.createElement('img'); $('foodRow').appendChild(im); foodImgs.push(im); }
+let foodShown = -1;
+function renderFood() {
+  const vis = S.mode === 'survival' && !player.riding; $('foodRow').style.visibility = vis ? 'visible' : 'hidden'; if (!vis) return;
+  const sick = !!effLevel('hunger') || (player.effects && player.effects.hunger); const key = player.food * 2 + (sick ? 1 : 0); if (key === foodShown && !(player.food <= 6 && player.sat <= 0)) return; foodShown = key;
+  const I = sick ? FOOD_ICON_SICK : FOOD_ICON; const shake = player.sat <= 0 && player.food <= 6;
+  for (let i = 0; i < 10; i++) { const v = player.food - i * 2; foodImgs[i].src = I[v >= 2 ? 2 : v === 1 ? 1 : 0]; foodImgs[i].style.transform = shake && Math.random() < 0.3 ? 'translateY(' + (Math.random() < 0.5 ? -2 : 2) + 'px)' : ''; }
+}
+// absorption hearts (golden apples): extra golden hearts used up before health
+{ const absImgs = []; for (let i = 0; i < 2; i++) { const im = document.createElement('img'); im.className = 'absorb'; $('hearts').appendChild(im); absImgs.push(im); }
+  const _uh = updateHearts; updateHearts = function () { _uh.apply(this, arguments); const a = Math.ceil(player.absorb || 0); for (let i = 0; i < 2; i++) { const v = a - i * 2; absImgs[i].style.display = a > i * 2 && S.mode === 'survival' ? '' : 'none'; absImgs[i].src = GOLD_HEART[v >= 2 ? 2 : v === 1 ? 1 : 0]; } renderFood(); }; }
+{ const _hurt = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
+    const A = this.absorb || 0; const h0 = this.health; const cd = this.hurtCD;
+    if (A > 0 && S.mode === 'survival') this.health = h0 + A;
+    const r = _hurt.call(this, dmg, src, cause, kb);
+    if (A > 0 && S.mode === 'survival') { if (this.dead) this.absorb = 0; else { const lost = h0 + A - this.health; if (lost <= A) { this.absorb = A - lost; this.health = h0; } else { this.absorb = 0; this.health = h0 - (lost - A); } } updateHearts(); }
+    if (this.hurtCD > cd || this.health < h0) exhaust(0.1);
+    return r; }; }
+// effects that act on hunger
+{ const _ge = giveEffect; giveEffect = function (name, sec, amp) {
+    if (name === 'saturation') { player.food = Math.min(20, player.food + amp + 1); player.sat = Math.min(player.food, player.sat + 2 * (amp + 1)); renderFood(); return; }
+    if (name === 'absorption') { player.absorb = Math.max(player.absorb || 0, 4 * (amp + 1)); updateHearts(); }
+    return _ge.apply(this, arguments); }; }
+
+// ---- every frame ----
+function updateHunger(dt) {
+  const P = player; if (!world) return;
+  if (!hungerOn()) { H.lastPos = null; renderFood(); return; }
+  // peaceful: hunger refills and health comes back quickly
+  if (S.difficulty === 'peaceful') { H.regenT += dt; if (H.regenT >= 1) { H.regenT = 0; if (P.food < 20) P.food++; if (P.health < 20) { P.health = Math.min(20, P.health + 1); updateHearts(); } } renderFood(); return; }
+  // movement exhaustion
+  if (H.lastPos && !P.riding && !P.flying) { const d = Math.hypot(P.pos.x - H.lastPos.x, P.pos.z - H.lastPos.z); if (d < 4) { if (P.swimming || inWater(P, 0.4)) exhaust(0.01 * d); else if (P.sprinting && P.onGround) exhaust(0.1 * d); } }
+  H.lastPos = P.pos.clone();
+  if (H.wasGround && !P.onGround && P.vel.y > 3 && !inWater(P, 0.4) && !P.riding) exhaust(P.sprinting ? 0.2 : 0.05); H.wasGround = P.onGround;
+  if (effLevel('hunger')) exhaust(0.1 * effLevel('hunger') * dt * 1); // Minecraft: 0.005 per tick per level
+  // healing and starving
+  if (S.rules.naturalRegeneration && P.health < 20 && P.food >= 18) {
+    H.regenT += dt; const fast = P.food >= 20 && P.sat > 0; const every = fast ? 0.5 : 4;
+    if (H.regenT >= every) { H.regenT = 0; if (fast) { const use = Math.min(P.sat, 6); P.health = Math.min(20, P.health + use / 6); exhaust(use); } else { P.health = Math.min(20, P.health + 1); exhaust(6); } updateHearts(); }
+  } else H.regenT = 0;
+  if (P.food <= 0) { H.starveT += dt; if (H.starveT >= 4) { H.starveT = 0; const floor = S.difficulty === 'easy' ? 10 : S.difficulty === 'normal' ? 1 : 0; if (P.health > floor) { P.hurtCD = 0; P.hurt(1, null, 'starvation', 0); } } } else H.starveT = 0;
+  renderFood();
+}
+// ---- eating: hold use with food for 1.6 s ----
+function updateEating(dt) {
+  const P = player; const h = P.held(); const it = h && ITEMS[h.id];
+  const can = it && it.kind === 'food' && mouseR && !S.uiOpen && !P.dead && S.mode !== 'spectator' && (S.mode === 'creative' || P.food < 20 || it.alwaysEat || S.difficulty === 'peaceful') && !(targetBoat) && !(targetMob && targetMob.t && targetMob.t.tameFood);
+  if (!can) { H.eatT = 0; S.eating = 0; return; }
+  H.eatT += dt; S.eating = Math.min(1, H.eatT / 1.6); H.eatSnd -= dt;
+  if (H.eatSnd <= 0 && H.eatT > 0.25) { H.eatSnd = 0.22; Sfx.play('eat', 0.5 + Math.random() * 0.2); const e = P.eye(), d = lookDir(); Particles.emit(e.x + d.x * 0.45, e.y - 0.25, e.z + d.z * 0.45, 4, [[0.75, 0.5, 0.35], [0.6, 0.35, 0.2]], 1.4, 0.4, 12, 0.15); }
+  if (H.eatT >= 1.6) {
+    H.eatT = 0; S.eating = 0; mouseR = false;
+    if (S.mode === 'survival') { P.food = Math.min(20, P.food + it.food); P.sat = Math.min(P.food, P.sat + it.sat); }
+    for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
+    useHeld(1); Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
+  }
+}
+{ const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); updateEating(dt); return r; }; }
+{ const _up = updatePlayer; updatePlayer = function (dt) { const r = _up.apply(this, arguments); updateHunger(dt); return r; }; }
+// mining and attacking cost a little hunger
+{ const _bb = breakBlock; breakBlock = function () { exhaust(0.005); return _bb.apply(this, arguments); }; }
+{ const _mh = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src) { if (src === player.pos) exhaust(0.1); return _mh.apply(this, arguments); }; }
+// death and respawn reset hunger
+{ const _die = Player.prototype.die; Player.prototype.die = function () { const r = _die.apply(this, arguments); this.absorb = 0; return r; }; }
+{ const btn = $('btnRespawn'); btn.addEventListener('click', () => { player.food = 20; player.sat = 5; player.exh = 0; player.absorb = 0; renderFood(); }); }
+// save and load
+{ const _sw = startWorld; startWorld = function (data) { const r = _sw.apply(this, arguments); const p = data && data.player; player.food = p && p.food != null ? p.food : 20; player.sat = p && p.sat != null ? p.sat : 5; player.exh = p && p.exh || 0; player.absorb = p && p.absorb || 0; foodShown = -1; renderFood(); return r; }; }
 
 </script>
 </body>
