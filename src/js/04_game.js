@@ -403,7 +403,7 @@ function breakBlock(x, y, z) {
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0); breakBedPair(x, y, z, id);
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
-  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 0.9);
+  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
   if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
   for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
 }
@@ -421,7 +421,7 @@ function placeBlock(hit, id) {
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);
-  Sfx.play(BL[id].snd, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
+  Sfx.play(BL[id].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
 }
 function pickBlock() { if (S.mode !== 'creative') return; const hit = raycast(player.eye(), lookDir(), 7); if (!hit) return; let id = hit.id; if (BL[id].hidden) id = id === B.END_PORTAL_FRAME_EYE ? B.END_PORTAL_FRAME : B.NETHER_PORTAL; for (let i = 0; i < 9; i++) if (player.inv[i] && player.inv[i].id === id) { selectSlot(i); return; } player.inv[player.sel] = { id, count: stackMax(id) }; invDirty(); selectSlot(player.sel); }
 function dropHeld(all) { const h = player.held(); if (!h) return; const n = all ? h.count : 1; const d = lookDir(); const e = player.eye(); const it = dropItem(h.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false, xtra(h)); it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); S.swing = 1; }
@@ -449,7 +449,6 @@ function updateInteraction(dt) {
     if (bt === 0) { if (S.atkCD <= 0) { breakBlock(target.x, target.y, target.z); S.atkCD = 0.2; S.swing = 1; } }
     else if (bt < Infinity) {
       S.mineT += dt; S.swing = Math.max(S.swing, 0.6);
-      if (Math.random() < dt * 6) { Sfx.play(BL[target.id].snd, 0.25); Particles.blockBreak(target.x, target.y, target.z, target.id, 2); }
       if (S.mineT >= bt) { breakBlock(target.x, target.y, target.z); S.mineT = 0; S.mineKey = ''; }
     }
     const prog = bt === Infinity ? 0 : bt ? S.mineT / bt : 0;
@@ -473,7 +472,7 @@ function updateInteraction(dt) {
     return;
   }
   if (S.bowDraw >= 0) S.bowDraw = -1;
-  if (mouseR && S.useCD <= 0) { S.useCD = 0.25; useAction(eye, dir); }
+  if (mouseR && S.useCD <= 0) { S.useCD = 0.2; useAction(eye, dir); } // Minecraft: 4 ticks between uses
 }
 function bowPower() { return S.bowDraw < 0 ? 0 : clamp(S.bowDraw / 1.0, 0, 1); }
 function fireBow(eye, dir) {
@@ -765,7 +764,7 @@ function updateSky(eyeFluid) {
   sunMesh.visible = moonMesh.visible = ow && !eyeFluid;
   starMat.opacity = world.dim === 'end' ? 0.5 : clamp(1 - day * 1.6, 0, 1); stars.visible = (ow || world.dim === 'end') && starMat.opacity > 0.01 && !eyeFluid; stars.rotation.z = ow ? ang : 0;
   clouds.visible = ow;
-  const CR = Math.max(180, R * 1.6); clouds.scale.set(CR * 2, CR * 2, 1); clouds.position.set(camera.position.x, 112, camera.position.z);
+  const CR = Math.max(180, R * 1.6); clouds.scale.set(CR * 2, CR * 2, 1); clouds.position.set(camera.position.x, YOFF + 192.33, camera.position.z); // Minecraft's cloud height (y 192) above everything but the tallest peaks
   cloudMat.uniforms.radius.value = CR; cloudMat.uniforms.camPos.value.copy(camera.position); cloudMat.uniforms.offset.value = performance.now() / 1000 * 1.2;
   cloudMat.uniforms.color.value.setRGB(1, 1, 1).multiplyScalar(0.25 + G.daylight * 0.75).lerp(C_SET, ss * 0.3);
   itemBlockMat.color.setScalar(clamp(G.daylight + 0.15, 0.3, 1));

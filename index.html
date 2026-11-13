@@ -144,7 +144,7 @@ button{font-family:'VT323',monospace}
 #modCode{height:min(220px,28vh);background:#000;color:#cfe8b0;border:2px solid #a0a0a0;font:14px/1.35 ui-monospace,Consolas,monospace;padding:8px;resize:vertical}
 #modExamples{width:min(680px,94vw);background:rgba(0,0,0,.45);border:2px solid #000;margin-bottom:6px}
 /* inventory */
-#inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
+#inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;align-items:safe center;justify-content:safe center;align-content:safe center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
 .panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;outline:2px solid #000;padding:10px;color:#3f3f3f;border-radius:3px}
 .panel h3{font-family:'VT323';font-weight:normal;font-size:24px;margin:2px 0 6px;color:#404040}
 .grid{display:grid;grid-template-columns:repeat(9,44px);gap:2px}
@@ -781,7 +781,7 @@ defBlock('tnt', 'TNT', { tex: { s: 'tnt_side', t: 'tnt_top', b: 'tnt_bottom' }, 
 defBlock('sandstone', 'Sandstone', { tex: { s: 'sandstone', t: 'sandstone_top' }, hardness: 0.8, tool: 'pick', tier: 1 });
 defBlock('wool', 'White Wool', { tex: 'wool', hardness: 0.8, snd: 'wool' });
 defBlock('glowstone', 'Glowstone', { tex: 'glowstone', hardness: 0.3, light: 1, snd: 'glass', drop: (r) => ['glowstone_dust', 2 + Math.floor(r * 3)] });
-defBlock('furnace', 'Furnace', { tex: { s: 'furnace_side', pz: 'furnace_front', t: 'stone' }, hardness: 3.5, tool: 'pick', tier: 1, use: 'table' });
+defBlock('furnace', 'Furnace', { tex: { s: 'furnace_side', pz: 'furnace_front', t: 'stone' }, hardness: 3.5, tool: 'pick', tier: 1, use: 'furnace' });
 defBlock('birch_log', 'Birch Log', { tex: { s: 'birch_side', t: 'birch_top' }, hardness: 2, snd: 'wood' });
 defBlock('birch_leaves', 'Birch Leaves', { tex: 'birch_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
 defBlock('spruce_log', 'Spruce Log', { tex: { s: 'spruce_side', t: 'spruce_top' }, hardness: 2, snd: 'wood' });
@@ -4022,32 +4022,68 @@ const BLAST_PROOF = new Set();
 function blastRes(id) { const d = BL[id]; if (!d) return 0; if (BLAST_PROOF.has(id)) return 1200; const k = d.key;
   if (d.leaves || /leaves/.test(k)) return 0.2; if (/glass|glowstone|sea_lantern/.test(k)) return 0.3; if (/^(dirt|grass|sand|farmland|dirt_path|snow|soul_sand|clay)|gravel|cactus|hay|sponge|netherrack|crimson_nylium|warped_nylium/.test(k)) return k === 'netherrack' ? 0.4 : 0.6;
   if (/wool|ladder|torch|rail|vine|cobweb|carpet|bed/.test(k)) return 0.8; if (/end_stone/.test(k)) return 9; if (/ore/.test(k)) return 3; if (d.tool === 'axe' || d.snd === 'wood') return 3; if (d.tool === 'pick') return 6; return Math.max(0.5, (d.hardness || 1)); }
+// Minecraft's explosion, step by step (Explosion.explode / finalizeExplosion):
+// 1. 16x16x16 rays from the centre pick the blocks to break: each starts at power x (0.7..1.3) and loses
+//    (blast resistance + 0.3) x 0.3 per 0.3-block step; obsidian and other blast-proof blocks stop a ray dead, so an
+//    end crystal sitting on obsidian never breaks the obsidian.
+// 2. Every entity within 2 x power is hurt and pushed, while those blocks still stand (so cover counts):
+//    impact = (1 - distance / (2 x power)) x exposure, where exposure is the share of rays from points spread over
+//    the entity's box that reach the centre unblocked; damage = (impact^2 + impact) / 2 x 7 x 2 x power + 1;
+//    push = impact along the line from the centre to the entity's eyes (blocks per tick, so x20 here).
+//    End crystals caught in a blast are simply destroyed (they don't explode again), dropped items take the same
+//    damage and break at 5 (except nether stars), primed TNT is thrown.
+// 3. The blocks break; each drops its item with chance 1 / power.
+function blastSeen(cx, cy, cz, x0, y0, z0, x1, y1, z1) {
+  const d0 = 1 / ((x1 - x0) * 2 + 1), d1 = 1 / ((y1 - y0) * 2 + 1), d2 = 1 / ((z1 - z0) * 2 + 1);
+  const d3 = (1 - Math.floor(1 / d0) * d0) / 2, d4 = (1 - Math.floor(1 / d2) * d2) / 2; let seen = 0, all = 0;
+  for (let f = 0; f <= 1; f += d0) for (let g = 0; g <= 1; g += d1) for (let h = 0; h <= 1; h += d2) {
+    if (!blastBlocked(x0 + (x1 - x0) * f + d3, y0 + (y1 - y0) * g, z0 + (z1 - z0) * h + d4, cx, cy, cz)) seen++; all++; }
+  return all ? seen / all : 0;
+}
+function blastBlocked(x, y, z, tx, ty, tz) { // voxel walk from the sample point to the centre through solid blocks
+  const w = G.world; let ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z); const ex = Math.floor(tx), ey = Math.floor(ty), ez = Math.floor(tz);
+  const dx = tx - x, dy = ty - y, dz = tz - z; const sx = Math.sign(dx), sy = Math.sign(dy), sz = Math.sign(dz);
+  const tdx = sx ? Math.abs(1 / dx) : Infinity, tdy = sy ? Math.abs(1 / dy) : Infinity, tdz = sz ? Math.abs(1 / dz) : Infinity;
+  let mx = sx ? (sx > 0 ? ix + 1 - x : x - ix) * tdx : Infinity, my = sy ? (sy > 0 ? iy + 1 - y : y - iy) * tdy : Infinity, mz = sz ? (sz > 0 ? iz + 1 - z : z - iz) * tdz : Infinity;
+  for (let n = 0; n < 64; n++) { const id = w.get(ix, iy, iz); if (id && SOLID[id]) return true; if (ix === ex && iy === ey && iz === ez) return false;
+    if (mx < my && mx < mz) { if (mx > 1) return false; ix += sx; mx += tdx; } else if (my < mz) { if (my > 1) return false; iy += sy; my += tdy; } else { if (mz > 1) return false; iz += sz; mz += tdz; } }
+  return false;
+}
+function blastKbResist(P) { let r = 0; for (let i = 37; i <= 40; i++) { const s = P.inv && P.inv[i]; if (s && typeof enchOf === 'function') r += 0.15 * enchOf(s, 'blast_protection'); } return Math.min(1, r); }
 function explode(cx, cy, cz, r, src, opts = {}) {
   if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < BL.length; i++) if (FKIND[i]) BLAST_PROOF.add(i);
-  const w = G.world; const R = Math.ceil(r);
+  const w = G.world;
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
-  // Minecraft's explosion: 16x16x16 rays from the centre, each starting at power x (0.7..1.3) and losing
-  // (blast resistance + 0.3) x 0.3 per 0.3-block step; obsidian and other blast-proof blocks stop rays completely,
-  // so the block under an end crystal sitting on obsidian survives
-  if (!opts.noBlocks) { const hit = new Set();
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) { if (i && i < 15 && j && j < 15 && k && k < 15) continue;
+  const hit = new Set();
+  if (!opts.noBlocks) for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) { if (i && i < 15 && j && j < 15 && k && k < 15) continue;
       let dx = i / 15 * 2 - 1, dy = j / 15 * 2 - 1, dz = k / 15 * 2 - 1; const L = Math.hypot(dx, dy, dz); dx /= L; dy /= L; dz /= L;
       let p = r * (0.7 + Math.random() * 0.6), x = cx, y = cy, z = cz;
       for (; p > 0; p -= 0.225) { const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z); const id = w.get(bx, by, bz);
         if (id) { const res = blastRes(id); p -= (res + 0.3) * 0.3; if (p > 0 && !BLAST_PROOF.has(id)) hit.add(bx + ',' + by + ',' + bz); }
         x += dx * 0.3; y += dy * 0.3; z += dz * 0.3; } }
-    for (const key of hit) { const [x, y, z] = key.split(',').map(Number); const id = w.get(x, y, z); if (!id || BLAST_PROOF.has(id)) continue;
-      if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.4 + Math.random() * 0.6); continue; }
-      onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
-      if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } } }
-  const c = new V3(cx, cy, cz);
-  const hitE = (e, isP) => { const ec = new V3(e.pos.x, e.pos.y + (e.h || 1.8) * 0.5, e.pos.z); const d = ec.distanceTo(c); if (d > r * 2) return; const f = 1 - d / (r * 2); const dmg = Math.round(f * f * 7 * r + 1); if (isP) { e.hurtCD = 0; e.hurt(dmg, c, opts.cause || 'an explosion', 2.2); } else e.hurt(dmg, c, 2.2, !(src === G.player)); };
-  for (const m of G.mobs) if (m !== src && !(m.isBoss && src && src.isCrystal === undefined && false)) hitE(m, false);
-  if (G.player && !G.player.dead) hitE(G.player, true);
-  for (const it of G.items) { const d = it.pos.distanceTo(c); if (d < r * 1.5) { const v = it.pos.clone().sub(c).normalize().multiplyScalar(8 * (1 - d / (r * 1.5))); it.vel.add(v); it.vel.y += 3; } }
+  // entities, while the blocks still stand
+  const c = new V3(cx, cy, cz), f2 = r * 2;
+  const impact = (px, py, pz, hw, h) => { const d = Math.hypot(px - cx, py - cy, pz - cz) / f2; if (d > 1) return -1; return (1 - d) * blastSeen(cx, cy, cz, px - hw, py, pz - hw, px + hw, py + h, pz + hw); };
+  const push = (e, eyeY, k) => { let dx = e.pos.x - cx, dy = eyeY - cy, dz = e.pos.z - cz; const L = Math.hypot(dx, dy, dz); if (L < 1e-6) return; e.vel.x += dx / L * k * 20; e.vel.y += dy / L * k * 20; e.vel.z += dz / L * k * 20; };
+  const dmgOf = (im) => Math.floor((im * im + im) / 2 * 7 * f2 + 1);
+  for (const m of G.mobs.slice()) { if (m === src || m.dead) continue; const hw = m.hw || 0.4, h = m.h || 1.8; const im = impact(m.pos.x, m.pos.y, m.pos.z, hw, h); if (im < 0) continue;
+    if (m.isCrystal) { if (m.blastGone) m.blastGone(); else m.hurt(dmgOf(im), c, 0, true); continue; }
+    const vy = m.vel.y; m.hurt(dmgOf(im), c, 0, !(src === G.player)); m.vel.y = vy; if (!m.isBoss) push(m, m.pos.y + h * 0.85, im); }
+  const P = G.player;
+  if (P && !P.dead) { const im = impact(P.pos.x, P.pos.y, P.pos.z, 0.3, 1.8); if (im >= 0) { const vy = P.vel.y; const vx = P.vel.x, vz = P.vel.z; P.hurt(dmgOf(im), c, opts.cause || 'an explosion', 0); P.vel.set(vx, vy, vz);
+      if (S.mode !== 'spectator' && !(S.mode === 'creative' && P.flying)) { push(P, P.eye().y, im * (1 - blastKbResist(P))); P.peak = null; } } }
+  for (const it of G.items) { if (it.gone) continue; const im = impact(it.pos.x, it.pos.y, it.pos.z, 0.125, 0.25); if (im < 0) continue;
+    if (dmgOf(im) >= 5 && it.id !== IT.nether_star) { it.gone = true; it.remove(); continue; } push(it, it.pos.y + 0.2, im); }
+  for (const t of G.tnts) { const im = impact(t.pos.x, t.pos.y, t.pos.z, 0.49, 0.98); if (im >= 0) push(t, t.pos.y, im); }
+  G.items = G.items.filter(it => !it.gone);
+  // then the blocks
+  for (const key of hit) { const [x, y, z] = key.split(',').map(Number); const id = w.get(x, y, z); if (!id || BLAST_PROOF.has(id)) continue;
+    if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.5 + Math.random() * 1); continue; }
+    onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
+    if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } }
   Particles.emit(cx, cy, cz, 70, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5);
   Particles.emit(cx, cy, cz, 60, [[0.35, 0.35, 0.35], [0.55, 0.55, 0.55], [0.2, 0.2, 0.2]], 6, 1.4, -1.5, r);
-  Sfx.at('boom', c, 1.5); if (G.player) G.shake = Math.max(G.shake, Math.max(0, 1 - G.player.pos.distanceTo(c) / 24));
+  Sfx.at('boom', c, 1.5); if (P) G.shake = Math.max(G.shake, Math.max(0, 1 - P.pos.distanceTo(c) / 24));
 }
 function blockDrop(id, tool) {
   const def = BL[id]; if (!def) return null;
@@ -4489,7 +4525,7 @@ function breakBlock(x, y, z) {
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0); breakBedPair(x, y, z, id);
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
-  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 0.9);
+  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
   if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
   for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
 }
@@ -4507,7 +4543,7 @@ function placeBlock(hit, id) {
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);
-  Sfx.play(BL[id].snd, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
+  Sfx.play(BL[id].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
 }
 function pickBlock() { if (S.mode !== 'creative') return; const hit = raycast(player.eye(), lookDir(), 7); if (!hit) return; let id = hit.id; if (BL[id].hidden) id = id === B.END_PORTAL_FRAME_EYE ? B.END_PORTAL_FRAME : B.NETHER_PORTAL; for (let i = 0; i < 9; i++) if (player.inv[i] && player.inv[i].id === id) { selectSlot(i); return; } player.inv[player.sel] = { id, count: stackMax(id) }; invDirty(); selectSlot(player.sel); }
 function dropHeld(all) { const h = player.held(); if (!h) return; const n = all ? h.count : 1; const d = lookDir(); const e = player.eye(); const it = dropItem(h.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false, xtra(h)); it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); S.swing = 1; }
@@ -4535,7 +4571,6 @@ function updateInteraction(dt) {
     if (bt === 0) { if (S.atkCD <= 0) { breakBlock(target.x, target.y, target.z); S.atkCD = 0.2; S.swing = 1; } }
     else if (bt < Infinity) {
       S.mineT += dt; S.swing = Math.max(S.swing, 0.6);
-      if (Math.random() < dt * 6) { Sfx.play(BL[target.id].snd, 0.25); Particles.blockBreak(target.x, target.y, target.z, target.id, 2); }
       if (S.mineT >= bt) { breakBlock(target.x, target.y, target.z); S.mineT = 0; S.mineKey = ''; }
     }
     const prog = bt === Infinity ? 0 : bt ? S.mineT / bt : 0;
@@ -4559,7 +4594,7 @@ function updateInteraction(dt) {
     return;
   }
   if (S.bowDraw >= 0) S.bowDraw = -1;
-  if (mouseR && S.useCD <= 0) { S.useCD = 0.25; useAction(eye, dir); }
+  if (mouseR && S.useCD <= 0) { S.useCD = 0.2; useAction(eye, dir); } // Minecraft: 4 ticks between uses
 }
 function bowPower() { return S.bowDraw < 0 ? 0 : clamp(S.bowDraw / 1.0, 0, 1); }
 function fireBow(eye, dir) {
@@ -4851,7 +4886,7 @@ function updateSky(eyeFluid) {
   sunMesh.visible = moonMesh.visible = ow && !eyeFluid;
   starMat.opacity = world.dim === 'end' ? 0.5 : clamp(1 - day * 1.6, 0, 1); stars.visible = (ow || world.dim === 'end') && starMat.opacity > 0.01 && !eyeFluid; stars.rotation.z = ow ? ang : 0;
   clouds.visible = ow;
-  const CR = Math.max(180, R * 1.6); clouds.scale.set(CR * 2, CR * 2, 1); clouds.position.set(camera.position.x, 112, camera.position.z);
+  const CR = Math.max(180, R * 1.6); clouds.scale.set(CR * 2, CR * 2, 1); clouds.position.set(camera.position.x, YOFF + 192.33, camera.position.z); // Minecraft's cloud height (y 192) above everything but the tallest peaks
   cloudMat.uniforms.radius.value = CR; cloudMat.uniforms.camPos.value.copy(camera.position); cloudMat.uniforms.offset.value = performance.now() / 1000 * 1.2;
   cloudMat.uniforms.color.value.setRGB(1, 1, 1).multiplyScalar(0.25 + G.daylight * 0.75).lerp(C_SET, ss * 0.3);
   itemBlockMat.color.setScalar(clamp(G.daylight + 0.15, 0.3, 1));
@@ -12225,6 +12260,129 @@ $('worldFile').addEventListener('change', async (e) => {
 // leaving or quitting: the cloud copy is brought up to date too
 { const b = $('btnQuit'); const fresh = b.cloneNode(true); b.parentNode.replaceChild(fresh, b); fresh.addEventListener('click', () => { S._quitting = true; saveGame(false); S._quitting = false; quitToTitle(); }); }
 Saves.init();
+
+// ================= END CRYSTALS AND DAMAGE RULES, AS IN MINECRAFT =================
+// Placing: right-click ANY face of obsidian or bedrock and the crystal appears on top, if the block above is air and
+// no entity (player, mob, crystal, dropped item) is in the 1x2x1 space above. Holding right-click keeps placing
+// (Minecraft's 4-tick use delay).
+// Breaking: any damage at all pops it (a punch, an arrow, a snowball, an egg): a power-6 explosion at its base.
+// A crystal caught in another explosion is simply destroyed and does not explode again (Minecraft 1.9+).
+// The crystal is a 2x2x2 box. Placed crystals are saved with the world.
+// Damage: invulnerability frames work as in Minecraft (for half a second a hit only lands if it is bigger than the
+// last one, and then only the difference), and armour enchantments add up into one protection value capped at 20
+// (80%): Protection 1 per level, Blast/Fire/Projectile Protection 2 per level, Feather Falling 3 per level.
+// whatever ends a placed crystal (a hit, a blast, the dragon respawn using it up), its saved spot goes with it
+Object.defineProperty(PlacedCrystal.prototype, 'dead', { configurable: true, get() { return !!this._dead; }, set(v) { this._dead = v; if (v && this.spot) crystalSpotDel(this); } });
+PlacedCrystal.prototype.hurt = function () {
+  if (this.dead) return; this.dead = true; this.gone = true; crystalSpotDel(this);
+  explode(this.pos.x, this.pos.y, this.pos.z, 6, this, { cause: 'an End Crystal' });
+};
+PlacedCrystal.prototype.blastGone = function () { if (this.dead) return; this.dead = true; this.gone = true; crystalSpotDel(this); Particles.emit(this.pos.x, this.pos.y + 1, this.pos.z, 20, [[1, 0.6, 1], [0.9, 0.9, 1]], 3, 0.6, 1, 0.8); };
+{ const _h = Crystal.prototype.hurt; // the End's pillar crystals: same power-6 blast at the base; no chain explosions
+  Crystal.prototype.hurt = function () { if (this.dead || this.placed) return; const _ex = explode; let at = null; explode = function (x, y, z, r, s, o) { at = [x, y, z]; }; try { _h.apply(this, arguments); } finally { explode = _ex; } if (at) explode(this.pos.x, this.pos.y, this.pos.z, 6, this, { cause: 'an End Crystal' }); };
+  Crystal.prototype.blastGone = function () { if (this.dead || this.placed) return; const _ex = explode; explode = function () { }; try { _h.apply(this, arguments); } finally { explode = _ex; } }; }
+function crystalSpotDel(c) { const w = c.w || G.world; if (w && w.crystalSpots && c.spot) w.crystalSpots.delete(c.spot); }
+function crystalSpaceFree(x, y, z) {
+  const hits = (px, py, pz, hw, h) => px + hw > x && px - hw < x + 1 && pz + hw > z && pz - hw < z + 1 && py + h > y && py < y + 2;
+  const P = player; if (!P.dead && S.mode !== 'spectator' && hits(P.pos.x, P.pos.y, P.pos.z, 0.3, 1.8)) return false;
+  for (const m of G.mobs) if (!m.dead && hits(m.pos.x, m.pos.y, m.pos.z, m.isCrystal ? 1 : (m.hw || 0.4), m.h || 1.8)) return false;
+  for (const it of G.items) if (!it.gone && hits(it.pos.x, it.pos.y, it.pos.z, 0.125, 0.25)) return false;
+  return true;
+}
+placeEndCrystal = function (x, y, z, quiet) {
+  if (world.get(x, y, z) !== 0 || !crystalSpaceFree(x, y, z)) return false;
+  const c = new PlacedCrystal(x, y, z); c.hw = 1; c.w = world; c.spot = x + ',' + y + ',' + z; G.mobs.push(c); (world.placedCrystals = world.placedCrystals || []).push(c);
+  (world.crystalSpots = world.crystalSpots || new Set()).add(c.spot);
+  if (!quiet && world.dim === 'end' && S.dragonDead && typeof tryRespawnDragon === 'function') tryRespawnDragon();
+  return true;
+};
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const hd = player.heldDef();
+    if (hd && hd.id === IT.end_crystal && target && (target.id === B.OBSIDIAN || target.id === B.BEDROCK)) { // any face
+      if (placeEndCrystal(target.x, target.y + 1, target.z)) { useHeld(1); S.swing = 1; } S.useCD = 0.2; return; }
+    return _ua(eye, dir); }; }
+// crystals are entities: blocks can't be placed into them, snowballs pop them
+{ const _pb = placeBlock; placeBlock = function (t, id) { if (SOLID[id]) { let x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; if (PLANT[t.id]) { x = t.x; y = t.y; z = t.z; }
+      for (const m of G.mobs) if (m.isCrystal && !m.dead && m.pos.x + 1 > x && m.pos.x - 1 < x + 1 && m.pos.z + 1 > z && m.pos.z - 1 < z + 1 && m.pos.y + 2 > y && m.pos.y < y + 1) return false; }
+    return _pb.apply(this, arguments); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    for (const a of G.projectiles) if (a.kind === 'snowball' && !a.done) for (const m of G.mobs) if (m.isCrystal && !m.dead && hitsMob(m, a.pos, 0.2)) { a.done = true; G.scene.remove(a.mesh); m.hurt(0, a.pos, 0); break; }
+    return _up.apply(this, arguments); }; }
+// keep placed crystals in the world: saved per dimension, and back when you return to a dimension
+{ let t = 0; const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); t -= dt; if (t > 0 || !world || !world.crystalSpots || S.loading) return r; t = 1;
+    for (const k of [...world.crystalSpots]) { if (G.mobs.some(m => m.spot === k && !m.dead)) continue; const [x, y, z] = k.split(',').map(Number); if (!world.chunkLoaded || world.chunkLoaded(x >> 4, z >> 4)) { world.crystalSpots.delete(k); if (!placeEndCrystal(x, y, z, true)) world.crystalSpots.add(k); } }
+    return r; }; }
+{ const _pw = packWorld; packWorld = function (w) { const r = _pw(w); if (w.crystalSpots && w.crystalSpots.size) r.crystals = [...w.crystalSpots]; return r; };
+  const _uw = unpackWorld; unpackWorld = function (w, d) { const r = _uw(w, d); if (d && d.crystals) w.crystalSpots = new Set(d.crystals); return r; }; }
+// ---------- Minecraft invulnerability frames for the player ----------
+{ const _h = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
+    if (this.hurtCD > 0 && !this.dead && isSurv() && !S.loading) { const last = this.lastRawDmg || 0; if (!(dmg > last)) return; this.lastRawDmg = dmg; const cd = this.hurtCD; this.hurtCD = 0; const r = _h.call(this, dmg - last, src, cause, kb); this.hurtCD = Math.max(this.hurtCD, cd); return r; }
+    this.lastRawDmg = dmg; return _h.apply(this, arguments); }; }
+// ---------- armour and protection enchantments add up the Minecraft way ----------
+armorReduce = function (dmg, cause) {
+  const c = cause || ''; if (c === 'the void') return dmg;
+  const fall = c === 'fall damage' || c === 'an ender pearl', fire = c === 'lava' || c === 'a magma block' || c === 'fire' || c === 'burning';
+  let out = dmg;
+  if (!fall && c !== 'magic') { const ps = armorPieces(player.inv); let def = 0, tough = 0; for (const s of ps) { const it = ITEMS[s.id]; def += it.def || 0; tough += it.tough || 0; }
+    const red = Math.min(20, Math.max(def / 5, def - dmg / (2 + tough / 4))) / 25;
+    if (ps.length && dmg > 0 && isSurv()) for (let i = 37; i <= 40; i++) if (player.inv[i] && ITEMS[player.inv[i].id].kind === 'armor') damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
+    out *= 1 - red; }
+  let epf = 0; for (let i = 37; i <= 40; i++) { const s = player.inv[i]; if (!s) continue; epf += enchOf(s, 'protection');
+    if (BLAST_CAUSES.test(c)) epf += 2 * enchOf(s, 'blast_protection'); if (PROJ_CAUSES.test(c)) epf += 2 * enchOf(s, 'projectile_protection'); if (fire) epf += 2 * enchOf(s, 'fire_protection'); if (fall) epf += 3 * enchOf(s, 'feather_falling'); }
+  return out * (1 - Math.min(20, epf) * 0.04);
+};
+
+// ================= FIRST-PERSON SWINGS AND MINING SOUNDS =================
+// Each kind of held thing has its own swing (progress p runs 0 -> 1 over Minecraft's 6-tick swing, 0.3 s):
+//   fist: a straight punch          sword: a sideways slash        axe: a raised overhead chop
+//   pickaxe: a short downward pick  shovel: a forward scoop       hoe: a downward pull back
+//   mace: a heavy overhead slam     trident/spear: a thrust       anything else: Minecraft's own arm swing
+// While you hold the button on a block the swing repeats, the block's hit sound plays every 4 ticks (Minecraft:
+// volume 0.25, half pitch) with a few chips flying off, and it breaks with its break sound at pitch 0.8.
+function swingKind(id) {
+  if (!id) return 'fist'; const it = ITEMS[id]; if (!it) return 'item';
+  if (it.key === 'mace') return 'mace'; if (it.kind === 'trident' || /_spear$/.test(it.key)) return 'thrust';
+  if (it.kind === 'tool') return it.tool === 'sword' ? 'sword' : it.tool === 'axe' ? 'axe' : it.tool === 'pick' ? 'pick' : it.tool === 'shovel' ? 'shovel' : it.tool === 'hoe' ? 'hoe' : 'item';
+  return 'item';
+}
+const ease = { out: (t) => 1 - (1 - t) * (1 - t), in: (t) => t * t, io: (t) => t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t) };
+// windup until a, strike until b, then recover: returns [windup amount, strike amount] each 0..1
+function phases(p, a, b) { if (p < a) return [ease.out(p / a), 0]; if (p < b) { const t = ease.in((p - a) / (b - a)); return [1 - t, t]; } return [0, 1 - ease.io((p - b) / (1 - b))]; }
+const SWINGS = {
+  // [dx, dy, dz, rx, ry, rz] offsets from the resting pose
+  fist(p) { const [w, s] = phases(p, 0.15, 0.4); return [-0.12 * s + 0.04 * w, 0.06 * s - 0.03 * w, -0.32 * s + 0.08 * w, 0.15 * s, 0.25 * s, 0]; },
+  sword(p) { const [w, s] = phases(p, 0.2, 0.5); return [0.12 * w - 0.38 * s, 0.08 * w - 0.06 * s, -0.12 * s, 0.25 * w - 0.35 * s, 0.7 * w - 1.1 * s, -0.5 * w + 0.6 * s]; },
+  axe(p) { const [w, s] = phases(p, 0.3, 0.55); return [-0.04 * s, 0.22 * w - 0.2 * s, 0.1 * w - 0.2 * s, 0.9 * w - 1.25 * s, 0.1 * w + 0.2 * s, 0.15 * w]; },
+  pick(p) { const [w, s] = phases(p, 0.22, 0.5); return [-0.06 * s, 0.14 * w - 0.16 * s, 0.05 * w - 0.16 * s, 0.6 * w - 1.0 * s, 0.25 * s, -0.25 * s]; },
+  shovel(p) { const [w, s] = phases(p, 0.2, 0.5); return [-0.1 * s, -0.05 * w + 0.1 * s, 0.08 * w - 0.32 * s, -0.25 * w + 0.5 * s, 0.2 * s, 0]; },
+  hoe(p) { const [w, s] = phases(p, 0.25, 0.5); return [-0.05 * s, 0.16 * w - 0.12 * s, -0.1 * w + 0.1 * s, 0.7 * w - 0.9 * s, 0.15 * s, 0]; },
+  mace(p) { const [w, s] = phases(p, 0.38, 0.6); return [-0.08 * s, 0.3 * w - 0.26 * s, 0.14 * w - 0.22 * s, 1.15 * w - 1.45 * s, 0.25 * s, 0.2 * w - 0.1 * s]; },
+  thrust(p) { const [w, s] = phases(p, 0.2, 0.45); return [-0.08 * s, 0.02 * s, 0.1 * w - 0.42 * s, 0, 0, 0]; },
+  item(p) { // Minecraft's ItemInHandRenderer swing
+    const sq = Math.sqrt(p); const f = Math.sin(p * p * Math.PI), f1 = Math.sin(sq * Math.PI);
+    return [-0.4 * Math.sin(sq * Math.PI) * 0.5, 0.2 * Math.sin(sq * Math.PI * 2) * 0.5, -0.2 * Math.sin(p * Math.PI) * 0.5, -f1 * 80 * Math.PI / 180 * 0.7, -f * 20 * Math.PI / 180, -f1 * 20 * Math.PI / 180]; },
+};
+{ const _uh = updateHand; updateHand = function (dt, light) {
+    // Minecraft's swing lasts 6 ticks: slow the base decay (4/s) to 1/0.3 s
+    if (S.swing > 0) S.swing = Math.min(1, S.swing + dt * (4 - 1 / 0.3));
+    const r = _uh.apply(this, arguments); const sw0 = Math.sin(S.swing * Math.PI); // the generic pose the base just applied
+    const h = player.held(); const id = h ? h.id : 0; const kind = swingKind(id);
+    if (S.swing > 0 && !(kind === 'thrust' && (S.jabT > 0 || S.tridPose > 0.05)) && !(player.blocking) && !(S.bowDraw >= 0)) {
+      // undo the generic swing, then apply this item's own
+      handGroup.position.x += sw0 * 0.15; handGroup.position.y += sw0 * 0.1; handGroup.position.z += sw0 * 0.12; handGroup.rotation.x += sw0 * 0.8; handGroup.rotation.y -= sw0 * 0.4;
+      const o = SWINGS[kind](1 - S.swing);
+      handGroup.position.x += o[0]; handGroup.position.y += o[1]; handGroup.position.z += o[2]; handGroup.rotation.x += o[3]; handGroup.rotation.y += o[4]; handGroup.rotation.z += o[5];
+    }
+    return r; }; }
+// ---------- mining: repeating swings, hit sounds every 4 ticks, chips ----------
+function hitSnd(id) { const s = BL[id] && BL[id].snd; return s === 'glass' ? 'stone' : s || 'stone'; }
+{ const _ub = updateBoats; let digT = 0, digKey = ''; updateBoats = function (dt) { const r = _ub(dt);
+    const mining = S.started && !S.paused && !S.uiOpen && mouseL && target && S.mineT > 0 && S.mineKey && !player.dead;
+    if (mining) { if (S.mineKey !== digKey) { digKey = S.mineKey; digT = 0; }
+      if (S.swing <= 0.02) S.swing = 1; // keep swinging while you dig
+      digT -= dt; if (digT <= 0) { digT = 0.2; Sfx.play(hitSnd(target.id), 0.32, 0.5); Particles.blockBreak(target.x, target.y, target.z, target.id, 3); } }
+    else { digKey = ''; digT = 0; }
+    return r; }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

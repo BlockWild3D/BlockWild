@@ -691,32 +691,68 @@ const BLAST_PROOF = new Set();
 function blastRes(id) { const d = BL[id]; if (!d) return 0; if (BLAST_PROOF.has(id)) return 1200; const k = d.key;
   if (d.leaves || /leaves/.test(k)) return 0.2; if (/glass|glowstone|sea_lantern/.test(k)) return 0.3; if (/^(dirt|grass|sand|farmland|dirt_path|snow|soul_sand|clay)|gravel|cactus|hay|sponge|netherrack|crimson_nylium|warped_nylium/.test(k)) return k === 'netherrack' ? 0.4 : 0.6;
   if (/wool|ladder|torch|rail|vine|cobweb|carpet|bed/.test(k)) return 0.8; if (/end_stone/.test(k)) return 9; if (/ore/.test(k)) return 3; if (d.tool === 'axe' || d.snd === 'wood') return 3; if (d.tool === 'pick') return 6; return Math.max(0.5, (d.hardness || 1)); }
+// Minecraft's explosion, step by step (Explosion.explode / finalizeExplosion):
+// 1. 16x16x16 rays from the centre pick the blocks to break: each starts at power x (0.7..1.3) and loses
+//    (blast resistance + 0.3) x 0.3 per 0.3-block step; obsidian and other blast-proof blocks stop a ray dead, so an
+//    end crystal sitting on obsidian never breaks the obsidian.
+// 2. Every entity within 2 x power is hurt and pushed, while those blocks still stand (so cover counts):
+//    impact = (1 - distance / (2 x power)) x exposure, where exposure is the share of rays from points spread over
+//    the entity's box that reach the centre unblocked; damage = (impact^2 + impact) / 2 x 7 x 2 x power + 1;
+//    push = impact along the line from the centre to the entity's eyes (blocks per tick, so x20 here).
+//    End crystals caught in a blast are simply destroyed (they don't explode again), dropped items take the same
+//    damage and break at 5 (except nether stars), primed TNT is thrown.
+// 3. The blocks break; each drops its item with chance 1 / power.
+function blastSeen(cx, cy, cz, x0, y0, z0, x1, y1, z1) {
+  const d0 = 1 / ((x1 - x0) * 2 + 1), d1 = 1 / ((y1 - y0) * 2 + 1), d2 = 1 / ((z1 - z0) * 2 + 1);
+  const d3 = (1 - Math.floor(1 / d0) * d0) / 2, d4 = (1 - Math.floor(1 / d2) * d2) / 2; let seen = 0, all = 0;
+  for (let f = 0; f <= 1; f += d0) for (let g = 0; g <= 1; g += d1) for (let h = 0; h <= 1; h += d2) {
+    if (!blastBlocked(x0 + (x1 - x0) * f + d3, y0 + (y1 - y0) * g, z0 + (z1 - z0) * h + d4, cx, cy, cz)) seen++; all++; }
+  return all ? seen / all : 0;
+}
+function blastBlocked(x, y, z, tx, ty, tz) { // voxel walk from the sample point to the centre through solid blocks
+  const w = G.world; let ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z); const ex = Math.floor(tx), ey = Math.floor(ty), ez = Math.floor(tz);
+  const dx = tx - x, dy = ty - y, dz = tz - z; const sx = Math.sign(dx), sy = Math.sign(dy), sz = Math.sign(dz);
+  const tdx = sx ? Math.abs(1 / dx) : Infinity, tdy = sy ? Math.abs(1 / dy) : Infinity, tdz = sz ? Math.abs(1 / dz) : Infinity;
+  let mx = sx ? (sx > 0 ? ix + 1 - x : x - ix) * tdx : Infinity, my = sy ? (sy > 0 ? iy + 1 - y : y - iy) * tdy : Infinity, mz = sz ? (sz > 0 ? iz + 1 - z : z - iz) * tdz : Infinity;
+  for (let n = 0; n < 64; n++) { const id = w.get(ix, iy, iz); if (id && SOLID[id]) return true; if (ix === ex && iy === ey && iz === ez) return false;
+    if (mx < my && mx < mz) { if (mx > 1) return false; ix += sx; mx += tdx; } else if (my < mz) { if (my > 1) return false; iy += sy; my += tdy; } else { if (mz > 1) return false; iz += sz; mz += tdz; } }
+  return false;
+}
+function blastKbResist(P) { let r = 0; for (let i = 37; i <= 40; i++) { const s = P.inv && P.inv[i]; if (s && typeof enchOf === 'function') r += 0.15 * enchOf(s, 'blast_protection'); } return Math.min(1, r); }
 function explode(cx, cy, cz, r, src, opts = {}) {
   if (!BLAST_PROOF.size) for (const k of ['BEDROCK', 'OBSIDIAN', 'END_PORTAL_FRAME', 'END_PORTAL_FRAME_EYE', 'END_PORTAL', 'WATER', 'LAVA', 'DRAGON_EGG', 'ANCIENT_DEBRIS', 'NETHERITE_BLOCK']) BLAST_PROOF.add(B[k]); for (let i = 0; i < BL.length; i++) if (FKIND[i]) BLAST_PROOF.add(i);
-  const w = G.world; const R = Math.ceil(r);
+  const w = G.world;
   if (src instanceof Mob && S.rules && !S.rules.mobGriefing) opts.noBlocks = true;
-  // Minecraft's explosion: 16x16x16 rays from the centre, each starting at power x (0.7..1.3) and losing
-  // (blast resistance + 0.3) x 0.3 per 0.3-block step; obsidian and other blast-proof blocks stop rays completely,
-  // so the block under an end crystal sitting on obsidian survives
-  if (!opts.noBlocks) { const hit = new Set();
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) { if (i && i < 15 && j && j < 15 && k && k < 15) continue;
+  const hit = new Set();
+  if (!opts.noBlocks) for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) for (let k = 0; k < 16; k++) { if (i && i < 15 && j && j < 15 && k && k < 15) continue;
       let dx = i / 15 * 2 - 1, dy = j / 15 * 2 - 1, dz = k / 15 * 2 - 1; const L = Math.hypot(dx, dy, dz); dx /= L; dy /= L; dz /= L;
       let p = r * (0.7 + Math.random() * 0.6), x = cx, y = cy, z = cz;
       for (; p > 0; p -= 0.225) { const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z); const id = w.get(bx, by, bz);
         if (id) { const res = blastRes(id); p -= (res + 0.3) * 0.3; if (p > 0 && !BLAST_PROOF.has(id)) hit.add(bx + ',' + by + ',' + bz); }
         x += dx * 0.3; y += dy * 0.3; z += dz * 0.3; } }
-    for (const key of hit) { const [x, y, z] = key.split(',').map(Number); const id = w.get(x, y, z); if (!id || BLAST_PROOF.has(id)) continue;
-      if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.4 + Math.random() * 0.6); continue; }
-      onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
-      if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } } }
-  const c = new V3(cx, cy, cz);
-  const hitE = (e, isP) => { const ec = new V3(e.pos.x, e.pos.y + (e.h || 1.8) * 0.5, e.pos.z); const d = ec.distanceTo(c); if (d > r * 2) return; const f = 1 - d / (r * 2); const dmg = Math.round(f * f * 7 * r + 1); if (isP) { e.hurtCD = 0; e.hurt(dmg, c, opts.cause || 'an explosion', 2.2); } else e.hurt(dmg, c, 2.2, !(src === G.player)); };
-  for (const m of G.mobs) if (m !== src && !(m.isBoss && src && src.isCrystal === undefined && false)) hitE(m, false);
-  if (G.player && !G.player.dead) hitE(G.player, true);
-  for (const it of G.items) { const d = it.pos.distanceTo(c); if (d < r * 1.5) { const v = it.pos.clone().sub(c).normalize().multiplyScalar(8 * (1 - d / (r * 1.5))); it.vel.add(v); it.vel.y += 3; } }
+  // entities, while the blocks still stand
+  const c = new V3(cx, cy, cz), f2 = r * 2;
+  const impact = (px, py, pz, hw, h) => { const d = Math.hypot(px - cx, py - cy, pz - cz) / f2; if (d > 1) return -1; return (1 - d) * blastSeen(cx, cy, cz, px - hw, py, pz - hw, px + hw, py + h, pz + hw); };
+  const push = (e, eyeY, k) => { let dx = e.pos.x - cx, dy = eyeY - cy, dz = e.pos.z - cz; const L = Math.hypot(dx, dy, dz); if (L < 1e-6) return; e.vel.x += dx / L * k * 20; e.vel.y += dy / L * k * 20; e.vel.z += dz / L * k * 20; };
+  const dmgOf = (im) => Math.floor((im * im + im) / 2 * 7 * f2 + 1);
+  for (const m of G.mobs.slice()) { if (m === src || m.dead) continue; const hw = m.hw || 0.4, h = m.h || 1.8; const im = impact(m.pos.x, m.pos.y, m.pos.z, hw, h); if (im < 0) continue;
+    if (m.isCrystal) { if (m.blastGone) m.blastGone(); else m.hurt(dmgOf(im), c, 0, true); continue; }
+    const vy = m.vel.y; m.hurt(dmgOf(im), c, 0, !(src === G.player)); m.vel.y = vy; if (!m.isBoss) push(m, m.pos.y + h * 0.85, im); }
+  const P = G.player;
+  if (P && !P.dead) { const im = impact(P.pos.x, P.pos.y, P.pos.z, 0.3, 1.8); if (im >= 0) { const vy = P.vel.y; const vx = P.vel.x, vz = P.vel.z; P.hurt(dmgOf(im), c, opts.cause || 'an explosion', 0); P.vel.set(vx, vy, vz);
+      if (S.mode !== 'spectator' && !(S.mode === 'creative' && P.flying)) { push(P, P.eye().y, im * (1 - blastKbResist(P))); P.peak = null; } } }
+  for (const it of G.items) { if (it.gone) continue; const im = impact(it.pos.x, it.pos.y, it.pos.z, 0.125, 0.25); if (im < 0) continue;
+    if (dmgOf(im) >= 5 && it.id !== IT.nether_star) { it.gone = true; it.remove(); continue; } push(it, it.pos.y + 0.2, im); }
+  for (const t of G.tnts) { const im = impact(t.pos.x, t.pos.y, t.pos.z, 0.49, 0.98); if (im >= 0) push(t, t.pos.y, im); }
+  G.items = G.items.filter(it => !it.gone);
+  // then the blocks
+  for (const key of hit) { const [x, y, z] = key.split(',').map(Number); const id = w.get(x, y, z); if (!id || BLAST_PROOF.has(id)) continue;
+    if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.5 + Math.random() * 1); continue; }
+    onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
+    if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } }
   Particles.emit(cx, cy, cz, 70, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5);
   Particles.emit(cx, cy, cz, 60, [[0.35, 0.35, 0.35], [0.55, 0.55, 0.55], [0.2, 0.2, 0.2]], 6, 1.4, -1.5, r);
-  Sfx.at('boom', c, 1.5); if (G.player) G.shake = Math.max(G.shake, Math.max(0, 1 - G.player.pos.distanceTo(c) / 24));
+  Sfx.at('boom', c, 1.5); if (P) G.shake = Math.max(G.shake, Math.max(0, 1 - P.pos.distanceTo(c) / 24));
 }
 function blockDrop(id, tool) {
   const def = BL[id]; if (!def) return null;
