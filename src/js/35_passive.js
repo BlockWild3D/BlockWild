@@ -231,16 +231,16 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
 { const _og = onChunkGen; onChunkGen = function (c, hints, cols, w) {
     _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
     if (hints.filter(h => h[0] === 'villager').length >= 2 && Math.random() < 0.6) { const v = hints.find(h => h[0] === 'villager'); spawnMob('iron_golem', v[1] + 1, v[2], v[3] + 1); if (Math.random() < 0.5) { const m = spawnMob('cat', v[1] - 1, v[2], v[3]); } }
-    if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.12) return;
+    if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.08) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; let tab = null;
-    if (col.b === BIO.SNOWY) tab = { rabbit: 4, fox: 3, polar_bear: 1, wolf: 2 };
+    if (col.b === BIO.SNOWY) tab = { rabbit: 3, fox: 3, polar_bear: 1, wolf: 1 };
     else if (col.b === BIO.DESERT) tab = { rabbit: 4, camel: 1 };
-    else if (col.b === BIO.FOREST) tab = { wolf: 3, rabbit: 2, fox: 1 };
+    else if (col.b === BIO.FOREST) tab = { wolf: 1, rabbit: 2, fox: 1 };
     else if (col.b === BIO.MOUNTAINS) tab = col.h > SEA + 40 ? { goat: 4, llama: 2 } : { llama: 2, rabbit: 1 };
     else if (col.b === BIO.PLAINS) tab = { donkey: 1, rabbit: 2 };
     else if (col.b === BIO.BEACH) tab = { turtle: 1 };
     if (!tab) return; const type = pickWeighted(tab); if (!MOBS[type]) return;
-    const n = { wolf: 4, rabbit: 3, fox: 2, goat: 3, llama: 4, camel: 1, polar_bear: 2, donkey: 2, turtle: 4 }[type] || 2;
+    const n = { wolf: 4, rabbit: 2 + (Math.random() * 2 | 0), fox: 2, goat: 3, llama: 4, camel: 1, polar_bear: 2, donkey: 2, turtle: 4 }[type] || 2;
     for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && freeAt(x, y, z, 2) && animalLightOk(x, y, z)) { const m = spawnMob(type, x + 0.5, y, z + 0.5); if (type === 'fox' && col.b === BIO.SNOWY) { /* snow foxes */ } if (Math.random() < 0.1 && BREED_FOOD[type]) setBaby(m, true); } }
   };
   world && (world.onChunkGen = onChunkGen); }
