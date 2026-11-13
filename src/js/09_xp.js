@@ -66,7 +66,7 @@ function enchantability(id) { const k = ITEMS[id].key; if (k.startsWith('wood'))
 function rollEnchants(id, cost, seed) {
   const r = mulberry32(seed); const cat = enchCat(id); if (!cat) return [];
   const e = enchantability(id); let lvl = cost + 1 + Math.floor(r() * (e / 4 + 1)) + Math.floor(r() * (e / 4 + 1)); lvl = Math.max(1, Math.round(lvl * (1 + (r() + r() - 1) * 0.15)));
-  const pool = Object.keys(ENCH).filter(k => ENCH[k].for === cat).map(k => ({ k, l: Math.max(1, Math.min(ENCH[k].max, Math.ceil(lvl / (ENCH[k].max === 1 ? 99 : 31 / ENCH[k].max) ))), w: ENCH[k].w }));
+  const pool = Object.keys(ENCH).filter(k => (ENCH[k].for === cat || ENCH[k].for === '*') && (!ENCH[k].slot || ITEMS[id].slot === ENCH[k].slot)).map(k => ({ k, l: Math.max(1, Math.min(ENCH[k].max, Math.ceil(lvl / (ENCH[k].max === 1 ? 99 : 31 / ENCH[k].max) ))), w: ENCH[k].w }));
   const out = []; const pick = () => { const tot = pool.reduce((s, p) => s + p.w, 0); if (!tot) return null; let q = r() * tot; for (const p of pool) { q -= p.w; if (q <= 0) return p; } return pool[0]; };
   let p = pick(); while (p) { out.push([p.k, p.l]); const ex = ENCH[p.k].excl; for (let i = pool.length - 1; i >= 0; i--) if (pool[i].k === p.k || (ex && ENCH[pool[i].k].excl === ex)) pool.splice(i, 1); if (r() > (lvl + 1) / 50) break; lvl = Math.floor(lvl / 2); p = pick(); }
   return out;

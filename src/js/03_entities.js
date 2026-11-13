@@ -172,11 +172,11 @@ class ItemEnt {
   }
   remove() { G.scene.remove(this.mesh); }
 }
-function dropItem(id, count, x, y, z, burst = true, ench) {
+function dropItem(id, count, x, y, z, burst = true, extra) {
   if (!id || count <= 0) return;
   if (G.items.length > 250) { const o = G.items.shift(); o.remove(); }
   const it = new ItemEnt(id, count, x, y, z, burst ? (Math.random() - 0.5) * 3 : 0, burst ? 3 + Math.random() * 2 : 0, burst ? (Math.random() - 0.5) * 3 : 0);
-  if (ench) it.ench = ench; G.items.push(it); return it;
+  if (extra) it.extra = extra; G.items.push(it); return it;
 }
 
 
@@ -427,9 +427,8 @@ class Mob {
     this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = t.glowAll ? 1 : w.lightAt(this.pos.x, this.pos.y + Math.min(this.h, 2) * 0.7, this.pos.z, G.daylight); this.light = Math.max(this.light, G.minLight || 0); }
     if (this.dead) {
       this.deadT += dt; const k = Math.min(1, this.deadT * 3.5); this.root.rotation.z = (1 - Math.pow(1 - k, 3)) * Math.PI / 2 * (this.deathSide || (this.deathSide = Math.random() < 0.5 ? -1 : 1)); if (t.fly) this.pos.y -= dt * 2;
-      this.root.position.set(this.pos.x, this.pos.y - Math.max(0, this.deadT - 0.35) * 0.6, this.pos.z); this.hurtT = 0.2; this.colorize();
-      if (this.deadT > 0.35) { const o = Math.max(0, 1 - (this.deadT - 0.35) / 0.35); for (const [m] of this.mats) { m.transparent = true; m.opacity = o; } }
-      if (this.deadT > 0.7) { this.gone = true; Particles.emit(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, [0.8, 0.8, 0.8], 2, 0.8, -1, Math.max(0.8, this.hw * 2), Math.max(0.3, this.light)); this.dropLoot(); }
+      this.root.position.set(this.pos.x, this.pos.y, this.pos.z); this.hurtT = 0.2; this.colorize();
+      if (this.deadT > 1.0) { this.gone = true; Particles.emit(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, [0.8, 0.8, 0.8], 2, 0.8, -1, Math.max(0.8, this.hw * 2), Math.max(0.3, this.light)); this.dropLoot(); }
       return;
     }
     const water = inWater(this, 0.4), lava = inLava(this, 0.3);
@@ -735,17 +734,29 @@ function fluidReact(x, y, z) {
     if (id === B.LAVA && n === B.WATER) { w.set(x, y, z, B.OBSIDIAN); Sfx.at('fizz', new V3(x, y, z), 1); return; }
   }
 }
+// Minecraft-style fluid ticks: water advances one block every 5 game ticks (0.25 s), lava every 30 ticks (1.5 s; 10 in the Nether).
+// Every flowing edge moves together on the tick, so liquid spreads in visible steps.
+const FLUID = { wt: 0, lt: 0, wTick: 0, lTick: 0 };
 function updateWater(dt) {
-  let budget = 24;
-  for (let i = 0; i < fluidQueue.length && budget > 0; i++) {
-    const q = fluidQueue[i]; q[4] -= dt; if (q[4] > 0) continue; q.done = true; budget--;
-    const [x, y, z, n, , fid] = q; const w = G.world; const cur = w.get(x, y, z); if (cur !== 0 && !PLANT[cur]) continue;
+  const w = G.world; if (!w) return; const lavaIv = w.dim === 'nether' ? 0.5 : 1.5;
+  FLUID.wt += dt; FLUID.lt += dt; let doW = false, doL = false;
+  if (FLUID.wt >= 0.25) { FLUID.wt = Math.min(FLUID.wt - 0.25, 0.25); FLUID.wTick++; doW = true; }
+  if (FLUID.lt >= lavaIv) { FLUID.lt = Math.min(FLUID.lt - lavaIv, lavaIv); FLUID.lTick++; doL = true; }
+  for (const q of fluidQueue) if (q.due === undefined) q.due = (q[5] === B.LAVA ? FLUID.lTick : FLUID.wTick) + 1;
+  if (!doW && !doL) return;
+  const now = fluidQueue.filter(q => q[5] === B.LAVA ? (doL && q.due <= FLUID.lTick) : (doW && q.due <= FLUID.wTick)).slice(0, 600);
+  const next = [];
+  for (const q of now) {
+    q.done = true; const [x, y, z, n, , fid] = q; const cur = w.get(x, y, z); if (cur !== 0 && !PLANT[cur]) continue;
     w.set(x, y, z, fid); fluidReact(x, y, z); if (w.get(x, y, z) !== fid) continue;
-    const isL = fid === B.LAVA; if (n > (isL ? 12 : 40)) continue;
-    const delay = isL ? 0.9 : 0.25;
-    if (y > 0 && (w.get(x, y - 1, z) === 0 || PLANT[w.get(x, y - 1, z)])) fluidQueue.push([x, y - 1, z, n + 1, delay * 0.8, fid]);
-    else if (n < (isL ? 3 : 6)) for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const id = w.get(x + ax, y, z + az); if (id === 0 || PLANT[id]) fluidQueue.push([x + ax, y, z + az, n + 1, delay, fid]); }
+    const isL = fid === B.LAVA; if (n > (isL ? 12 : 40)) continue; const reach = isL ? (w.dim === 'nether' ? 7 : 3) : 7;
+    const due = (isL ? FLUID.lTick : FLUID.wTick) + 1;
+    const below = y > 0 ? w.get(x, y - 1, z) : 1;
+    if (y > 0 && (below === 0 || PLANT[below])) { const e = [x, y - 1, z, n + 1, 0, fid]; e.due = due; next.push(e); }
+    else if (n < reach) for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const id = w.get(x + ax, y, z + az); if (id === 0 || PLANT[id]) { const e = [x + ax, y, z + az, n + 1, 0, fid]; e.due = due; next.push(e); } }
   }
   for (let i = fluidQueue.length - 1; i >= 0; i--) if (fluidQueue[i].done) fluidQueue.splice(i, 1);
-  if (fluidQueue.length > 400) fluidQueue.length = 400;
+  const seen = new Set(fluidQueue.map(q => q[0] + ',' + q[1] + ',' + q[2]));
+  for (const e of next) { const k = e[0] + ',' + e[1] + ',' + e[2]; if (!seen.has(k)) { seen.add(k); fluidQueue.push(e); } }
+  if (fluidQueue.length > 1500) fluidQueue.length = 1500;
 }

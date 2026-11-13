@@ -7,6 +7,7 @@ function armorReduce(dmg, cause) {
   const ps = armorPieces(player.inv); let def = 0, tough = 0, epf = 0;
   for (const s of ps) { const it = ITEMS[s.id]; def += it.def; tough += it.tough; epf += enchOf(s, 'protection'); if (cause === 'lava' || cause === 'a magma block' || cause === 'fire') epf += 2 * enchOf(s, 'fire_protection'); }
   const red = Math.min(20, Math.max(def / 5, def - 4 * dmg / (tough + 8))) / 25;
+  if (ps.length && dmg > 0 && S.mode === 'survival') for (let i = 37; i <= 40; i++) if (player.inv[i]) damageSlot(i, Math.max(1, Math.floor(dmg / 4)));
   return dmg * (1 - red) * (1 - Math.min(20, epf) * 0.04);
 }
 const ARMOR_ICON = (() => { const mk = (fill) => { const c = document.createElement('canvas'); c.width = c.height = 9; const x = c.getContext('2d'); const rows = ['.XXX.XXX.', 'XHHHXHHHX', 'XHHHHHHHX', 'XHHHHHHHX', '.XHHHHHX.', '.XHHHHHX.', '.XHHHHHX.', '..XXXXX..'];
@@ -63,6 +64,7 @@ function applyPov(P, dt) {
       const sp = Math.hypot(P.vel.x, P.vel.z) * (P.onGround || P.flying ? 1 : 0.3); const h = P.held();
       myModel.setHeld(h ? h.id : 0); myModel.setArmor(armorMats(P.inv));
       myModel.animate(dt, sp, P.pitch, S.swing || 0, (keys.ShiftLeft || keys.ShiftRight) && !P.flying, performance.now() / 1000 - P.lastHurt < 0.3);
+      swimPose(myModel, P, dt);
       const l = clamp(light, 0.08, 1); myModel.mat.color.multiplyScalar(l); myModel.omat.color.multiplyScalar(l);
     }
   }

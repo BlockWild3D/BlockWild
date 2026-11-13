@@ -150,7 +150,7 @@ const CMDS = {
     for (const t of selectTargets(a[1], ctx, false)) { if (onlyLocal(t, '/gamemode ' + m)) { setMode(m); ok('Set own game mode to ' + (m === 'survival' ? 'Survival' : 'Creative') + ' Mode'); } else ok('Set ' + t.name + "'s game mode to " + m); } } },
   give: { usage: '<target> <item> [count]', run(a, ctx) {
     const it = parseItem(a[1]); const n = a[2] !== undefined ? num(a[2], 'count', 1, 6400) : 1; let given = 0;
-    for (const t of selectTargets(a[0], ctx, false)) { if (onlyLocal(t, '/give @s ' + a[1] + ' ' + n)) { let left = n; while (left > 0) { const k = Math.min(left, stackMax(it.id)); const r = addTo(player.inv, it.id, k, INV_ORDER, it.ench); invDirty(); if (r > 0) { dropItem(it.id, r, player.pos.x, player.pos.y + 1, player.pos.z, false, it.ench); } left -= k; } } given++; }
+    for (const t of selectTargets(a[0], ctx, false)) { if (onlyLocal(t, '/give @s ' + a[1] + ' ' + n)) { let left = n; while (left > 0) { const k = Math.min(left, stackMax(it.id)); const r = addTo(player.inv, it.id, k, INV_ORDER, it.ench ? { ench: it.ench } : null); invDirty(); if (r > 0) { dropItem(it.id, r, player.pos.x, player.pos.y + 1, player.pos.z, false, it.ench ? { ench: it.ench } : null); } left -= k; } } given++; }
     ok('Gave ' + n + ' [' + ITEMS[it.id].name + '] to ' + (given === 1 ? selectTargets(a[0], ctx, false)[0].name : given + ' players')); } },
   clear: { usage: '[target] [item] [maxCount]', run(a, ctx) {
     const it = a[1] ? parseItem(a[1]) : null; const max = a[2] !== undefined ? num(a[2], 'max count', 0) : Infinity;
@@ -271,7 +271,7 @@ function runCommand(line, ctx) {
   catch (e) { if (e instanceof CmdError) chatPrint(e.message, '#f66'); else { console.error(e); chatPrint('An unexpected error occurred trying to execute that command: ' + e.message, '#f66'); } return false; }
 }
 function deathMessage(cause) {
-  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic' };
+  const m = { 'fall damage': 'hit the ground too hard', 'an explosion': 'blew up', 'a creeper': 'was blown up by Creeper', 'an arrow': 'was shot by Skeleton', 'the void': 'fell out of the world', lava: 'tried to swim in lava', 'a magma block': 'discovered the floor was lava', 'a cactus': 'was pricked to death', magic: 'was killed by magic', drowning: 'drowned' };
   return myName() + ' ' + (m[cause] || (cause ? 'was slain by ' + cause.replace(/^(a|an|the) /, '').replace(/\b\w/g, c => c.toUpperCase()) : 'died'));
 }
 // mod HUD canvases (used by the Mini Map example mod and any other mod)

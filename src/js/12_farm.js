@@ -4,7 +4,7 @@ function farmUse(h, hd) {
   const above = world.get(target.x, target.y + 1, target.z);
   if (hd.tool === 'hoe' && (target.id === B.GRASS || target.id === B.DIRT || target.id === B.DIRT_PATH || target.id === B.SNOWY_GRASS) && (!above || PLANT[above]) && target.ny >= 0) {
     if (above) world.set(target.x, target.y + 1, target.z, 0);
-    world.set(target.x, target.y, target.z, B.FARMLAND); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
+    world.set(target.x, target.y, target.z, B.FARMLAND); damageHeld(1); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
   }
   if (hd.kind === 'seed' && target.id === B.FARMLAND && !above) {
     const id = B[hd.crop.toUpperCase()]; world.set(target.x, target.y + 1, target.z, id); useHeld(1); Sfx.play('grass', 0.7); S.swing = 1; S.useCD = 0.2; mpBlock(target.x, target.y + 1, target.z, id); return true;
