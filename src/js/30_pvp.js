@@ -45,12 +45,10 @@ function pvpReceive(m) {
     let mobT = Infinity; for (const mb of G.mobs) { if (mb.dead || mb === player.riding) continue; const t = mobRay(mb, eye, dir); if (t >= 0 && t < mobT) mobT = t; }
     if (mobT < hit.dist) return _ui.apply(this, arguments);
     if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } } }
-    else if (S.atkCD <= 0) {
-      const tool = player.heldDef(); const eb = meleeBonus({ type: 'player' }); const crit = !player.onGround && player.vel.y < -1 && !player.riding ? 1.5 : 1;
-      const dmg = Math.max(0, (tool && tool.kind === 'tool' ? tool.dmg : 1) + eb.dmg) * crit; pvpHit(hit.av, dmg, eb.kb * (player.sprinting ? 1.6 : 1));
-      if (crit > 1) Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
-      if (tool && tool.kind === 'tool') damageHeld(tool.tool === 'sword' ? 1 : 2); if (typeof exhaust === 'function') exhaust(0.1);
-      S.atkCD = tool && tool.kind === 'tool' ? 1 / (tool.atk || 1.2) : 0.25; S.swing = 1; player.sprinting = false;
+    else if (meleeReady()) {
+      const tool = player.heldDef(); const h = meleeHit(tool, null); pvpHit(hit.av, h.dmg, h.kb);
+      if (h.crit) Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
+      if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
     }
     const ml = mouseL; mouseL = false; try { return _ui.apply(this, arguments); } finally { mouseL = ml; }
   }; }

@@ -80,6 +80,10 @@ const Sfx = {
       case 'step': this.nz(0.05, 900, 0.12 * v, 'lowpass'); break;
       case 'splash': this.nz(0.35, 1200, 0.3 * v, 'lowpass'); break;
       case 'click': this.tone(700, 600, 0.04, 0.06 * v, 'square'); break;
+      case 'hit': this.nz(0.09, 900, 0.55 * v, 'lowpass'); this.tone(170, 80, 0.09, 0.3 * v, 'sine'); break;
+      case 'weak': this.nz(0.05, 1600, 0.25 * v, 'lowpass'); break;
+      case 'crit': this.nz(0.12, 2600, 0.5 * v, 'bandpass'); this.tone(320, 130, 0.12, 0.3 * v, 'triangle'); break;
+      case 'sweep': this.nz(0.24, 3200, 0.35 * v, 'highpass'); break;
       case 'ghast': this.tone(700, 300, 1.0, 0.08 * v, 'sine'); this.tone(560, 250, 1.1, 0.06 * v, 'triangle'); break;
       case 'fireball': this.nz(0.5, 600, 0.5 * v, 'lowpass'); break;
       case 'blaze': this.nz(0.6, 400, 0.3 * v, 'bandpass', 1); this.tone(120, 90, 0.5, 0.06 * v, 'sawtooth'); break;

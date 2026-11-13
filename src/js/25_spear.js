@@ -2,7 +2,7 @@
 // Jab (attack): reaches 2 to 4.5 blocks (the target's hitbox counts 0.125 bigger), fixed damage per tier, then a
 // cooldown. Closer than 2 blocks the jab can't connect. Jabs never crit.
 // Charge (hold use): after a short delay the spear is held out. Damage = tier multiplier x closing speed (your speed
-// toward the target along your view, minus theirs), from 4.6 blocks/s; knockback from 5.1 blocks/s. The charge goes
+// toward the target along your view, minus theirs; falling counts), from 4.6 blocks/s; knockback from 5.1 blocks/s. The charge goes
 // through three stages: Engaged (damage, knockback, knocks riders off at the tier's dismount speed), Tired (damage
 // and knockback) and Disengaged (damage only), then ends. After its first hit on a mob a charge only pushes it.
 // Sprinting (5.6 blocks/s) is just enough; riding a horse hits hard. Jab and charge have separate timers.
@@ -54,7 +54,7 @@ function spearCharge(sp, eye, dir, dt) {
     const p = SPEAR.pad; const t = rayAABB(eye, dir, new V3(m.pos.x - m.hw - p, m.pos.y - p, m.pos.z - m.hw - p), new V3(m.pos.x + m.hw + p, m.pos.y + m.h + p, m.pos.z + m.hw + p));
     if (t < 0 || t > SPEAR.max || t < SPEAR.min - p) continue;
     const blk = raycast(eye, dir, t); if (blk && blk.dist < t) continue;
-    const mv = m.vel || new V3(); const speed = (pv.x - mv.x) * dir.x + (pv.y - mv.y) * dir.y * 0.25 + (pv.z - mv.z) * dir.z;
+    const mv = m.vel || new V3(); const speed = (pv.x - mv.x) * dir.x + (pv.y - mv.y) * dir.y + (pv.z - mv.z) * dir.z; // falling counts too: dive onto a mob
     if (speed < SPEAR.dmgSpeed) continue;
     const last = C.hits.get(m); const now = C.t; if (last != null && now - last < 0.25) continue;
     const first = last == null; C.hits.set(m, now);
