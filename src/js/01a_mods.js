@@ -47,7 +47,7 @@ function modTile(name, spec) {
   makeTile(name, modPainter(spec, 'block')); return name;
 }
 function modLoadImages() { // images (data: URLs or same-site files) are drawn into the atlas once loaded
-  for (const [i, src] of _modImgQueue) { const img = new Image(); img.onload = () => { actx.clearRect((i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); actx.imageSmoothingEnabled = false; actx.drawImage(img, (i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); if (typeof atlasTex !== 'undefined') atlasTex.needsUpdate = true; for (const id of ITEM_IDS) if (ITEMS[id].kind === 'block' && BL[id].texIds && BL[id].texIds.includes(i)) { const c = blockIconCanvas(id); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); } }; img.src = src; }
+  for (const [i, src] of _modImgQueue) { const img = new Image(); img.onload = () => { actx.clearRect((i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); actx.imageSmoothingEnabled = false; actx.drawImage(img, (i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); if (typeof hdTile === 'function') hdTile(i); if (typeof atlasTex !== 'undefined') atlasTex.needsUpdate = true; for (const id of ITEM_IDS) if (ITEMS[id].kind === 'block' && BL[id].texIds && BL[id].texIds.includes(i)) { const c = blockIconCanvas(id); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); } }; img.src = src; }
 }
 function modFire(name, ...args) {
   const hs = MODS.hooks[name]; if (!hs) return; let cancel = false;

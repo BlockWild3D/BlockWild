@@ -262,9 +262,15 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
 class Chunk {
   constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint8Array(CS * CS * WH); this.top = new Uint8Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
   calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
+  isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return this.d[(l[1] * 16 + lz) * 16 + lx] === B.LAVA; }
   scanMeta() {
     const d = this.d; this.lights = []; let maxY = 0;
-    for (let y = 0; y < WH; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const id = d[(y * 16 + z) * 16 + x]; if (id) { maxY = y; if (LIGHT[id]) this.lights.push([this.cx * 16 + x, y, this.cz * 16 + z, LIGHT[id]]); } }
+    // light sources. Lava seas would add hundreds of lights per chunk (slow meshing in the Nether), so only exposed lava on a
+    // 3-block grid counts; the lava itself still glows at full brightness.
+    for (let y = 0; y < WH; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const i = (y * 16 + z) * 16 + x; const id = d[i]; if (id) { maxY = y; if (LIGHT[id]) {
+      if (id === B.LAVA && (x % 4 || z % 4 || (y < WH - 1 && d[i + 256] && OPAQUE[d[i + 256]]) || (y < WH - 1 && d[i + 256] === B.LAVA))) continue;
+      this.lights.push([this.cx * 16 + x, y, this.cz * 16 + z, LIGHT[id]]); } } }
+    if (this.lights.length > 16) { const L = this.lights, step = L.length / 16; this.lights = []; for (let k = 0; k < 16; k++) { const l = L[Math.floor(k * step)]; this.lights.push([l[0], l[1], l[2], Math.min(1, l[3] * 1.1)]); } }
     this.maxY = maxY;
     for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) this.calcTop(x, z);
   }
@@ -289,15 +295,46 @@ for (const F of FACES) {
 }
 const UVC = [[0, 0], [1, 0], [1, 1], [0, 1]];
 const AO_LV = [0.42, 0.6, 0.8, 1.0];
-function tileUV(t) { const e = 0.0004; const u0 = (t % ATN) / ATN + e, u1 = (t % ATN + 1) / ATN - e; const vTop = 1 - Math.floor(t / ATN) / ATN - e, vBot = 1 - (Math.floor(t / ATN) + 1) / ATN + e; return [u0, vBot, u1, vTop]; }
+// ---- Detailed textures: every 16px tile is upscaled 4x (Scale2x twice: smooth diagonals, crisp edges), given relief shading and
+// fine grain, and stored with a gutter so mipmaps don't bleed between tiles. "Low" graphics keeps the classic 16px atlas.
+const HD = (() => { const touch = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window); try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); return (s.gfx || (touch ? 'low' : 'high')) !== 'low' && s.tex !== 'classic'; } catch (e) { return !touch; } })();
+const TS = HD ? 64 : 16, PAD = HD ? 4 : 0, CELL = TS + 2 * PAD, AW = ATN * CELL;
+const hdCanvas = HD ? document.createElement('canvas') : atlasCanvas; if (HD) { hdCanvas.width = hdCanvas.height = AW; }
+const hdCtx = HD ? hdCanvas.getContext('2d') : null;
+function scale2x(src, n) { const m = n * 2, out = new Uint32Array(m * m); const at = (x, y) => src[clamp(y, 0, n - 1) * n + clamp(x, 0, n - 1)];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const P = at(x, y), A = at(x, y - 1), Bq = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1); let e0 = P, e1 = P, e2 = P, e3 = P;
+    if (C === A && C !== D && A !== Bq) e0 = A; if (A === Bq && A !== C && Bq !== D) e1 = Bq; if (D === C && D !== Bq && C !== A) e2 = C; if (Bq === D && Bq !== A && D !== C) e3 = D;
+    out[(y * 2) * m + x * 2] = e0; out[(y * 2) * m + x * 2 + 1] = e1; out[(y * 2 + 1) * m + x * 2] = e2; out[(y * 2 + 1) * m + x * 2 + 1] = e3; }
+  return out; }
+function quantize(d) { const u = new Uint32Array(256); for (let i = 0; i < 256; i++) { const k = i * 4; u[i] = ((d[k + 3] > 127 ? 255 : 0) << 24 | (d[k + 2] & 0xfc) << 16 | (d[k + 1] & 0xfc) << 8 | (d[k] & 0xfc)) >>> 0; } return u; }
+function hdTile(i) {
+  if (!HD) return; const sx = (i % ATN) * 16, sy = Math.floor(i / ATN) * 16; const src = actx.getImageData(sx, sy, 16, 16).data;
+  // Scale2x needs exact colour matches, so compare on slightly quantised colours but output the original colours
+  const q = quantize(src); const orig = new Map(); for (let k = 0; k < 256; k++) if (!orig.has(q[k])) orig.set(q[k], k);
+  const up = scale2x(scale2x(q, 16), 32); const img = hdCtx.createImageData(CELL, CELL); const o = img.data; const lum = new Float32Array(TS * TS);
+  for (let k = 0; k < TS * TS; k++) { const s = orig.get(up[k]) * 4; lum[k] = (src[s] * 0.3 + src[s + 1] * 0.59 + src[s + 2] * 0.11) / 255; }
+  const L = (x, y) => lum[clamp(y, 0, TS - 1) * TS + clamp(x, 0, TS - 1)];
+  for (let y = -PAD; y < TS + PAD; y++) for (let x = -PAD; x < TS + PAD; x++) {
+    const cx = clamp(x, 0, TS - 1), cy = clamp(y, 0, TS - 1); const s = orig.get(up[cy * TS + cx]) * 4;
+    const relief = clamp(1 + (L(cx - 1, cy - 1) - L(cx + 1, cy + 1)) * 0.55, 0.86, 1.14);
+    const h = (Math.imul(cx * 73856093 ^ cy * 19349663 ^ i * 83492791, 2654435761) >>> 0) / 4294967296; const grain = 0.965 + h * 0.07;
+    const t = ((y + PAD) * CELL + (x + PAD)) * 4; const f = relief * grain;
+    o[t] = clamp(src[s] * f, 0, 255); o[t + 1] = clamp(src[s + 1] * f, 0, 255); o[t + 2] = clamp(src[s + 2] * f, 0, 255); o[t + 3] = src[s + 3];
+  }
+  hdCtx.putImageData(img, (i % ATN) * CELL, Math.floor(i / ATN) * CELL); return img;
+}
+if (HD) for (let i = 0; i < tileCount; i++) hdTile(i);
+function tileUV(t) { const e = HD ? 0.5 / AW : 0.0004; const col = t % ATN, row = Math.floor(t / ATN); const u0 = (col * CELL + PAD) / AW + e, u1 = (col * CELL + PAD + TS) / AW - e; const vTop = 1 - (row * CELL + PAD) / AW - e, vBot = 1 - (row * CELL + PAD + TS) / AW + e; return [u0, vBot, u1, vTop]; }
+// u/v of a tile's top-left corner and the size of one source pixel, for sub-tile geometry such as torches
+function tileSub(t) { const col = t % ATN, row = Math.floor(t / ATN); return { u0: (col * CELL + PAD) / AW, v0: 1 - (row * CELL + PAD) / AW, px: TS / 16 / AW }; }
 const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
 
 // ---- Materials ----
-const atlasTex = new THREE.CanvasTexture(atlasCanvas); atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false;
+const atlasTex = new THREE.CanvasTexture(hdCanvas); if (HD) { atlasTex.magFilter = THREE.LinearFilter; atlasTex.minFilter = THREE.LinearMipmapLinearFilter; atlasTex.generateMipmaps = true; } else { atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false; }
 const dummyDepth = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 const chunkUniforms = { atlas: { value: atlasTex }, daylight: { value: 1 }, fogColor: { value: new THREE.Color(0x87ceeb) }, fogNear: { value: 40 }, fogFar: { value: 80 }, skyTint: { value: new THREE.Color(1, 1, 1) }, time: { value: 0 },
   shadowOn: { value: 0 }, shadowMap: { value: dummyDepth }, shadowMatrix: { value: new THREE.Matrix4() }, shadowTexel: { value: 1 / 2048 }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunK: { value: 0 },
-  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 }, minLight: { value: 0 } };
+  skyRefl: { value: new THREE.Color(0.6, 0.8, 1) }, mist: { value: 0 }, mistY: { value: 38 }, minLight: { value: 0 }, sunCol: { value: new THREE.Color(1, 0.95, 0.85) } };
 const VS = `attribute vec2 light; attribute float shade; attribute float sway; varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 uniform float fogNear; uniform float fogFar; uniform float time;
 void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
@@ -307,7 +344,7 @@ void main(){ vUv=uv; vLight=light; vShade=shade; vec3 p=position;
  vec4 wp=modelMatrix*vec4(p,1.0); vWorld=wp.xyz; vec4 mv=viewMatrix*wp; vDist=length(mv.xyz); vFog=smoothstep(fogNear,fogFar,vDist); gl_Position=projectionMatrix*mv; }`;
 const FS_COMMON = `uniform sampler2D atlas; uniform float daylight; uniform vec3 fogColor; uniform vec3 skyTint; uniform float alphaV; uniform float time;
 uniform float shadowOn; uniform sampler2D shadowMap; uniform mat4 shadowMatrix; uniform float shadowTexel; uniform vec3 sunDir; uniform float sunK;
-uniform vec3 skyRefl; uniform float mist; uniform float mistY; uniform float minLight;
+uniform vec3 skyRefl; uniform float mist; uniform float mistY; uniform float minLight; uniform vec3 sunCol;
 varying vec2 vUv; varying vec2 vLight; varying float vShade; varying float vFog; varying vec3 vWorld; varying float vDist;
 float shadowAt(vec3 wp, vec3 n){
  vec4 sc=shadowMatrix*vec4(wp+n*0.05,1.0); vec3 s=sc.xyz*0.5+0.5;
@@ -318,9 +355,14 @@ float shadowAt(vec3 wp, vec3 n){
 float fogMix(){ float m = mist*clamp((mistY-vWorld.y)/12.0,0.0,1.0)*smoothstep(6.0,48.0,vDist); return max(vFog, m*0.85); }
 vec3 lightFor(vec3 n){
  float sky=vLight.x*daylight;
- if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0){ float ndl=dot(n,sunDir); float lit= ndl>0.0 ? shadowAt(vWorld,n)*smoothstep(0.0,0.3,ndl) : 0.0; sky*=mix(1.0-0.38*sunK, 1.0+0.06*sunK, lit); }
+ // sunlight: faces turned to the sun get warm direct light (blocked by shadows on High); the rest get cooler sky light
+ float ndl=dot(n,sunDir); float lit= ndl>0.0 ? smoothstep(0.0,0.25,ndl) : 0.0;
+ if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0 && lit>0.0) lit*=shadowAt(vWorld,n);
+ float out_=sunK*smoothstep(0.35,0.9,vLight.x);
+ vec3 amb=skyTint*sky*mix(vec3(1.0),vec3(0.66,0.71,0.82),out_);
+ vec3 sun=sunCol*lit*out_*daylight*(0.32+0.2*max(ndl,0.0));
  float fl=0.92+0.08*sin(time*7.0+vWorld.x*1.3+vWorld.z*0.7)*sin(time*11.3+vWorld.y*2.1);
- vec3 l=max(skyTint*sky, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(max(0.07,minLight))); }`;
+ vec3 l=max(amb+sun, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(max(0.07,minLight))); }`;
 const FS = FS_COMMON + `
 void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard;
  float f=fogMix();
@@ -540,7 +582,7 @@ class World {
         continue;
       }
       if (def.render === 'torch') {
-        const t = def.texIds[0]; const u0 = (t % ATN) / ATN, v0 = 1 - Math.floor(t / ATN) / ATN; const px = 1 / (ATN * 16);
+        const t = def.texIds[0]; const { u0, v0, px } = tileSub(t);
         const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }

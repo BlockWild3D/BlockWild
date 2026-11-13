@@ -88,6 +88,9 @@ function gfxFrame(dt, ang, se, day) {
   const useMoon = se < 0; const L = useMoon ? sun.clone().negate() : sun;
   skyUniforms.sunDir.value.copy(sun); chunkUniforms.sunDir.value.copy(L);
   sunMesh.material.color.setRGB(1, 1, 1).lerp(new THREE.Color(1, 0.62, 0.38), skyUniforms.sunsetK.value * 0.8);
+  // colour of direct light: white-gold by day, orange near sunset, pale blue moonlight
+  const sc = chunkUniforms.sunCol.value; if (useMoon) sc.setRGB(0.5, 0.62, 0.95); else sc.setRGB(1.0, 0.95, 0.84).lerp(new THREE.Color(1.0, 0.6, 0.32), Math.min(1, skyUniforms.sunsetK.value));
+  dl.position.copy(L); dl.color.copy(sc); dl.intensity = 0.2 + 0.45 * chunkUniforms.sunK.value; hemiL.intensity = 0.62 + 0.1 * (1 - chunkUniforms.sunK.value);
   const elev = Math.abs(se);
   chunkUniforms.sunK.value = world && world.dim === 'overworld' ? smoothstep(0.03, 0.2, elev) * (useMoon ? 0.35 : 1) : 0;
   chunkUniforms.skyRefl.value.copy(skyUniforms.horizon.value).lerp(skyUniforms.zenith.value, 0.4);

@@ -109,6 +109,12 @@ const ANIM = {
   portal: (t) => (set, r) => each((x, y) => { const dx = x - 7.5, dy = y - 7.5; const d = Math.hypot(dx, dy); const a = Math.atan2(dy, dx); const v = Math.sin(a * 3 + d * 0.9 - t * 3) * 0.5 + Math.sin(d * 1.3 - t * 2) * 0.3 + Math.sin((x + y) * 0.7 + t) * 0.2; set(x, y, v > 0.45 ? [200, 130, 255] : v > 0 ? [138, 56, 226] : v > -0.4 ? [100, 30, 186] : [70, 12, 140]); }),
 };
 let animT = 0;
-function animateTiles(dt, tex) { animT += dt; if (animT < 0.1) return; animT = 0; const t = performance.now() / 1000; for (const k in ANIM) makeTile(k, ANIM[k](t)); if (tex) tex.needsUpdate = true; }
+// animated tiles: repaint, then (detailed mode) upscale just those tiles and copy them into the GPU texture in place
+const animTex = {};
+function animateTiles(dt, tex) { animT += dt; if (animT < 0.1) return; animT = 0; const t = performance.now() / 1000; for (const k in ANIM) makeTile(k, ANIM[k](t)); if (!tex) return;
+  if (!HD || typeof renderer === 'undefined' || !renderer.copyTextureToTexture || !tex.__done) { if (HD) for (const k in ANIM) hdTile(TILE[k]); tex.needsUpdate = true; tex.__done = true; return; }
+  for (const k in ANIM) { const i = TILE[k]; const img = hdTile(i); let st = animTex[k]; if (!st) { const c = document.createElement('canvas'); c.width = c.height = CELL; st = animTex[k] = { c, x: c.getContext('2d'), tex: new THREE.CanvasTexture(c) }; st.tex.flipY = tex.flipY; }
+    st.x.putImageData(img, 0, 0); st.tex.needsUpdate = true; const px = (i % ATN) * CELL, py = Math.floor(i / ATN) * CELL;
+    renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AW - py - CELL : py), st.tex, tex); } }
 for (const k in ANIM) makeTile(k, ANIM[k](0));
 buildIcons();

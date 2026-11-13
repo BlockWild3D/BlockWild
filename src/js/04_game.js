@@ -25,6 +25,7 @@ handScene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.9)); const hdl = n
 const handGroup = new THREE.Group(); handScene.add(handGroup); let handMesh = null, handId = -1;
 const offGroup = new THREE.Group(); handScene.add(offGroup); let offMesh = null, offId = -1;
 const handMat = new THREE.MeshLambertMaterial({ map: atlasTex, alphaTest: 0.5 });
+if (HD) atlasTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); handCam.aspect = w / h; handCam.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 
@@ -855,13 +856,15 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   try { tick(dt); } catch (e) { console.error(e); if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
 }
+// the Nether's thick fog hides everything past ~5 chunks, so don't load or draw further there
+function effRD() { return world && world.dim === 'nether' ? Math.min(S.renderDist, 5) : S.renderDist; }
 function tick(dt) {
   fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').style.opacity = 0; }
   if (nameT > 0) { nameT -= dt; if (nameT <= 0) $('itemname').style.opacity = 0; }
   if (!S.started || !world) { renderer.setClearColor(0x000000); renderer.clear(); return; }
   const P = player;
-  world.update(P.pos.x, P.pos.z, S.renderDist, (S.loading || S.boost) ? 40 : 8); S.boostT = (S.boostT || 0) - dt; if (S.boostT <= 0) { S.boostT = 0.5; S.boost = world.meshedAround(P.pos.x, P.pos.z, 1) < 1; }
+  world.update(P.pos.x, P.pos.z, effRD(), (S.loading || S.boost) ? 40 : 8); S.boostT = (S.boostT || 0) - dt; if (S.boostT <= 0) { S.boostT = 0.5; S.boost = world.meshedAround(P.pos.x, P.pos.z, 1) < 1; }
   if (S.loading) {
     const p = world.meshedAround(P.pos.x, P.pos.z, Math.min(2, S.renderDist)); $('loadBar').style.width = Math.round(p * 100) + '%';
     if (p >= 1) finishLoading();
