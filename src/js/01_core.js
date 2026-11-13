@@ -278,8 +278,10 @@ for (const d of BL) { SOLID[d.id] = d.solid ? 1 : 0; OPAQUE[d.id] = d.opaque ? 1
 const ITEMS = []; const IT = {};
 function defItem(id, key, name, o) { ITEMS[id] = Object.assign({ id, key, name, stack: 64, kind: 'mat' }, o); IT[key] = id; }
 for (const d of BL) if (d.id !== 0) defItem(d.id, d.key, d.name, { kind: 'block', block: d.id });
-let nid = 100;
-const M = (key, name, o) => defItem(nid++, key, name, o || {});
+// non-block items start at 256 so blocks (including modded ones) can use every id up to 255.
+// Old saves numbered these items from 100 in this same order; LEGACY_ITEMS lets the loader convert them.
+let nid = 256; const LEGACY_ITEMS = [];
+const M = (key, name, o) => { LEGACY_ITEMS.push(key); defItem(nid++, key, name, o || {}); };
 M('stick', 'Stick'); M('coal', 'Coal'); M('iron_ingot', 'Iron Ingot'); M('gold_ingot', 'Gold Ingot'); M('diamond', 'Diamond');
 M('string', 'String'); M('bone', 'Bone'); M('arrow', 'Arrow'); M('gunpowder', 'Gunpowder'); M('feather', 'Feather'); M('leather', 'Leather');
 M('apple', 'Apple', { kind: 'food', heal: 4 }); M('raw_pork', 'Raw Porkchop', { kind: 'food', heal: 3 }); M('cooked_pork', 'Cooked Porkchop', { kind: 'food', heal: 8 });

@@ -421,6 +421,12 @@ class World {
     const localHints = [];
     if (this.dim === 'overworld') { const sh = g.strongholds.find(s => s.cx === cx && s.cz === cz); if (sh) buildStronghold(this, c, sh); }
     if (this.dim === 'nether') buildFortressChunk(this, c, localHints);
+    if (MODS.hooks.chunkGenerate) { const w = this; const toId = (k) => typeof k === 'number' ? k : k === 'air' ? 0 : B[String(k).toUpperCase()];
+      modFire('chunkGenerate', { dimension: this.dim, cx, cz, x: bx, z: bz, random: mulberry32(ihash(cx, cz, 4242, this.seed)),
+        get: (lx, y, lz) => { const id = (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 0 || y >= WH) ? 0 : d[(y * 16 + lz) * 16 + lx]; return BL[id] ? BL[id].key : 'air'; },
+        set: (lx, y, lz, k) => { const id = toId(k); if (id === undefined || lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= WH) return; d[(y * 16 + lz) * 16 + lx] = id; },
+        surfaceY: (lx, lz) => { for (let y = WH - 1; y > 0; y--) { const id = d[(y * 16 + lz) * 16 + lx]; if (SOLID[id] || BL[id].fluid) return y + 1; } return 1; },
+        biome: (lx, lz) => this.dim === 'overworld' ? BIO_NAME[g.column(bx + lx, bz + lz).b] : this.dim }); }
     const e = this.edits.get(c.key); if (e) for (const [i, id] of e) d[i] = id;
     c.scanMeta();
     this.chunks.set(c.key, c);
@@ -473,6 +479,16 @@ class World {
           // diamonds (like MC) are often skipped where they would touch open air
           if (d[j] === B.STONE && !(id === B.DIAMOND_ORE && r() < 0.5 && (d[j + 256] === 0 || d[j - 256] === 0 || (x > 0 && d[j - 1] === 0) || (x < 15 && d[j + 1] === 0)))) d[j] = id; }
         const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--;
+      }
+    }
+    // ores added by mods
+    for (const [key, cnt, sz, mnY, mxY, shape, rep, biomes] of MODS.ores) {
+      const id = B[String(key).toUpperCase()], repId = B[String(rep).toUpperCase()]; if (!id || !repId) continue;
+      if (biomes && !biomes.some(n => BIO_NAME[cols[136].b].toLowerCase().includes(String(n).toLowerCase()))) continue;
+      for (let i = 0; i < cnt; i++) {
+        const q = shape === 'tri' ? (r() + r()) / 2 : shape === 'low' ? Math.min(r(), r()) : r();
+        let x = r() * 16 | 0, y = mnY + (q * (mxY - mnY) | 0), z = r() * 16 | 0;
+        for (let k = 0; k < sz; k++) { if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH - 1) { const j = (y * 16 + z) * 16 + x; if (d[j] === repId) d[j] = id; } const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--; }
       }
     }
     // small decorations

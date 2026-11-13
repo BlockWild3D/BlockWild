@@ -370,6 +370,7 @@ function breakTime(id, tool) {
 }
 function breakBlock(x, y, z) {
   const id = world.get(x, y, z); if (!id) return;
+  if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0);
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd, 0.9);
   if (S.mode === 'survival') { const hd = player.heldDef(); const dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); }
@@ -387,7 +388,7 @@ function placeBlock(hit, id) {
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);
-  Sfx.play(BL[id].snd, 0.8); return true;
+  Sfx.play(BL[id].snd, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
 }
 function pickBlock() { if (S.mode !== 'creative') return; const hit = raycast(player.eye(), lookDir(), 7); if (!hit) return; let id = hit.id; if (BL[id].hidden) id = id === B.END_PORTAL_FRAME_EYE ? B.END_PORTAL_FRAME : B.NETHER_PORTAL; for (let i = 0; i < 9; i++) if (player.inv[i] && player.inv[i].id === id) { selectSlot(i); return; } player.inv[player.sel] = { id, count: stackMax(id) }; invDirty(); selectSlot(player.sel); }
 function dropHeld(all) { const h = player.held(); if (!h) return; const n = all ? h.count : 1; const d = lookDir(); const e = player.eye(); const it = dropItem(h.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false); it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); S.swing = 1; }
@@ -448,6 +449,7 @@ function fireBow(eye, dir) {
 }
 function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
+  if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
@@ -560,20 +562,20 @@ function updatePlayer(dt) {
   const sprint = (!P.flying && down && f > 0) || keys.ControlLeft;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = P.flying ? (sprint ? 22 : 11) : sprint ? 5.8 : 4.3; if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : sprint ? 5.8 : 4.3) * MODS.physics.speed; if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
   P.vel.x += (wx - P.vel.x) * k; P.vel.z += (wz - P.vel.z) * k;
   if (P.flying) { const vy = (jump ? speed * 0.75 : 0) - (down ? speed * 0.75 : 0); P.vel.y += (vy - P.vel.y) * (1 - Math.exp(-dt * 10)); }
   else if (water || lava) { P.vel.y -= (lava ? 6 : 9) * dt; P.vel.y *= Math.exp(-dt * (lava ? 4 : 2.5)); if (jump) P.vel.y = Math.min(P.vel.y + (lava ? 20 : 28) * dt, lava ? 2.2 : 3.4); P.vel.y = Math.max(P.vel.y, lava ? -2 : -4); }
-  else { P.vel.y = Math.max(P.vel.y - 28 * dt, -55); if (jump && P.onGround) P.vel.y = 8.6; }
+  else { P.vel.y = Math.max(P.vel.y - MODS.physics.gravity * dt, -55); if (jump && P.onGround) P.vel.y = MODS.physics.jump; }
   const ox = P.pos.x, oz = P.pos.z;
   moveEntity(P, dt);
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;
   if (S.mode !== 'creative') P.flying = false;
-  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4) { P.hurt(Math.floor(fall - 3), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
+  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 && Math.floor((fall - 3) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -30) { if (S.mode === 'survival') P.die('the void'); else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && S.mode === 'survival') { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
@@ -715,13 +717,24 @@ function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.
 
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
-function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k])); const fix = (s) => s && ITEMS[s.id] ? { id: s.id, count: s.count } : null; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
+// saves record which block/item key each id meant, so adding or removing mods (or new game versions) never scrambles a world
+function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= 256) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i }; }
+function makeRemap(data) {
+  const keys = data.keys; const bmap = [], imap = {};
+  if (keys) { keys.b.forEach((k, id) => { const n = B[String(k).toUpperCase()]; bmap[id] = n === undefined ? 0 : n; }); for (const id in keys.i) { const n = IT[keys.i[id]]; if (n !== undefined) imap[id] = n; } }
+  else { for (let id = 0; id < 100; id++) bmap[id] = id < BL.length ? id : 0; LEGACY_ITEMS.forEach((k, i) => imap[100 + i] = IT[k]); }
+  const block = (id) => bmap[id] !== undefined ? bmap[id] : 0;
+  const item = (id) => id < 256 && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
+  return { block, item };
+}
+let REMAP = { block: (id) => id, item: (id) => id };
+function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k].map(([i, id]) => [i, REMAP.block(id)]))); const fix = (s) => { if (!s) return null; const id = REMAP.item(s.id); return id && ITEMS[id] ? { id, count: s.count } : null; }; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
 function saveGame(notify) {
   if (!world || S.loading) return;
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 2, seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel }, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel }, worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -743,6 +756,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
+  REMAP = makeRemap(data);
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(37).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
@@ -750,10 +764,10 @@ function startWorld(data) {
   S.arrival = null; S.portalLock = true;
   if (data.player) {
     const p = data.player; player.pos.fromArray(p.pos); player.yaw = p.yaw || 0; player.pitch = p.pitch || 0; player.health = p.health || 20; player.spawn.fromArray(p.spawn || p.pos); player.sel = p.sel || 0;
-    (p.inv || []).forEach((s, i) => { if (s && ITEMS[s.id]) player.inv[i] = { id: s.id, count: s.count }; });
+    (p.inv || []).forEach((s, i) => { const id = s && REMAP.item(s.id); if (id && ITEMS[id]) player.inv[i] = { id, count: s.count }; });
     S.newWorld = false;
   } else {
-    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, 80, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true;
+    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, 80, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true; S.firstStart = true;
     if (S.mode === 'creative') ['grass', 'stone', 'planks', 'glass', 'brick', 'log', 'torch', 'tnt', 'glowstone'].forEach((k, i) => player.inv[i] = { id: IT[k], count: stackMax(IT[k]) });
   }
   S.loading = true; S.started = true; S.paused = false; updateHearts(); invDirty();
@@ -770,6 +784,7 @@ function finishLoading() {
     player.spawn.copy(player.pos); S.newWorld = false; toast(S.mode === 'survival' ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
   else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) player.pos.y = world.surfaceY(x, z) + 0.01; if (world.dim === 'end') EndFight.enter(); }
   updateHearts(); selectSlot(player.sel);
+  if (MODS.hooks.worldStart) modFire('worldStart', { newWorld: !!S.firstStart, dimension: world.dim }); S.firstStart = false;
   if (!S.touch && !S.locked && !S.fallback) show('clickplay', true);
 }
 
@@ -796,6 +811,7 @@ function tick(dt) {
     S.time += dt / DAYLEN; if (S.time >= 1) { S.time -= 1; S.day++; }
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
     updatePlayer(dt); if (world) updateInteraction(dt);
+    if (MODS.hooks.tick) modFire('tick', dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;

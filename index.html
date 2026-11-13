@@ -34,7 +34,7 @@ button{font-family:'VT323',monospace}
 #hotbar .slot.sel{border-color:#fff;outline:2px solid #fff;outline-offset:-1px;background:rgba(140,140,140,.6)}
 .slot img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
 .slot .cnt{position:absolute;right:2px;bottom:-3px;font-size:21px;line-height:1;text-shadow:2px 2px 0 #3f3f3f;pointer-events:none;color:#fff}
-#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:7;text-align:center;transition:opacity .4s;opacity:0}
+#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:40;text-align:center;transition:opacity .4s;opacity:0}
 #debug{position:fixed;left:6px;top:6px;font-size:19px;line-height:1.05;text-shadow:1px 1px 0 #000;white-space:pre;pointer-events:none;z-index:7;background:rgba(0,0,0,.25);padding:3px 6px}
 #info{position:fixed;right:8px;top:6px;font-size:20px;text-shadow:2px 2px 0 #000;text-align:right;pointer-events:none;z-index:6}
 #hurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 160px 40px rgba(200,0,0,.7);opacity:0;transition:opacity .25s;z-index:4}
@@ -64,6 +64,23 @@ button{font-family:'VT323',monospace}
 #loading .bar{width:280px;height:10px;border:2px solid #fff}
 #loading .bar i{display:block;height:100%;background:#7cc84b;width:0}
 #clickplay{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;font-size:32px;text-shadow:2px 2px 0 #000;background:rgba(0,0,0,.25);cursor:pointer}
+/* mods */
+#mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
+#mods .title{font-size:clamp(24px,4.5vw,44px)}
+.modnote{font-size:20px;color:#ffd27a;max-width:min(640px,92vw);text-align:center;margin:4px 0 10px}
+#modList{width:min(680px,94vw);max-height:42vh;overflow:auto;background:rgba(0,0,0,.45);border:2px solid #000;box-shadow:inset 0 0 0 2px #555}
+.moditem{display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:2px solid #2a2a2a}
+.moditem .mi{flex:1;min-width:0}
+.moditem .mn{font-size:24px;color:#fff}.moditem .mn small{font-size:18px;color:#aaa;margin-left:6px}
+.moditem .md{font-size:19px;color:#ccc;line-height:1.1}
+.moditem .ms{font-size:18px;color:#9ed36c}.moditem .ms.err{color:#ff8a7a}.moditem .ms.off{color:#999}.moditem .ms.pend{color:#ffd27a}
+.sbtn{height:34px;padding:0 10px;font-size:20px;color:#fff;background:#5a5a5a;border:2px solid #000;box-shadow:inset 2px 2px 0 #8a8a8a,inset -2px -2px 0 #3a3a3a;cursor:pointer;font-family:'VT323';white-space:nowrap}
+.sbtn:hover{background:#7d86b8}.sbtn.on{background:#5b8a3c}.sbtn.red:hover{background:#a84a3a}
+.modempty{padding:18px;font-size:22px;color:#aaa;text-align:center}
+.modbar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:min(680px,94vw);margin:8px 0}
+#modPaste{width:min(680px,94vw);display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+#modCode{height:min(220px,28vh);background:#000;color:#cfe8b0;border:2px solid #a0a0a0;font:14px/1.35 ui-monospace,Consolas,monospace;padding:8px;resize:vertical}
+#modExamples{width:min(680px,94vw);background:rgba(0,0,0,.45);border:2px solid #000;margin-bottom:6px}
 /* inventory */
 #inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
 .panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;outline:2px solid #000;padding:10px;color:#3f3f3f;border-radius:3px}
@@ -159,6 +176,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
   <div class="help">
@@ -168,6 +186,24 @@ body.touch #hotbar .slot{width:40px;height:40px}
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
     follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.
   </div>
+</div>
+
+<div id="mods" class="screen hidden">
+  <div class="title">MODS</div>
+  <div class="modnote">Mods add blocks, items, recipes, world generation and new rules. A mod runs code inside your game, so only add mods from people you trust.</div>
+  <div id="modList"></div>
+  <div class="modbar">
+    <button class="sbtn" id="btnModFile">Add mod file (.js)</button>
+    <button class="sbtn" id="btnModPasteOpen">Paste mod code</button>
+    <button class="sbtn" id="btnModExamples">Example mods</button>
+  </div>
+  <div id="modPaste" class="hidden">
+    <textarea id="modCode" spellcheck="false" placeholder="// @name My Mod&#10;// @description What it does&#10;api.addItem('ruby', { name: 'Ruby', icon: { color: '#e0115f', style: 'gem' } });"></textarea>
+    <div class="modbar" style="margin:0"><button class="sbtn" id="btnModPasteAdd">Add this mod</button><button class="sbtn" id="btnModPasteCancel">Cancel</button></div>
+  </div>
+  <div id="modExamples" class="hidden"></div>
+  <button class="mbtn" id="btnModsDone">Done</button>
+  <input type="file" id="modFile" accept=".js,.txt,text/javascript" multiple style="display:none">
 </div>
 
 <div id="pause" class="screen hidden">
@@ -498,8 +534,10 @@ for (const d of BL) { SOLID[d.id] = d.solid ? 1 : 0; OPAQUE[d.id] = d.opaque ? 1
 const ITEMS = []; const IT = {};
 function defItem(id, key, name, o) { ITEMS[id] = Object.assign({ id, key, name, stack: 64, kind: 'mat' }, o); IT[key] = id; }
 for (const d of BL) if (d.id !== 0) defItem(d.id, d.key, d.name, { kind: 'block', block: d.id });
-let nid = 100;
-const M = (key, name, o) => defItem(nid++, key, name, o || {});
+// non-block items start at 256 so blocks (including modded ones) can use every id up to 255.
+// Old saves numbered these items from 100 in this same order; LEGACY_ITEMS lets the loader convert them.
+let nid = 256; const LEGACY_ITEMS = [];
+const M = (key, name, o) => { LEGACY_ITEMS.push(key); defItem(nid++, key, name, o || {}); };
 M('stick', 'Stick'); M('coal', 'Coal'); M('iron_ingot', 'Iron Ingot'); M('gold_ingot', 'Gold Ingot'); M('diamond', 'Diamond');
 M('string', 'String'); M('bone', 'Bone'); M('arrow', 'Arrow'); M('gunpowder', 'Gunpowder'); M('feather', 'Feather'); M('leather', 'Leather');
 M('apple', 'Apple', { kind: 'food', heal: 4 }); M('raw_pork', 'Raw Porkchop', { kind: 'food', heal: 3 }); M('cooked_pork', 'Cooked Porkchop', { kind: 'food', heal: 8 });
@@ -717,6 +755,147 @@ const UI_ICON = {
   flame: uiIcon(['....#....', '...##....', '...###...', '..####.#.', '.######..', '.#######.', '#########', '#########', '.#######.', '..#####..'], '#8b8b8b'),
   flameOn: uiIcon(['....#....', '...##....', '...###...', '..####.#.', '.######..', '.#######.', '#########', '#########', '.#######.', '..#####..'], '#ff9a2a'),
 };
+
+// ================= MODS: loader + modding API =================
+// Mods are plain JavaScript stored in localStorage. Enabled mods run here, after the base blocks/items/recipes exist and
+// before textures, icons, the atlas and the creative palette are built, so anything a mod registers behaves like base content.
+// Each mod's code runs as `function (api) { ... }`. See MODDING.md for the full API.
+const MODS = { list: [], loaded: [], errors: {}, hooks: {}, ores: [], physics: { gravity: 28, jump: 8.6, speed: 1, fallDamage: 1 } };
+function modsLoad() { try { return JSON.parse(localStorage.getItem('blockwild_mods') || '[]'); } catch (e) { return []; } }
+function modsSave(list) { try { localStorage.setItem('blockwild_mods', JSON.stringify(list)); return true; } catch (e) { return false; } }
+function modMeta(code, fallback) {
+  const m = {}; for (const line of code.split('\n').slice(0, 30)) { const k = line.match(/^\s*\/\/\s*@(\w+)\s+(.*)$/); if (k) m[k[1].toLowerCase()] = k[2].trim(); }
+  return { name: m.name || fallback || 'Unnamed mod', description: m.description || '', author: m.author || '', version: m.version || '' };
+}
+// ---- texture helpers ----
+function hexc(h) { if (Array.isArray(h)) return h; h = String(h).replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function modPainter(spec, kind) {
+  if (typeof spec === 'function') return spec;
+  if (typeof spec === 'string') spec = { color: spec };
+  if (!spec) spec = { color: '#ff00ff' };
+  if (spec.pixels) {
+    const pal = {}; for (const k in (spec.palette || {})) pal[k] = hexc(spec.palette[k]);
+    return (set) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const ch = (spec.pixels[y] || '')[x]; if (!ch || ch === '.' || ch === ' ' || !pal[ch]) set(x, y, [0, 0, 0], 0); else set(x, y, pal[ch]); } };
+  }
+  const c = hexc(spec.color || '#888888'), c2 = hexc(spec.color2 || mixc(c, [255, 255, 255], 0.45)), dk = mixc(c, [0, 0, 0], 0.4);
+  const st = spec.style || (kind === 'item' ? 'gem' : 'noise');
+  switch (st) {
+    case 'ore': return (set, r) => pOre(set, r, c, c2);
+    case 'planks': return (set, r) => pPlanks(set, r, c);
+    case 'bricks': return (set, r) => pBricks(set, r, c, hexc(spec.color2 || '#b0a89c'), 8, 4);
+    case 'leaves': return (set, r) => pLeaves(set, r, c);
+    case 'log': return (set, r) => pLogSide(set, r, c, dk);
+    case 'cobble': return (set, r) => pCobble(set, r, false);
+    case 'glass': return (set) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; set(x, y, e ? c : [0, 0, 0], e ? 255 : 0); });
+    case 'lamp': return (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, e ? dk : vary(d < 3 ? c2 : c, r, 10)); });
+    case 'solid': return (set) => each((x, y) => set(x, y, c));
+    case 'gem': return (s) => { for (let y = 2; y <= 14; y++) { const w = y <= 6 ? (y - 2) * 1.4 + 1 : (14 - y) * 0.75 + 0.5; for (let x = Math.round(8 - w); x <= Math.round(7 + w); x++) s(x, y, (y < 6 && x < 8) ? c2 : (x > 9 || y > 10) ? dk : c); } };
+    case 'ingot': return (s) => ingot(s, c, c2, dk);
+    case 'dust': return (s, r) => { blob(s, 8, 10, 6, 3.5, c, r); for (let i = 0; i < 10; i++) s(3 + r() * 10, 8 + r() * 5, c2); };
+    case 'ball': return (s, r) => { blob(s, 8, 8, 5.5, 5.5, c, r, dk); s(6, 6, c2); s(7, 6, c2); };
+    case 'pickaxe': return pickIcon(c, c2);
+    case 'sword': return swordIcon(c, c2);
+    default: return (set, r) => each((x, y) => { let q = vary(c, r, 12); if (r() < 0.12) q = vary(dk, r, 6); else if (r() < 0.06) q = vary(c2, r, 6); set(x, y, q); });
+  }
+}
+const _modImgQueue = [];
+function modTile(name, spec) {
+  if (TILE[name] === undefined && tileCount >= ATN * ATN) throw new Error('No room left in the texture atlas');
+  if (spec && spec.image) { const i = makeTile(name, modPainter({ color: spec.color || '#888888' })); _modImgQueue.push([i, spec.image]); return name; }
+  makeTile(name, modPainter(spec, 'block')); return name;
+}
+function modLoadImages() { // images (data: URLs or same-site files) are drawn into the atlas once loaded
+  for (const [i, src] of _modImgQueue) { const img = new Image(); img.onload = () => { actx.clearRect((i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); actx.imageSmoothingEnabled = false; actx.drawImage(img, (i % ATN) * 16, Math.floor(i / ATN) * 16, 16, 16); if (typeof atlasTex !== 'undefined') atlasTex.needsUpdate = true; for (const id of ITEM_IDS) if (ITEMS[id].kind === 'block' && BL[id].texIds && BL[id].texIds.includes(i)) { const c = blockIconCanvas(id); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); } }; img.src = src; }
+}
+function modFire(name, ...args) {
+  const hs = MODS.hooks[name]; if (!hs) return; let cancel = false;
+  for (const h of hs) { if (h.dead) continue; try { if (h.fn(...args) === false) cancel = true; } catch (e) { h.errs = (h.errs || 0) + 1; console.error('[mod ' + h.mod + '] ' + name + ':', e); if (h.errs >= 5) { h.dead = true; if (typeof toast === 'function') toast('Mod "' + h.mod + '" was stopped after repeated errors', 4); } } }
+  return cancel;
+}
+function makeModApi(mod) {
+  const ns = (key) => String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const tex6 = (o, key) => { // texture spec -> defBlock tex
+    const t = o.textures || o.texture || o.color || '#888888';
+    if (t && typeof t === 'object' && !t.pixels && !t.color && !t.image && !t.style && (t.top || t.side || t.bottom || t.all)) {
+      const all = t.all || t.side || t.top; const side = modTile(key + '_side', t.side || all), top = modTile(key + '_top', t.top || all), bot = modTile(key + '_bottom', t.bottom || t.top || all);
+      return { s: side, t: top, b: bot };
+    }
+    return modTile(key, t);
+  };
+  const api = {
+    mod,
+    // ---- content ----
+    addBlock(key, o = {}) {
+      key = ns(key); if (B[key.toUpperCase()] !== undefined) throw new Error('Block "' + key + '" already exists');
+      if (BL.length >= 256) throw new Error('No block ids left (max 255)');
+      const shape = o.shape || 'cube';
+      const def = { tex: tex6(o, key), hardness: o.hardness != null ? o.hardness : 1.5, tool: o.tool === 'pickaxe' || o.tool === 'pick' ? 'pick' : null, tier: o.tier || (o.tool ? 1 : 0), light: o.light || 0, snd: o.sound || 'stone', drop: o.drop === undefined ? key : o.drop, mod: mod.name };
+      if (shape === 'cross') Object.assign(def, { solid: false, opaque: false, render: 'cross', plant: true, hardness: o.hardness || 0, snd: o.sound || 'grass' });
+      if (o.transparent || shape === 'glass') Object.assign(def, { opaque: false, render: 'cutout', cullSame: true });
+      if (o.solid === false) def.solid = false;
+      const id = defBlock(key, o.name || key, def);
+      SOLID[id] = BL[id].solid ? 1 : 0; OPAQUE[id] = BL[id].opaque ? 1 : 0; PLANT[id] = BL[id].plant ? 1 : 0; LIGHT[id] = BL[id].light;
+      defItem(id, key, BL[id].name, { kind: 'block', block: id }); ITEM_IDS.push(id);
+      if (o.fuel) FUEL[key] = o.fuel;
+      return id;
+    },
+    addItem(key, o = {}) {
+      key = ns(key); if (IT[key] !== undefined) throw new Error('Item "' + key + '" already exists');
+      const opt = { stack: o.stack || 64, kind: 'mat', mod: mod.name };
+      if (o.food) Object.assign(opt, { kind: 'food', heal: o.food });
+      ICONP[key] = modPainter(o.icon || o.color || '#ff00ff', 'item');
+      const id = nid++; defItem(id, key, o.name || key, opt); ITEM_IDS.push(id);
+      if (o.fuel) FUEL[key] = o.fuel;
+      return id;
+    },
+    addTool(key, o = {}) {
+      key = ns(key); const type = o.type === 'sword' ? 'sword' : 'pick'; const tier = o.tier || 2;
+      ICONP[key] = modPainter(o.icon || { color: o.color || '#cccccc', color2: o.color2, style: type === 'sword' ? 'sword' : 'pickaxe' }, 'item');
+      const id = nid++; defItem(id, key, o.name || key, { kind: 'tool', stack: 1, tool: type, tier, speed: o.speed || (type === 'pick' ? tier * 2 : 1), dmg: o.damage || (type === 'sword' ? 3 + tier : 1 + tier), mod: mod.name }); ITEM_IDS.push(id);
+      return id;
+    },
+    addRecipe(out, count, pattern, keyMap) {
+      let r; if (Array.isArray(pattern) && keyMap) { const w = Math.max(...pattern.map(x => x.length)); r = RSH(out, count, pattern.map(x => x.padEnd(w, ' ')), keyMap); r.big = pattern.length > 2 || w > 2; }
+      else { r = RSL(out, count, pattern); r.big = pattern.length > 4; }
+      r.mod = mod.name; RECIPES.push(r); return r;
+    },
+    addShapelessRecipe(out, count, items) { return api.addRecipe(out, count, items); },
+    addSmelting(input, output) { SMELT[input] = output; },
+    addFuel(item, seconds) { FUEL[item] = seconds; },
+    addLoot(table, item, min = 1, max = 1, chance = 0.5) { (LOOT[table] = LOOT[table] || []).push([item, min, max, chance]); },
+    addOre(block, o = {}) { MODS.ores.push([block, o.veins || 4, o.size || 6, o.minY != null ? o.minY : 1, o.maxY != null ? o.maxY : 40, o.spread || 'uni', o.replace || 'stone', o.biomes || null]); },
+    // ---- events ----
+    on(event, fn) { (MODS.hooks[event] = MODS.hooks[event] || []).push({ fn, mod: mod.name }); },
+    // ---- game access (valid once a world is running) ----
+    get physics() { return MODS.physics; },
+    get player() { return typeof player !== 'undefined' ? player : null; },
+    get world() { return typeof world !== 'undefined' ? world : null; },
+    get dimension() { return typeof world !== 'undefined' && world ? world.dim : null; },
+    get mode() { return typeof S !== 'undefined' ? S.mode : null; },
+    get time() { return typeof S !== 'undefined' ? S.time : 0; }, set time(v) { S.time = ((v % 1) + 1) % 1; },
+    blockId: (key) => B[ns(key).toUpperCase()], itemId: (key) => IT[ns(key)],
+    getBlock(x, y, z) { const id = world.get(Math.floor(x), Math.floor(y), Math.floor(z)); return BL[id] ? BL[id].key : 'air'; },
+    setBlock(x, y, z, key) { const id = typeof key === 'number' ? key : (key === 'air' ? 0 : B[ns(key).toUpperCase()]); if (id === undefined) throw new Error('Unknown block ' + key); world.set(Math.floor(x), Math.floor(y), Math.floor(z), id); },
+    give(item, count = 1) { const id = typeof item === 'number' ? item : IT[ns(item)]; if (id === undefined) throw new Error('Unknown item ' + item); return addItem(id, count); },
+    spawnMob(type, x, y, z) { return spawnMob(type, x, y, z); },
+    lookingAt(maxDist = 6) { const h = raycast(player.eye(), lookDir(), maxDist); return h ? { x: h.x, y: h.y, z: h.z, key: BL[h.id].key, face: [h.nx, h.ny, h.nz] } : null; },
+    heal(n) { player.health = Math.min(20, player.health + n); updateHearts(); },
+    message(text, seconds) { toast(String(text), seconds || 3); },
+    explode(x, y, z, power) { explode(x, y, z, power || 3); },
+  };
+  return api;
+}
+// run enabled mods
+(function runMods() {
+  MODS.list = modsLoad();
+  for (const m of MODS.list) {
+    if (!m.enabled) continue;
+    const meta = modMeta(m.code, m.name);
+    const mod = { id: m.id, name: meta.name };
+    try { new Function('api', '"use strict";\n' + m.code)(makeModApi(mod)); MODS.loaded.push(m.id); }
+    catch (e) { MODS.errors[m.id] = String(e && e.message || e); console.error('[mod ' + meta.name + ']', e); }
+  }
+})();
 
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
@@ -1256,6 +1435,12 @@ class World {
     const localHints = [];
     if (this.dim === 'overworld') { const sh = g.strongholds.find(s => s.cx === cx && s.cz === cz); if (sh) buildStronghold(this, c, sh); }
     if (this.dim === 'nether') buildFortressChunk(this, c, localHints);
+    if (MODS.hooks.chunkGenerate) { const w = this; const toId = (k) => typeof k === 'number' ? k : k === 'air' ? 0 : B[String(k).toUpperCase()];
+      modFire('chunkGenerate', { dimension: this.dim, cx, cz, x: bx, z: bz, random: mulberry32(ihash(cx, cz, 4242, this.seed)),
+        get: (lx, y, lz) => { const id = (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 0 || y >= WH) ? 0 : d[(y * 16 + lz) * 16 + lx]; return BL[id] ? BL[id].key : 'air'; },
+        set: (lx, y, lz, k) => { const id = toId(k); if (id === undefined || lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= WH) return; d[(y * 16 + lz) * 16 + lx] = id; },
+        surfaceY: (lx, lz) => { for (let y = WH - 1; y > 0; y--) { const id = d[(y * 16 + lz) * 16 + lx]; if (SOLID[id] || BL[id].fluid) return y + 1; } return 1; },
+        biome: (lx, lz) => this.dim === 'overworld' ? BIO_NAME[g.column(bx + lx, bz + lz).b] : this.dim }); }
     const e = this.edits.get(c.key); if (e) for (const [i, id] of e) d[i] = id;
     c.scanMeta();
     this.chunks.set(c.key, c);
@@ -1308,6 +1493,16 @@ class World {
           // diamonds (like MC) are often skipped where they would touch open air
           if (d[j] === B.STONE && !(id === B.DIAMOND_ORE && r() < 0.5 && (d[j + 256] === 0 || d[j - 256] === 0 || (x > 0 && d[j - 1] === 0) || (x < 15 && d[j + 1] === 0)))) d[j] = id; }
         const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--;
+      }
+    }
+    // ores added by mods
+    for (const [key, cnt, sz, mnY, mxY, shape, rep, biomes] of MODS.ores) {
+      const id = B[String(key).toUpperCase()], repId = B[String(rep).toUpperCase()]; if (!id || !repId) continue;
+      if (biomes && !biomes.some(n => BIO_NAME[cols[136].b].toLowerCase().includes(String(n).toLowerCase()))) continue;
+      for (let i = 0; i < cnt; i++) {
+        const q = shape === 'tri' ? (r() + r()) / 2 : shape === 'low' ? Math.min(r(), r()) : r();
+        let x = r() * 16 | 0, y = mnY + (q * (mxY - mnY) | 0), z = r() * 16 | 0;
+        for (let k = 0; k < sz; k++) { if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH - 1) { const j = (y * 16 + z) * 16 + x; if (d[j] === repId) d[j] = id; } const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--; }
       }
     }
     // small decorations
@@ -2044,7 +2239,7 @@ class Mob {
   }
   remove() { G.scene.remove(this.root); for (const [m] of this.mats) m.dispose(); }
   dropLoot() {
-    const t = this.t;
+    const t = this.t; if (MODS.hooks.mobDeath) modFire('mobDeath', { type: this.type, x: this.pos.x, y: this.pos.y, z: this.pos.z });
     if (t.ai === 'magma') { if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob('magma_cube', this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
     for (const [k, a, b, p] of t.drops) if (Math.random() < p) { const n = a + Math.floor(Math.random() * (b - a + 1)); if (n > 0) dropItem(IT[k], n, this.pos.x, this.pos.y + 0.5, this.pos.z); }
   }
@@ -2748,6 +2943,7 @@ function breakTime(id, tool) {
 }
 function breakBlock(x, y, z) {
   const id = world.get(x, y, z); if (!id) return;
+  if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0);
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd, 0.9);
   if (S.mode === 'survival') { const hd = player.heldDef(); const dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); }
@@ -2765,7 +2961,7 @@ function placeBlock(hit, id) {
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);
-  Sfx.play(BL[id].snd, 0.8); return true;
+  Sfx.play(BL[id].snd, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
 }
 function pickBlock() { if (S.mode !== 'creative') return; const hit = raycast(player.eye(), lookDir(), 7); if (!hit) return; let id = hit.id; if (BL[id].hidden) id = id === B.END_PORTAL_FRAME_EYE ? B.END_PORTAL_FRAME : B.NETHER_PORTAL; for (let i = 0; i < 9; i++) if (player.inv[i] && player.inv[i].id === id) { selectSlot(i); return; } player.inv[player.sel] = { id, count: stackMax(id) }; invDirty(); selectSlot(player.sel); }
 function dropHeld(all) { const h = player.held(); if (!h) return; const n = all ? h.count : 1; const d = lookDir(); const e = player.eye(); const it = dropItem(h.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false); it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); S.swing = 1; }
@@ -2826,6 +3022,7 @@ function fireBow(eye, dir) {
 }
 function useAction(eye, dir) {
   const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = keys.ShiftLeft || keys.ShiftRight;
+  if (MODS.hooks.useItem && modFire('useItem', { item: hd ? hd.key : null, block: target ? { x: target.x, y: target.y, z: target.z, key: BL[target.id].key } : null, mob: targetMob ? targetMob.type : null })) { mouseR = false; return; }
   // mobs
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
@@ -2938,20 +3135,20 @@ function updatePlayer(dt) {
   const sprint = (!P.flying && down && f > 0) || keys.ControlLeft;
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = P.flying ? (sprint ? 22 : 11) : sprint ? 5.8 : 4.3; if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : sprint ? 5.8 : 4.3) * MODS.physics.speed; if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
   P.vel.x += (wx - P.vel.x) * k; P.vel.z += (wz - P.vel.z) * k;
   if (P.flying) { const vy = (jump ? speed * 0.75 : 0) - (down ? speed * 0.75 : 0); P.vel.y += (vy - P.vel.y) * (1 - Math.exp(-dt * 10)); }
   else if (water || lava) { P.vel.y -= (lava ? 6 : 9) * dt; P.vel.y *= Math.exp(-dt * (lava ? 4 : 2.5)); if (jump) P.vel.y = Math.min(P.vel.y + (lava ? 20 : 28) * dt, lava ? 2.2 : 3.4); P.vel.y = Math.max(P.vel.y, lava ? -2 : -4); }
-  else { P.vel.y = Math.max(P.vel.y - 28 * dt, -55); if (jump && P.onGround) P.vel.y = 8.6; }
+  else { P.vel.y = Math.max(P.vel.y - MODS.physics.gravity * dt, -55); if (jump && P.onGround) P.vel.y = MODS.physics.jump; }
   const ox = P.pos.x, oz = P.pos.z;
   moveEntity(P, dt);
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;
   if (S.mode !== 'creative') P.flying = false;
-  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4) { P.hurt(Math.floor(fall - 3), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
+  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 && Math.floor((fall - 3) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -30) { if (S.mode === 'survival') P.die('the void'); else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && S.mode === 'survival') { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
@@ -3093,13 +3290,24 @@ function saveSettings() { try { localStorage.setItem('blockwild_settings', JSON.
 
 // ---- save / load ----
 function packWorld(w) { const edits = {}; for (const [k, m] of w.edits) edits[k] = [...m]; const chests = {}; for (const [k, v] of w.chestInv) chests[k] = v; const furn = {}; for (const [k, v] of w.furnaces) furn[k] = v; return { edits, chests, furn }; }
-function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k])); const fix = (s) => s && ITEMS[s.id] ? { id: s.id, count: s.count } : null; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
+// saves record which block/item key each id meant, so adding or removing mods (or new game versions) never scrambles a world
+function saveKeys() { const i = {}; for (const id of ITEM_IDS) if (id >= 256) i[id] = ITEMS[id].key; return { b: BL.map(d => d.key), i }; }
+function makeRemap(data) {
+  const keys = data.keys; const bmap = [], imap = {};
+  if (keys) { keys.b.forEach((k, id) => { const n = B[String(k).toUpperCase()]; bmap[id] = n === undefined ? 0 : n; }); for (const id in keys.i) { const n = IT[keys.i[id]]; if (n !== undefined) imap[id] = n; } }
+  else { for (let id = 0; id < 100; id++) bmap[id] = id < BL.length ? id : 0; LEGACY_ITEMS.forEach((k, i) => imap[100 + i] = IT[k]); }
+  const block = (id) => bmap[id] !== undefined ? bmap[id] : 0;
+  const item = (id) => id < 256 && !(keys === undefined && id >= 100) ? (block(id) || null) : (imap[id] !== undefined ? imap[id] : null);
+  return { block, item };
+}
+let REMAP = { block: (id) => id, item: (id) => id };
+function unpackWorld(w, d) { if (!d) return; for (const k in (d.edits || {})) w.edits.set(Number(k), new Map(d.edits[k].map(([i, id]) => [i, REMAP.block(id)]))); const fix = (s) => { if (!s) return null; const id = REMAP.item(s.id); return id && ITEMS[id] ? { id, count: s.count } : null; }; for (const k in (d.chests || {})) w.chestInv.set(k, d.chests[k].map(fix)); for (const k in (d.furn || {})) { const f = d.furn[k]; w.furnaces.set(k, { s: f.s.map(fix), burn: f.burn || 0, burnMax: f.burnMax || 0, cook: f.cook || 0 }); } }
 function saveGame(notify) {
   if (!world || S.loading) return;
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 2, seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel }, worlds };
+    const data = { v: 3, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel }, worlds };
     localStorage.setItem('blockwild_save', JSON.stringify(data)); if (notify) toast('World saved', 1.5);
   } catch (e) { if (notify) toast('Could not save here (browser storage unavailable)', 3); }
 }
@@ -3121,6 +3329,7 @@ function startWorld(data) {
   S.dragonDead = !!data.dragonDead; S.crystalsGone = data.crystalsGone || []; S.dragonHp = data.dragonHp || 200;
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
+  REMAP = makeRemap(data);
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   world = Dim.get(dim); G.world = world; S.dim = dim;
   player.inv = new Array(37).fill(null); player.dead = false; player.flying = false; player.vel.set(0, 0, 0); player.peak = null;
@@ -3128,10 +3337,10 @@ function startWorld(data) {
   S.arrival = null; S.portalLock = true;
   if (data.player) {
     const p = data.player; player.pos.fromArray(p.pos); player.yaw = p.yaw || 0; player.pitch = p.pitch || 0; player.health = p.health || 20; player.spawn.fromArray(p.spawn || p.pos); player.sel = p.sel || 0;
-    (p.inv || []).forEach((s, i) => { if (s && ITEMS[s.id]) player.inv[i] = { id: s.id, count: s.count }; });
+    (p.inv || []).forEach((s, i) => { const id = s && REMAP.item(s.id); if (id && ITEMS[id]) player.inv[i] = { id, count: s.count }; });
     S.newWorld = false;
   } else {
-    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, 80, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true;
+    const [sx, sz] = findSpawn(world.gen); player.pos.set(sx + 0.5, 80, sz + 0.5); player.health = 20; player.yaw = Math.PI * 0.75; player.pitch = -0.1; player.sel = 0; S.newWorld = true; S.firstStart = true;
     if (S.mode === 'creative') ['grass', 'stone', 'planks', 'glass', 'brick', 'log', 'torch', 'tnt', 'glowstone'].forEach((k, i) => player.inv[i] = { id: IT[k], count: stackMax(IT[k]) });
   }
   S.loading = true; S.started = true; S.paused = false; updateHearts(); invDirty();
@@ -3148,6 +3357,7 @@ function finishLoading() {
     player.spawn.copy(player.pos); S.newWorld = false; toast(S.mode === 'survival' ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
   else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) player.pos.y = world.surfaceY(x, z) + 0.01; if (world.dim === 'end') EndFight.enter(); }
   updateHearts(); selectSlot(player.sel);
+  if (MODS.hooks.worldStart) modFire('worldStart', { newWorld: !!S.firstStart, dimension: world.dim }); S.firstStart = false;
   if (!S.touch && !S.locked && !S.fallback) show('clickplay', true);
 }
 
@@ -3174,6 +3384,7 @@ function tick(dt) {
     S.time += dt / DAYLEN; if (S.time >= 1) { S.time -= 1; S.day++; }
     const night = world.dim === 'overworld' && G.daylight < 0.3; if (night && !S.wasNight && S.mode === 'survival') toast('Night falls... monsters roam the land', 3); S.wasNight = night;
     updatePlayer(dt); if (world) updateInteraction(dt);
+    if (MODS.hooks.tick) modFire('tick', dt);
   }
   if (running && !S.loading) {
     const pp = P.pos;
@@ -3610,6 +3821,158 @@ function renderFrame() {
 function setGfx(q) { GFX.quality = q; for (const b of document.querySelectorAll('#gfxSeg button')) b.classList.toggle('on', b.dataset.m === q); saveSettings(); }
 for (const b of document.querySelectorAll('#gfxSeg button')) b.addEventListener('click', () => setGfx(b.dataset.m));
 setGfx(GFX.quality);
+
+// ================= MODS SCREEN =================
+const EXAMPLE_MODS = [
+`// @name Rubies
+// @description Ruby ore deep underground, rubies, glowing ruby blocks and ruby tools that beat diamond.
+// @author BlockWild
+// @version 1.0
+api.addItem('ruby', { name: 'Ruby', icon: { color: '#e0115f', style: 'gem' } });
+api.addBlock('ruby_ore', { name: 'Ruby Ore', texture: { color: '#e0115f', style: 'ore' }, hardness: 3, tool: 'pickaxe', tier: 3, drop: 'ruby' });
+api.addBlock('ruby_block', { name: 'Block of Ruby', texture: { color: '#c0104f', style: 'lamp' }, hardness: 5, tool: 'pickaxe', tier: 3, light: 0.5 });
+api.addTool('ruby_pickaxe', { name: 'Ruby Pickaxe', type: 'pickaxe', tier: 4, speed: 11, color: '#e0115f' });
+api.addTool('ruby_sword', { name: 'Ruby Sword', type: 'sword', tier: 4, damage: 9, color: '#e0115f' });
+api.addRecipe('ruby_block', 1, ['RRR', 'RRR', 'RRR'], { R: 'ruby' });
+api.addRecipe('ruby', 9, ['ruby_block']);
+api.addRecipe('ruby_pickaxe', 1, ['RRR', ' S ', ' S '], { R: 'ruby', S: 'stick' });
+api.addRecipe('ruby_sword', 1, ['R', 'R', 'S'], { R: 'ruby', S: 'stick' });
+api.addOre('ruby_ore', { veins: 2, size: 4, minY: 1, maxY: 18 });
+api.addLoot('dungeon', 'ruby', 1, 3, 0.3);
+api.addLoot('pyramid', 'ruby', 1, 2, 0.25);
+`,
+`// @name Moon Jump
+// @description Low gravity: jump about three blocks high, fall slowly and take half fall damage.
+// @author BlockWild
+// @version 1.0
+api.physics.gravity = 14;
+api.physics.jump = 9;
+api.physics.fallDamage = 0.5;
+`,
+`// @name Starter Kit
+// @description New survival worlds start with stone tools, torches, food and a crafting table.
+// @author BlockWild
+// @version 1.0
+api.on('worldStart', (e) => {
+  if (!e.newWorld || api.mode !== 'survival') return;
+  api.give('stone_pickaxe'); api.give('stone_sword');
+  api.give('torch', 16); api.give('cooked_pork', 8); api.give('crafting_table');
+  api.message('Starter kit added to your inventory');
+});
+`,
+`// @name Boom Staff
+// @description Craft a Boom Staff (TNT on two blaze rods) and right-click to blow up the block you are looking at, up to 48 blocks away.
+// @author BlockWild
+// @version 1.0
+api.addItem('boom_staff', { name: 'Boom Staff', stack: 1, icon: {
+  pixels: ['............rrr.', '...........rTTTr', '...........rTTTr', '...........rTTTr', '............rrr.', '...........b....', '..........b.....', '.........b......',
+           '........b.......', '.......b........', '......b.........', '.....b..........', '....b...........', '...b............', '..b.............', '................'],
+  palette: { r: '#7a1a12', T: '#d8382a', b: '#f0b030' } } });
+api.addRecipe('boom_staff', 1, ['  T', ' B ', 'B  '], { T: 'tnt', B: 'blaze_rod' });
+let cooldown = 0;
+api.on('tick', (dt) => { cooldown -= dt; });
+api.on('useItem', (e) => {
+  if (e.item !== 'boom_staff') return;
+  const hit = api.lookingAt(48);           // the block you are looking at, up to 48 blocks away
+  if (hit && cooldown <= 0) {
+    const p = api.player.pos;
+    if (Math.hypot(hit.x - p.x, hit.y - p.y, hit.z - p.z) < 5) api.message('Too close!', 1.5);
+    else { api.explode(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, 3); cooldown = 1; }
+  }
+  return false; // stop the normal right-click action
+});
+`,
+`// @name Sky Islands
+// @description Small floating islands with a tree drift high above the Overworld.
+// @author BlockWild
+// @version 1.0
+api.on('chunkGenerate', (c) => {
+  if (c.dimension !== 'overworld' || c.random() > 0.035) return;
+  const cx = 8, cz = 8, top = 74 + Math.floor(c.random() * 10), R = 4 + Math.floor(c.random() * 3);
+  for (let y = 0; y < R; y++) {
+    const r = R - y;
+    for (let x = -r; x <= r; x++) for (let z = -r; z <= r; z++) {
+      if (x * x + z * z > r * r + 1) continue;
+      c.set(cx + x, top - y, cz + z, y === 0 ? 'grass' : y < 2 ? 'dirt' : 'stone');
+    }
+  }
+  for (let y = 1; y <= 4; y++) c.set(cx, top + y, cz, 'log');
+  for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) for (let y = 3; y <= 5; y++)
+    if (Math.abs(x) + Math.abs(z) < (y === 5 ? 2 : 4) && !(x === 0 && z === 0 && y < 5)) c.set(cx + x, top + y, cz + z, 'leaves');
+  if (c.random() < 0.5) { c.set(cx + 2, top + 1, cz, 'chest'); }
+});
+`,
+`// @name Endless Day
+// @description The sun never sets: time stops at midday.
+// @author BlockWild
+// @version 1.0
+api.on('tick', () => { api.time = 0.25; });
+`,
+];
+
+let modsChanged = false;
+const modsList = () => modsLoad();
+function modStatus(m) {
+  if (MODS.errors[m.id]) return ['err', 'Error: ' + MODS.errors[m.id]];
+  const running = MODS.loaded.includes(m.id);
+  if (m.enabled && !running) return ['pend', 'Turns on when you press Done'];
+  if (!m.enabled && running) return ['pend', 'Turns off when you press Done'];
+  return m.enabled ? ['', 'Active'] : ['off', 'Off'];
+}
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderMods() {
+  const list = modsList(); const el = $('modList'); el.innerHTML = '';
+  if (!list.length) { el.innerHTML = '<div class="modempty">No mods yet. Add a mod file, paste code, or try an example mod.</div>'; }
+  for (const m of list) {
+    const meta = modMeta(m.code, m.name); const [cls, txt] = modStatus(m);
+    const row = document.createElement('div'); row.className = 'moditem';
+    row.innerHTML = '<div class="mi"><div class="mn">' + esc(meta.name) + (meta.version ? '<small>v' + esc(meta.version) + '</small>' : '') + (meta.author ? '<small>by ' + esc(meta.author) + '</small>' : '') + '</div>' +
+      (meta.description ? '<div class="md">' + esc(meta.description) + '</div>' : '') + '<div class="ms ' + cls + '">' + esc(txt) + '</div></div>';
+    const tog = document.createElement('button'); tog.className = 'sbtn' + (m.enabled ? ' on' : ''); tog.textContent = m.enabled ? 'On' : 'Off';
+    tog.onclick = () => { const l = modsList(); const t = l.find(x => x.id === m.id); if (t) { t.enabled = !t.enabled; modsSave(l); modsChanged = true; renderMods(); } };
+    const exp = document.createElement('button'); exp.className = 'sbtn'; exp.textContent = 'Save file';
+    exp.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([m.code], { type: 'text/javascript' })); a.download = meta.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+    const del = document.createElement('button'); del.className = 'sbtn red'; del.textContent = 'Remove';
+    del.onclick = () => { if (!confirmRemove(del)) return; modsSave(modsList().filter(x => x.id !== m.id)); modsChanged = true; renderMods(); };
+    row.append(tog, exp, del); el.appendChild(row);
+  }
+  $('btnModsDone').textContent = modsChanged ? 'Done (restart with mods)' : 'Done';
+}
+function confirmRemove(btn) { if (btn.dataset.sure) return true; btn.dataset.sure = '1'; btn.textContent = 'Sure?'; setTimeout(() => { delete btn.dataset.sure; btn.textContent = 'Remove'; }, 2500); return false; }
+function addModCode(code, fallbackName) {
+  code = String(code || ''); if (!code.trim()) { toast('That mod is empty', 2); return false; }
+  try { new Function('api', code); } catch (e) { toast('This mod has a syntax error: ' + e.message, 5); return false; }
+  const meta = modMeta(code, fallbackName); const list = modsList();
+  const same = list.find(x => modMeta(x.code, x.name).name === meta.name);
+  if (same) { same.code = code; same.enabled = true; } else list.push({ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: meta.name, code, enabled: true });
+  if (!modsSave(list)) { toast('Not enough browser storage to keep this mod', 4); return false; }
+  modsChanged = true; renderMods(); toast((same ? 'Updated ' : 'Added ') + meta.name, 2); return true;
+}
+function renderExamples() {
+  const el = $('modExamples'); el.innerHTML = ''; const have = new Set(modsList().map(m => modMeta(m.code, m.name).name));
+  for (const code of EXAMPLE_MODS) {
+    const meta = modMeta(code); const row = document.createElement('div'); row.className = 'moditem';
+    row.innerHTML = '<div class="mi"><div class="mn">' + esc(meta.name) + '</div><div class="md">' + esc(meta.description) + '</div></div>';
+    const b = document.createElement('button'); b.className = 'sbtn'; b.textContent = have.has(meta.name) ? 'Added' : 'Add'; b.disabled = have.has(meta.name);
+    b.onclick = () => { if (addModCode(code)) { b.textContent = 'Added'; b.disabled = true; } };
+    row.appendChild(b); el.appendChild(row);
+  }
+}
+$('btnMods').addEventListener('click', () => { modsChanged = false; show('menu', false); show('mods', true); show('modPaste', false); show('modExamples', false); renderMods(); });
+$('btnModsDone').addEventListener('click', () => { if (modsChanged) { location.reload(); return; } show('mods', false); show('menu', true); });
+$('btnModFile').addEventListener('click', () => $('modFile').click());
+$('modFile').addEventListener('change', (e) => {
+  for (const f of e.target.files) { if (f.size > 400000) { toast(f.name + ' is too big (max 400 KB)', 3); continue; } const rd = new FileReader(); rd.onload = () => addModCode(rd.result, f.name.replace(/\.(js|txt)$/i, '')); rd.readAsText(f); }
+  e.target.value = '';
+});
+$('btnModPasteOpen').addEventListener('click', () => { show('modExamples', false); show('modPaste', true); $('modCode').focus(); });
+$('btnModPasteCancel').addEventListener('click', () => { show('modPaste', false); });
+$('btnModPasteAdd').addEventListener('click', () => { if (addModCode($('modCode').value)) { $('modCode').value = ''; show('modPaste', false); } });
+$('btnModExamples').addEventListener('click', () => { show('modPaste', false); const on = $('modExamples').classList.contains('hidden'); show('modExamples', on); if (on) renderExamples(); });
+// keys typed into the mod editor must not reach the game
+$('modCode').addEventListener('keydown', (e) => e.stopPropagation());
+modLoadImages();
+if (Object.keys(MODS.errors).length) setTimeout(() => toast(Object.keys(MODS.errors).length + ' mod(s) failed to load - see Mods', 5), 800);
 
 </script>
 </body>

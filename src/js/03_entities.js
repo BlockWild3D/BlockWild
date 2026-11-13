@@ -407,7 +407,7 @@ class Mob {
   }
   remove() { G.scene.remove(this.root); for (const [m] of this.mats) m.dispose(); }
   dropLoot() {
-    const t = this.t;
+    const t = this.t; if (MODS.hooks.mobDeath) modFire('mobDeath', { type: this.type, x: this.pos.x, y: this.pos.y, z: this.pos.z });
     if (t.ai === 'magma') { if (this.size > 1) { const n = 2 + (Math.random() * 2 | 0); for (let i = 0; i < n; i++) { const m = spawnMob('magma_cube', this.pos.x + (Math.random() - 0.5), this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5), { size: this.size / 2 }); m.vel.set((Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4); } if (Math.random() < 0.5) dropItem(IT.magma_cream, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return; }
     for (const [k, a, b, p] of t.drops) if (Math.random() < p) { const n = a + Math.floor(Math.random() * (b - a + 1)); if (n > 0) dropItem(IT[k], n, this.pos.x, this.pos.y + 0.5, this.pos.z); }
   }

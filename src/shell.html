@@ -34,7 +34,7 @@ button{font-family:'VT323',monospace}
 #hotbar .slot.sel{border-color:#fff;outline:2px solid #fff;outline-offset:-1px;background:rgba(140,140,140,.6)}
 .slot img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
 .slot .cnt{position:absolute;right:2px;bottom:-3px;font-size:21px;line-height:1;text-shadow:2px 2px 0 #3f3f3f;pointer-events:none;color:#fff}
-#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:7;text-align:center;transition:opacity .4s;opacity:0}
+#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:40;text-align:center;transition:opacity .4s;opacity:0}
 #debug{position:fixed;left:6px;top:6px;font-size:19px;line-height:1.05;text-shadow:1px 1px 0 #000;white-space:pre;pointer-events:none;z-index:7;background:rgba(0,0,0,.25);padding:3px 6px}
 #info{position:fixed;right:8px;top:6px;font-size:20px;text-shadow:2px 2px 0 #000;text-align:right;pointer-events:none;z-index:6}
 #hurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 160px 40px rgba(200,0,0,.7);opacity:0;transition:opacity .25s;z-index:4}
@@ -64,6 +64,23 @@ button{font-family:'VT323',monospace}
 #loading .bar{width:280px;height:10px;border:2px solid #fff}
 #loading .bar i{display:block;height:100%;background:#7cc84b;width:0}
 #clickplay{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;font-size:32px;text-shadow:2px 2px 0 #000;background:rgba(0,0,0,.25);cursor:pointer}
+/* mods */
+#mods{justify-content:flex-start;padding-top:3vh;overflow:auto;background:rgba(0,0,0,.72)}
+#mods .title{font-size:clamp(24px,4.5vw,44px)}
+.modnote{font-size:20px;color:#ffd27a;max-width:min(640px,92vw);text-align:center;margin:4px 0 10px}
+#modList{width:min(680px,94vw);max-height:42vh;overflow:auto;background:rgba(0,0,0,.45);border:2px solid #000;box-shadow:inset 0 0 0 2px #555}
+.moditem{display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:2px solid #2a2a2a}
+.moditem .mi{flex:1;min-width:0}
+.moditem .mn{font-size:24px;color:#fff}.moditem .mn small{font-size:18px;color:#aaa;margin-left:6px}
+.moditem .md{font-size:19px;color:#ccc;line-height:1.1}
+.moditem .ms{font-size:18px;color:#9ed36c}.moditem .ms.err{color:#ff8a7a}.moditem .ms.off{color:#999}.moditem .ms.pend{color:#ffd27a}
+.sbtn{height:34px;padding:0 10px;font-size:20px;color:#fff;background:#5a5a5a;border:2px solid #000;box-shadow:inset 2px 2px 0 #8a8a8a,inset -2px -2px 0 #3a3a3a;cursor:pointer;font-family:'VT323';white-space:nowrap}
+.sbtn:hover{background:#7d86b8}.sbtn.on{background:#5b8a3c}.sbtn.red:hover{background:#a84a3a}
+.modempty{padding:18px;font-size:22px;color:#aaa;text-align:center}
+.modbar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:min(680px,94vw);margin:8px 0}
+#modPaste{width:min(680px,94vw);display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+#modCode{height:min(220px,28vh);background:#000;color:#cfe8b0;border:2px solid #a0a0a0;font:14px/1.35 ui-monospace,Consolas,monospace;padding:8px;resize:vertical}
+#modExamples{width:min(680px,94vw);background:rgba(0,0,0,.45);border:2px solid #000;margin-bottom:6px}
 /* inventory */
 #inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
 .panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;outline:2px solid #000;padding:10px;color:#3f3f3f;border-radius:3px}
@@ -159,6 +176,7 @@ body.touch #hotbar .slot{width:40px;height:40px}
   <div class="sub">Now with the Nether and the End!</div>
   <button class="mbtn" id="btnContinue">Continue World</button>
   <button class="mbtn" id="btnNew">New World</button>
+  <button class="mbtn" id="btnMods">Mods</button>
   <div class="row"><label>Seed</label><input type="text" id="seedInput" placeholder="random" maxlength="24"></div>
   <div class="row"><label>Game mode</label><div class="seg" id="modeSeg"><button data-m="survival" class="on">Survival</button><button data-m="creative">Creative</button></div></div>
   <div class="help">
@@ -168,6 +186,24 @@ body.touch #hotbar .slot{width:40px;height:40px}
     Craft by placing items in the grid (recipe book has the patterns). Light a Nether portal with flint and steel,<br>
     follow an Eye of Ender to the stronghold and defeat the Shadow Dragon in the End.<br>Put a shield in your offhand and hold right-click to block.
   </div>
+</div>
+
+<div id="mods" class="screen hidden">
+  <div class="title">MODS</div>
+  <div class="modnote">Mods add blocks, items, recipes, world generation and new rules. A mod runs code inside your game, so only add mods from people you trust.</div>
+  <div id="modList"></div>
+  <div class="modbar">
+    <button class="sbtn" id="btnModFile">Add mod file (.js)</button>
+    <button class="sbtn" id="btnModPasteOpen">Paste mod code</button>
+    <button class="sbtn" id="btnModExamples">Example mods</button>
+  </div>
+  <div id="modPaste" class="hidden">
+    <textarea id="modCode" spellcheck="false" placeholder="// @name My Mod&#10;// @description What it does&#10;api.addItem('ruby', { name: 'Ruby', icon: { color: '#e0115f', style: 'gem' } });"></textarea>
+    <div class="modbar" style="margin:0"><button class="sbtn" id="btnModPasteAdd">Add this mod</button><button class="sbtn" id="btnModPasteCancel">Cancel</button></div>
+  </div>
+  <div id="modExamples" class="hidden"></div>
+  <button class="mbtn" id="btnModsDone">Done</button>
+  <input type="file" id="modFile" accept=".js,.txt,text/javascript" multiple style="display:none">
 </div>
 
 <div id="pause" class="screen hidden">
