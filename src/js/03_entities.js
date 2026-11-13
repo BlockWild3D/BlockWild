@@ -449,7 +449,7 @@ class Mob {
     if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
-    let move = 0, tyaw = this.yaw, speed = t.speed;
+    let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
     if (hostileNow && canTarget && dist < (this.type === 'enderman' ? 40 : 18)) {
       tyaw = Math.atan2(dx, dz); move = 1;
       if (t.ranged) {

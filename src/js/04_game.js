@@ -92,7 +92,7 @@ let world = null;
 function xtra(s) { if (!s || (!s.ench && !s.dmg && !s.name && !s.rc)) return null; const o = {}; if (s.ench) o.ench = s.ench; if (s.dmg) o.dmg = s.dmg; if (s.name) o.name = s.name; if (s.rc) o.rc = s.rc; return o; }
 function addTo(arr, id, n, order, extra) {
   const mx = stackMax(id); const ench = extra;
-  for (const i of order) { const s = arr[i]; if (s && s.id === id && s.count < mx && !xtra(s) && !extra) { const k = Math.min(n, mx - s.count); s.count += k; n -= k; if (!n) return 0; } }
+  for (const i of order) { const s = arr[i]; if (s && s.id === id && s.count < mx && JSON.stringify(xtra(s) || null) === JSON.stringify(extra || null)) { const k = Math.min(n, mx - s.count); s.count += k; n -= k; if (!n) return 0; } }
   for (const i of order) if (!arr[i]) { const k = Math.min(n, mx); arr[i] = extra ? Object.assign({ id, count: k }, extra) : { id, count: k }; n -= k; if (!n) return 0; }
   return n;
 }
@@ -182,9 +182,9 @@ function slotClick(cont, i, button, shift) {
 function currentRecipe() { if (S.uiOpen !== 'inv' && S.uiOpen !== 'table') return null; const n = S.gridN; return gridMatch(craftGrid.slice(0, n * n), n); }
 function consumeGrid() { const n = S.gridN; for (let i = 0; i < n * n; i++) { const s = craftGrid[i]; if (s) { s.count--; if (s.count <= 0) craftGrid[i] = null; } } }
 function takeOutput(shift) {
-  let r = currentRecipe(); if (!r) return; const id = IT[r.out[0]], n = r.out[1];
-  if (shift) { let made = 0; while (r && made < 64) { if (addTo(player.inv, id, n, INV_ORDER)) { break; } consumeGrid(); made++; const r2 = currentRecipe(); if (r2 !== r) break; } if (made) Sfx.play('pop', 0.7); }
-  else { const c = S.cursor; if (c && (c.id !== id || c.count + n > stackMax(id))) return; if (c) c.count += n; else S.cursor = { id, count: n }; consumeGrid(); Sfx.play('pop', 0.7); }
+  let r = currentRecipe(); if (!r) return; const id = IT[r.out[0]], n = r.out[1]; const ex = typeof craftExtra === 'function' ? craftExtra(r) : null; // item data carried over (tipped arrows' potion)
+  if (shift) { let made = 0; while (r && made < 64) { if (addTo(player.inv, id, n, INV_ORDER, ex)) { break; } consumeGrid(); made++; const r2 = currentRecipe(); if (r2 !== r) break; } if (made) Sfx.play('pop', 0.7); }
+  else { const c = S.cursor; if (c && (c.id !== id || c.count + n > stackMax(id) || JSON.stringify(xtra(c) || null) !== JSON.stringify(ex || null))) return; if (c) c.count += n; else S.cursor = Object.assign({ id, count: n }, ex || {}); consumeGrid(); Sfx.play('pop', 0.7); }
   invDirty(); renderInvUI();
 }
 function renderCursor() { const el = $('cursorItem'); const c = S.cursor; if (!c || !S.uiOpen) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.innerHTML = '<img src="' + ICON[c.id] + '">' + (c.count > 1 ? '<span class="cnt">' + c.count + '</span>' : ''); el.style.left = mouseX + 'px'; el.style.top = mouseY + 'px'; }

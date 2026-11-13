@@ -566,6 +566,8 @@ makeTile('stonecutter_side', (set, r) => each((x, y) => { let c = vary([128, 128
 makeTile('saw', (set, r) => { clear(set); each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 7.5 && (d < 6.5 || (Math.atan2(y - 7.5, x - 7.5) * 4 / Math.PI * 2 | 0) % 2)) set(x, y, d < 2 ? [90, 90, 90] : vary([200, 200, 206], r, 6)); }); });
 makeTile('brewing_base', (set, r) => each((x, y) => set(x, y, vary([110, 110, 110], r, 10))));
 makeTile('brewing_rod', (set, r) => each((x, y) => set(x, y, vary([200, 170, 60], r, 10))));
+makeTile('nether_wart0', (set, r) => { clear(set); for (const x0 of [3, 8, 12]) for (let y = 11; y < 16; y++) { set(x0, y, vary([120, 30, 30], r, 10)); if (y > 12) set(x0 + 1, y, vary([140, 36, 36], r, 10)); } });
+makeTile('nether_wart1', (set, r) => { clear(set); for (const [x0, h] of [[2, 9], [7, 6], [11, 8]]) { for (let y = h; y < 16; y++) { set(x0, y, vary([110, 24, 28], r, 8)); set(x0 + 1, y, vary([130, 30, 32], r, 8)); } for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 3; dx++) if (dx * dx + dy * dy < 6) set(x0 + dx, h + dy, vary([170, 40, 44], r, 10)); } });
 makeTile('chorus_plant', (set, r) => each((x, y) => { const q = r(); set(x, y, q < 0.15 ? vary([70, 44, 74], r, 6) : q < 0.3 ? vary([138, 104, 140], r, 6) : vary([98, 66, 104], r, 8)); }));
 makeTile('chorus_flower', (set, r) => each((x, y) => { const e = x < 2 || x > 13 || y < 2 || y > 13; set(x, y, e ? vary([120, 88, 126], r, 6) : vary([196, 168, 204], r, 10)); if (!e && (x + y) % 5 === 0) set(x, y, [226, 206, 232]); }));
 makeTile('end_stone_bricks', (set, r) => each((x, y) => { const row = Math.floor(y / 8), off = row % 2 ? 4 : 0; const m = y % 8 === 7 || (x + off) % 8 === 7; set(x, y, m ? vary([196, 196, 150], r, 4) : vary([226, 226, 172], r, 6)); }));
@@ -764,6 +766,8 @@ defBlock('lectern', 'Lectern', { tex: { s: 'lectern_side', t: 'lectern_top', b: 
 defBlock('grindstone', 'Grindstone', { tex: 'grindstone', render: 'boxes', boxes: [[2, 0, 6, 4, 7, 10, TILE.grindstone_leg], [12, 0, 6, 14, 7, 10, TILE.grindstone_leg], [4, 4, 2, 12, 16, 14]], opaque: false, hardness: 2, tool: 'pick', use: 'grindstone', job: 'weaponsmith' });
 defBlock('stonecutter', 'Stonecutter', { tex: { s: 'stonecutter_side', t: 'stonecutter_top', b: 'stonecutter_side' }, render: 'boxes', boxes: [[0, 0, 0, 16, 9, 16], [1, 9, 7.5, 15, 16, 8.5, TILE.saw]], opaque: false, hardness: 3.5, tool: 'pick', use: 'stonecutter', job: 'mason' });
 defBlock('brewing_stand', 'Brewing Stand', { tex: 'brewing_base', render: 'boxes', boxes: [[1, 0, 1, 7, 2, 7], [9, 0, 1, 15, 2, 7], [5, 0, 9, 11, 2, 15], [7, 0, 7, 9, 14, 9, TILE.brewing_rod]], solid: false, opaque: false, hardness: 0.5, tool: 'pick', light: 0.1, use: 'brew', job: 'cleric' });
+defBlock('nether_wart_0', 'Nether Wart', { tex: 'nether_wart0', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: 'nether_wart', hidden: true, wart: 0 });
+defBlock('nether_wart_1', 'Nether Wart', { tex: 'nether_wart1', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: (q) => ['nether_wart', 2 + Math.floor(q * 3)], hidden: true, wart: 1 });
 defBlock('chorus_plant', 'Chorus Plant', { tex: 'chorus_plant', render: 'boxes', boxes: [[3, 0, 3, 13, 16, 13]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', drop: (q) => q < 0.5 ? 'chorus_fruit' : null, chorus: true });
 defBlock('chorus_flower', 'Chorus Flower', { tex: 'chorus_flower', render: 'boxes', boxes: [[1, 0, 1, 15, 14, 15]], opaque: false, hardness: 0.4, tool: 'axe', snd: 'wood', chorus: true });
 defBlock('end_gateway', 'End Gateway', { tex: 'end_portal', solid: false, opaque: false, render: 'cutout', hardness: -1, drop: null, light: 1, noTarget: true });
@@ -895,7 +899,7 @@ M('bow', 'Bow', { kind: 'bow', stack: 1 });
 const TOOLMATS = [['wood', 'Wooden', 1, 2, [150, 116, 66], [190, 150, 90]], ['stone', 'Stone', 2, 4, [120, 120, 120], [160, 160, 160]], ['iron', 'Iron', 3, 6, [214, 214, 214], [255, 255, 255]], ['diamond', 'Diamond', 4, 8, [70, 220, 210], [190, 255, 250]]];
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_pickaxe', n + ' Pickaxe', { kind: 'tool', stack: 1, tool: 'pick', tier, speed: sp, dmg: 1 + tier });
 for (const [k, n, tier] of TOOLMATS) M(k + '_sword', n + ' Sword', { kind: 'tool', stack: 1, tool: 'sword', tier, speed: 1, dmg: 3 + tier });
-M('name_tag', 'Name Tag', { kind: 'name_tag' }); M('compass', 'Compass', { kind: 'compass', stack: 1 }); M('clock', 'Clock', { kind: 'clock', stack: 1 }); M('experience_bottle', "Bottle o' Enchanting", { kind: 'xp_bottle' }); for (const [k, n] of [['ocean_explorer_map', 'Ocean Explorer Map'], ['woodland_explorer_map', 'Woodland Explorer Map'], ['trial_explorer_map', 'Trial Explorer Map']]) M(k, n, { kind: 'explorer_map', stack: 1 }); M('sweet_berries', 'Sweet Berries', { kind: 'food' }); M('cookie', 'Cookie', { kind: 'food' }); M('pumpkin_pie', 'Pumpkin Pie', { kind: 'food' }); M('suspicious_stew', 'Suspicious Stew', { kind: 'food', stack: 1 }); M('rabbit_stew', 'Rabbit Stew', { kind: 'food', stack: 1 }); M('melon_slice', 'Melon Slice', { kind: 'food' }); M('glistering_melon_slice', 'Glistering Melon Slice'); M('nether_wart', 'Nether Wart'); M('cocoa_beans', 'Cocoa Beans'); M('bowl', 'Bowl'); M('clay_ball', 'Clay Ball');
+M('potion', 'Potion', { kind: 'potion', stack: 1 }); M('splash_potion', 'Splash Potion', { kind: 'splash', stack: 1 }); M('lingering_potion', 'Lingering Potion', { kind: 'lingering', stack: 1 }); M('tipped_arrow', 'Tipped Arrow'); M('dragon_breath', "Dragon's Breath"); M('fermented_spider_eye', 'Fermented Spider Eye'); M('end_crystal', 'End Crystal', { kind: 'end_crystal' }); M('name_tag', 'Name Tag', { kind: 'name_tag' }); M('compass', 'Compass', { kind: 'compass', stack: 1 }); M('clock', 'Clock', { kind: 'clock', stack: 1 }); M('experience_bottle', "Bottle o' Enchanting", { kind: 'xp_bottle' }); for (const [k, n] of [['ocean_explorer_map', 'Ocean Explorer Map'], ['woodland_explorer_map', 'Woodland Explorer Map'], ['trial_explorer_map', 'Trial Explorer Map']]) M(k, n, { kind: 'explorer_map', stack: 1 }); M('sweet_berries', 'Sweet Berries', { kind: 'food' }); M('cookie', 'Cookie', { kind: 'food' }); M('pumpkin_pie', 'Pumpkin Pie', { kind: 'food' }); M('suspicious_stew', 'Suspicious Stew', { kind: 'food', stack: 1 }); M('rabbit_stew', 'Rabbit Stew', { kind: 'food', stack: 1 }); M('melon_slice', 'Melon Slice', { kind: 'food' }); M('glistering_melon_slice', 'Glistering Melon Slice'); M('nether_wart', 'Nether Wart'); M('cocoa_beans', 'Cocoa Beans'); M('bowl', 'Bowl'); M('clay_ball', 'Clay Ball');
 M('flint', 'Flint'); M('flint_and_steel', 'Flint and Steel', { kind: 'fns', stack: 1 });
 M('bucket', 'Bucket', { kind: 'bucket', stack: 16 }); M('water_bucket', 'Water Bucket', { kind: 'bucket', stack: 1, fluid: 'water' }); M('lava_bucket', 'Lava Bucket', { kind: 'bucket', stack: 1, fluid: 'lava' });
 M('quartz', 'Nether Quartz'); M('nether_brick', 'Nether Brick'); M('gold_nugget', 'Gold Nugget');
@@ -953,6 +957,11 @@ function iconCanvas(painter) {
 function blob(set, cx, cy, rx, ry, col, r, outline) { each((x, y) => { const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (d <= 1) set(x, y, d > 0.62 && outline ? outline : vary(col, r, 9)); }); }
 const BROWN = [118, 86, 44], BROWN2 = [86, 62, 30];
 function horseArmorIcon(col) { const shadeC = (c, k) => c.map(v => Math.max(0, Math.min(255, Math.round(v * k)))); return (s, r) => { const rows = ['......XX....', '.....XHHX...', '....XHHHHX..', '...XHHEHHHX.', '..XHHHHHHHX.', '.XHHHHHHHX..', 'XHHHXHHHHX..', 'XHHX.XHHHHX.', '.XX..XHHHHHX', '.....XHHHHHX', '......XXXXX.']; rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === 'X') s(x + 2, y + 3, shadeC(col, 0.55)); else if (ch === 'H') s(x + 2, y + 3, vary(shadeC(col, 0.85 + (x + y) % 3 * 0.08), r, 6)); else if (ch === 'E') s(x + 2, y + 3, [40, 40, 40]); })); }; }
+function potionPaint(s, col, style) { // a glass bottle with coloured liquid (splash: a neck ring; lingering: a rounder flask)
+  const glass = [200, 220, 235]; for (let y = 2; y <= 4; y++) for (let x = 6; x <= 9; x++) s(x, y, y === 2 ? [150, 110, 70] : glass);
+  if (style === 'splash') { for (let x = 5; x <= 10; x++) s(x, 5, glass); }
+  for (let y = 5; y <= 14; y++) for (let x = 2; x <= 13; x++) { const d = Math.hypot((x - 7.5) / (style === 'lingering' ? 5.5 : 5), (y - 10) / 4.6); if (d < 1) { const liquid = y >= 8; let c = liquid ? mixc(col, [0, 0, 0], (y - 8) * 0.04) : glass; if (d > 0.85) c = mixc(c, [255, 255, 255], 0.35); if (liquid && x < 6 && y < 11) c = mixc(c, [255, 255, 255], 0.4); s(x, y, c); } }
+}
 const ICONP = {
   stick: (s) => { pLine(s, 2, 13, 12, 3, BROWN); pLine(s, 3, 13, 13, 3, BROWN2); },
   coal: (s, r) => { blob(s, 8, 8, 5.5, 5, [44, 44, 44], r, [22, 22, 22]); s(6, 6, [90, 90, 90]); s(9, 9, [80, 80, 80]); },
@@ -1041,6 +1050,11 @@ Object.assign(ICONP, {
   minecart: (s, r) => { for (let y = 6; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 6 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); s(x - 1, 12, [70, 70, 74]); s(x + 1, 12, [70, 70, 74]); } },
   chest_minecart: (s, r) => { for (let y = 3; y <= 7; y++) for (let x = 4; x <= 11; x++) s(x, y, y === 5 ? [60, 40, 20] : [170, 120, 60]); s(7, 5, [200, 200, 200]); for (let y = 7; y <= 11; y++) for (let x = 2; x <= 13; x++) { const e = y === 7 || x === 2 || x === 13; s(x, y, e ? [150, 150, 156] : [96, 96, 102]); } for (const x of [4, 11]) { s(x, 12, [50, 50, 54]); s(x, 13, [50, 50, 54]); } },
   elytra: (s, r) => { for (const sgn of [-1, 1]) for (let y = 2; y <= 14; y++) { const w = y < 6 ? y - 1 : 14 - y + 2; for (let k = 0; k < Math.min(5, w); k++) s(8 + sgn * (1 + k), y, k === Math.min(5, w) - 1 ? [110, 90, 130] : [160, 150, 180]); } },
+  potion: (s, r) => potionPaint(s, [56, 92, 230]), splash_potion: (s, r) => potionPaint(s, [56, 92, 230], 'splash'), lingering_potion: (s, r) => potionPaint(s, [56, 92, 230], 'lingering'),
+  tipped_arrow: (s, r) => { pLine(s, 3, 12, 12, 3, [140, 110, 70]); s(12, 3, [200, 200, 200]); s(13, 2, [220, 220, 220]); s(11, 3, [180, 180, 180]); s(12, 4, [180, 180, 180]); for (const [x, y] of [[3, 13], [2, 12], [4, 13], [2, 11]]) s(x, y, [180, 60, 200]); },
+  dragon_breath: (s, r) => { potionPaint(s, [200, 90, 200]); for (const [x, y] of [[6, 4], [9, 3], [8, 1]]) s(x, y, [230, 150, 240]); },
+  fermented_spider_eye: (s, r) => { blob(s, 8, 9, 5, 4.5, [120, 50, 60], r, [70, 30, 40]); s(7, 8, [40, 20, 20]); s(10, 9, [40, 20, 20]); blob(s, 8, 4, 2.5, 1.6, [210, 190, 150], r); },
+  end_crystal: (s, r) => { for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) { const e = x === 2 || x === 13 || y === 2 || y === 13; if (e) s(x, y, [230, 220, 250]); else if (x > 5 && x < 10 && y > 5 && y < 10) s(x, y, (x + y) % 2 ? [255, 120, 255] : [200, 70, 220]); } },
   name_tag: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 4; x <= 13; x++) if (!(x === 4 && (y === 5 || y === 11))) s(x, y, y === 5 ? [236, 226, 200] : [214, 200, 168]); s(6, 8, [60, 50, 40]); pLine(s, 1, 3, 4, 7, [190, 190, 190]); },
   compass: (s, r) => { blob(s, 8, 8, 6, 6, [110, 110, 116], r, [70, 70, 76]); blob(s, 8, 8, 4.2, 4.2, [200, 196, 180], r); pLine(s, 8, 8, 8, 4, [210, 40, 40]); pLine(s, 8, 9, 8, 12, [60, 60, 60]); },
   clock: (s, r) => { blob(s, 8, 8, 6, 6, [240, 200, 60], r, [170, 130, 30]); blob(s, 8, 8, 4.2, 4.2, [70, 120, 200], r); for (let x = 4; x <= 12; x++) for (let y = 9; y <= 12; y++) if (Math.hypot(x - 8, y - 8) < 4.2) s(x, y, [40, 50, 90]); s(6, 6, [255, 240, 120]); },
@@ -1217,7 +1231,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('end_crystal', 1, ['GGG', 'GEG', 'GTG'], { G: 'glass', E: 'eye_of_ender', T: 'ghast_tear' }), RSL('fermented_spider_eye', 1, ['spider_eye', 'sugar']), RSH('tipped_arrow', 8, ['AAA', 'ALA', 'AAA'], { A: 'arrow', L: 'lingering_potion' }), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
   RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
   RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
   RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
@@ -3238,7 +3252,7 @@ class Mob {
     if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
-    let move = 0, tyaw = this.yaw, speed = t.speed;
+    let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
     if (hostileNow && canTarget && dist < (this.type === 'enderman' ? 40 : 18)) {
       tyaw = Math.atan2(dx, dz); move = 1;
       if (t.ranged) {
@@ -3626,7 +3640,7 @@ let world = null;
 function xtra(s) { if (!s || (!s.ench && !s.dmg && !s.name && !s.rc)) return null; const o = {}; if (s.ench) o.ench = s.ench; if (s.dmg) o.dmg = s.dmg; if (s.name) o.name = s.name; if (s.rc) o.rc = s.rc; return o; }
 function addTo(arr, id, n, order, extra) {
   const mx = stackMax(id); const ench = extra;
-  for (const i of order) { const s = arr[i]; if (s && s.id === id && s.count < mx && !xtra(s) && !extra) { const k = Math.min(n, mx - s.count); s.count += k; n -= k; if (!n) return 0; } }
+  for (const i of order) { const s = arr[i]; if (s && s.id === id && s.count < mx && JSON.stringify(xtra(s) || null) === JSON.stringify(extra || null)) { const k = Math.min(n, mx - s.count); s.count += k; n -= k; if (!n) return 0; } }
   for (const i of order) if (!arr[i]) { const k = Math.min(n, mx); arr[i] = extra ? Object.assign({ id, count: k }, extra) : { id, count: k }; n -= k; if (!n) return 0; }
   return n;
 }
@@ -3716,9 +3730,9 @@ function slotClick(cont, i, button, shift) {
 function currentRecipe() { if (S.uiOpen !== 'inv' && S.uiOpen !== 'table') return null; const n = S.gridN; return gridMatch(craftGrid.slice(0, n * n), n); }
 function consumeGrid() { const n = S.gridN; for (let i = 0; i < n * n; i++) { const s = craftGrid[i]; if (s) { s.count--; if (s.count <= 0) craftGrid[i] = null; } } }
 function takeOutput(shift) {
-  let r = currentRecipe(); if (!r) return; const id = IT[r.out[0]], n = r.out[1];
-  if (shift) { let made = 0; while (r && made < 64) { if (addTo(player.inv, id, n, INV_ORDER)) { break; } consumeGrid(); made++; const r2 = currentRecipe(); if (r2 !== r) break; } if (made) Sfx.play('pop', 0.7); }
-  else { const c = S.cursor; if (c && (c.id !== id || c.count + n > stackMax(id))) return; if (c) c.count += n; else S.cursor = { id, count: n }; consumeGrid(); Sfx.play('pop', 0.7); }
+  let r = currentRecipe(); if (!r) return; const id = IT[r.out[0]], n = r.out[1]; const ex = typeof craftExtra === 'function' ? craftExtra(r) : null; // item data carried over (tipped arrows' potion)
+  if (shift) { let made = 0; while (r && made < 64) { if (addTo(player.inv, id, n, INV_ORDER, ex)) { break; } consumeGrid(); made++; const r2 = currentRecipe(); if (r2 !== r) break; } if (made) Sfx.play('pop', 0.7); }
+  else { const c = S.cursor; if (c && (c.id !== id || c.count + n > stackMax(id) || JSON.stringify(xtra(c) || null) !== JSON.stringify(ex || null))) return; if (c) c.count += n; else S.cursor = Object.assign({ id, count: n }, ex || {}); consumeGrid(); Sfx.play('pop', 0.7); }
   invDirty(); renderInvUI();
 }
 function renderCursor() { const el = $('cursorItem'); const c = S.cursor; if (!c || !S.uiOpen) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.innerHTML = '<img src="' + ICON[c.id] + '">' + (c.count > 1 ? '<span class="cnt">' + c.count + '</span>' : ''); el.style.left = mouseX + 'px'; el.style.top = mouseY + 'px'; }
@@ -10181,6 +10195,212 @@ function offhandShouldUse() {
   }; }
 // the hand on screen swings for the off hand too; keep the selected-item name honest
 { const _ss = selectSlot; selectSlot = function (i) { S.useOff = false; return _ss(i); }; }
+
+// ================= BREWING AND POTIONS (Minecraft Java) =================
+// Fill glass bottles from water, then brew them in a brewing stand (fuel: blaze powder, 20 brews each; 20 seconds a
+// brew; up to three bottles at once). Nether wart turns water bottles into Awkward Potions, the base for almost
+// everything; redstone makes a potion last longer, glowstone makes it stronger, a fermented spider eye corrupts it,
+// gunpowder makes it a splash potion and dragon's breath turns a splash potion into a lingering one.
+// Drink a potion (hold use), throw a splash potion (the effect fades over 4 blocks), or throw a lingering potion for a
+// cloud that lasts 30 seconds (a quarter of the duration each time it touches you). 8 arrows around a lingering
+// potion make tipped arrows (an eighth of the duration). Nether wart grows on soul sand; Nether fortresses have it.
+const POT_EFF = { // base potions: [effect, seconds, amplifier] (or a list of them); long / strong variants below
+  night_vision: ['night_vision', 180], invisibility: ['invisibility', 180], leaping: ['jump_boost', 180], fire_resistance: ['fire_resistance', 180], swiftness: ['speed', 180], slowness: ['slowness', 90],
+  turtle_master: [['slowness', 20, 3], ['resistance', 20, 2]], water_breathing: ['water_breathing', 180], healing: ['instant_health', 0], harming: ['instant_damage', 0], poison: ['poison', 45], regeneration: ['regeneration', 45],
+  strength: ['strength', 180], weakness: ['weakness', 90], slow_falling: ['slow_falling', 90], wind_charged: ['wind_charged', 180], weaving: ['weaving', 180], oozing: ['oozing', 180], infested: ['infested', 180],
+};
+const POT_LONG = { night_vision: 480, invisibility: 480, leaping: 480, fire_resistance: 480, swiftness: 480, slowness: 240, turtle_master: 40, water_breathing: 480, poison: 90, regeneration: 90, strength: 480, weakness: 240, slow_falling: 240 };
+const POT_STRONG = { leaping: ['jump_boost', 90, 1], swiftness: ['speed', 90, 1], slowness: ['slowness', 20, 3], turtle_master: [['slowness', 20, 5], ['resistance', 20, 3]], healing: ['instant_health', 0, 1], harming: ['instant_damage', 0, 1], poison: ['poison', 21.6, 1], regeneration: ['regeneration', 22.5, 1], strength: ['strength', 90, 1] };
+const POT_NAMES = { night_vision: 'Night Vision', invisibility: 'Invisibility', leaping: 'Leaping', fire_resistance: 'Fire Resistance', swiftness: 'Swiftness', slowness: 'Slowness', turtle_master: 'the Turtle Master', water_breathing: 'Water Breathing', healing: 'Healing', harming: 'Harming', poison: 'Poison', regeneration: 'Regeneration', strength: 'Strength', weakness: 'Weakness', slow_falling: 'Slow Falling', wind_charged: 'Wind Charging', weaving: 'Weaving', oozing: 'Oozing', infested: 'Infestation' };
+const POT_COLOR = { water: [56, 92, 230], awkward: [56, 92, 230], mundane: [56, 92, 230], thick: [56, 92, 230], night_vision: [31, 31, 161], invisibility: [127, 131, 146], leaping: [34, 255, 76], fire_resistance: [228, 154, 58], swiftness: [124, 175, 198], slowness: [90, 108, 129], turtle_master: [118, 94, 136], water_breathing: [46, 82, 153], healing: [248, 36, 35], harming: [67, 10, 9], poison: [78, 147, 49], regeneration: [205, 92, 171], strength: [147, 36, 35], weakness: [72, 77, 72], slow_falling: [255, 239, 209], wind_charged: [189, 201, 255], weaving: [120, 105, 90], oozing: [153, 255, 163], infested: [140, 155, 140] };
+// every potion type: water, awkward, mundane, thick, and each effect as base / long_ / strong_
+const POTIONS = { water: {}, awkward: {}, mundane: {}, thick: {} };
+for (const k in POT_EFF) { POTIONS[k] = { base: k, effect: POT_EFF[k] }; if (POT_LONG[k]) POTIONS['long_' + k] = { base: k, long: true, effect: POT_EFF[k] }; if (POT_STRONG[k]) POTIONS['strong_' + k] = { base: k, strong: true, effect: POT_STRONG[k] }; }
+function potEffects(pot) { const P = POTIONS[pot]; if (!P || !P.effect) return []; const list = Array.isArray(P.effect[0]) ? P.effect : [P.effect]; return list.map(([e, sec, amp]) => [e, P.long ? (POT_LONG[P.base] || sec) : sec, amp || 0]); }
+Object.assign(EFFECTS, { invisibility: 'Invisibility', water_breathing: 'Water Breathing', wind_charged: 'Wind Charged', weaving: 'Weaving', oozing: 'Oozing', infested: 'Infested', wither: 'Wither', absorption: 'Absorption', hunger: 'Hunger' });
+// ---------- brewing recipes ----------
+const BREW_ING = { nether_wart: 1, redstone: 1, glowstone_dust: 1, fermented_spider_eye: 1, gunpowder: 1, dragon_breath: 1, golden_carrot: 1, rabbit_foot: 1, magma_cream: 1, sugar: 1, turtle_scute: 1, pufferfish: 1, glistering_melon_slice: 1, spider_eye: 1, ghast_tear: 1, blaze_powder: 1, phantom_membrane: 1, breeze_rod: 1, cobweb: 1, slime_ball: 1, stone: 1 };
+const AWKWARD_TO = { golden_carrot: 'night_vision', rabbit_foot: 'leaping', magma_cream: 'fire_resistance', sugar: 'swiftness', turtle_scute: 'turtle_master', pufferfish: 'water_breathing', glistering_melon_slice: 'healing', spider_eye: 'poison', ghast_tear: 'regeneration', blaze_powder: 'strength', phantom_membrane: 'slow_falling', breeze_rod: 'wind_charged', cobweb: 'weaving', slime_ball: 'oozing', stone: 'infested' };
+const CORRUPT = { night_vision: 'invisibility', leaping: 'slowness', swiftness: 'slowness', healing: 'harming', poison: 'harming', water: 'weakness' };
+// the result of brewing ingredient key into a bottle, or null if nothing happens
+function brewResult(s, ing) {
+  const pot = s.pot || 'water'; const P = POTIONS[pot] || {}; const id = s.id;
+  if (ing === 'gunpowder') return id === IT.potion ? { id: IT.splash_potion, pot } : null;
+  if (ing === 'dragon_breath') return id === IT.splash_potion ? { id: IT.lingering_potion, pot } : null;
+  if (pot === 'water') { if (ing === 'nether_wart') return { id, pot: 'awkward' }; if (ing === 'fermented_spider_eye') return { id, pot: 'weakness' }; if (ing === 'glowstone_dust') return { id, pot: 'thick' }; if (AWKWARD_TO[ing] || ing === 'redstone') return { id, pot: 'mundane' }; return null; }
+  if (pot === 'awkward') return AWKWARD_TO[ing] ? { id, pot: AWKWARD_TO[ing] } : null;
+  if (!P.base) return null;
+  if (ing === 'redstone') return POT_LONG[P.base] && !P.long ? { id, pot: 'long_' + P.base } : null;
+  if (ing === 'glowstone_dust') return POT_STRONG[P.base] && !P.strong ? { id, pot: 'strong_' + P.base } : null;
+  if (ing === 'fermented_spider_eye') { const c = CORRUPT[P.base]; if (!c) return null; const pre = P.long && POTIONS['long_' + c] ? 'long_' : P.strong && POTIONS['strong_' + c] ? 'strong_' : ''; return { id, pot: pre + c }; }
+  return null;
+}
+// ---------- names, icons, tooltips ----------
+function potionName(s) { const P = POTIONS[s.pot] || {}; const kind = s.id === IT.splash_potion ? 'Splash Potion' : s.id === IT.lingering_potion ? 'Lingering Potion' : s.id === IT.tipped_arrow ? 'Arrow' : 'Potion';
+  if (!s.pot || s.pot === 'water') return s.id === IT.tipped_arrow ? 'Tipped Arrow' : s.id === IT.potion ? 'Water Bottle' : kind.replace('Potion', 'Water Bottle');
+  if (!P.base) return (s.pot === 'awkward' ? 'Awkward ' : s.pot === 'thick' ? 'Thick ' : 'Mundane ') + kind;
+  return kind + ' of ' + POT_NAMES[P.base]; }
+const potIconCache = {};
+function potionIcon(id, pot) { const key = id + ':' + pot; if (potIconCache[key]) return potIconCache[key]; const col = POT_COLOR[(POTIONS[pot] && POTIONS[pot].base) || pot] || POT_COLOR.water;
+  const c = id === IT.tipped_arrow ? iconCanvas((s, r) => { ICONP.tipped_arrow(s, r); pLine(s, 9, 6, 12, 3, col); s(12, 3, col); }) : iconCanvas((s) => potionPaint(s, col, id === IT.splash_potion ? 'splash' : id === IT.lingering_potion ? 'lingering' : null));
+  return (potIconCache[key] = c.toDataURL()); }
+{ const _ps = paintSlot; paintSlot = function (el, s) { const img = el.firstChild; const key = s && s.pot ? s.id + ':' + s.pot : '';
+    if (img && (img.dataset.pk || '') !== key) img.dataset.id = ''; const r = _ps(el, s);
+    if (img && key) { if (img.dataset.pk !== key) { img.src = potionIcon(s.id, s.pot); img.dataset.pk = key; } } else if (img) img.dataset.pk = '';
+    if (s && s.pot && POTIONS[s.pot] && POTIONS[s.pot].effect) el.classList.add('ench'); return r; }; }
+const fmtT = (sec) => Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0');
+{ const _tt = itemTooltip; itemTooltip = function (s) {
+    if (!s || !(s.id === IT.potion || s.id === IT.splash_potion || s.id === IT.lingering_potion || s.id === IT.tipped_arrow)) return _tt(s);
+    const L = [potionName(s)]; const k = s.id === IT.lingering_potion ? 0.25 : s.id === IT.tipped_arrow ? 0.125 : 1; const ef = potEffects(s.pot);
+    if (!ef.length) L.push('No Effects'); for (const [e, sec, amp] of ef) L.push((EFFECTS[e] || e) + (amp ? ' ' + roman(amp + 1) : '') + (sec ? ' (' + fmtT(sec * k) + ')' : ''));
+    return L.join('\n'); }; }
+// the hotbar's item name
+{ const _ss = selectSlot; selectSlot = function (i) { const r = _ss(i); const h = player.held(); if (h && h.pot) $('itemname').textContent = potionName(h); return r; }; }
+// ---------- effects on the player ----------
+function applyPotion(pot, scale, toMob) {
+  for (const [e, sec, amp] of potEffects(pot)) {
+    if (toMob) { mobEffect(toMob, e, sec * scale, amp, scale); continue; }
+    if (e === 'instant_health' || e === 'instant_damage') { const n = (e === 'instant_health' ? 4 : 6) * Math.pow(2, amp) * scale; if (e === 'instant_health') { player.health = Math.min(20, player.health + n); updateHearts(); } else if (isSurv()) { player.hurtCD = 0; player.hurt(n, null, 'magic', 0); } continue; }
+    const t = sec * scale; if (t < 1) continue; const cur = player.effects[e]; if (!cur || cur.amp < amp || (cur.amp === amp && cur.t < t)) giveEffect(e, t, amp);
+  }
+}
+// ---------- effects on mobs ----------
+function mobEffect(m, e, sec, amp, scale = 1) {
+  if (!m || m.dead || m.isBoss) return; const undead = UNDEAD.has(m.type);
+  if (e === 'instant_health' || e === 'instant_damage') { const heal = (e === 'instant_health') !== undead; const n = (heal ? 4 : 6) * Math.pow(2, amp) * scale; if (heal) m.hp = Math.min(m.maxHp || m.t.hp, m.hp + n); else m.hurt(n, null, 0, false); return; }
+  if ((e === 'poison' || e === 'regeneration') && undead) return;
+  m.effects = m.effects || {}; const cur = m.effects[e]; if (!cur || cur.amp < amp || cur.t < sec) m.effects[e] = { t: sec, amp };
+}
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    const E = this.effects; if (E && !this.dead) { let sp = 1;
+      for (const k in E) { const e = E[k]; e.t -= dt; if (e.t <= 0) { delete E[k]; if (k === 'invisibility' && this.root) this.root.visible = true; continue; }
+        if (k === 'poison' || k === 'wither') { e.acc = (e.acc || 0) + dt; const iv = (k === 'poison' ? 1.25 : 2) / Math.pow(2, e.amp); if (e.acc >= iv) { e.acc = 0; if (k === 'wither' || this.hp > 1) this.hurt(1, null, 0, true); } }
+        if (k === 'regeneration') { e.acc = (e.acc || 0) + dt; if (e.acc >= 2.5 / Math.pow(2, e.amp)) { e.acc = 0; this.hp = Math.min(this.maxHp || this.t.hp, this.hp + 1); } }
+        if (k === 'speed') sp *= 1 + 0.2 * (e.amp + 1); if (k === 'slowness') sp *= Math.max(0, 1 - 0.15 * (e.amp + 1)); if (k === 'levitation') this.vel.y = 0.9 * (e.amp + 1); if (k === 'slow_falling') this.vel.y = Math.max(this.vel.y, -1.5);
+        if (k === 'invisibility' && this.root) this.root.visible = false; if (k === 'weaving' && this.web) { } }
+      this.spMul = sp; if (Math.random() < dt * 4) { const ks = Object.keys(E).filter(k => k !== 'invisibility'); if (ks.length) { const c = POT_COLOR[{ speed: 'swiftness', jump_boost: 'leaping', instant_health: 'healing' }[ks[0]] || ks[0]] || [200, 200, 200]; Particles.emit(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, 1, [[c[0] / 255, c[1] / 255, c[2] / 255]], 0.6, 0.7, -1, 0.5); } } }
+    return _u.call(this, dt);
+  }; }
+// Weaving, Oozing, Wind Charged and Infested act when their owner is hurt or dies
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) {
+    const was = this.dead; const r = _h.call(this, dmg, src, kb, na); const E = this.effects; if (!E || isClientMP()) return r;
+    if (E.infested && !this.dead && Math.random() < 0.1 && this.type !== 'silverfish') for (let i = 0; i < 1 + (Math.random() * 2 | 0); i++) spawnMob('silverfish', this.pos.x, this.pos.y + 0.5, this.pos.z);
+    if (!was && this.dead) {
+      if (E.oozing) for (let i = 0; i < 2; i++) { const s = spawnMob('slime', this.pos.x + (Math.random() - 0.5), this.pos.y + 0.5, this.pos.z + (Math.random() - 0.5), { size: 2 }); }
+      if (E.weaving) { let n = 2 + (Math.random() * 2 | 0); for (let t = 0; t < 12 && n > 0; t++) { const x = Math.floor(this.pos.x + (Math.random() - 0.5) * 3), y = Math.floor(this.pos.y + Math.random() * 1.5), z = Math.floor(this.pos.z + (Math.random() - 0.5) * 3); if (!world.get(x, y, z)) { world.set(x, y, z, B.COBWEB); mpBlock(x, y, z, B.COBWEB); n--; } } }
+      if (E.wind_charged && typeof windBurst === 'function') windBurst(new V3(this.pos.x, this.pos.y + 0.5, this.pos.z), 1.2, this);
+    }
+    return r; }; }
+// invisible players are much harder for monsters to notice (Minecraft: 7% of the follow range)
+{ const _ht = hostileTarget; hostileTarget = function (m, range = 16) { if (effLevel('invisibility')) range *= 0.07 + 0.1 * player.inv.slice(36, 40).filter(Boolean).length; return _ht(m, range); }; }
+// ---------- using potions ----------
+S.drinkT = 0;
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    const r = _ui.apply(this, arguments); const h = player.held();
+    if (h && h.id === IT.potion && mouseR && !S.uiOpen && !player.dead && S.mode !== 'spectator') {
+      S.drinkT += dt; S.eating = Math.min(1, S.drinkT / 1.6); if (Math.random() < dt * 5) Sfx.play('splash', 0.15, 1.8);
+      if (S.drinkT >= 1.6) { S.drinkT = 0; S.eating = 0; mouseR = false; applyPotion(h.pot || 'water', 1); Sfx.play('pop', 0.5, 0.8); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.glass_bottle, count: 1 }; invDirty(); } }
+    } else if (S.drinkT) { S.drinkT = 0; S.eating = 0; }
+    return r; }; }
+PROJ.potion = { grav: 20, size: 0.24, color: 0x6070e0, trail: [[0.7, 0.7, 1]] };
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = kd('sneak');
+    if (hd && (hd.kind === 'splash' || hd.kind === 'lingering') && !(target && !sneaking && BL[target.id].use)) {
+      mouseR = false; const v = dir.clone().multiplyScalar(10); v.y += 2; const p = spawnProj('potion', eye.clone().addScaledVector(dir, 0.5), v, 'player', 0); p.pot = h.pot || 'water'; p.ling = hd.kind === 'lingering';
+      const c = POT_COLOR[(POTIONS[p.pot] && POTIONS[p.pot].base) || p.pot] || POT_COLOR.water; p.mesh.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(c[0] / 255, c[1] / 255, c[2] / 255) });
+      useHeld(1); Sfx.play('bow', 0.4, 0.7); S.swing = 1; S.useCD = 0.4; return; }
+    if (hd && hd.id === IT.glass_bottle) { // fill from water, or collect dragon's breath
+      const near = (G.clouds || []).find(c => c.life > 0 && Math.hypot(c.x - eye.x, c.z - eye.z) < c.r + 2 && Math.abs(c.y - eye.y) < 4);
+      if (near) { mouseR = false; giveBottle(IT.dragon_breath, null); near.r = Math.max(0.5, near.r - 0.5); Sfx.play('pop', 0.5, 1.2); return; }
+      const ft = raycast(eye, dir, 5, true); if (ft && isWaterId(ft.id)) { mouseR = false; giveBottle(IT.potion, 'water'); Sfx.play('splash', 0.4, 1.4); return; } }
+    if (hd && hd.id === IT.nether_wart && target && target.id === B.SOUL_SAND && target.ny > 0 && !world.get(target.x, target.y + 1, target.z)) { mouseR = false; world.set(target.x, target.y + 1, target.z, B.NETHER_WART_0); mpBlock(target.x, target.y + 1, target.z, B.NETHER_WART_0); useHeld(1); Sfx.play('step', 0.5); S.swing = 1; return; }
+    if (hd && hd.id === IT.end_crystal && target && (target.id === B.OBSIDIAN || target.id === B.BEDROCK) && target.ny > 0) { mouseR = false; if (placeEndCrystal(target.x, target.y + 1, target.z)) { useHeld(1); S.swing = 1; } return; }
+    if (target && !sneaking && BL[target.id].use === 'brew') { mouseR = false; openBrewing(target.x + ',' + target.y + ',' + target.z); return; }
+    return _ua(eye, dir); }; }
+function giveBottle(id, pot) { const item = pot ? { id, count: 1, pot } : { id, count: 1 }; if (S.mode !== 'creative') { const h = player.held(); h.count--; if (h.count <= 0) player.inv[handSlot()] = null; } giveOrDrop(item.id, 1, pot ? { pot } : null); invDirty(); }
+{ const _pi = projImpact; projImpact = function (a, mob) {
+    if (a.kind !== 'potion') return _pi(a, mob); a.done = true; const p = a.pos; const c = POT_COLOR[(POTIONS[a.pot] && POTIONS[a.pot].base) || a.pot] || POT_COLOR.water; const col = [c[0] / 255, c[1] / 255, c[2] / 255];
+    Sfx.play('glass', 0.6); Particles.emit(p.x, p.y, p.z, 40, [col, [1, 1, 1]], 3, 0.8, 2, 1.2);
+    if (a.ling) { G.potClouds = G.potClouds || []; G.potClouds.push({ x: p.x, y: p.y - 0.5, z: p.z, r: 3, life: 30, pot: a.pot, col, cd: new Map() }); return; }
+    // splash: full strength at the impact, fading to nothing 4 blocks away; water puts out fires
+    const P = player; const dP = new V3(P.pos.x, P.pos.y + 0.9, P.pos.z).distanceTo(p); if (dP < 4 && !P.dead) { applyPotion(a.pot, mob === null && dP < 1.5 ? 1 : 1 - dP / 4); if (a.pot === 'water') P.fireT = 0; }
+    for (const m of G.mobs) { if (m.dead || m.isBoss) continue; const d = new V3(m.pos.x, m.pos.y + m.h / 2, m.pos.z).distanceTo(p); if (d < 4) { applyPotion(a.pot, m === mob ? 1 : 1 - d / 4, m); if (a.pot === 'water') { m.burnT = 0; if (m.t.waterHurt) m.hurt(1, null, 0); } } }
+  }; }
+function updatePotClouds(dt) {
+  const L = G.potClouds; if (!L || !L.length) return; const P = player;
+  for (const c of L) { c.life -= dt; c.r = Math.max(0, c.r - dt * 0.1); if (Math.random() < dt * 30) { const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * c.r; Particles.emit(c.x + Math.cos(a) * rr, c.y + 0.2, c.z + Math.sin(a) * rr, 1, [c.col], 0.3, 1, -0.5, 0.4); }
+    const touch = (e, key, fn) => { const last = c.cd.get(key) || -9; if (G.simT - last < 1) return; if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < c.r && Math.abs(e.pos.y - c.y) < 1.5) { c.cd.set(key, G.simT); fn(); c.r = Math.max(0, c.r - 0.5); } };
+    if (!P.dead) touch(P, 'player', () => applyPotion(c.pot, 0.25)); for (const m of G.mobs) if (!m.dead && !m.isBoss) touch(m, m, () => applyPotion(c.pot, 0.25, m)); }
+  G.potClouds = L.filter(c => c.life > 0 && c.r > 0.2);
+}
+{ const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updatePotClouds(dt); return r; }; }
+// tipped arrows: shoot them from a bow (off hand first, like Minecraft); the hit gives an eighth of the potion
+function arrowSlot() { const order = [36, ...Array(36).keys()]; for (const i of order) { const s = player.inv[i]; if (s && (s.id === IT.arrow || s.id === IT.tipped_arrow)) return i; } return -1; }
+{ const _cnt = countItem; countItem = function (id) { if (id === IT.arrow) return _cnt(IT.arrow) + _cnt(IT.tipped_arrow); return _cnt(id); }; }
+// the bow takes the first arrows it finds: off hand first, then the hotbar and inventory (tipped ones too)
+fireBow = function (eye, dir) {
+  const p = bowPower(); S.bowDraw = -1; if (p < 0.1) return;
+  let tip = null;
+  if (S.mode !== 'creative') { const i = arrowSlot(); if (i < 0) return; const s = player.inv[i]; tip = s.id === IT.tipped_arrow ? s.pot : null;
+    if (!(heldEnch('infinity') && s.id === IT.arrow)) { s.count--; if (!s.count) player.inv[i] = null; invDirty(); } }
+  const pw = heldEnch('power'); const v = dir.clone().multiplyScalar(p * 60); v.x += player.vel.x; v.z += player.vel.z; if (!player.onGround) v.y += player.vel.y;
+  const a = spawnProj('arrow', eye.clone().addScaledVector(dir, 0.3), v, 'player', 0);
+  a.base = 2 + (pw ? 0.5 * pw + 0.5 : 0); a.crit = p >= 1; a.critR = Math.random(); a.dmg = arrowDamage(a); a.punch = heldEnch('punch'); a.flame = heldEnch('flame') > 0; a.life = 15; a.tip = tip; damageHeld(1);
+  Sfx.play('bow', 0.5 + p * 0.6); S.bowKick = 1;
+};
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    const live = G.projectiles.filter(a => a.tip && !a.done); const r = _up.apply(this, arguments);
+    for (const a of live) if (a.done) { let best = null, bd = 2; for (const m of G.mobs) { if (m.dead || m.isBoss) continue; const d = new V3(m.pos.x, m.pos.y + m.h / 2, m.pos.z).distanceTo(a.pos) - m.hw; if (d < bd) { bd = d; best = m; } } if (best) applyPotion(a.tip, 0.125, best); }
+    return r; }; }
+// ---------- the brewing stand ----------
+function getBrew(k) { world.brewing = world.brewing || new Map(); let b = world.brewing.get(k); if (!b) { b = { s: [null, null, null, null, null], fuel: 0, t: 0 }; world.brewing.set(k, b); } return b; }
+function brewable(b) { const ing = b.s[3]; if (!ing) return false; const key = ITEMS[ing.id].key; return b.s.slice(0, 3).some(s => s && brewResult(s, key)); }
+function updateBrewing(dt) {
+  if (!world.brewing) return;
+  for (const [k, b] of world.brewing) {
+    if (b.fuel <= 0 && b.s[4] && b.s[4].id === IT.blaze_powder && brewable(b)) { b.fuel = 20; b.s[4].count--; if (!b.s[4].count) b.s[4] = null; if (S.brewKey === k) refreshBrewUI(); }
+    if (b.fuel > 0 && brewable(b)) { b.t += dt; if (b.t >= 20) { b.t = 0; b.fuel--; const key = ITEMS[b.s[3].id].key; for (let i = 0; i < 3; i++) { const s = b.s[i]; if (!s) continue; const r = brewResult(s, key); if (r) b.s[i] = { id: r.id, count: 1, pot: r.pot }; } b.s[3].count--; if (!b.s[3].count) b.s[3] = null; if (key === 'dragon_breath' || true) { } const [x, y, z] = k.split(',').map(Number); Sfx.at('fizz', new V3(x, y, z), 0.5); if (S.brewKey === k) refreshBrewUI(); } }
+    else b.t = 0;
+  }
+  if (S.brewKey && S.panel && S.panel.prog) { const b = world.brewing.get(S.brewKey); if (b) { S.panel.prog.style.height = (b.t / 20 * 100) + '%'; S.panel.fuelEl.style.width = (b.fuel / 20 * 100) + '%'; } }
+}
+{ const _uf = updateFurnaces; updateFurnaces = function (dt) { const r = _uf(dt); updateBrewing(dt); return r; }; }
+function refreshBrewUI() { if (S.uiOpen === 'panel') renderInvUI(); }
+function openBrewing(k) {
+  const b = getBrew(k); S.brewKey = k;
+  const pn = S.panel = { title: 'Brewing Stand', slots: b.s, output: -1, ghosts: [IT.glass_bottle, IT.glass_bottle, IT.glass_bottle, null, IT.blaze_powder], single: false,
+    accept: (i, s) => i < 3 ? (s.id === IT.potion || s.id === IT.splash_potion || s.id === IT.lingering_potion || s.id === IT.glass_bottle) : i === 3 ? !!BREW_ING[ITEMS[s.id].key] : s.id === IT.blaze_powder,
+    changed: () => { for (let i = 0; i < 3; i++) if (b.s[i] && b.s[i].count > 1) { const extra = b.s[i].count - 1; b.s[i].count = 1; giveOrDrop(b.s[i].id, extra, xtra(b.s[i])); } refreshBrewUI(); },
+    onClose: () => { S.brewKey = null; },
+    layout: (body) => { body.style.flexDirection = 'column'; body.style.alignItems = 'center'; body.style.gap = '4px';
+      const top = document.createElement('div'); top.style.cssText = 'display:flex;align-items:center;gap:10px'; body.appendChild(top);
+      const fuelBox = document.createElement('div'); fuelBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px'; top.appendChild(fuelBox); makeSlot('panel', 4, fuelBox); const fb = document.createElement('div'); fb.style.cssText = 'width:40px;height:5px;background:#433'; fb.innerHTML = '<div style="height:100%;width:0;background:#e9a020"></div>'; fuelBox.appendChild(fb); pn.fuelEl = fb.firstChild;
+      makeSlot('panel', 3, top); const pr = document.createElement('div'); pr.style.cssText = 'width:8px;height:40px;background:#555;display:flex;align-items:flex-end'; pr.innerHTML = '<div style="width:100%;height:0;background:#fff"></div>'; top.appendChild(pr); pn.prog = pr.firstChild;
+      const row = document.createElement('div'); row.className = 'crow'; row.style.gap = '6px'; body.appendChild(row); for (let i = 0; i < 3; i++) makeSlot('panel', i, row); } };
+  openUI('panel'); Sfx.play('click', 0.5);
+}
+{ const _rm = onBlockRemoved; onBlockRemoved = function (x, y, z, id) { const r = _rm(x, y, z, id); if (id === B.BREWING_STAND && world.brewing) { const k = x + ',' + y + ',' + z; const b = world.brewing.get(k); if (b) for (const s of b.s) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5, false, xtra(s)); world.brewing.delete(k); } return r; }; }
+{ const _pw = packWorld; packWorld = function (w) { const r = _pw(w); if (w.brewing && w.brewing.size) r.brewing = Object.fromEntries(w.brewing); return r; };
+  const _uw = unpackWorld; unpackWorld = function (w, d) { const r = _uw(w, d); if (d && d.brewing) w.brewing = new Map(Object.entries(d.brewing)); return r; }; }
+// ---------- nether wart: grows on soul sand ----------
+{ const _rt = randomTicks; let acc = 0; randomTicks = function (dt) { const r = _rt(dt); acc += dt; if (acc < 1) return r; acc = 0;
+    if (!world.wartSpots) return r; for (const k of [...world.wartSpots]) { const [x, y, z] = k.split(',').map(Number); if (!world.loaded(x, z)) continue; const id = world.get(x, y, z); if (id !== B.NETHER_WART_0) { world.wartSpots.delete(k); continue; } if (Math.random() < 0.012) { world.set(x, y, z, B.NETHER_WART_1); mpBlock(x, y, z, B.NETHER_WART_1); world.wartSpots.delete(k); } }
+    return r; }; }
+{ const _ws = World.prototype.set; World.prototype.set = function (x, y, z, id) { const r = _ws.apply(this, arguments); if (id === B.NETHER_WART_0) { this.wartSpots = this.wartSpots || new Set(); this.wartSpots.add(x + ',' + y + ',' + z); } return r; }; }
+for (const t of ['fortress']) if (LOOT[t]) LOOT[t].push(['nether_wart', 3, 7, 0.6]);
+// ---------- end crystals you can place (on obsidian or bedrock; they explode when hit) ----------
+class PlacedCrystal extends Crystal {
+  constructor(x, y, z) { super({ i: -1, x, z, top: y - 2 }); this.placed = true; this.pos.set(x + 0.5, y, z + 0.5); }
+  hurt() { if (this.dead) return; this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 6, this, { cause: 'an End Crystal' }); }
+}
+function placeEndCrystal(x, y, z) {
+  if (world.get(x, y, z) || world.get(x, y + 1, z)) return false; if (G.mobs.some(m => !m.dead && Math.abs(m.pos.x - x - 0.5) < 1 && Math.abs(m.pos.z - z - 0.5) < 1 && Math.abs(m.pos.y - y) < 2)) return false;
+  const c = new PlacedCrystal(x, y, z); G.mobs.push(c); Sfx.play('glass', 0.4, 1.4); (world.placedCrystals = world.placedCrystals || []).push(c);
+  if (world.dim === 'end' && S.dragonDead && typeof tryRespawnDragon === 'function') tryRespawnDragon();
+  return true;
+}
+// crafting tipped arrows keeps the lingering potion's effect
+function craftExtra(r) { if (r && r.out[0] === 'tipped_arrow') { const L = craftGrid.find(s => s && s.id === IT.lingering_potion); return L && L.pot ? { pot: L.pot } : null; } return null; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the
