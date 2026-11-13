@@ -19,7 +19,7 @@ function attackSpeedOf(def) {
   return 4;
 }
 S.atkT = 10; S.prevML = false; S.atkClick = false; G.simT = 0;
-function attackCharge() { return clamp((S.atkT * 20 + 0.5) / (20 / attackSpeedOf(player.heldDef())), 0, 1); }
+function attackCharge() { const m = player.inv[player.sel]; return clamp((S.atkT * 20 + 0.5) / (20 / attackSpeedOf(m ? ITEMS[m.id] : null)), 0, 1); } // the main hand's cooldown
 function resetAttack() { S.atkT = 0; }
 // a click attacks at once; holding the button attacks again each time the charge is full
 function meleeReady() { return S.atkClick || (mouseL && attackCharge() >= 1); }
@@ -62,7 +62,7 @@ if (ENCH && !ENCH.sweeping_edge) ENCH.sweeping_edge = { name: 'Sweeping Edge', m
 // timers, click edges, misses and the attack indicator
 { const _ui = updateInteraction; updateInteraction = function (dt) {
     G.simT += dt; S.atkT += dt;
-    const hid = player.held() ? player.held().id : -1; if (hid !== S.lastHeldId) { S.lastHeldId = hid; resetAttack(); }
+    const mh = player.inv[player.sel]; const hid = mh ? mh.id : -1; if (hid !== S.lastHeldId) { S.lastHeldId = hid; resetAttack(); } // only changing the MAIN hand item resets it (using the off hand doesn't)
     S.atkClick = mouseL && !S.prevML && !S.uiOpen; S.prevML = mouseL;
     const before = S.atkT; const r = _ui.apply(this, arguments);
     // swinging at nothing also resets the charge (not when mining or using a spear)

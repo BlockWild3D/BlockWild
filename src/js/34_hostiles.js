@@ -239,10 +239,10 @@ Object.assign(ENCH, { density: { name: 'Density', max: 5, for: 'mace', excl: 'md
 // smash attack: falling more than 1.5 blocks adds 4 per block for the first 3, 2 per block for the next 5, then 1
 // per block (Density adds 0.5 per block per level); it cancels your fall damage and knocks nearby mobs back
 function maceBonus(mob) {
-  const P = player; const h = P.held(); if (!h || h.id !== IT.mace || P.onGround || P.peak == null) return 0;
-  const fall = P.peak - P.pos.y; if (fall <= 1.5) return 0;
+  const P = player; const h = P.inv[P.sel]; if (!h || h.id !== IT.mace || P.onGround || P.gliding) return 0;
+  const top = P.smashPeak != null ? P.smashPeak : P.peak; if (top == null) return 0; const fall = top - P.pos.y; if (fall <= 1.5) return 0; // Minecraft: fallDistance, counted from the highest point of this fall
   let b = 4 * Math.min(3, fall) + 2 * clamp(fall - 3, 0, 5) + Math.max(0, fall - 8); b += 0.5 * enchOf(h, 'density') * fall;
-  P.peak = P.pos.y; P.vel.y = Math.max(P.vel.y, 0);
+  P.peak = P.pos.y; P.smashPeak = P.pos.y; P.vel.y = Math.max(P.vel.y, 0);
   Particles.emit(mob.pos.x, mob.pos.y + 0.2, mob.pos.z, 40, [[0.55, 0.45, 0.35], [0.4, 0.4, 0.4]], 6, 0.8, 8, 1.6); Sfx.play('boom', 0.35); G.shake = Math.min(1, 0.2 + fall * 0.03);
   for (const m of G.mobs) { if (m === mob || m.dead) continue; const d = m.pos.distanceTo(mob.pos); if (d < 3.5) { const dir = m.pos.clone().sub(mob.pos); dir.y = 0; dir.normalize(); const k = (3.5 - d) * 2.5; m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, 4); } }
   const wb = enchOf(h, 'wind_burst'); if (wb) windBurstLaunch(P, wb, mob);
