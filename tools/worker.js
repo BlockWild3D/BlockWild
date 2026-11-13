@@ -1,7 +1,7 @@
 // BlockWild server: one plain Cloudflare Worker + D1 (no Durable Objects).
 // Bindings: D1 database as DB.
 // Variables (Settings > Variables and Secrets):
-//   ALLOWED_ORIGINS   e.g. "https://blockwild3d.github.io"   (comma separated)
+//   ALLOWED_ORIGINS   optional, defaults to the GitHub Pages site; e.g. "https://blockwild3d.github.io"   (comma separated)
 //   GOOGLE_CLIENT_ID  optional, enables Google sign-in / accounts
 //   TURN_KEY_ID + TURN_KEY_API_TOKEN  optional (secret), Cloudflare Realtime TURN so friends on strict networks can connect
 //
@@ -14,11 +14,12 @@
 //   GET  /ice                           -> {iceServers} (STUN, plus TURN when configured)
 // Accounts:
 //   POST /auth {credential}  GET /me  PUT /profile {username, skin}  GET /skin/:username
+const DEFAULT_ORIGINS = 'https://blockwild3d.github.io'; // used when ALLOWED_ORIGINS is not set
 const SESSION_DAYS = 30, ROOM_TTL = 180000, SIGNAL_TTL = 120000;
 const json = (data, status, cors) => new Response(JSON.stringify(data), { status: status || 200, headers: Object.assign({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, cors) });
 function corsFor(req, env) {
-  const origin = req.headers.get('Origin') || ''; const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-  const ok = allowed.includes(origin) || allowed.includes('*') || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === 'null';
+  const origin = req.headers.get('Origin') || ''; const allowed = (env.ALLOWED_ORIGINS || DEFAULT_ORIGINS).split(',').map(s => s.trim()).filter(Boolean);
+  const ok = allowed.includes(origin) || allowed.includes('*') || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || /^https:\/\/[a-z0-9.-]+\.(claudeusercontent\.com|claude\.ai)$/.test(origin) || origin === 'null';
   return ok ? { 'Access-Control-Allow-Origin': origin || '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,Authorization', 'Access-Control-Max-Age': '86400', 'Vary': 'Origin' } : {};
 }
 const validRoom = (r) => typeof r === 'string' && /^[A-Z0-9]{6}$/.test(r);
@@ -43,11 +44,16 @@ async function iceServers(env) {
     r = await fetch(base + 'generate', opts); if (r.ok) { const j = await r.json(); const s = j.iceServers; if (s) return stun.concat(Array.isArray(s) ? s : [s]); } } catch (e) { }
   return stun;
 }
+// Creates the tables on first use, so the D1 Console step is optional.
+const SCHEMA = ["CREATE TABLE IF NOT EXISTS users (   sub TEXT PRIMARY KEY,   email TEXT,   username TEXT UNIQUE COLLATE NOCASE,   skin TEXT,   created INTEGER NOT NULL,   updated INTEGER NOT NULL )", "CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, sub TEXT NOT NULL, expires INTEGER NOT NULL)", "CREATE INDEX IF NOT EXISTS sessions_sub ON sessions(sub)", "CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, host TEXT, expires INTEGER NOT NULL)", "CREATE TABLE IF NOT EXISTS signals (id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, to_id TEXT NOT NULL, from_id TEXT NOT NULL, body TEXT NOT NULL, created INTEGER NOT NULL)", "CREATE INDEX IF NOT EXISTS signals_to ON signals(room, to_id, id)"];
+let schemaReady = false;
+async function ensureSchema(env) { if (schemaReady || !env.DB) return; await env.DB.batch(SCHEMA.map(q => env.DB.prepare(q))); schemaReady = true; }
 export default {
   async fetch(req, env) {
     const cors = corsFor(req, env); const url = new URL(req.url); const p = url.pathname.replace(/\/+$/, '') || '/'; const now = Date.now();
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
+      await ensureSchema(env);
       if (p === '/' ) return json({ ok: true, service: 'blockwild', multiplayer: true, accounts: !!env.GOOGLE_CLIENT_ID, turn: !!(env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) }, 200, cors);
       // ---- multiplayer matchmaking ----
       if (p === '/room/open' && req.method === 'POST') {

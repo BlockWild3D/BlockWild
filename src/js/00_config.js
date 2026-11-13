@@ -7,7 +7,7 @@
 // iceServers: STUN servers for peer-to-peer connections. Add a TURN server here if friends behind strict networks can't connect.
 const CONFIG = {
   googleClientId: '',
-  serverUrl: '',
+  serverUrl: 'https://blockwild-server.crossguardstudios.workers.dev',
   mqttBrokers: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'],
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }],
 };

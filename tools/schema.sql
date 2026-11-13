@@ -1,4 +1,4 @@
--- BlockWild server (Cloudflare D1). Paste all of this into the D1 Console once.
+-- BlockWild server (Cloudflare D1). Optional: the Worker creates these tables itself on first use.
 CREATE TABLE IF NOT EXISTS users (
   sub TEXT PRIMARY KEY,            -- Google account id
   email TEXT,
