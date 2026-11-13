@@ -179,7 +179,7 @@ function golemCheck(m) {
   if (ready.length < 3) return;
   for (let t = 0; t < 10; t++) { const x = Math.floor(m.pos.x + (Math.random() - 0.5) * 16), z = Math.floor(m.pos.z + (Math.random() - 0.5) * 16);
     for (let y = Math.floor(m.pos.y) + 6; y >= Math.floor(m.pos.y) - 6; y--) if (world.solid(x, y - 1, z) && !world.solid(x, y, z) && !world.solid(x, y + 1, z) && !world.solid(x, y + 2, z) && !BL[world.get(x, y, z)].fluid && !BL[world.get(x, y - 1, z)].leaves) {
-      const g = spawnShared('iron_golem', x + 0.5, y, z + 0.5); if (g) g.home = [m.pos.x, m.pos.z]; for (const o of near) vData(o).gCD = 30; return; } }
+      const g = spawnShared('iron_golem', x + 0.5, y, z + 0.5); if (g) g.vhome = [m.pos.x, m.pos.z]; for (const o of near) vData(o).gCD = 30; return; } }
 }
 { const prev = MOBS.villager.tick; MOBS.villager.tick = function (m, dt) { if (prev && prev(m, dt)) return true; return villagerTick(m, dt); }; }
 MOBS.villager.persist = true;
@@ -283,8 +283,8 @@ PROJ.xpbottle = { grav: 14, size: 0.22, color: 0x8be060, trail: [[0.6, 1, 0.4]] 
 
 // village golems patrol their village: with nothing to fight they head back when more than 20 blocks from home
 { const prev = MOBS.iron_golem.tick; MOBS.iron_golem.tick = function (m, dt) { m.goalBoost = false; if (prev && prev(m, dt)) return true;
-    if (!m.home && !m.playerMade) { const vil = G.mobs.find(o => o.type === 'villager' && !o.dead && o.pos.distanceTo(m.pos) < 32); if (vil) m.home = [vil.pos.x, vil.pos.z]; }
-    if (m.home && !(m.angry > 0) && !m.goalBoost) { const dx = m.home[0] - m.pos.x, dz = m.home[1] - m.pos.z; if (dx * dx + dz * dz > 400 && Math.random() < dt) steerTo(m, new V3(m.home[0], m.pos.y, m.home[1]), 8); }
+    if (!m.vhome && !m.playerMade) { const vil = G.mobs.find(o => o.type === 'villager' && !o.dead && o.pos.distanceTo(m.pos) < 32); if (vil) m.vhome = [vil.pos.x, vil.pos.z]; }
+    if (m.vhome && !(m.angry > 0) && !m.goalBoost) { const dx = m.vhome[0] - m.pos.x, dz = m.vhome[1] - m.pos.z; if (dx * dx + dz * dz > 400 && Math.random() < dt) steerTo(m, new V3(m.vhome[0], m.pos.y, m.vhome[1]), 8); }
     return false; }; }
-{ const _mr = mobRecord; mobRecord = function (m) { const r = _mr(m); if (m.home) r.hm = m.home.map(v => Math.round(v)); if (m.playerMade) r.pm = 1; return r; };
-  const _mf = mobFromRecord; mobFromRecord = function (rec) { const m = _mf(rec); if (m && rec.hm) m.home = rec.hm; if (m && rec.pm) m.playerMade = true; return m; }; }
+{ const _mr = mobRecord; mobRecord = function (m) { const r = _mr(m); if (m.vhome) r.hm = m.vhome.map(v => Math.round(v)); if (m.playerMade) r.pm = 1; return r; };
+  const _mf = mobFromRecord; mobFromRecord = function (rec) { const m = _mf(rec); if (m && rec.hm) m.vhome = rec.hm; if (m && rec.pm) m.playerMade = true; return m; }; }

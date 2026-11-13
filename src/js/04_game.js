@@ -417,7 +417,7 @@ function placeBlock(hit, id) {
   if (BL[id].crop !== undefined && below !== B.FARMLAND) return false;
   if (id === B.SUGAR_CANE) { const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => isWaterId(world.get(x + a, y - 1, z + b))); if (!(below === B.SUGAR_CANE || ((below === B.GRASS || below === B.DIRT || below === B.SAND) && wet))) return false; }
   else if (BL[id].plant && BL[id].crop === undefined) { const netherPlant = id >= B.CRIMSON_FUNGUS && id <= B.WARPED_ROOTS; const ok = netherPlant ? PLANT_SOIL.nether.includes(below) : (below === B.GRASS || below === B.DIRT || below === B.SNOWY_GRASS || (id === B.DEAD_BUSH && below === B.SAND)); if (!ok) return false; }
-  if (id === B.TORCH && !SOLID[below]) return false;
+  if (id === B.TORCH && !SOLID[below] && !(hit.ny === 0 && SOLID[hit.id])) return false; // floor or wall torches
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);

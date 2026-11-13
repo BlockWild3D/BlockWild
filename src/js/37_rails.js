@@ -203,3 +203,5 @@ function cartSync(c, reliable, withInv) { if (typeof MP === 'undefined' || !MP.a
   const _tv = travelTo; travelTo = function () { if (player.riding && player.riding.isCart) cartDismount(); return _tv.apply(this, arguments); };
   const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updateCarts(dt); return r; }; }
 { const _q = quitToTitle; quitToTitle = function () { const r = _q.apply(this, arguments); for (const c of G.carts) scene.remove(c.mesh); G.carts = []; return r; }; }
+// the container title follows what you opened (it used to stay "Minecart with Chest" after opening a cart)
+{ const _ou = openUI; openUI = function (kind, key) { const r = _ou(kind, key); if (kind === 'chest' && $('chestTitle')) { let t = 'Chest'; if (String(key).startsWith('cart:')) t = 'Minecart with Chest'; else { const p = String(key).split(',').map(Number); if (p.length === 3 && world.get(p[0], p[1], p[2]) === B.BARREL) t = 'Barrel'; } $('chestTitle').textContent = t; } return r; }; }

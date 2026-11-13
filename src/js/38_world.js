@@ -174,7 +174,7 @@ function buildMineshaftChunk(world, c) {
     // at the top of a ladder, keep walking forward to step off onto the block it leans on
     else if (P.wasClimbing && P.hitH && !S.uiOpen && kd('forward') && P.vel.y < 1) { P.vel.y = 5.2; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); P.vel.x += fx * 1.5; P.vel.z += fz * 1.5; }
     P.wasClimbing = !!climbing;
-    if ((feet && feet.web) || (head && head.web)) { P.vel.x *= 0.25; P.vel.z *= 0.25; P.vel.y = Math.max(P.vel.y * 0.05, -0.8); P.peak = null; }
+    if ((feet && feet.web) || (head && head.web)) P.peak = null; // the slowing itself happens in moveEntity (below)
     if (feet === undefined) { }
     const below = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z))]; if (below && below.slippery && P.onGround) { P.slip = true; } else P.slip = false;
     return r;
@@ -191,3 +191,11 @@ function buildMineshaftChunk(world, c) {
   }; }
 // swamps: slimes at night (light 7 or less) besides slime chunks
 { const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || isClientMP() || !isSurv() || S.difficulty === 'peaceful' || G.daylight > 0.5 || Math.random() > 0.3) return; const P = player.pos; const x = Math.floor(P.x + (Math.random() - 0.5) * 60), z = Math.floor(P.z + (Math.random() - 0.5) * 60); if (!world.loaded(x, z) || world.gen.column(x, z).b !== BIO.SWAMP || G.mobs.filter(m => m.type === 'slime').length >= 6) return; const y = surfaceSpawnY(x, z); if (y > 0 && freeAt(x, y, z, 2) && lightLevels(x, y, z).total <= 7) spawnMob('slime', x + 0.5, y, z + 0.5, { size: [1, 2, 4][Math.random() * 3 | 0] }); }; }
+
+// cobwebs (Minecraft's 'stuck' multiplier): movement inside a web is scaled by 0.25 sideways and 0.05 vertically, and
+// all momentum is lost every step, so you crawl through and barely sink. Spiders and cave spiders ignore webs.
+function inWeb(e) { const hw = e.hw || 0.3, h = e.h || 1.8; for (const dy of [0.1, h * 0.5, h - 0.1]) for (const [ox, oz] of [[-hw, -hw], [hw, -hw], [-hw, hw], [hw, hw]]) { const b = BL[world.get(Math.floor(e.pos.x + ox * 0.9), Math.floor(e.pos.y + dy), Math.floor(e.pos.z + oz * 0.9))]; if (b && b.web) return true; } return false; }
+{ const _me = moveEntity; moveEntity = function (e, dt) {
+    if (!world || (e.type && (e.type === 'spider' || e.type === 'cave_spider')) || e.flying) return _me(e, dt);
+    if (!inWeb(e)) return _me(e, dt);
+    const v = e.vel.clone(); e.vel.set(v.x * 0.25, v.y * 0.05, v.z * 0.25); const r = _me(e, dt); e.vel.set(0, 0, 0); if (e === player) player.peak = null; return r; }; }
