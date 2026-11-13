@@ -9,8 +9,9 @@ class NetherGen {
   density(x, y, z) { let v = this.n1.n3(x / 52, y / 30, z / 52) + this.n2.n3(x / 18, y / 14, z / 18) * 0.4; if (y < 26) v += (26 - y) / 12; if (y > 78) v += (y - 78) / 9; return v; }
   solidAt(x, y, z) { if (y < 6 || y > WH - 7) return true; return this.density(x, y, z) > 0.06; }
   floorNear(x, z) { for (let y = NSEA + 2; y < 84; y++) if (this.solidAt(x, y - 1, z) && !this.solidAt(x, y, z) && !this.solidAt(x, y + 1, z) && !this.solidAt(x, y + 3, z)) return y; return -1; }
-  fortress(rx, rz) { const h = ihash(rx, rz, 909, this.seed); if (h % 100 >= 80) return null; return { ccx: rx * 10 + 2 + ((h >>> 8) % 6), ccz: rz * 10 + 2 + ((h >>> 12) % 6), fy: 44 + ((h >>> 16) % 14) }; }
-  fortressesNear(cx, cz) { const out = []; const seen = new Set(); for (const dx of [-3, 0, 3]) for (const dz of [-3, 0, 3]) { const rx = Math.floor((cx + dx) / 10), rz = Math.floor((cz + dz) / 10); const k = rx + ',' + rz; if (seen.has(k)) continue; seen.add(k); const f = this.fortress(rx, rz); if (f) out.push(f); } return out; }
+  // Minecraft: fortresses and bastions share one grid (spacing 27, separation 4); 2 in 5 starts are fortresses, the rest bastions
+  fortress(rx, rz) { const h = ihash(rx, rz, 909, this.seed) >>> 0; if (h % 5 >= 2) return null; return { ccx: rx * 27 + ((h >>> 8) % 23), ccz: rz * 27 + ((h >>> 16) % 23), fy: 44 + ((h >>> 24) % 14) }; }
+  fortressesNear(cx, cz) { const out = []; const seen = new Set(); for (const dx of [-3, 0, 3]) for (const dz of [-3, 0, 3]) { const rx = Math.floor((cx + dx) / 27), rz = Math.floor((cz + dz) / 27); const k = rx + ',' + rz; if (seen.has(k)) continue; seen.add(k); const f = this.fortress(rx, rz); if (f) out.push(f); } return out; }
 }
 function genNetherChunk(world, c) {
   const g = world.gen, d = c.d, seed = world.seed, bx = c.cx * 16, bz = c.cz * 16;

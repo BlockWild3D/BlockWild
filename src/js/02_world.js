@@ -9,8 +9,16 @@ class Gen {
     this.nC = new Perlin(seed); this.nH = new Perlin(seed + 11); this.nM = new Perlin(seed + 22); this.nT = new Perlin(seed + 33);
     this.nW = new Perlin(seed + 44); this.nA = new Perlin(seed + 55); this.nB = new Perlin(seed + 66); this.nK = new Perlin(seed + 77);
     this.colCache = new Map();
-    const r = mulberry32(seed ^ 0x51e7); this.strongholds = []; const a0 = r() * Math.PI * 2;
-    for (let k = 0; k < 3; k++) { const a = a0 + k * Math.PI * 2 / 3, d = 380 + r() * 260; const cx = Math.floor(Math.cos(a) * d / 16), cz = Math.floor(Math.sin(a) * d / 16); this.strongholds.push({ cx, cz, x: cx * 16 + 8, z: cz * 16 + 8, y: 16 }); }
+    // strongholds: Minecraft's concentric rings (distance 32, spread 3). Ring 1 holds 3 strongholds 1280-2816 blocks out,
+    // ring 2 holds 6, ring 3 holds 10 ... (first 4 rings generated, 34 strongholds)
+    const r = mulberry32(seed ^ 0x51e7); this.strongholds = []; let ang = r() * Math.PI * 2, ring = 0, inRing = 0, ringCount = 3; const total = 34;
+    for (let i = 0; i < total; i++) {
+      const dist = (4 * 32 + 32 * ring * 6) + (r() - 0.5) * 32 * 2.5;
+      const cx = Math.round(Math.cos(ang) * dist), cz = Math.round(Math.sin(ang) * dist);
+      this.strongholds.push({ cx, cz, x: cx * 16 + 8, z: cz * 16 + 8, y: 16 });
+      ang += Math.PI * 2 / ringCount; inRing++;
+      if (inRing === ringCount) { ring++; inRing = 0; ringCount += Math.floor(2 * ringCount / (ring + 1)); ringCount = Math.min(ringCount, total - i - 1); ang += r() * Math.PI * 2; }
+    }
   }
   biomeName(x, z) { return BIO_NAME[this.column(x, z).b]; }
   column(x, z) {
@@ -41,6 +49,47 @@ class Gen {
   }
 }
 
+// ---- Structure placement (Minecraft "random spread") ----
+// The world is cut into square regions of `spacing` chunks. Each region gets ONE attempt, at a random chunk that keeps
+// `sep` chunks clear of the next region. The biome is checked at that chunk; if it is wrong, the region has no structure.
+// Values are Minecraft Java's. Mineshaft-style per-chunk features (dungeons, desert wells) use per-chunk chances instead.
+const PLACE = {
+  village:        { spacing: 34, sep: 8,  salt: 10387, biomes: [BIO.PLAINS, BIO.DESERT, BIO.SNOWY] },
+  desert_pyramid: { spacing: 32, sep: 8,  salt: 14357, biomes: [BIO.DESERT] },
+  outpost:        { spacing: 32, sep: 8,  salt: 16574, biomes: [BIO.PLAINS, BIO.DESERT, BIO.SNOWY, BIO.MOUNTAINS], chance: 0.2, avoid: ['village', 10] },
+  ruined_portal:  { spacing: 40, sep: 15, salt: 34222, land: true },
+};
+function regionStart(world, kind, rx, rz) {
+  if (!world.startCache) world.startCache = new Map();
+  const key = kind + ':' + rx + ',' + rz; if (world.startCache.has(key)) return world.startCache.get(key);
+  const p = PLACE[kind]; const r = mulberry32(ihash(rx, rz, p.salt, world.seed)); const span = p.spacing - p.sep;
+  const cx = rx * p.spacing + (r() * span | 0), cz = rz * p.spacing + (r() * span | 0);
+  const col = world.gen.column(cx * 16 + 8, cz * 16 + 8);
+  let ok = !(p.chance && r() >= p.chance);
+  if (ok && p.biomes && !p.biomes.includes(col.b)) ok = false;
+  if (ok && p.land && col.h <= SEA + 1) ok = false;
+  if (ok && p.avoid && startNear(world, p.avoid[0], cx, cz, p.avoid[1])) ok = false;
+  const res = ok ? { cx, cz, col, seed: ihash(cx, cz, p.salt, world.seed) } : null;
+  if (world.startCache.size > 4000) world.startCache.clear();
+  world.startCache.set(key, res); return res;
+}
+// a start of `kind` whose chunk is within `reach` chunks (Chebyshev) of (cx, cz), or null
+function startNear(world, kind, cx, cz, reach) {
+  const sp = PLACE[kind].spacing; let best = null, bd = 1e9;
+  for (let rx = Math.floor((cx - reach) / sp); rx <= Math.floor((cx + reach) / sp); rx++) for (let rz = Math.floor((cz - reach) / sp); rz <= Math.floor((cz + reach) / sp); rz++) {
+    const st = regionStart(world, kind, rx, rz); if (!st) continue;
+    const d = Math.max(Math.abs(st.cx - cx), Math.abs(st.cz - cz)); if (d <= reach && d < bd) { bd = d; best = st; }
+  }
+  return best;
+}
+// Minecraft monster rooms: the floor and ceiling must be solid and the walls must touch a cave in 1-5 places
+function dungeonFits(g, x0, y0, z0) {
+  const W = 7; let open = 0;
+  for (let x = x0 - 1; x <= x0 + W; x += 2) for (let z = z0 - 1; z <= z0 + W; z += 2) { if (g.cave(x, y0 - 1, z) || g.cave(x, y0 + 4, z)) return false; }
+  for (let t = 0; t < W; t++) for (const [x, z] of [[x0 - 1, z0 + t], [x0 + W, z0 + t], [x0 + t, z0 - 1], [x0 + t, z0 + W]]) if (g.cave(x, y0, z) && g.cave(x, y0 + 1, z)) { open++; if (open > 5) return false; }
+  return open >= 1;
+}
+
 // ---- Structures (deterministic per chunk; may spill into neighbours) ----
 function structuresFor(world, cx, cz) {
   const key = ckey(cx, cz); const cached = world.structCache.get(key); if (cached) return cached;
@@ -56,7 +105,7 @@ function structuresFor(world, cx, cz) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
-    const p = col.b === BIO.FOREST ? 0.8 : col.b === BIO.PLAINS ? 0.04 : col.b === BIO.SNOWY ? 0.3 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.15 : 0;
+    const p = col.b === BIO.FOREST ? 0.85 : col.b === BIO.PLAINS ? 0.006 : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
     if (q >= p) continue;
     if (g.cave(wx, col.h - 1, wz)) continue;
     const y0 = col.h;
@@ -73,37 +122,40 @@ function structuresFor(world, cx, cz) {
       for (let y = 0; y < H; y++) hard(wx, y0 + y, wz, log);
     }
   }
-  // --- village ---
-  const rx = Math.floor(cx / 6), rz = Math.floor(cz / 6); const vh = ihash(rx, rz, 55, seed);
+  // --- village: one start per 34x34-chunk region, plains / desert / snowy only; houses spread over the 5x5 chunks around it ---
   let inVillage = false;
-  if (vh % 100 < 28) {
-    const ccx = rx * 6 + 1 + ((vh >> 8) % 4), ccz = rz * 6 + 1 + ((vh >> 12) % 4);
-    const cc = g.column(ccx * 16 + 8, ccz * 16 + 8);
-    if ((cc.b === BIO.PLAINS || cc.b === BIO.DESERT || cc.b === BIO.SNOWY) && Math.abs(cx - ccx) <= 1 && Math.abs(cz - ccz) <= 1) {
-      inVillage = true;
-      const mats = cc.b === BIO.DESERT ? { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE } :
-        cc.b === BIO.SNOWY ? { wall: B.PLANKS, corner: B.SPRUCE_LOG, floor: B.PLANKS, roof: B.SPRUCE_LOG, found: B.COBBLESTONE } :
-          { wall: B.PLANKS, corner: B.LOG, floor: B.PLANKS, roof: [B.PLANKS, B.BRICK, B.COBBLESTONE, B.STONE_BRICKS][(vh >> 4) & 3], found: B.COBBLESTONE };
-      if (cx === ccx && cz === ccz) { buildWell(S, g, bx + 6, bz + 6, hard, mats); S.kinds.push(['village', bx + 8, bz + 8]); }
-      else if (r() < 0.7) {
-        const w = 5 + (r() * 2 | 0) * 2, d = 5 + (r() * 2 | 0) * 2;
-        const x0 = bx + 2 + (r() * (12 - w) | 0), z0 = bz + 2 + (r() * (12 - d) | 0);
-        const dxs = ccx - cx, dzs = ccz - cz; const doorSide = Math.abs(dxs) >= Math.abs(dzs) ? (dxs > 0 ? 0 : 1) : (dzs > 0 ? 2 : 3);
-        buildHouse(S, g, x0, z0, w, d, hard, mats, doorSide, r, world);
-      }
+  const vs = startNear(world, 'village', cx, cz, 2);
+  if (vs) {
+    const ccx = vs.cx, ccz = vs.cz, cc = vs.col, vh = vs.seed >>> 0;
+    const here = g.column(bx + 8, bz + 8);
+    inVillage = true;
+    const mats = cc.b === BIO.DESERT ? { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE } :
+      cc.b === BIO.SNOWY ? { wall: B.PLANKS, corner: B.SPRUCE_LOG, floor: B.PLANKS, roof: B.SPRUCE_LOG, found: B.COBBLESTONE } :
+        { wall: B.PLANKS, corner: B.LOG, floor: B.PLANKS, roof: [B.PLANKS, B.BRICK, B.COBBLESTONE, B.STONE_BRICKS][(vh >> 4) & 3], found: B.COBBLESTONE };
+    if (cx === ccx && cz === ccz) { buildWell(S, g, bx + 6, bz + 6, hard, mats); S.kinds.push(['village', bx + 8, bz + 8]); }
+    else if (here.h > SEA + 1 && here.b !== BIO.OCEAN && here.b !== BIO.BEACH && Math.abs(here.h - cc.h) < 9 && r() < (Math.max(Math.abs(cx - ccx), Math.abs(cz - ccz)) === 1 ? 0.75 : 0.45)) {
+      const w = 5 + (r() * 2 | 0) * 2, d = 5 + (r() * 2 | 0) * 2;
+      const x0 = bx + 2 + (r() * (12 - w) | 0), z0 = bz + 2 + (r() * (12 - d) | 0);
+      const dxs = ccx - cx, dzs = ccz - cz; const doorSide = Math.abs(dxs) >= Math.abs(dzs) ? (dxs > 0 ? 0 : 1) : (dzs > 0 ? 2 : 3);
+      buildHouse(S, g, x0, z0, w, d, hard, mats, doorSide, r, world);
     }
   }
   const cc0 = g.column(bx + 8, bz + 8);
-  if (!inVillage && cc0.h > SEA + 1) {
-    const q = r();
-    if (cc0.b === BIO.DESERT && q < 0.05) { buildPyramid(S, g, bx + 8, bz + 8, hard, r, world); S.kinds.push(['pyramid', bx + 8, bz + 8]); }
-    else if ((cc0.b === BIO.FOREST || cc0.b === BIO.MOUNTAINS || cc0.b === BIO.SNOWY || cc0.b === BIO.PLAINS) && q < 0.035) { buildTower(S, g, bx + 6, bz + 6, hard, r, world); S.kinds.push(['tower', bx + 8, bz + 8]); }
-    else if (q > 0.965 && cc0.b !== BIO.OCEAN) { buildRuinedPortal(S, g, bx + 6, bz + 7, hard, r, world); S.kinds.push(['ruined_portal', bx + 8, bz + 8]); }
+  if (!inVillage) {
+    // desert pyramid: desert only, one chance per 32x32-chunk region
+    const dp = startNear(world, 'desert_pyramid', cx, cz, 0);
+    if (dp) { buildPyramid(S, g, bx + 8, bz + 8, hard, r, world); S.kinds.push(['pyramid', bx + 8, bz + 8]); }
+    // watchtower: uses pillager-outpost rules (20% of regions, never within 10 chunks of a village)
+    else if (startNear(world, 'outpost', cx, cz, 0)) { buildTower(S, g, bx + 6, bz + 6, hard, r, world); S.kinds.push(['tower', bx + 8, bz + 8]); }
+    // ruined portal: any land biome, one chance per 40x40-chunk region
+    else if (startNear(world, 'ruined_portal', cx, cz, 0)) { buildRuinedPortal(S, g, bx + 6, bz + 7, hard, r, world); S.kinds.push(['ruined_portal', bx + 8, bz + 8]); }
+    // desert well: 1 in 1000 desert chunks
+    else if (cc0.b === BIO.DESERT && rnd01(cx, cz, 4417, seed) < 0.001) { buildWell(S, g, bx + 6, bz + 6, hard, { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE }); S.kinds.push(['desert_well', bx + 8, bz + 8]); }
   }
-  // --- dungeon (underground) ---
-  if (r() < 0.12 && cc0.h > 26) {
-    const y = 8 + (r() * Math.min(16, cc0.h - 22) | 0);
-    buildDungeon(S, bx + 4, y, bz + 4, hard, r, world); S.kinds.push(['dungeon', bx + 7, bz + 7, y]);
+  // --- dungeon (monster room): a few attempts per chunk, kept only where it breaks into a cave ---
+  for (let a = 0; a < 4 && cc0.h > 20; a++) {
+    const x0 = bx + 1 + (r() * 8 | 0), z0 = bz + 1 + (r() * 8 | 0), y = 4 + (r() * Math.max(1, Math.min(cc0.h - 12, 60)) | 0);
+    if (dungeonFits(g, x0, y, z0)) { buildDungeon(S, x0, y, z0, hard, r, world); S.kinds.push(['dungeon', x0 + 3, z0 + 3, y]); break; }
   }
   if (world.structCache.size > 3000) world.structCache.clear();
   world.structCache.set(key, S);
@@ -210,7 +262,7 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
   const W = 7, Hh = 4;
   for (let x = x0 - 1; x <= x0 + W; x++) for (let z = z0 - 1; z <= z0 + W; z++) for (let y = y0 - 1; y <= y0 + Hh; y++) {
     const shell = x === x0 - 1 || x === x0 + W || z === z0 - 1 || z === z0 + W || y === y0 - 1 || y === y0 + Hh;
-    if (shell) { if (y === y0 + Hh && r() < 0.1) continue; hard(x, y, z, r() < 0.45 ? B.MOSSY_COBBLESTONE : B.COBBLESTONE); }
+    if (shell) { if (y === y0 + Hh && r() < 0.1) continue; if (y > y0 - 1 && y < y0 + Hh && world.gen.cave(x, y, z)) continue; hard(x, y, z, r() < 0.45 ? B.MOSSY_COBBLESTONE : B.COBBLESTONE); }
     else hard(x, y, z, 0);
   }
   const sx = x0 + 3, sz = z0 + 3; hard(sx, y0, sz, B.SPAWNER);
@@ -398,7 +450,7 @@ class World {
               default: id = depth === 0 ? B.GRASS : depth < 4 ? B.DIRT : B.STONE;
             }
             const carveOk = y > 4 && (b === BIO.OCEAN || b === BIO.BEACH ? y < h - 5 : (y < h - 1 || h > SEA + 3));
-            if (carveOk && g.cave(wx, y, wz)) id = (y < 9) ? B.LAVA : 0;
+            if (carveOk && g.cave(wx, y, wz)) id = (y < 5) ? B.LAVA : 0;
           }
         } else if (y < SEA) id = B.WATER;
         if (id) d[(y * 16 + z) * 16 + x] = id;
@@ -406,12 +458,21 @@ class World {
     }
     // ores
     const r = mulberry32(ihash(cx, cz, 1, seed));
-    const ores = [[B.COAL_ORE, 18, 4, 9, 80], [B.IRON_ORE, 10, 3, 6, 56], [B.GOLD_ORE, 3, 2, 6, 30], [B.DIAMOND_ORE, 2, 2, 5, 16], [B.GRAVEL, 4, 6, 14, 60], [B.DIRT, 4, 6, 14, 60]];
-    for (const [id, cnt, mn, mx, maxY] of ores) for (let i = 0; i < cnt; i++) {
-      let x = r() * 16 | 0, y = 1 + (r() * maxY | 0), z = r() * 16 | 0; const n = mn + (r() * (mx - mn) | 0);
+    // [block, attempts, vein size, minY, maxY, shape]  tri = most common in the middle, low = most common at the bottom
+    const ores = [[B.COAL_ORE, 7, 13, 16, 64, 'tri'], [B.COAL_ORE, 6, 13, 50, 95, 'uni'],
+      [B.IRON_ORE, 4, 8, 6, 30, 'tri'], [B.IRON_ORE, 3, 4, 1, 34, 'uni'], [B.IRON_ORE, 5, 8, 52, 95, 'tri'],
+      [B.GOLD_ORE, 2, 8, 1, 24, 'tri'], [B.GOLD_ORE, 1, 3, 1, 12, 'uni'],
+      [B.DIAMOND_ORE, 3, 4, 1, 20, 'low'], [B.DIAMOND_ORE, 1, 9, 1, 12, 'rare'],
+      [B.GRAVEL, 4, 24, 1, 95, 'uni'], [B.DIRT, 2, 24, 16, 56, 'uni']];
+    for (const [id, cnt, sz, mnY, mxY, shape] of ores) for (let i = 0; i < cnt; i++) {
+      if (shape === 'rare' && r() > 0.11) continue;
+      const q = shape === 'tri' ? (r() + r()) / 2 : shape === 'low' ? Math.min(r(), r()) : r();
+      let x = r() * 16 | 0, y = mnY + (q * (mxY - mnY) | 0), z = r() * 16 | 0; const n = Math.max(1, Math.round(sz * (0.6 + r() * 0.6)));
       for (let k = 0; k < n; k++) {
-        if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH) { const j = (y * 16 + z) * 16 + x; if (d[j] === B.STONE) d[j] = id; }
-        const q = r() * 6 | 0; if (q === 0) x++; else if (q === 1) x--; else if (q === 2) y++; else if (q === 3) y--; else if (q === 4) z++; else z--;
+        if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH - 1) { const j = (y * 16 + z) * 16 + x;
+          // diamonds (like MC) are often skipped where they would touch open air
+          if (d[j] === B.STONE && !(id === B.DIAMOND_ORE && r() < 0.5 && (d[j + 256] === 0 || d[j - 256] === 0 || (x > 0 && d[j - 1] === 0) || (x < 15 && d[j + 1] === 0)))) d[j] = id; }
+        const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--;
       }
     }
     // small decorations

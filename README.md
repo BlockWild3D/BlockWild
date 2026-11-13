@@ -7,7 +7,7 @@ A voxel sandbox you play in the browser. Explore biomes, build, craft, fight mob
 ## Features
 
 - **Endless worlds** with plains, forests, deserts, snowy tundra, mountains and oceans, plus caves, lava and ores
-- **Structures:** villages, desert pyramids, ruined towers, dungeons, ruined portals and strongholds
+- **Structures:** villages, desert pyramids, watchtowers, desert wells, dungeons, ruined portals, strongholds and Nether fortresses, placed with Minecraft's rules (one attempt per region, biome checks, Minecraft spacing and rarity; strongholds in rings starting about 1,400-2,700 blocks out)
 - **Mobs** with pixel-art skins and animations: pigs, cows, sheep, chickens, villagers, zombies, skeletons, spiders, creepers and endermen
 - **Crafting** in a 2x2 or 3x3 grid, a recipe book that shows patterns, and furnaces for smelting
 - **Combat:** swords, a bow you draw back to charge, and a shield you block with from your offhand
