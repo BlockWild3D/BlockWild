@@ -797,7 +797,7 @@ defBlock('mossy_stone_bricks', 'Mossy Stone Bricks', { tex: 'mossy_stone_bricks'
 defBlock('cracked_stone_bricks', 'Cracked Stone Bricks', { tex: 'cracked_stone_bricks', hardness: 1.5, tool: 'pick', tier: 1 });
 defBlock('iron_bars', 'Iron Bars', { tex: 'iron_bars', render: 'boxes', boxes: [[7, 0, 0, 9, 16, 16], [0, 0, 7, 16, 16, 9]], opaque: false, hardness: 5, tool: 'pick', tier: 1 });
 defBlock('dark_oak_planks', 'Dark Oak Planks', { tex: 'dark_oak_planks', hardness: 2, snd: 'wood' });
-defBlock('snow_block', 'Snow Block', { tex: 'snow', hardness: 0.3, snd: 'snow' });
+defBlock('snow_block', 'Snow Block', { tex: 'snow', hardness: 0.3, snd: 'snow', drop: ['snowball', 4] });
 defBlock('lava', 'Lava', { tex: 'lava', solid: false, opaque: false, render: 'lava', hardness: -1, drop: null, light: 1, fluid: true, noTarget: true });
 defBlock('obsidian', 'Obsidian', { tex: 'obsidian', hardness: 25, tool: 'pick', tier: 4 });
 defBlock('netherrack', 'Netherrack', { tex: 'netherrack', hardness: 0.4, tool: 'pick', tier: 1 });
@@ -933,7 +933,7 @@ M('rabbit', 'Raw Rabbit', { kind: 'food' }); M('cooked_rabbit', 'Cooked Rabbit',
 M('bone_meal', 'Bone Meal', { kind: 'bonemeal' }); M('mutton', 'Raw Mutton', { kind: 'food' }); M('cooked_mutton', 'Cooked Mutton', { kind: 'food' }); M('armadillo_scute', 'Armadillo Scute'); M('turtle_scute', 'Turtle Scute'); M('honeycomb', 'Honeycomb'); M('tripwire_hook', 'Tripwire Hook');
 M('wheat_seeds', 'Wheat Seeds', { kind: 'seed', crop: 'wheat_0' });
 M('carrot', 'Carrot', { kind: 'food', crop: 'carrots_0' }); M('potato', 'Potato', { kind: 'food', crop: 'potatoes_0' }); M('baked_potato', 'Baked Potato', { kind: 'food' }); M('golden_carrot', 'Golden Carrot', { kind: 'food' });
-M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
+M('sugar', 'Sugar'); M('egg', 'Egg', { kind: 'egg', stack: 16 }); M('snowball', 'Snowball', { kind: 'snowball', stack: 16 }); M('iron_nugget', 'Iron Nugget'); M('milk_bucket', 'Milk Bucket', { kind: 'food', stack: 1 }); M('shears', 'Shears', { kind: 'shears', stack: 1, dur: 238 });
 for (const [k, n, def, col] of [['leather', 'Leather', 3, [150, 90, 50]], ['iron', 'Iron', 5, [214, 214, 218]], ['golden', 'Golden', 7, [246, 208, 64]], ['diamond', 'Diamond', 11, [90, 222, 210]]]) M(k + '_horse_armor', n + ' Horse Armor', { kind: 'horse_armor', stack: 1, hdef: def, hcol: col, hmat: k }); M('wheat', 'Wheat'); M('bread', 'Bread', { kind: 'food', heal: 5 });
 for (const [k, n, tier, sp] of TOOLMATS) M(k + '_hoe', n + ' Hoe', { kind: 'tool', stack: 1, tool: 'hoe', tier, speed: 1, dmg: 1 });
 // axes (strong but slow hits, fast on wood) and shovels (fast on dirt, sand, gravel, snow); Minecraft damage values
@@ -1065,6 +1065,8 @@ Object.assign(ICONP, {
   fermented_spider_eye: (s, r) => { blob(s, 8, 9, 5, 4.5, [120, 50, 60], r, [70, 30, 40]); s(7, 8, [40, 20, 20]); s(10, 9, [40, 20, 20]); blob(s, 8, 4, 2.5, 1.6, [210, 190, 150], r); },
   end_crystal: (s, r) => { for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) { const e = x === 2 || x === 13 || y === 2 || y === 13; if (e) s(x, y, [230, 220, 250]); else if (x > 5 && x < 10 && y > 5 && y < 10) s(x, y, (x + y) % 2 ? [255, 120, 255] : [200, 70, 220]); } },
   fishing_rod: (s, r) => { pLine(s, 2, 14, 13, 2, [120, 84, 46]); pLine(s, 3, 14, 14, 2, [96, 66, 36]); for (let y = 3; y <= 12; y++) s(13 + (y > 9 ? 1 : 0), y, [220, 220, 220]); s(14, 12, [150, 150, 150]); s(14, 13, [200, 60, 60]); },
+  snowball: (s, r) => blob(s, 8, 8, 4.5, 4.5, [246, 250, 255], r, [190, 210, 230]),
+  iron_nugget: (s, r) => { blob(s, 7, 9, 2.5, 2, [210, 210, 214], r, [140, 140, 146]); blob(s, 10, 6, 2, 1.6, [230, 230, 234], r, [150, 150, 156]); },
   name_tag: (s, r) => { for (let y = 5; y <= 11; y++) for (let x = 4; x <= 13; x++) if (!(x === 4 && (y === 5 || y === 11))) s(x, y, y === 5 ? [236, 226, 200] : [214, 200, 168]); s(6, 8, [60, 50, 40]); pLine(s, 1, 3, 4, 7, [190, 190, 190]); },
   compass: (s, r) => { blob(s, 8, 8, 6, 6, [110, 110, 116], r, [70, 70, 76]); blob(s, 8, 8, 4.2, 4.2, [200, 196, 180], r); pLine(s, 8, 8, 8, 4, [210, 40, 40]); pLine(s, 8, 9, 8, 12, [60, 60, 60]); },
   clock: (s, r) => { blob(s, 8, 8, 6, 6, [240, 200, 60], r, [170, 130, 30]); blob(s, 8, 8, 4.2, 4.2, [70, 120, 200], r); for (let x = 4; x <= 12; x++) for (let y = 9; y <= 12; y++) if (Math.hypot(x - 8, y - 8) < 4.2) s(x, y, [40, 50, 90]); s(6, 6, [255, 240, 120]); },
@@ -1241,7 +1243,7 @@ RECIPES.push(
   RSH('golden_apple', 1, ['GGG', 'GAG', 'GGG'], { G: 'gold_ingot', A: 'apple' }),
   RSH('golden_carrot', 1, ['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }), RSL('sugar', 1, ['sugar_cane']), RSH('shears', 1, [' I', 'I '], { I: 'iron_ingot' }),
   RSH('leather_horse_armor', 1, ['L L', 'LLL', 'L L'], { L: 'leather' }),
-  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('iron_bars', 16, ['III', 'III'], { I: 'iron_ingot' }), RSL('dark_oak_planks', 4, ['dark_oak_log']), RSL('mossy_stone_bricks', 1, ['stone_bricks', 'vine']), RSH('fishing_rod', 1, ['  S', ' St', 'S t'], { S: 'stick', t: 'string' }), RSH('end_crystal', 1, ['GGG', 'GEG', 'GTG'], { G: 'glass', E: 'eye_of_ender', T: 'ghast_tear' }), RSL('fermented_spider_eye', 1, ['spider_eye', 'sugar']), RSH('tipped_arrow', 8, ['AAA', 'ALA', 'AAA'], { A: 'arrow', L: 'lingering_potion' }), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
+  RSH('mace', 1, ['H', 'R'], { H: 'heavy_core', R: 'breeze_rod' }), RSL('firework_rocket', 3, ['paper', 'gunpowder']), RSH('composter', 1, ['P P', 'P P', 'PPP'], { P: 'planks' }), RSH('smoker', 1, [' L ', 'LFL', ' L '], { L: '#log', F: 'furnace' }), RSH('blast_furnace', 1, ['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'stone' }), RSH('cartography_table', 1, ['pp', 'PP', 'PP'], { p: 'paper', P: 'planks' }), RSH('fletching_table', 1, ['ff', 'PP', 'PP'], { f: 'flint', P: 'planks' }), RSH('loom', 1, ['ss', 'PP'], { s: 'string', P: 'planks' }), RSH('barrel', 1, ['PPP', 'P P', 'PPP'], { P: 'planks' }), RSH('lectern', 1, ['PPP', ' B ', ' P '], { P: 'planks', B: 'bookshelf' }), RSH('grindstone', 1, ['S-S', 'P P'], { S: 'stick', '-': 'stone', P: 'planks' }), RSH('stonecutter', 1, [' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }), RSH('brewing_stand', 1, [' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }), RSH('compass', 1, [' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }), RSH('clock', 1, [' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }), RSH('cookie', 8, ['WCW'], { W: 'wheat', C: 'cocoa_beans' }), RSH('glistering_melon_slice', 1, ['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }), RSH('bowl', 4, ['P P', ' P '], { P: 'planks' }), RSL('rabbit_stew', 1, ['cooked_rabbit', 'carrot', 'baked_potato', 'bowl']), RSH('snow_block', 1, ['SS', 'SS'], { S: 'snowball' }), RSL('iron_nugget', 9, ['iron_ingot']), RSH('iron_ingot', 1, ['NNN', 'NNN', 'NNN'], { N: 'iron_nugget' }), RSH('iron_bars', 16, ['III', 'III'], { I: 'iron_ingot' }), RSL('dark_oak_planks', 4, ['dark_oak_log']), RSL('mossy_stone_bricks', 1, ['stone_bricks', 'vine']), RSH('fishing_rod', 1, ['  S', ' St', 'S t'], { S: 'stick', t: 'string' }), RSH('end_crystal', 1, ['GGG', 'GEG', 'GTG'], { G: 'glass', E: 'eye_of_ender', T: 'ghast_tear' }), RSL('fermented_spider_eye', 1, ['spider_eye', 'sugar']), RSH('tipped_arrow', 8, ['AAA', 'ALA', 'AAA'], { A: 'arrow', L: 'lingering_potion' }), RSH('purpur_block', 4, ['CC', 'CC'], { C: 'popped_chorus_fruit' }), RSH('purpur_pillar', 2, ['P', 'P'], { P: 'purpur_block' }), RSH('end_rod', 4, ['B', 'C'], { B: 'blaze_rod', C: 'popped_chorus_fruit' }), RSH('ladder', 3, ['S S', 'SSS', 'S S'], { S: 'stick' }), RSH('end_stone_bricks', 4, ['EE', 'EE'], { E: 'end_stone' }), RSH('oak_fence', 3, ['PSP', 'PSP'], { P: 'planks', S: 'stick' }), RSH('cauldron', 1, ['I I', 'I I', 'III'], { I: 'iron_ingot' }), RSH('packed_ice', 1, ['III', 'III', 'III'], { I: 'ice' }),
   RSH('rail', 16, ['I I', 'ISI', 'I I'], { I: 'iron_ingot', S: 'stick' }), RSH('powered_rail', 6, ['G G', 'GSG', 'GRG'], { G: 'gold_ingot', S: 'stick', R: 'redstone' }),
   RSH('detector_rail', 6, ['I I', 'IPI', 'IRI'], { I: 'iron_ingot', P: 'stone', R: 'redstone' }), RSH('activator_rail', 6, ['ISI', 'ITI', 'ISI'], { I: 'iron_ingot', S: 'stick', T: 'redstone_torch' }),
   RSH('minecart', 1, ['I I', 'III'], { I: 'iron_ingot' }), RSH('chest_minecart', 1, ['C', 'M'], { C: 'chest', M: 'minecart' }),
@@ -3270,7 +3272,7 @@ class Mob {
     let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.light < 0.45)));
     if (this.type === 'piglin') { if (this.angry <= 0 && (playerHoldsGold() || this.admireT > 0)) hostileNow = false; if (this.goldHand) { this.goldHand.visible = this.admireT > 0; } }
     if (this.type === 'enderman' && this.angry <= 0 && canTarget && dist < 28 && isLookingAt(this)) { this.angry = 25; Sfx.at('scream', this.pos, 1); }
-    if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
+    if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n, ex] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false, ex || null); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
     let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
@@ -3421,7 +3423,7 @@ const PROJ = {
   fireball: { grav: 0, size: 0.9, color: 0xff7a20, trail: [[1, 0.5, 0.1], [0.4, 0.4, 0.4]] },
   smallfire: { grav: 0, size: 0.35, color: 0xffb030, trail: [[1, 0.7, 0.2]] },
   breath: { grav: 0, size: 1.0, color: 0xb040ff, trail: [[0.7, 0.2, 1], [0.35, 0.05, 0.6]] },
-  pearl: { grav: 22, size: 0.25, color: 0x1a6a5a, trail: [[0.3, 0.8, 0.7]] },
+  pearl: { grav: 12, size: 0.25, color: 0x1a6a5a, trail: [[0.3, 0.8, 0.7]] },
 };
 const projMats = {};
 function projMesh(kind) {
@@ -4073,7 +4075,7 @@ function useAction(eye, dir) {
   if (!hd) return;
   if (hd.kind === 'food') return; // eating is a hold-to-use action (23_hunger.js)
   if (hd.kind === 'bow') return;
-  if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(20), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
+  if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(30).add(new V3(player.vel.x, player.onGround ? 0 : player.vel.y, player.vel.z)), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
   if (hd.kind === 'eye') { if (throwEye()) { useHeld(1); S.useCD = 1; S.swing = 1; } return; }
   if (hd.kind === 'fns') {
     if (!target) return; S.swing = 1; Sfx.play('ignite', 1); damageHeld(1);
@@ -4187,7 +4189,7 @@ function updatePlayer(dt) {
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   if ((water || lava) && !P.flying) fluidPush(P, dt, P.swimming ? 0.5 : 1);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 * (typeof sneakSpeedMul === 'function' ? sneakSpeedMul() : 1) : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= (typeof waterSpeedMul === 'function' ? waterSpeedMul() : 0.55); if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= (typeof soulSandMul === 'function' ? soulSandMul() : 0.55);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));
@@ -10928,6 +10930,148 @@ buildAncientChunk = function (world, c) {
     if (W.inC(ox, oz)) c.ancient = [ox, y0, oz];
   }
 };
+
+// ================= ALL MINECRAFT ENCHANTMENTS (minus Bane of Arthropods, Frost Walker and Impaling) =================
+// Armour: Protection, Fire/Blast/Projectile Protection, Thorns, Respiration and Aqua Affinity (helmets), Feather
+// Falling, Depth Strider and Soul Speed (boots), Swift Sneak (leggings). Everything with durability: Unbreaking and
+// Mending. Crossbows: Multishot, Piercing, Quick Charge (and crossbows now work: hold use to load, use to fire).
+// Curses: Binding (can't take the armour off) and Vanishing (the item is gone when you die). Treasure enchantments
+// (Mending, Soul Speed, Swift Sneak, curses) never come from an enchanting table; find them as books in chests, from
+// fishing, trading (Mending only), bartering (Soul Speed) or ancient cities (Swift Sneak).
+delete ENCH.bane_of_arthropods; delete ENCH.impaling;
+Object.assign(ENCH, {
+  blast_protection: { name: 'Blast Protection', max: 4, for: 'armor', excl: 'prot', w: 2 }, projectile_protection: { name: 'Projectile Protection', max: 4, for: 'armor', excl: 'prot', w: 5 },
+  thorns: { name: 'Thorns', max: 3, for: 'armor', slot: 'chest', w: 1 }, respiration: { name: 'Respiration', max: 3, for: 'armor', slot: 'head', w: 2 }, aqua_affinity: { name: 'Aqua Affinity', max: 1, for: 'armor', slot: 'head', w: 2 },
+  depth_strider: { name: 'Depth Strider', max: 3, for: 'armor', slot: 'feet', w: 2 }, soul_speed: { name: 'Soul Speed', max: 3, for: 'armor', slot: 'feet', w: 1, treasure: true, noTrade: true },
+  swift_sneak: { name: 'Swift Sneak', max: 3, for: 'armor', slot: 'legs', w: 1, treasure: true, noTrade: true },
+  mending: { name: 'Mending', max: 1, for: '*', w: 2, treasure: true }, curse_of_binding: { name: 'Curse of Binding', max: 1, for: 'armor', w: 1, treasure: true, curse: true }, curse_of_vanishing: { name: 'Curse of Vanishing', max: 1, for: '*', w: 1, treasure: true, curse: true },
+  multishot: { name: 'Multishot', max: 1, for: 'crossbow', excl: 'xbow', w: 2 }, piercing: { name: 'Piercing', max: 4, for: 'crossbow', excl: 'xbow', w: 10 }, quick_charge: { name: 'Quick Charge', max: 3, for: 'crossbow', w: 5 },
+});
+if (ENCH.unbreaking) ENCH.unbreaking.for = '*';
+{ const _ec = enchCat; enchCat = function (id) { const it = ITEMS[id]; if (it && it.kind === 'crossbow') return 'crossbow'; return _ec(id); }; }
+{ const _ef = enchantFits; enchantFits = function (id, en) { const E = ENCH[en]; if (!E) return false; if (E.for === '*') return !!maxDur(id) || id === IT.book || id === IT.enchanted_book; if (en === 'thorns' && ITEMS[id] && ITEMS[id].kind === 'armor') return true; return _ef(id, en); }; }
+{ const _ea = enchantability; enchantability = function (id) { if (id === IT.crossbow) return 1; if (ITEMS[id] && ITEMS[id].mat === 'chainmail') return 12; if (ITEMS[id] && ITEMS[id].mat === 'netherite') return 15; return _ea(id); }; }
+// enchanting tables never give treasure enchantments; "for: *" ones (Unbreaking) fit any item with durability
+{ const _re = rollEnchants; rollEnchants = function (id, cost, seed) {
+    const hidden = []; for (const k in ENCH) if (ENCH[k].treasure || (ENCH[k].for === '*' && !maxDur(id))) { hidden.push([k, ENCH[k]]); delete ENCH[k]; }
+    const extra = []; if (maxDur(id) && !Object.prototype.hasOwnProperty.call(ENCH, '__ub')) { }
+    let out; try { const cat = enchCat(id); const ub = ENCH.unbreaking; const was = ub && ub.for; if (ub && maxDur(id)) ub.for = cat; out = _re(id, cost, seed); if (ub) ub.for = was; } finally { for (const [k, v] of hidden) ENCH[k] = v; }
+    return out; }; }
+// ---------- armour enchantment effects ----------
+const BLAST_CAUSES = /Creeper|TNT|explosion|End Crystal|fireball|Ghast|Wither|bed/i, PROJ_CAUSES = /arrow|Blaze|fireball|Shulker|Trident|Ghast|potion|Llama/i;
+{ const _ar = armorReduce; armorReduce = function (dmg, cause) {
+    let r = _ar(dmg, cause); if (cause === 'fall damage' || cause === 'the void' || cause === 'magic') return r; let epf = 0;
+    for (let i = 37; i <= 40; i++) { const s = player.inv[i]; if (!s) continue; if (BLAST_CAUSES.test(cause || '')) epf += 2 * enchOf(s, 'blast_protection'); if (PROJ_CAUSES.test(cause || '')) epf += 2 * enchOf(s, 'projectile_protection'); }
+    return r * (1 - Math.min(20, epf) * 0.04); }; }
+// Thorns: 15% per level to hit back an attacker for 1-4
+{ const _h = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
+    const r = _h.apply(this, arguments);
+    if (this === player && src && isSurv()) { let lv = 0; for (let i = 37; i <= 40; i++) lv += enchOf(player.inv[i], 'thorns'); if (lv && Math.random() < 0.15 * lv) { const m = G.mobs.find(o => o.pos === src || (o.pos && o.pos.distanceTo && o.pos.distanceTo(src) < 0.01)); if (m && !m.dead) { m.hurt(1 + Math.floor(Math.random() * 4), player.pos, 0.3); Sfx.at('hurt', m.pos, 0.4, 1.3); } for (let i = 37; i <= 40; i++) if (enchOf(player.inv[i], 'thorns')) damageSlot(i, 2); } }
+    return r; }; }
+// Respiration: each level gives an extra chance to keep your breath (and lets you see underwater a bit longer)
+{ let last = 300; const _u = updatePlayer; updatePlayer = function (dt) { const a0 = player.air; const r = _u.apply(this, arguments); const lv = enchOf(player.inv[37], 'respiration'); if (lv && player.air < a0) player.air = a0 - (a0 - player.air) / (lv + 1); return r; }; }
+// Aqua Affinity: no mining slowdown with your head underwater
+{ const _bt = breakTime; breakTime = function (id, tool) { const t = _bt(id, tool); if (enchOf(player.inv[37], 'aqua_affinity') && inWater(player, 1.6)) return t / 5; return t; }; }
+// Swift Sneak / Depth Strider / Soul Speed change walking speed (hooked into the movement code)
+function sneakSpeedMul() { return 1 + 0.5 * enchOf(player.inv[39], 'swift_sneak'); }
+function waterSpeedMul() { const d = Math.min(3, enchOf(player.inv[40], 'depth_strider')); return 0.55 + (1 - 0.55) * d / 3; }
+function soulSandMul() { const s = enchOf(player.inv[40], 'soul_speed'); if (!s) return 0.55; if (Math.random() < 0.04 && isSurv()) damageSlot(40, 1); if (Math.random() < 0.2) Particles.emit(player.pos.x, player.pos.y + 0.1, player.pos.z, 1, [[0.3, 0.8, 0.9]], 0.5, 0.4, -1, 0.5); return 1.05 + 0.105 * s; }
+// Mending: experience you pick up repairs a random damaged Mending item you're wearing or holding (2 durability each)
+{ const _ax = addXP; addXP = function (n) {
+    if (n > 0) { const slots = [player.sel, 36, 37, 38, 39, 40].filter(i => { const s = player.inv[i]; return s && s.dmg > 0 && enchOf(s, 'mending'); });
+      while (n > 0 && slots.length) { const i = slots[(Math.random() * slots.length) | 0]; const s = player.inv[i]; const fix = Math.min(s.dmg, n * 2); s.dmg -= fix; n -= Math.ceil(fix / 2); if (!s.dmg) { delete s.dmg; slots.splice(slots.indexOf(i), 1); } invDirty(); } }
+    if (n > 0) return _ax(n); }; }
+// Curse of Vanishing: gone when you die; Curse of Binding: worn armour can't be taken off (except in creative)
+{ const _d = Player.prototype.die; Player.prototype.die = function (cause) { if (this === player && isSurv() && !S.rules.keepInventory) for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s && enchOf(s, 'curse_of_vanishing')) this.inv[i] = null; } return _d.apply(this, arguments); }; }
+{ const _sc = slotClick; slotClick = function (cont, i, button, shift) { if (cont === 'inv' && i >= 37 && i <= 40 && S.mode !== 'creative') { const s = player.inv[i]; if (s && enchOf(s, 'curse_of_binding')) { toast('Curse of Binding: this armour can\'t be removed', 1.5); return; } } return _sc(cont, i, button, shift); }; }
+// ---------- crossbows ----------
+// Hold use to load (1.25 s, 0.25 s less per Quick Charge level), then use to fire: 3.15 blocks per tick. Multishot
+// fires three arrows for one; Piercing arrows go through that many extra mobs. Loaded crossbows stay loaded.
+S.xbowT = -1;
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    const h = player.held(); const r = _ui.apply(this, arguments);
+    if (h && h.id === IT.crossbow && !S.uiOpen && !player.dead && S.mode !== 'spectator') {
+      if (h.loaded) { if (mouseR && !S.xbowHold) { fireCrossbow(h); S.xbowHold = true; } }
+      else if (mouseR && !S.xbowHold) { if (S.xbowT < 0) { if (S.mode !== 'creative' && arrowSlot() < 0) { if (S.useCD <= 0) { toast('You need arrows', 1.2); S.useCD = 1; } } else { S.xbowT = 0; Sfx.play('bowdraw', 0.6, 0.8); } }
+        else { S.xbowT += dt; S.eating = Math.min(1, S.xbowT / xbowTime(h)); if (S.xbowT >= xbowTime(h)) { loadCrossbow(h); S.xbowT = -1; S.eating = 0; S.xbowHold = true; } } }
+      else if (!mouseR) { if (S.xbowT >= 0) { S.xbowT = -1; S.eating = 0; } }
+    } else if (S.xbowT >= 0) { S.xbowT = -1; S.eating = 0; }
+    if (!mouseR) S.xbowHold = false;
+    return r; }; }
+function xbowTime(h) { return Math.max(0.05, 1.25 - 0.25 * enchOf(h, 'quick_charge')); }
+function loadCrossbow(h) { let pot = null; if (S.mode !== 'creative') { const i = arrowSlot(); if (i < 0) return; const s = player.inv[i]; pot = s.id === IT.tipped_arrow ? s.pot : null; s.count--; if (!s.count) player.inv[i] = null; } h.loaded = pot ? { pot } : true; Sfx.play('click', 0.8, 0.6); invDirty(); }
+function fireCrossbow(h) {
+  const eye = player.eye(), dir = lookDir(); const n = enchOf(h, 'multishot') ? 3 : 1; const pierce = enchOf(h, 'piercing'); const tip = h.loaded && h.loaded.pot;
+  for (let k = 0; k < n; k++) { const d = dir.clone(); if (k) d.applyAxisAngle(new V3(0, 1, 0), k === 1 ? 0.17 : -0.17);
+    const a = spawnProj('arrow', eye.clone().addScaledVector(d, 0.3), d.multiplyScalar(63), 'player', 0); a.base = 2; a.crit = false; a.dmg = arrowDamage(a); a.life = 15; a.tip = tip || null; a.pierce = pierce; a.hitList = []; if (k) a.noPickup = true; }
+  delete h.loaded; damageHeld(n > 1 ? 3 : 1); Sfx.play('bow', 0.9, 1.3); S.bowKick = 1; invDirty();
+}
+// piercing arrows keep going through mobs
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) { const r = _h.call(this, dmg, src, kb, na); return r; }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    const pierced = G.projectiles.filter(a => a.kind === 'arrow' && a.pierce > 0 && !a.done);
+    for (const a of pierced) for (const m of G.mobs) { if (m.dead || a.hitList.includes(m) || m.isBoss) continue; if (hitsMob(m, a.pos)) { a.hitList.push(m); m.hurt(a.dmg, player.pos, 0.6); if (a.hitList.length > a.pierce) { a.done = true; break; } } }
+    for (const a of pierced) if (!a.done) { a.owner = 'player-pierce'; }
+    const r = _up.apply(this, arguments); for (const a of pierced) if (a.owner === 'player-pierce') a.owner = 'player'; return r; }; }
+{ const _tt = itemTooltip; itemTooltip = function (s) { const t = _tt(s); if (s && s.id === IT.crossbow && s.loaded) return t + '\nLoaded: ' + (s.loaded.pot ? potionName({ id: IT.tipped_arrow, pot: s.loaded.pot }) : 'Arrow'); return t; }; }
+{ const _x = xtra; xtra = function (s) { const o = _x(s); if (!s || !s.loaded) return o; return Object.assign(o || {}, { loaded: s.loaded }); }; }
+
+// ================= THROWABLES, PIGLIN BARTERING, THE WARDEN'S HEARING =================
+// Ender pearls, eggs and snowballs fly like Minecraft's (1.5 blocks per tick, gravity 0.03, drag 0.99): about 30
+// blocks/s, so a pearl thrown at 45 degrees lands ~60 blocks away. Snowballs do nothing to most mobs but knock them
+// back; blazes take 3. Snow golems drop snowballs; snow blocks drop 4 (and 4 make a block).
+PROJ.snowball = { grav: 12, size: 0.2, color: 0xf6faff };
+if (PROJ.egg) PROJ.egg.grav = 12;
+{ const _up = updateProjectiles; updateProjectiles = function (dt) { for (const a of G.projectiles) if ((a.kind === 'pearl' || a.kind === 'egg' || a.kind === 'snowball') && !a.done) a.vel.multiplyScalar(Math.pow(0.99, dt * 20)); return _up.apply(this, arguments); }; }
+{ const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = kd('sneak');
+    if (hd && hd.kind === 'snowball' && !(target && !sneaking && BL[target.id].use)) { mouseR = false; useHeld(1); const v = dir.clone().multiplyScalar(30); v.x += player.vel.x; v.z += player.vel.z; spawnProj('snowball', eye.clone().addScaledVector(dir, 0.5), v, 'player', 0); Sfx.play('bow', 0.4, 1.5); S.useCD = 0.25; S.swing = 1; return; }
+    if (hd && hd.kind === 'egg' && !(target && !sneaking && BL[target.id].use)) { const n0 = G.projectiles.length; const r = _ua(eye, dir); const p = G.projectiles[G.projectiles.length - 1]; if (G.projectiles.length > n0 && p && p.kind === 'egg') { p.vel.copy(dir.clone().multiplyScalar(30)); } return r; }
+    return _ua(eye, dir); }; }
+{ const _pi = projImpact; projImpact = function (a, mob) {
+    if (a.kind !== 'snowball') return _pi(a, mob); a.done = true; Particles.emit(a.pos.x, a.pos.y, a.pos.z, 8, [[1, 1, 1], [0.85, 0.9, 1]], 1.5, 0.4, 8, 0.3); vibrate(a.pos, a.src || 'player');
+    if (mob && !mob.dead) mob.hurt(mob.type === 'blaze' ? 3 : 0, a.pos.clone().addScaledVector(a.vel, -0.2), 0.4, a.owner !== 'player'); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) { // player snowballs hit mobs (the base code only knows arrows)
+    for (const a of G.projectiles) if (a.kind === 'snowball' && a.owner === 'player' && !a.done) for (const m of G.mobs) { if (m.dead || m.isBoss) continue; if (hitsMob(m, a.pos, 0.2)) { projImpact(a, m); break; } }
+    return _up.apply(this, arguments); }; }
+if (MOBS.snow_golem) MOBS.snow_golem.drops = [['snowball', 0, 15, 1]];
+// ---------- piglin bartering (Minecraft 1.21 table, weights out of 459) ----------
+// Drop or hand a gold ingot to an adult piglin: it picks it up, admires it for 6 seconds, then throws you something.
+BARTER.length = 0; BARTER.push(['enchanted_book', 1, 1, 5], ['iron_boots', 1, 1, 8], ['splash_potion', 1, 1, 8], ['potion', 1, 1, 8], ['potion', 1, 1, 10], ['iron_nugget', 10, 36, 10], ['ender_pearl', 2, 4, 10], ['string', 3, 9, 20], ['quartz', 5, 12, 20], ['obsidian', 1, 1, 40], ['leather', 2, 4, 40], ['soul_sand', 2, 8, 40], ['nether_brick', 2, 8, 40], ['arrow', 6, 12, 40], ['gravel', 8, 16, 40], ['magma_cream', 2, 6, 40], ['netherrack', 8, 16, 40]);
+rollBarter = function () { const tot = BARTER.reduce((s, b) => s + b[3], 0); let q = Math.random() * tot; let pick = BARTER[BARTER.length - 1];
+  for (const b of BARTER) { q -= b[3]; if (q <= 0) { pick = b; break; } } const [k, a, bb] = pick; const n = a + Math.floor(Math.random() * (bb - a + 1)); let ex = null;
+  if (k === 'enchanted_book' || k === 'iron_boots') ex = { ench: { soul_speed: 1 + Math.floor(Math.random() * 3) } };
+  if (k === 'splash_potion' || (k === 'potion' && pick === BARTER[3])) ex = { pot: 'fire_resistance' }; if (k === 'potion' && pick === BARTER[4]) ex = { pot: 'water' };
+  return [IT[k], n, ex]; };
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    if (this.type === 'piglin' && !this.dead && !this.baby && !(this.angry > 0) && !(this.admireT > 0) && !isClientMP()) {
+      this.goldScan = (this.goldScan || 0) - dt; if (this.goldScan <= 0) { this.goldScan = 0.5; this.goldTarget = G.items.find(it => !it.gone && it.id === IT.gold_ingot && it.age > 0.5 && it.pos.distanceTo(this.pos) < 8) || null; }
+      const it = this.goldTarget; if (it && !it.gone) { steerTo(this, it.pos, 0.6); this.goalBoost = true; if (it.pos.distanceTo(this.pos) < 1.4) { it.count--; if (it.count <= 0) { it.gone = true; it.remove(); } this.goldTarget = null; this.admireT = 6; Sfx.at('snort', this.pos, 1); } } }
+    return _u.call(this, dt); }; }
+// ---------- the Warden hears everything ----------
+// Footsteps of any mob that isn't sneaking, projectiles landing (snowballs, arrows, eggs), blocks breaking or being
+// placed, and you: the Warden can't see, so it can't tell a cow from a creeper from you. It walks to the newest
+// sound within 16 blocks, gets angrier at whatever made it, and attacks that, mob or player.
+G.vibes = [];
+function vibrate(pos, src) { G.vibes.push({ pos: pos.clone ? pos.clone() : new V3(pos.x, pos.y, pos.z), src, t: G.simT || 0 }); if (G.vibes.length > 40) G.vibes.shift(); }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.call(this, dt);
+    if (!this.dead && this.type !== 'warden' && this.onGround && !this.t.fly && Math.hypot(this.vel.x, this.vel.z) > 0.6 && !G.vibesOff) { this.stepV = (this.stepV || 0) + dt; if (this.stepV > 0.8) { this.stepV = 0; if (G.mobs.some(w => w.type === 'warden' && !w.dead && w.pos.distanceTo(this.pos) < 20)) vibrate(this.pos, this); } }
+    return r; }; }
+{ const _pi = projImpact; projImpact = function (a, mob) { if (a.kind !== 'snowball') vibrate(a.pos, a.owner === 'player' ? 'player' : a.src || null); return _pi(a, mob); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) { const live = G.projectiles.filter(a => a.kind === 'arrow' && !a.done); const r = _up.apply(this, arguments); for (const a of live) if (a.done) vibrate(a.pos, a.owner === 'player' ? 'player' : a.src || null); return r; }; }
+{ const _bb = breakBlock; breakBlock = function (x, y, z) { vibrate(new V3(x + 0.5, y + 0.5, z + 0.5), 'player'); return _bb.apply(this, arguments); }; }
+{ const _pb = placeBlock; placeBlock = function (t, id) { const r = _pb.apply(this, arguments); if (r) vibrate(new V3(t.x + t.nx + 0.5, t.y + t.ny + 0.5, t.z + t.nz + 0.5), 'player'); return r; }; }
+{ const prev = MOBS.warden.tick; MOBS.warden.tick = function (m, dt) {
+    if (m.emergeT > 0 || m.emergeT == null) return prev(m, dt);
+    // pick up the newest vibration within 16 blocks (not its own)
+    const now = G.simT || 0; let best = null; for (const v of G.vibes) { if (now - v.t > 1.5 || v.src === m) continue; const d = v.pos.distanceTo(m.pos); if (d > 16) continue; if (!best || v.t > best.t) best = v; }
+    if (best && best !== m.lastVibe) { m.lastVibe = best; m.heard = best.pos.clone(); const key = best.src === 'player' ? 'player' : best.src; if (key) { m.suspects = m.suspects || new Map(); m.suspects.set(key, Math.min(150, (m.suspects.get(key) || 0) + 35)); } m.anger = Math.max(m.anger || 0, 20); Particles.emit(best.pos.x, best.pos.y + 0.5, best.pos.z, 4, [[0.3, 0.9, 0.95]], 1, 0.5, 0, 0.4); }
+    // the angriest suspect that is a mob gets attacked; the player is handled by the original code
+    let foe = null, fa = 0; if (m.suspects) for (const [k, a] of m.suspects) { if (k !== 'player' && (k.dead || k.gone)) { m.suspects.delete(k); continue; } const a2 = a - dt * 2; m.suspects.set(k, Math.max(0, a2)); if (a2 > fa) { fa = a2; foe = k; } }
+    if (foe && foe !== 'player' && fa > 40 && !foe.dead) { steerTo(m, foe.pos, 1.2); m.goalBoost = true; m.atkCD = (m.atkCD || 0) - dt; m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt);
+      if (m.pos.distanceTo(foe.pos) < 2.4 + (foe.hw || 0) && m.atkCD <= 0) { m.atkCD = 0.9; foe.hurt(m.t.dmg, m.pos, 1.6); if (m.arms) for (const a of m.arms) a.rotation.x = -1.4; Sfx.at('roar', m.pos, 0.5, 1.4); }
+      m.heartPulse = (m.heartPulse || 0) + dt * 3; if (m.heart) m.heart.scale.setScalar(1 + Math.sin(m.heartPulse * 6) * 0.25); m.lostT = 0; return false; }
+    if (m.suspects && m.suspects.has('player')) m.anger = Math.max(m.anger || 0, m.suspects.get('player'));
+    return prev(m, dt); }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

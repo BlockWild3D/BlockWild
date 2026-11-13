@@ -504,7 +504,7 @@ function useAction(eye, dir) {
   if (!hd) return;
   if (hd.kind === 'food') return; // eating is a hold-to-use action (23_hunger.js)
   if (hd.kind === 'bow') return;
-  if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(20), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
+  if (hd.kind === 'pearl') { useHeld(1); spawnProj('pearl', eye.clone().addScaledVector(dir, 0.6), dir.clone().multiplyScalar(30).add(new V3(player.vel.x, player.onGround ? 0 : player.vel.y, player.vel.z)), 'player', 0); Sfx.play('bow', 0.6); S.useCD = 0.6; S.swing = 1; return; }
   if (hd.kind === 'eye') { if (throwEye()) { useHeld(1); S.useCD = 1; S.swing = 1; } return; }
   if (hd.kind === 'fns') {
     if (!target) return; S.swing = 1; Sfx.play('ignite', 1); damageHeld(1);
@@ -618,7 +618,7 @@ function updatePlayer(dt) {
   const water = inWater(P, 0.4), lava = inLava(P, 0.3) || inLava(P, 1.0);
   if ((water || lava) && !P.flying) fluidPush(P, dt, P.swimming ? 0.5 : 1);
   const under = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.1), Math.floor(P.pos.z));
-  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= 0.55; if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= 0.55;
+  let speed = (P.flying ? (sprint ? 22 : 11) : P.sneaking ? 1.3 * (typeof sneakSpeedMul === 'function' ? sneakSpeedMul() : 1) : sprint ? 5.6 : 4.3) * MODS.physics.speed * (1 + 0.2 * effLevel('speed')) * Math.max(0.1, 1 - 0.15 * effLevel('slowness')); if (water && !P.flying) speed *= (typeof waterSpeedMul === 'function' ? waterSpeedMul() : 0.55); if (lava && !P.flying) speed *= 0.35; if ((S.bowDraw >= 0 || P.blocking || S.eating > 0) && !P.flying) speed *= 0.35; if (under === B.SOUL_SAND && P.onGround) speed *= (typeof soulSandMul === 'function' ? soulSandMul() : 0.55);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   let wx = fx * f + rx * s, wz = fz * f + rz * s; const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; } wx *= speed; wz *= speed;
   const k = P.flying ? 1 - Math.exp(-dt * 8) : P.onGround ? 1 - Math.exp(-dt * 16) : 1 - Math.exp(-dt * (water || lava ? 6 : 2.5));

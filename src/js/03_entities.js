@@ -446,7 +446,7 @@ class Mob {
     let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.light < 0.45)));
     if (this.type === 'piglin') { if (this.angry <= 0 && (playerHoldsGold() || this.admireT > 0)) hostileNow = false; if (this.goldHand) { this.goldHand.visible = this.admireT > 0; } }
     if (this.type === 'enderman' && this.angry <= 0 && canTarget && dist < 28 && isLookingAt(this)) { this.angry = 25; Sfx.at('scream', this.pos, 1); }
-    if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
+    if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n, ex] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false, ex || null); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
     let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
@@ -597,7 +597,7 @@ const PROJ = {
   fireball: { grav: 0, size: 0.9, color: 0xff7a20, trail: [[1, 0.5, 0.1], [0.4, 0.4, 0.4]] },
   smallfire: { grav: 0, size: 0.35, color: 0xffb030, trail: [[1, 0.7, 0.2]] },
   breath: { grav: 0, size: 1.0, color: 0xb040ff, trail: [[0.7, 0.2, 1], [0.35, 0.05, 0.6]] },
-  pearl: { grav: 22, size: 0.25, color: 0x1a6a5a, trail: [[0.3, 0.8, 0.7]] },
+  pearl: { grav: 12, size: 0.25, color: 0x1a6a5a, trail: [[0.3, 0.8, 0.7]] },
 };
 const projMats = {};
 function projMesh(kind) {
