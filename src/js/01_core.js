@@ -1,5 +1,5 @@
 // Block ids run 0..ITEM_BASE-1 (chunks store them as 16-bit); item ids start at ITEM_BASE
-const ITEM_BASE = 2048;
+const ITEM_BASE = 16384; // room for every block state (stairs facing, door halves, ...) below the first item id
 'use strict';
 // ================= CORE: utils, noise, textures, blocks, items =================
 // Minecraft heights: the Overworld runs from y -64 to 319 (384 blocks). Inside the game the block arrays start at 0, so an
@@ -39,7 +39,7 @@ class Perlin {
 }
 
 // ---------------- Texture atlas ----------------
-const ATN = 16;
+const ATN = 32; // 32 x 32 tiles of 16 px
 const atlasCanvas = document.createElement('canvas'); atlasCanvas.width = atlasCanvas.height = ATN * 16;
 const actx = atlasCanvas.getContext('2d');
 const TILE = {}; let tileCount = 0; const TILE_AVG = [];
@@ -533,6 +533,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
+const FAMILY = {}, SHAPE_SETS = []; defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;

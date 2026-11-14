@@ -304,7 +304,7 @@ function buildDungeon(S, x0, y0, z0, hard, r, world) {
 // ---- Chunk ----
 class Chunk {
   constructor(cx, cz) { this.cx = cx; this.cz = cz; this.key = ckey(cx, cz); this.d = new Uint16Array(CS * CS * WH); this.top = new Uint16Array(256); this.lights = []; this.maxY = 0; this.mesh = null; this.wmesh = null; this.dirty = true; this.fresh = true; }
-  calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (OPAQUE[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
+  calcTop(lx, lz) { const d = this.d; for (let y = WH - 1; y >= 0; y--) if (SKYB[d[(y * 16 + lz) * 16 + lx]]) { this.top[lz * 16 + lx] = y + 1; return; } this.top[lz * 16 + lx] = 0; }
   isLava(l) { const lx = l[0] - this.cx * 16, lz = l[2] - this.cz * 16; return FKIND[this.d[(l[1] * 16 + lz) * 16 + lx]] === 2; }
   scanMeta() {
     const d = this.d; this.lights = []; let maxY = 0;
@@ -455,7 +455,7 @@ class World {
     c.d[i] = id;
     if (record) { let e = this.edits.get(c.key); if (!e) { e = new Map(); this.edits.set(c.key, e); } e.set(i, id); }
     const ti = lz * 16 + lx;
-    if (OPAQUE[id] && y + 1 > c.top[ti]) c.top[ti] = y + 1; else if (!OPAQUE[id] && y + 1 === c.top[ti]) c.calcTop(lx, lz);
+    if (SKYB[id] && y + 1 > c.top[ti]) c.top[ti] = y + 1; else if (!SKYB[id] && y + 1 === c.top[ti]) c.calcTop(lx, lz);
     if (y > c.maxY) c.maxY = y;
     const lightCh = LIGHT[old] || LIGHT[id];
     if (lightCh) { c.lights = c.lights.filter(L => !(L[0] === x && L[1] === y && L[2] === z)); if (LIGHT[id]) c.lights.push([x, y, z, LIGHT[id]]); }
@@ -645,9 +645,10 @@ class World {
         quad(O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), false, 0);
         continue;
       }
-      if (def.render === 'boxes') { // small models made of boxes (anvils...), textured like Minecraft's block models
-        const s = sky(x, y, z); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
-        for (const bx of def.boxes) {
+      if (def.render === 'boxes') { // small models made of boxes (anvils, stairs, fences...), textured like Minecraft's block models
+        const s = Math.max(sky(x, y, z), sky(x, y + 1, z)); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
+        const boxes = SHAPED[id] ? shapeBoxes(id, x, y, z, get, 'r') : def.boxes;
+        for (const bx of boxes) {
           const a0 = (sw ? bx[2] : bx[0]) / 16, y0 = bx[1] / 16, c0 = (sw ? bx[0] : bx[2]) / 16, a1 = (sw ? bx[5] : bx[3]) / 16, y1 = bx[4] / 16, c1 = (sw ? bx[3] : bx[5]) / 16;
           for (let f = 0; f < 6; f++) {
             const F = FACES[f]; const edge = (F.n[0] > 0 && a1 === 1) || (F.n[0] < 0 && a0 === 0) || (F.n[1] > 0 && y1 === 1) || (F.n[1] < 0 && y0 === 0) || (F.n[2] > 0 && c1 === 1) || (F.n[2] < 0 && c0 === 0);
@@ -657,8 +658,15 @@ class World {
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
               uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = F.s; bl[k] = b0; }
-            quad(O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), false, 0);
+            quad(O, vtmp.slice(), uvtmp.slice(), edge ? sky(x + F.n[0], y + F.n[1], z + F.n[2]) : s, bl.slice(), sh.slice(), false, 0);
           }
+        }
+        if (FKIND[id] === 1) { // waterlogged: the block's cell is also full of still water
+          const uvw = TILE_UV[TILE.water]; const topW = FKIND[get(x, y + 1, z)] === 1; const hh = topW ? 1 : FH[id];
+          for (let f = 0; f < 6; f++) { const F = FACES[f]; const nb = get(x + F.n[0], y + F.n[1], z + F.n[2]); if (OPAQUE[nb] || FKIND[nb] === 1) continue;
+            const ss = sky(x + F.n[0], y + F.n[1], z + F.n[2]);
+            for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (cc[1] ? hh : 0); vtmp[k * 3 + 2] = z + cc[2]; uvtmp[k * 2] = UVC[k][0] ? uvw[2] : uvw[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? uvw[3] : uvw[1]; sh[k] = F.s; bl[k] = b0; wsw[k] = !topW && cc[1] ? -1 : 0; }
+            quad(W, vtmp.slice(), uvtmp.slice(), ss, bl.slice(), sh.slice(), false, wsw.slice()); }
         }
         continue;
       }

@@ -70,7 +70,9 @@ makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
-  const d = BL[id]; if (!d || d.render !== 'boxes' || d.flatIcon || !d.boxes || d.ladder) return _bic(id);
+  const d = BL[id];
+  if (d && d.iconTile && TILE[d.iconTile] !== undefined) { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(tileCanvas(TILE[d.iconTile]), 0, 0, 48, 48); return c; }
+  if (!d || d.render !== 'boxes' || d.flatIcon || !d.boxes || d.ladder) return _bic(id);
   const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
   const L = document.createElement('canvas'); L.width = L.height = 48; const lx = L.getContext('2d'); lx.imageSmoothingEnabled = false;
   const face = (t, m, sx, sy, w, h, dark) => { if (w <= 0 || h <= 0) return; lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, 48, 48); lx.setTransform(...m); lx.drawImage(tileCanvas(t), sx, sy, w, h, sx, sy, w, h);

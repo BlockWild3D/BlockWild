@@ -381,12 +381,25 @@ function raycast(o, d, max, fluids) {
   let nx = 0, ny = 0, nz = 0, t = 0;
   for (let i = 0; i < 64; i++) {
     const id = world.get(x, y, z);
-    if (id && (!BL[id].noTarget || (fluids && BL[id].fluid))) return { x, y, z, id, nx, ny, nz, dist: t };
+    if (id && SHAPED[id]) { const h = rayShape(o, d, x, y, z, id, max); if (h) return h; }
+    else if (id && (!BL[id].noTarget || (fluids && BL[id].fluid))) return { x, y, z, id, nx, ny, nz, dist: t, px: o.x + d.x * t, py: o.y + d.y * t, pz: o.z + d.z * t };
     if (tx < ty && tx < tz) { if (tx > max) break; x += sx; t = tx; tx += tdx; nx = -sx; ny = 0; nz = 0; }
     else if (ty < tz) { if (ty > max) break; y += sy; t = ty; ty += tdy; nx = 0; ny = -sy; nz = 0; }
     else { if (tz > max) break; z += sz; t = tz; tz += tdz; nx = 0; ny = 0; nz = -sz; }
   }
   return null;
+}
+// the crosshair ray against a shaped block's outline boxes: misses the empty part of a slab, stair or fence
+function rayShape(o, d, x, y, z, id, max) {
+  let best = null; for (const b of shapeBoxes(id, x, y, z, (a, bb, c) => world.get(a, bb, c), 's')) {
+    const lo = [x + b[0] / 16, y + b[1] / 16, z + b[2] / 16], hi = [x + b[3] / 16, y + b[4] / 16, z + b[5] / 16], O = [o.x, o.y, o.z], D = [d.x, d.y, d.z];
+    let t0 = -Infinity, t1 = Infinity, ax = -1, sg = 0;
+    for (let k = 0; k < 3; k++) { if (Math.abs(D[k]) < 1e-9) { if (O[k] < lo[k] || O[k] > hi[k]) { t0 = Infinity; break; } continue; }
+      let a = (lo[k] - O[k]) / D[k], c = (hi[k] - O[k]) / D[k]; let s0 = -1; if (a > c) { const tt = a; a = c; c = tt; s0 = 1; } if (a > t0) { t0 = a; ax = k; sg = D[k] > 0 ? -1 : 1; } if (c < t1) t1 = c; }
+    if (t0 > t1 || t1 < 0 || t0 > max || t0 === Infinity) continue; const tt = Math.max(0, t0);
+    if (!best || tt < best.dist) best = { x, y, z, id, nx: ax === 0 ? sg : 0, ny: ax === 1 ? sg : 0, nz: ax === 2 ? sg : 0, dist: tt, px: o.x + d.x * tt, py: o.y + d.y * tt, pz: o.z + d.z * tt };
+  }
+  return best;
 }
 function lookDir() { return new V3(0, 0, -1).applyEuler(new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ')); }
 
@@ -592,7 +605,7 @@ function monsterAttempts(P, ticks) {
         const ddx = x + 0.5 - P.pos.x, ddy = y - P.pos.y, ddz = z + 0.5 - P.pos.z, d2 = ddx * ddx + ddy * ddy + ddz * ddz; if (d2 <= 576 || d2 > 16384) continue;
         if (!world.loaded(x, z)) continue;
         if (!type) { const tab = {}; for (const k in MON_WEIGHTS) tab[k] = MON_WEIGHTS[k][0]; type = pickWeighted(tab); }
-        const below = world.get(x, y - 1, z); if (!SOLID[below] || below === B.BEDROCK || FKIND[below]) continue;
+        const below = world.get(x, y - 1, z); if (!SOLID[below] || below === B.BEDROCK || (FKIND[below] && !SHAPED[below]) || BL[below].noSpawnOn) continue;
         if (!monsterRoom(type, x, y, z) || !monsterDarkEnough(x, y, z)) continue;
         const m = spawnMob(type, x + 0.5, y, z + 0.5); if (m) { m.natural = true; MON.count++; spawned++; }
         if (spawned >= MON_WEIGHTS[type][1] || MON.count >= MON.cap) break; }

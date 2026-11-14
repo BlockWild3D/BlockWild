@@ -52,11 +52,11 @@ function flTick(w, x, y, z) {
   const id = w.get(x, y, z); const k = FKIND[id]; if (!k) return;
   const lava = k === 2, nether = w.dim === 'nether'; const drop = lava && !nether ? 2 : 1, slope = lava && !nether ? 2 : 4;
   if (lava) for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]]) if (FKIND[w.get(x + dx, y + dy, z + dz)] === 1) { w.set(x, y, z, FLEVEL[id] === 0 ? B.OBSIDIAN : B.COBBLESTONE); flFizz(x, y, z); return; }
-  if (k === 1 && nether) { w.set(x, y, z, 0); flFizz(x, y, z); return; }
+  if (k === 1 && nether) { w.set(x, y, z, SHAPED[id] ? withState(id, { wl: 0 }) : 0); flFizz(x, y, z); return; }
   let L = FLEVEL[id];
   if (L !== 0) { const nl = flNewLevel(w, x, y, z, k, drop); if (nl < 0) { w.set(x, y, z, 0); return; } if (nl !== L) { w.set(x, y, z, FLID[k][nl]); return; } }
   const bid = w.get(x, y - 1, z);
-  if (y > 0 && (flReplaceable(bid) || (FKIND[bid] === k && FLEVEL[bid] !== 0 && FLEVEL[bid] !== 8) || (lava && FKIND[bid] === 1))) {
+  if (y > 0 && (flReplaceable(bid) || (FKIND[bid] === k && FLEVEL[bid] !== 0 && FLEVEL[bid] !== 8) || (lava && FKIND[bid] === 1 && !SHAPED[bid]))) {
     if (lava && FKIND[bid] === 1) { w.set(x, y - 1, z, B.STONE); flFizz(x, y - 1, z); }
     else flSet(w, x, y - 1, z, FLID[k][8]);
     let src = 0; for (const [dx, dz] of FL_DIRS) if (w.get(x + dx, y, z + dz) === FLID[k][0]) src++;

@@ -11,13 +11,21 @@ function sweep(e, axis, d) {
   // waking, a block placed into you) must never shove you through it. This used to lift players up through the ground.
   const X0 = Math.floor(p.x - hw), X1 = Math.floor(p.x + hw - 1e-7), Y0 = Math.floor(p.y), Y1 = Math.floor(p.y + h - 1e-7), Z0 = Math.floor(p.z - hw), Z1 = Math.floor(p.z + hw - 1e-7);
   let hit = false;
-  for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) {
-    if (!(w.solid(x, y, z) || (e.lavaWalk && isLavaId(w.get(x, y, z))))) continue;
-    if (axis === 0 ? (d > 0 ? x < old + hw - 1e-3 : x + 1 > old - hw + 1e-3) : axis === 1 ? (d > 0 ? y < old + h - 1e-3 : y + 1 > old + 1e-3) : (d > 0 ? z < old + hw - 1e-3 : z + 1 > old - hw + 1e-3)) continue;
+  const hitBox = (bx0, by0, bz0, bx1, by1, bz1) => {
+    if (!(p.x + hw > bx0 && p.x - hw < bx1 && p.y + h > by0 && p.y < by1 && p.z + hw > bz0 && p.z - hw < bz1)) return;
+    if (axis === 0 ? (d > 0 ? bx0 < old + hw - 1e-3 : bx1 > old - hw + 1e-3) : axis === 1 ? (d > 0 ? by0 < old + h - 1e-3 : by1 > old + 1e-3) : (d > 0 ? bz0 < old + hw - 1e-3 : bz1 > old - hw + 1e-3)) return;
     hit = true;
-    if (axis === 0) { if (d > 0) p.x = Math.min(p.x, x - hw - 1e-4); else p.x = Math.max(p.x, x + 1 + hw + 1e-4); }
-    else if (axis === 1) { if (d > 0) p.y = Math.min(p.y, y - h - 1e-4); else p.y = Math.max(p.y, y + 1 + 1e-5); }
-    else { if (d > 0) p.z = Math.min(p.z, z - hw - 1e-4); else p.z = Math.max(p.z, z + 1 + hw + 1e-4); }
+    if (axis === 0) { if (d > 0) p.x = Math.min(p.x, bx0 - hw - 1e-4); else p.x = Math.max(p.x, bx1 + hw + 1e-4); }
+    else if (axis === 1) { if (d > 0) p.y = Math.min(p.y, by0 - h - 1e-4); else p.y = Math.max(p.y, by1 + 1e-5); }
+    else { if (d > 0) p.z = Math.min(p.z, bz0 - hw - 1e-4); else p.z = Math.max(p.z, bz1 + hw + 1e-4); }
+  };
+  // fences, walls and closed gates stick up to 1.5 blocks, so look one block lower too
+  for (let x = X0; x <= X1; x++) for (let y = Y0 - 1; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) {
+    const id = w.get(x, y, z);
+    if (SHAPED[id]) { if (BL[id].noCollide) continue; const bs = shapeBoxes(id, x, y, z, (a, b, c) => w.get(a, b, c), 'c'); for (const b of bs) hitBox(x + b[0] / 16, y + b[1] / 16, z + b[2] / 16, x + b[3] / 16, y + b[4] / 16, z + b[5] / 16); continue; }
+    if (y < Y0) continue;
+    if (!(w.solid(x, y, z) || (e.lavaWalk && isLavaId(id)))) continue;
+    hitBox(x, y, z, x + 1, y + 1, z + 1);
   }
   return hit;
 }
@@ -26,11 +34,18 @@ function moveEntity(e, dt) {
   let dx = e.vel.x * dt, dy = e.vel.y * dt, dz = e.vel.z * dt;
   const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) / 0.35));
   dx /= n; dy /= n; dz /= n;
+  // Minecraft: players and mobs walk up anything up to 0.6 blocks high (slabs, stairs) without jumping
+  const stepH = e.stepH !== undefined ? e.stepH : (e === G.player || e.t) ? 0.6 : 0; const grounded = e.wasGround;
+  const tryStep = (axis, d) => { if (!stepH || !grounded || dy > 0) return false; const sx = e.pos.x, sy = e.pos.y, sz = e.pos.z;
+    sweep(e, 1, stepH); const risen = e.pos.y - sy; if (risen < 0.05) { e.pos.set(sx, sy, sz); return false; }
+    const before = e.pos[AX[axis]]; sweep(e, axis, d); const moved = Math.abs(e.pos[AX[axis]] - before);
+    if (moved < 1e-3) { e.pos.set(sx, sy, sz); return false; } sweep(e, 1, -risen - 0.01); e.onGround = true; return true; };
   for (let i = 0; i < n; i++) {
     if (dy && sweep(e, 1, dy)) { if (dy < 0) e.onGround = true; e.vel.y = 0; dy = 0; }
-    if (dx && sweep(e, 0, dx)) { e.hitH = true; e.vel.x = 0; dx = 0; }
-    if (dz && sweep(e, 2, dz)) { e.hitH = true; e.vel.z = 0; dz = 0; }
+    if (dx) { const sx = e.pos.x; if (sweep(e, 0, dx)) { const got = e.pos.x; e.pos.x = sx; if (!tryStep(0, dx)) { e.pos.x = got; e.hitH = true; e.vel.x = 0; dx = 0; } } }
+    if (dz) { const sz = e.pos.z; if (sweep(e, 2, dz)) { const got = e.pos.z; e.pos.z = sz; if (!tryStep(2, dz)) { e.pos.z = got; e.hitH = true; e.vel.z = 0; dz = 0; } } }
   }
+  e.wasGround = e.onGround;
 }
 function boxIntersectsBlock(e, x, y, z) { return e.pos.x + e.hw > x && e.pos.x - e.hw < x + 1 && e.pos.y + e.h > y && e.pos.y < y + 1 && e.pos.z + e.hw > z && e.pos.z - e.hw < z + 1; }
 function inLava(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 2; }
