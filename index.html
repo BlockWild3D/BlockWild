@@ -3389,6 +3389,8 @@ function rayAABB(o, d, min, max) {
   for (const a of AX) { const inv = 1 / (d[a] || 1e-9); let t1 = (min[a] - o[a]) * inv, t2 = (max[a] - o[a]) * inv; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; } tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2); if (tmax < tmin) return -1; }
   return tmin;
 }
+// Minecraft only lets a mob hit what it can see: a clear line from its eyes to your eyes or your chest
+function meleeSees(m, P) { const e = new V3(m.pos.x, m.pos.y + (m.h || 1.8) * 0.85, m.pos.z); return lineOfSight(e, P.eye()) || lineOfSight(e, new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)); }
 function lineOfSight(a, b) { const d = b.clone().sub(a); const L = d.length(); const n = Math.ceil(L / 0.4); for (let i = 1; i < n; i++) { const t = i / n; if (G.world.solid(Math.floor(a.x + d.x * t), Math.floor(a.y + d.y * t), Math.floor(a.z + d.z * t))) return false; } return true; }
 
 // ---------------- Sound ----------------
@@ -3814,7 +3816,7 @@ class Mob {
         else if (this.fuse > 0) { this.fuse = dist > 5 ? 0 : Math.max(0, this.fuse - dt * 0.5); }
         if (this.fuse > 1.5) { this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 3.2, this, { cause: 'a creeper' }); return; }
       } else {
-        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
+        if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0 && meleeSees(this, P)) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
         if (dist < 0.9) move = 0;
         if (this.type === 'enderman' && dist > 12 && Math.random() < dt * 0.6) this.teleport(P.pos);
       }
@@ -3944,7 +3946,14 @@ function isLookingAt(m) {
 function spawnMob(type, x, y, z, opts) { const m = new Mob(type, x, y, z, opts); G.mobs.push(m); return m; }
 
 // ---------------- Projectiles ----------------
-const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.6); const arrowMat = new THREE.MeshLambertMaterial({ color: 0x8b6a40 });
+const arrowGeo = new THREE.BoxGeometry(0.035, 0.035, 0.62); const arrowMat = new THREE.MeshLambertMaterial({ color: 0x8b6a40 });
+// a Minecraft-looking arrow: a wooden shaft, a four-sided flint head and white fletching crossed in two planes
+const ARROW_PARTS = (() => { const head = new THREE.ConeGeometry(0.05, 0.13, 4); head.rotateX(Math.PI / 2); head.rotateZ(Math.PI / 4); head.translate(0, 0, 0.37);
+  const sh = new THREE.Shape([[-0.32, -0.055], [-0.2, -0.045], [-0.15, 0], [-0.2, 0.045], [-0.32, 0.055], [-0.29, 0]].map(([a, b]) => new THREE.Vector2(a, b))); // a feather vane, swept back
+  const fin2 = new THREE.ShapeGeometry(sh); fin2.rotateY(-Math.PI / 2); const fin1 = fin2.clone(); fin1.rotateZ(Math.PI / 2);
+  const nock = new THREE.BoxGeometry(0.05, 0.05, 0.03); nock.translate(0, 0, -0.31);
+  return { head, fin1, fin2, nock, headMat: new THREE.MeshLambertMaterial({ color: 0x8a8a90 }), finMat: new THREE.MeshLambertMaterial({ color: 0xf2f2ee, side: THREE.DoubleSide }), nockMat: new THREE.MeshLambertMaterial({ color: 0x5a4024 }) }; })();
+function arrowMesh() { const g = new THREE.Group(); const A = ARROW_PARTS; g.add(new THREE.Mesh(arrowGeo, arrowMat), new THREE.Mesh(A.head, A.headMat), new THREE.Mesh(A.fin1, A.finMat), new THREE.Mesh(A.fin2, A.finMat), new THREE.Mesh(A.nock, A.nockMat)); return g; }
 const PROJ = {
   arrow: { grav: 20, critTrail: [[1, 1, 0.8], [0.9, 0.95, 1]] },
   fireball: { grav: 0, size: 0.9, color: 0xff7a20, trail: [[1, 0.5, 0.1], [0.4, 0.4, 0.4]] },
@@ -3954,7 +3963,7 @@ const PROJ = {
 };
 const projMats = {};
 function projMesh(kind) {
-  if (kind === 'arrow') return new THREE.Mesh(arrowGeo, arrowMat);
+  if (kind === 'arrow') return arrowMesh();
   const P = PROJ[kind]; if (!projMats[kind]) projMats[kind] = [new THREE.BoxGeometry(P.size, P.size, P.size), new THREE.MeshBasicMaterial({ color: P.color, map: mobTex })];
   return new THREE.Mesh(projMats[kind][0], projMats[kind][1]);
 }
