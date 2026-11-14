@@ -117,4 +117,4 @@ function animateTiles(dt, tex) { animT += dt; if (animT < 0.1) return; animT = 0
     st.x.putImageData(img, 0, 0); st.tex.needsUpdate = true; const px = (i % ATN) * CELL, py = Math.floor(i / ATN) * CELL;
     renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AW - py - CELL : py), st.tex, tex); } }
 for (const k in ANIM) makeTile(k, ANIM[k](0));
-buildIcons();
+// (icons are built after the later texture passes, at the end of 01bb_retex.js)
