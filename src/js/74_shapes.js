@@ -113,7 +113,7 @@ function shapeSupported(x, y, z, id) {
       case 'button': st = hit.ny === 1 ? { face: 'floor', facing: pf, powered: 0 } : hit.ny === -1 ? { face: 'ceiling', facing: pf, powered: 0 } : { face: 'wall', facing: dirOf(hit.nx, hit.nz), powered: 0 }; break;
       case 'plate': st = { powered: 0 }; break;
       case 'axis': st = { axis: hit.nx ? 'x' : hit.nz ? 'z' : 'y' }; break;
-      case 'glazed': st = { facing: (pf + 2) % 4 }; break;
+      case 'glazed': case 'facing4': st = { facing: (pf + 2) % 4 }; break;
       case 'door': {
         if (y + 1 >= WH || !replaceableAt(x, y + 1, z) || !shSturdy(world.get(x, y - 1, z), 'up')) return false;
         const ccw = (pf + 3) % 4, cw = (pf + 1) % 4; const L = DV4[ccw], Rr = DV4[cw];
