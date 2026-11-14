@@ -689,7 +689,8 @@ class World {
         const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
         for (let k = 0; k < 4; k++) {
           const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (isW ? (cc[1] ? hereH : sideBase) : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
-          uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
+          const kk = def.uvRot && def.uvRot[f] ? (k + 1) & 3 : k; // logs lying sideways turn their bark texture
+          uvtmp[k * 2] = UVC[kk][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[kk][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
           wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
           if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
           else aov[k] = 3;

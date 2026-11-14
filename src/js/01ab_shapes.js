@@ -132,9 +132,9 @@ function defineShapeBlocks() {
   const doorItem = (top, bot) => (set, r) => { const T = makeTileTmp(top), Bt = makeTileTmp(bot); for (let y = 0; y < 16; y++) for (let x = 0; x < 8; x++) { const src = y < 8 ? T : Bt; const sx = x * 2, sy = (y % 8) * 2; const c = src(sx, sy); if (c[3] > 0) set(x + 4, y, c); } };
   // paint into a scratch tile so the item icon can be made from the door halves
   function makeTileTmp(painter) { const px = []; const r = mulberry32(99); painter((x, y, c, a = 255) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x > 15 || y > 15) return; px[y * 16 + x] = [clamp(c[0], 0, 255), clamp(c[1], 0, 255), clamp(c[2], 0, 255), a]; }, r); return (x, y) => px[y * 16 + x] || [0, 0, 0, 0]; }
-  const WOODS = { oak: { base: [162, 128, 76], dark: [96, 70, 38], hi: [186, 150, 94], planks: 'planks', name: 'Oak' }, dark_oak: { base: [74, 50, 26], dark: [40, 26, 12], hi: [92, 64, 34], planks: 'dark_oak_planks', name: 'Dark Oak' } };
-  for (const w in WOODS) { const W = WOODS[w]; const tp = doorPaint(W.base, W.dark, W.hi, w, true), bp = doorPaint(W.base, W.dark, W.hi, w, false);
-    makeTile(w + '_door_top', tp); makeTile(w + '_door_bottom', bp); makeTile(w + '_door_item', doorItem(tp, bp)); makeTile(w + '_trapdoor', trapPaint(W.base, W.dark, W.hi, w)); }
+  const WOODS = {}; for (const w of WOODDATA()) { const b = w.k === 'oak' ? [162, 128, 76] : w.k === 'dark_oak' ? [74, 50, 26] : w.pl; WOODS[w.k] = { base: b, dark: [b[0] * 0.58, b[1] * 0.58, b[2] * 0.58], hi: [b[0] * 1.14, b[1] * 1.14, b[2] * 1.14], planks: w.planks, name: w.name, style: w.k === 'oak' ? 'oak' : w.k === 'dark_oak' ? 'dark_oak' : w.door === 'grid' ? 'dark_oak' : 'oak', nether: !!w.nether }; }
+  for (const w in WOODS) { const W = WOODS[w]; const tp = doorPaint(W.base, W.dark, W.hi, W.style, true), bp = doorPaint(W.base, W.dark, W.hi, W.style, false);
+    makeTile(w + '_door_top', tp); makeTile(w + '_door_bottom', bp); makeTile(w + '_door_item', doorItem(tp, bp)); makeTile(w + '_trapdoor', trapPaint(W.base, W.dark, W.hi, W.style)); }
   { const tp = doorPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron', true), bp = doorPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron', false);
     makeTile('iron_door_top', tp); makeTile('iron_door_bottom', bp); makeTile('iron_door_item', doorItem(tp, bp)); makeTile('iron_trapdoor', trapPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron')); }
 
@@ -148,12 +148,13 @@ function defineShapeBlocks() {
     ['nether_brick', 'nether_bricks', 'Nether Brick', 1], ['blackstone', 'blackstone', 'Blackstone', 1], ['polished_blackstone_brick', 'polished_blackstone_bricks', 'Polished Blackstone Brick', 1],
     ['end_stone_brick', 'end_stone_bricks', 'End Stone Brick', 1], ['purpur', 'purpur_block', 'Purpur', 0], ['quartz', 'quartz_block', 'Quartz', 0],
   ];
-  for (const w in WOODS) { const m = M(WOODS[w].planks); if (!m) continue; const n = WOODS[w].name; const set = { mat: m.key, wood: true, keys: [] };
+  for (const w in WOODS) { const m = M(WOODS[w].planks); if (!m) continue; const n = WOODS[w].name; const set = { mat: m.key, wood: !WOODS[w].nether, timber: true, keys: [] };
     STAIRS(w + '_stairs', n + ' Stairs', m); SLAB(w + '_slab', n + ' Slab', m); FENCE(w + '_fence', n + ' Fence', m, 'wood'); GATE(w + '_fence_gate', n + ' Fence Gate', m);
     DOOR(w + '_door', n + ' Door', w + '_door_top', w + '_door_bottom', w + '_door_item', { wood: true });
     TRAPDOOR(w + '_trapdoor', n + ' Trapdoor', w + '_trapdoor', { wood: true }); BUTTON(w + '_button', n + ' Button', m, true); PLATE(w + '_pressure_plate', n + ' Pressure Plate', m, 'wood');
     set.keys.push(...['_stairs', '_slab', '_fence', '_fence_gate', '_door', '_trapdoor', '_pressure_plate', '_button'].map(s => w + s)); SHAPE_SETS.push(set); }
-  for (const [k, mk, n, wall] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: false, keys: [k + '_stairs', k + '_slab'] };
+  STONE_SETS.push(['bamboo_mosaic', 'bamboo_mosaic', 'Bamboo Mosaic', 0]);
+  for (const [k, mk, n, wall] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: mk === 'bamboo_mosaic', timber: mk === 'bamboo_mosaic', keys: [k + '_stairs', k + '_slab'] };
     STAIRS(k + '_stairs', n + ' Stairs', m); SLAB(k + '_slab', n + ' Slab', m); if (wall) { WALL(k + '_wall', n + ' Wall', m); set.keys.push(k + '_wall'); } SHAPE_SETS.push(set); }
   { const nb = M('nether_bricks'); FENCE('nether_brick_fence', 'Nether Brick Fence', nb, 'nether'); BL[B.NETHER_BRICK_FENCE].mine = 'pick'; SHAPE_SETS.push({ mat: 'nether_bricks', keys: ['nether_brick_fence'] }); }
   { const st = M('stone'); BUTTON('stone_button', 'Stone Button', st, false); PLATE('stone_pressure_plate', 'Stone Pressure Plate', st, 'stone'); SHAPE_SETS.push({ mat: 'stone', keys: ['stone_pressure_plate', 'stone_button'] }); }

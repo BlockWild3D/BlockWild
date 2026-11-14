@@ -199,13 +199,14 @@ function renderInvUI() {
 }
 // ---- recipe book ----
 const BOOK = RECIPES.map(r => ({ type: 'craft', r, out: IT[r.out[0]] })).concat(Object.keys(SMELT).map(k => ({ type: 'smelt', from: +k, out: SMELT[k] })));
-function specIcon(spec) { return spec[0] === '#' ? IT[GROUPS[spec][0]] : IT[spec]; }
-function specName(spec) { return spec === '#log' ? 'Any log or stem' : spec === '#stone' ? 'Cobblestone or Cobbled Deepslate' : ITEMS[IT[spec]].name; }
+function specIds(spec) { if (spec === 'planks') return GROUPS['#planks'].map(k => IT[k]); if (spec[0] === '=') return [IT[spec.slice(1)]]; return spec[0] === '#' ? GROUPS[spec].map(k => IT[k]) : [IT[spec]]; }
+function specIcon(spec) { return specIds(spec)[0]; }
+function specName(spec) { return spec === '#log' ? 'Any log or stem' : spec === '#stone' ? 'Cobblestone or Cobbled Deepslate' : spec === 'planks' ? 'Any planks' : spec[0] === '#' ? ITEMS[specIds(spec)[0]].name : ITEMS[specIds(spec)[0]].name; }
 function haveFor(e) {
   if (e.type === 'smelt') return countItem(e.from) > 0;
   const need = {}; const add = (spec) => need[spec] = (need[spec] || 0) + 1;
   if (e.r.items) e.r.items.forEach(add); else for (const row of e.r.shape) for (const ch of row) if (ch !== ' ') add(e.r.key[ch]);
-  for (const spec in need) { const have = spec[0] === '#' ? GROUPS[spec].reduce((s, k) => s + countItem(IT[k]), 0) : countItem(IT[spec]); if (have < need[spec]) return false; }
+  for (const spec in need) { const have = specIds(spec).reduce((s, id) => s + countItem(id), 0); if (have < need[spec]) return false; }
   return true;
 }
 let bookBuilt = false; const bookEls = [];

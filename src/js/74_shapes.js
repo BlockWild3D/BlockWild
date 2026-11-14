@@ -25,8 +25,8 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
   for (const ids of after.values()) out.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...out); }
 
 // ---- recipes (Minecraft's) ----
-{ const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const has = (k) => IT[k] !== undefined;
-  for (const s of SHAPE_SETS) { const m = s.mat; for (const k of s.keys) { if (!has(k)) continue;
+{ const n0 = RECIPES.length; const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const has = (k) => IT[k] !== undefined;
+  for (const s of SHAPE_SETS) { const m = s.timber ? '=' + s.mat : s.mat; for (const k of s.keys) { if (!has(k)) continue;
     if (k.endsWith('_stairs')) R(k, 4, ['M  ', 'MM ', 'MMM'], { M: m });
     else if (k.endsWith('_slab')) R(k, 6, ['MMM'], { M: m });
     else if (k.endsWith('_wall')) R(k, 6, ['MMM', 'MMM'], { M: m });
@@ -41,11 +41,13 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
     else if (k === 'heavy_weighted_pressure_plate') R(k, 1, ['II'], { I: 'iron_ingot' });
     else if (k.endsWith('_pressure_plate')) R(k, 1, ['MM'], { M: m });
     else if (k.endsWith('_button')) RECIPES.push(RSL(k, 1, [m]));
+    else if (k.endsWith('_slab') && s.mat === 'bamboo_mosaic') { }
     else if (k === 'glass_pane') R(k, 16, ['GGG', 'GGG'], { G: 'glass' });
     else if (k === 'iron_bars') { if (!RECIPES.some(r => r.out[0] === 'iron_bars')) R(k, 16, ['III', 'III'], { I: 'iron_ingot' }); }
   } }
+  for (let i = n0; i < RECIPES.length; i++) BOOK.push({ type: 'craft', r: RECIPES[i], out: IT[RECIPES[i].out[0]] }); // the recipe book was built before these
   // stonecutter: one block makes one stair or wall, or two slabs
-  if (typeof STONECUT !== 'undefined') for (const s of SHAPE_SETS) { if (s.wood) continue; for (const k of s.keys) { if (/_stairs$|_wall$/.test(k)) STONECUT.push([s.mat, k, 1]); else if (/_slab$/.test(k)) STONECUT.push([s.mat, k, 2]); } }
+  if (typeof STONECUT !== 'undefined') for (const s of SHAPE_SETS) { if (s.timber || s.wood) continue; for (const k of s.keys) { if (/_stairs$|_wall$/.test(k)) STONECUT.push([s.mat, k, 1]); else if (/_slab$/.test(k)) STONECUT.push([s.mat, k, 2]); } }
   // furnace fuel (seconds; Minecraft ticks / 20)
   for (const s of SHAPE_SETS) if (s.wood) for (const k of s.keys) FUEL[k] = /_slab$/.test(k) ? 7.5 : /_door$/.test(k) ? 10 : /_button$/.test(k) ? 5 : 15;
 }
@@ -100,6 +102,7 @@ function shapeSupported(x, y, z, id) {
       case 'trapdoor': st = hit.ny === 0 ? { facing: dirOf(hit.nx, hit.nz), half: fy > 0.5 ? 'top' : 'bottom', open: 0, wl } : { facing: (pf + 2) % 4, half: hit.ny === 1 ? 'bottom' : 'top', open: 0, wl }; break;
       case 'button': st = hit.ny === 1 ? { face: 'floor', facing: pf, powered: 0 } : hit.ny === -1 ? { face: 'ceiling', facing: pf, powered: 0 } : { face: 'wall', facing: dirOf(hit.nx, hit.nz), powered: 0 }; break;
       case 'plate': st = { powered: 0 }; break;
+      case 'axis': st = { axis: hit.nx ? 'x' : hit.nz ? 'z' : 'y' }; break;
       case 'door': {
         if (y + 1 >= WH || !replaceableAt(x, y + 1, z) || !shSturdy(world.get(x, y - 1, z), 'up')) return false;
         const ccw = (pf + 3) % 4, cw = (pf + 1) % 4; const L = DV4[ccw], Rr = DV4[cw];

@@ -945,7 +945,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -1552,6 +1552,143 @@ function makeModApi(mod) {
   }
 })();
 
+// ================= WOOD TYPES (Minecraft's 11 woods + bamboo) =================
+// Planks, logs, wood (bark on all six sides), stripped logs and wood, leaves and saplings for oak, spruce, birch,
+// jungle, acacia, dark oak, mangrove, cherry and pale oak, the crimson and warped stems / hyphae, and bamboo blocks,
+// planks and mosaic. Logs, wood and stems lie the way you place them (Minecraft's axis: up-down, east-west,
+// north-south). Each wood also gets stairs, slab, fence, fence gate, door, trapdoor, button and pressure plate
+// (01ab_shapes.js). All textures are original pixel art, painted in 01bb_retex.js.
+function WOODDATA() { return [
+  // k, name, log key, planks key, leaves key, sapling key, bark, end grain, planks colour, leaves colour, nether?
+  { k: 'oak', name: 'Oak', log: 'log', planks: 'planks', leaves: 'leaves', sap: 'oak_sapling', bark: [110, 86, 52], top: [184, 148, 94], pl: [166, 132, 80], lf: [62, 140, 40], door: 'oak' },
+  { k: 'spruce', name: 'Spruce', log: 'spruce_log', planks: 'spruce_planks', leaves: 'spruce_leaves', sap: 'spruce_sapling', bark: [62, 40, 18], top: [122, 90, 54], pl: [114, 84, 48], lf: [44, 96, 60], door: 'grid' },
+  { k: 'birch', name: 'Birch', log: 'birch_log', planks: 'birch_planks', leaves: 'birch_leaves', sap: 'birch_sapling', bark: [222, 220, 210], top: [216, 200, 142], pl: [198, 180, 122], lf: [110, 162, 66], door: 'oak' },
+  { k: 'jungle', name: 'Jungle', log: 'jungle_log', planks: 'jungle_planks', leaves: 'jungle_leaves', sap: 'jungle_sapling', bark: [88, 70, 28], top: [176, 132, 86], pl: [160, 114, 78], lf: [48, 160, 30], door: 'oak' },
+  { k: 'acacia', name: 'Acacia', log: 'acacia_log', planks: 'acacia_planks', leaves: 'acacia_leaves', sap: 'acacia_sapling', bark: [104, 98, 88], top: [184, 100, 54], pl: [170, 92, 52], lf: [104, 140, 30], door: 'grid' },
+  { k: 'dark_oak', name: 'Dark Oak', log: 'dark_oak_log', planks: 'dark_oak_planks', leaves: 'dark_oak_leaves', sap: 'dark_oak_sapling', bark: [62, 46, 26], top: [92, 62, 34], pl: [70, 46, 22], lf: [40, 100, 26], door: 'dark_oak' },
+  { k: 'mangrove', name: 'Mangrove', log: 'mangrove_log', planks: 'mangrove_planks', leaves: 'mangrove_leaves', sap: 'mangrove_propagule', bark: [86, 68, 42], top: [128, 60, 52], pl: [118, 54, 48], lf: [80, 150, 40], door: 'grid' },
+  { k: 'cherry', name: 'Cherry', log: 'cherry_log', planks: 'cherry_planks', leaves: 'cherry_leaves', sap: 'cherry_sapling', bark: [56, 34, 46], top: [228, 182, 176], pl: [226, 178, 170], lf: [238, 168, 202], door: 'oak' },
+  { k: 'pale_oak', name: 'Pale Oak', log: 'pale_oak_log', planks: 'pale_oak_planks', leaves: 'pale_oak_leaves', sap: 'pale_oak_sapling', bark: [96, 88, 84], top: [224, 212, 206], pl: [226, 214, 208], lf: [134, 140, 124], door: 'oak' },
+  { k: 'crimson', name: 'Crimson', log: 'crimson_stem', planks: 'crimson_planks', bark: [118, 40, 62], top: [104, 52, 74], pl: [104, 50, 72], nether: true, door: 'grid' },
+  { k: 'warped', name: 'Warped', log: 'warped_stem', planks: 'warped_planks', bark: [52, 92, 98], top: [44, 108, 102], pl: [44, 106, 100], nether: true, door: 'grid' },
+  { k: 'bamboo', name: 'Bamboo', planks: 'bamboo_planks', pl: [196, 174, 82], bamboo: true, door: 'oak' },
+]; }
+const WOODNAMES = () => WOODDATA().map(w => w.k);
+
+// called from 01_core.js while blocks are being defined (before the shapes, which use the planks)
+function defineWoodBlocks() {
+  const ph = (n, c) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c))); return n; }; // placeholders, repainted in 01bb_retex.js
+  const has = (k) => B[k.toUpperCase()] !== undefined; const D = (k) => BL[B[k.toUpperCase()]];
+  const leafDrop = (sap, apple) => (r) => r < 0.05 ? [sap, 1] : r < 0.07 ? ['stick', 1 + (r * 100 | 0) % 2] : (apple && r < 0.075) ? ['apple', 1] : null;
+  // logs and wood lie along the axis you place them on: hidden copies with the end grain on the other faces
+  const axisFamily = (key) => { const base = D(key); const top = base.texIds[2], side = base.texIds[0];
+    FAMILY[key] = { kind: 'axis', props: ['axis'], ids: { y: base.id }, base: base.id, mat: key }; base.fam = key; base.st = { axis: 'y' };
+    for (const ax of ['x', 'z']) { const tex = ax === 'x' ? [TILE_NAME(top), TILE_NAME(top), TILE_NAME(side), TILE_NAME(side), TILE_NAME(side), TILE_NAME(side)] : [TILE_NAME(side), TILE_NAME(side), TILE_NAME(side), TILE_NAME(side), TILE_NAME(top), TILE_NAME(top)];
+      const o = Object.assign({}, base, { tex, hidden: true, drop: key, fam: key, st: { axis: ax }, uvRot: ax === 'x' ? [0, 0, 1, 1, 1, 1] : [1, 1, 0, 0, 0, 0] }); delete o.id; delete o.texIds;
+      FAMILY[key].ids[ax] = defBlock(key + '#' + ax, base.name, o); } };
+  for (const w of WOODDATA()) {
+    const N = w.name;
+    if (!has(w.planks)) defBlock(w.planks, N + ' Planks', { tex: ph(w.k + '_planks', w.pl), hardness: 2, snd: 'wood', mine: 'axe', fireproof: !!w.nether });
+    if (w.bamboo) {
+      defBlock('bamboo_block', 'Block of Bamboo', { tex: { s: ph('bamboo_block_side', [140, 160, 40]), t: ph('bamboo_block_top', [170, 170, 80]) }, hardness: 2, snd: 'wood', mine: 'axe' });
+      defBlock('stripped_bamboo_block', 'Block of Stripped Bamboo', { tex: { s: ph('stripped_bamboo_side', [196, 176, 70]), t: ph('stripped_bamboo_top', [200, 180, 90]) }, hardness: 2, snd: 'wood', mine: 'axe' });
+      defBlock('bamboo_mosaic', 'Bamboo Mosaic', { tex: ph('bamboo_mosaic', [190, 170, 76]), hardness: 2, snd: 'wood', mine: 'axe' });
+      axisFamily('bamboo_block'); axisFamily('stripped_bamboo_block'); continue;
+    }
+    const stem = !!w.nether; const logName = stem ? N + ' Stem' : N + ' Log';
+    if (!has(w.log)) defBlock(w.log, logName, { tex: { s: ph(w.k + '_side', w.bark), t: ph(w.k + '_top', w.top) }, hardness: 2, snd: 'wood', mine: 'axe' });
+    const lside = TILE_NAME(D(w.log).texIds[0]);
+    const woodKey = stem ? w.k + '_hyphae' : w.k + '_wood';
+    defBlock(woodKey, stem ? N + ' Hyphae' : N + ' Wood', { tex: lside, hardness: 2, snd: 'wood', mine: 'axe' });
+    const sk = stem ? 'stripped_' + w.k + '_stem' : 'stripped_' + w.k + '_log';
+    defBlock(sk, 'Stripped ' + logName, { tex: { s: ph('stripped_' + w.k + '_side', w.pl), t: ph('stripped_' + w.k + '_top', w.pl) }, hardness: 2, snd: 'wood', mine: 'axe' });
+    defBlock('stripped_' + woodKey, 'Stripped ' + (stem ? N + ' Hyphae' : N + ' Wood'), { tex: 'stripped_' + w.k + '_side', hardness: 2, snd: 'wood', mine: 'axe' });
+    for (const k of [w.log, woodKey, sk, 'stripped_' + woodKey]) axisFamily(k);
+    D(w.log).stripTo = sk; D(woodKey).stripTo = 'stripped_' + woodKey;
+    if (w.leaves) {
+      if (!has(w.leaves)) defBlock(w.leaves, N + ' Leaves', { tex: ph(w.leaves, w.lf), opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass' });
+      D(w.leaves).drop = leafDrop(w.sap, w.k === 'oak' || w.k === 'dark_oak');
+      defBlock(w.sap, w.k === 'mangrove' ? 'Mangrove Propagule' : N + ' Sapling', { tex: ph(w.sap, [60, 130, 40]), render: 'cross', solid: false, opaque: false, plant: true, hardness: 0, snd: 'grass', sapling: w.k });
+    }
+  }
+  // mangrove roots (grow out of mangrove trees; muddy ones sit in mud), mud, pale moss
+  defBlock('mangrove_roots', 'Mangrove Roots', { tex: { s: ph('mangrove_roots_side', [74, 58, 36]), t: ph('mangrove_roots_top', [74, 58, 36]) }, render: 'cutout', opaque: false, hardness: 0.7, snd: 'wood', mine: 'axe' });
+  defBlock('muddy_mangrove_roots', 'Muddy Mangrove Roots', { tex: { s: ph('muddy_mangrove_roots_side', [70, 54, 44]), t: ph('muddy_mangrove_roots_top', [66, 54, 46]) }, hardness: 0.7, snd: 'grass', mine: 'shovel' });
+  defBlock('mud', 'Mud', { tex: ph('mud', [60, 56, 60]), hardness: 0.5, snd: 'grass', mine: 'shovel' });
+  defBlock('pale_moss_block', 'Pale Moss Block', { tex: ph('pale_moss', [150, 156, 140]), hardness: 0.1, snd: 'grass', mine: 'hoe' });
+  defBlock('pale_moss_carpet', 'Pale Moss Carpet', { tex: 'pale_moss', render: 'boxes', boxes: [[0, 0, 0, 16, 1, 16]], solid: false, opaque: false, hardness: 0.1, snd: 'grass', mine: 'hoe', carpet: true });
+  defBlock('pale_hanging_moss', 'Pale Hanging Moss', { tex: ph('pale_hanging_moss', [140, 146, 130]), render: 'cross', solid: false, opaque: false, hardness: 0, snd: 'grass', hanging: true, noTarget: false });
+  defBlock('pink_petals', 'Pink Petals', { tex: ph('pink_petals', [240, 170, 200]), render: 'boxes', boxes: [[0, 0, 0, 16, 1, 16]], solid: false, opaque: false, hardness: 0, snd: 'grass', carpet: true, flatIcon: true });
+}
+// tile index -> name (for building hidden log variants from an existing block's textures)
+function TILE_NAME(i) { for (const k in TILE) if (TILE[k] === i) return k; return null; }
+
+// ---- textures (called from 01bb_retex.js, after the base painters exist) ----
+function paintWoodTiles() {
+  const mixd = (c, f) => [c[0] * f, c[1] * f, c[2] * f];
+  for (const w of WOODDATA()) {
+    if (w.k !== 'oak' && w.k !== 'bamboo' && TILE[w.k + '_planks'] !== undefined) makeTile(w.k + '_planks', (set, r) => T2.planks(set, r, w.pl));
+    if (w.bamboo) {
+      makeTile('bamboo_block_side', (set, r) => each((x, y) => { const s = x % 4; let c = s === 0 ? [92, 116, 30] : s === 3 ? [118, 142, 40] : [140, 166, 50]; if (y % 8 === 2 && s !== 0) c = [176, 170, 86]; set(x, y, vary(c, r, 4)); }));
+      makeTile('bamboo_block_top', (set, r) => each((x, y) => { const cx = (x % 8) - 3.5, cy = (y % 8) - 3.5; const d = Math.hypot(cx, cy); set(x, y, vary(d < 1.6 ? [92, 84, 40] : d < 3.2 ? [196, 186, 96] : [120, 150, 40], r, 4)); }));
+      makeTile('stripped_bamboo_side', (set, r) => each((x, y) => { const s = x % 4; let c = s === 0 ? [168, 146, 56] : [206, 186, 84]; if (y % 8 === 2) c = [184, 160, 62]; set(x, y, vary(c, r, 4)); }));
+      makeTile('stripped_bamboo_top', (set, r) => each((x, y) => { const cx = (x % 8) - 3.5, cy = (y % 8) - 3.5; const d = Math.hypot(cx, cy); set(x, y, vary(d < 1.6 ? [120, 100, 50] : [206, 186, 90], r, 4)); }));
+      makeTile('bamboo_planks', (set, r) => each((x, y) => { let c = w.pl; if (x % 4 === 0) c = mixd(c, 0.72); else if (y % 8 === 0) c = mixd(c, 0.84); set(x, y, vary(c, r, 5)); }));
+      makeTile('bamboo_mosaic', (set, r) => each((x, y) => { const q = ((x >> 3) + (y >> 3)) & 1; const a = q ? x % 8 : y % 8; let c = a === 0 ? mixd(w.pl, 0.68) : a === 7 ? mixd(w.pl, 0.86) : w.pl; set(x, y, vary(c, r, 5)); }));
+      continue;
+    }
+    // logs (new woods), stripped logs
+    const darker = mixd(w.bark, 0.72), hi = mixd(w.bark, 1.22);
+    if (['mangrove', 'cherry', 'pale_oak'].includes(w.k)) {
+      makeTile(w.k + '_side', (set, r) => bark3(set, r, { seed: 610 + w.k.length, base: w.bark, dark: darker, hi, groove: mixd(w.bark, 0.55), grooves: w.k === 'cherry' ? [1, 4, 6, 9, 12, 14] : [2, 6, 11], cracks: w.k === 'pale_oak' ? 6 : 2, spots: w.k === 'pale_oak' ? 10 : 0, spot: [176, 166, 160] }));
+      makeTile(w.k + '_top', (set, r) => rings3(set, r, w.top, mixd(w.top, 0.86), w.bark));
+    }
+    makeTile('stripped_' + w.k + '_side', (set, r) => { const n = tnoise(700 + w.k.length, 8); each((x, y) => { const v = n(x * 0.6, y * 0.15); let c = mixd(w.pl, 0.92 + v * 0.14); if (x % 5 === 2 && r() < 0.5) c = mixd(w.pl, 0.8); set(x, y, vary(c, r, 3)); }); });
+    makeTile('stripped_' + w.k + '_top', (set, r) => rings3(set, r, mixd(w.pl, 1.04), mixd(w.pl, 0.88), mixd(w.pl, 0.92)));
+    if (w.leaves && ['mangrove', 'cherry', 'pale_oak'].includes(w.k)) makeTile(w.leaves, (set, r) => leafPaint(set, r, w.lf));
+    if (w.k === 'cherry') makeTile('cherry_leaves', (set, r) => { leafPaint(set, r, [236, 160, 196]); for (let k = 0; k < 10; k++) set(r() * 16 | 0, r() * 16 | 0, [255, 214, 232]); });
+    if (w.sap) makeTile(w.sap, (set, r) => saplingPaint(set, r, w));
+  }
+  // mangrove roots: a tangle with gaps; muddy roots: roots packed with mud; mud; pale moss
+  makeTile('mangrove_roots_side', (set, r) => { each((x, y) => set(x, y, [0, 0, 0], 0)); for (let k = 0; k < 7; k++) { let x = r() * 16, y = 0; const dx = (r() - 0.5) * 0.8; for (; y < 16; y++) { x += dx + (r() - 0.5) * 0.5; set(((x | 0) + 16) % 16, y, vary([78, 60, 38], r, 6)); set((((x | 0) + 1) + 16) % 16, y, vary([60, 46, 28], r, 6)); } } });
+  makeTile('mangrove_roots_top', (set, r) => { each((x, y) => set(x, y, [0, 0, 0], 0)); for (let k = 0; k < 6; k++) { let x = r() * 16, y = r() * 16; const a = r() * 6.28; for (let i = 0; i < 12; i++) { x += Math.cos(a); y += Math.sin(a); set(((x | 0) + 16) % 16, ((y | 0) + 16) % 16, vary([78, 60, 38], r, 6)); } } });
+  makeTile('mud', (set, r) => { const n = tnoise(721, 4); each((x, y) => set(x, y, vary(mixc([50, 46, 52], [72, 66, 72], n(x, y)), r, 4))); for (let k = 0; k < 10; k++) set(r() * 16 | 0, r() * 16 | 0, [90, 82, 86]); });
+  makeTile('muddy_mangrove_roots_top', (set, r) => { const n = tnoise(722, 4); each((x, y) => set(x, y, vary(mixc([56, 48, 46], [74, 64, 60], n(x, y)), r, 4))); for (let k = 0; k < 5; k++) { const y = r() * 16 | 0, x0 = r() * 12 | 0; for (let i = 0; i < 5; i++) set(x0 + i, y, [96, 74, 46]); } });
+  makeTile('muddy_mangrove_roots_side', (set, r) => { const n = tnoise(723, 4); each((x, y) => set(x, y, vary(mixc([56, 48, 46], [74, 64, 60], n(x, y)), r, 4))); for (let k = 0; k < 6; k++) { const x = r() * 16 | 0, y0 = r() * 10 | 0; for (let i = 0; i < 6; i++) set(x + (i >> 2), y0 + i, [96, 74, 46]); } });
+  makeTile('pale_moss', (set, r) => { const n = tnoise(731, 8); each((x, y) => { const v = n(x, y); set(x, y, vary(v < 0.4 ? [128, 134, 120] : v > 0.7 ? [176, 180, 166] : [154, 160, 144], r, 5)); }); });
+  makeTile('pale_hanging_moss', (set, r) => { each((x, y) => set(x, y, [0, 0, 0], 0)); for (const x0 of [3, 7, 11]) { const L = 10 + (r() * 6 | 0); for (let y = 0; y < L; y++) { set(x0 + (y % 3 === 2 ? 1 : 0), y, vary([150, 156, 140], r, 8)); if (y % 4 === 1) set(x0 - 1, y, vary([128, 134, 118], r, 6)); } } });
+  makeTile('pink_petals', (set, r) => { each((x, y) => set(x, y, [0, 0, 0], 0)); for (let k = 0; k < 9; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0; for (const [a, b] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) set(cx + a, cy + b, a || b ? [244, 176, 206] : [255, 226, 120]); } for (let k = 0; k < 6; k++) set(r() * 16 | 0, r() * 16 | 0, [90, 140, 50]); });
+}
+// saplings: a stem with a small crown in the tree's leaf colour (original sprites, different per tree)
+function saplingPaint(set, r, w) {
+  each((x, y) => set(x, y, [0, 0, 0], 0)); const stem = w.bark || [100, 80, 50]; const lf = w.lf || [60, 130, 40]; const sd = [stem[0] * 0.8, stem[1] * 0.8, stem[2] * 0.8];
+  if (w.k === 'mangrove') { for (let y = 3; y < 16; y++) set(7 + (y > 12 ? 1 : 0), y, y > 10 ? [92, 140, 50] : [110, 160, 60]); for (const [x, y] of [[6, 2], [7, 1], [8, 2], [7, 2], [6, 3], [8, 3]]) set(x, y, [70, 130, 40]); set(7, 15, [140, 100, 60]); return; }
+  for (let y = 9; y < 16; y++) { set(7, y, stem); set(8, y, sd); }
+  const blob = (cx, cy, rr, c) => { for (let y = -rr; y <= rr; y++) for (let x = -rr; x <= rr; x++) if (x * x + y * y <= rr * rr + 0.5 && r() < 0.88) set(cx + x, cy + y, vary(c, r, 12)); };
+  if (w.k === 'spruce') { for (let y = 2; y < 12; y++) { const hw = Math.floor((y - 1) / 2.4); for (let x = -hw; x <= hw; x++) if (r() < 0.9) set(7 + x, y, vary(lf, r, 10)); } }
+  else if (w.k === 'acacia') { blob(5, 6, 2, lf); blob(10, 5, 2, lf); set(6, 9, stem); set(9, 8, stem); }
+  else if (w.k === 'cherry') { blob(7, 6, 3, lf); for (let k = 0; k < 4; k++) set(5 + r() * 6 | 0, 4 + r() * 4 | 0, [255, 220, 236]); }
+  else if (w.k === 'dark_oak' || w.k === 'pale_oak') { blob(5, 7, 2, lf); blob(10, 7, 2, lf); blob(7, 4, 2, mixc(lf, [255, 255, 255], 0.08)); }
+  else if (w.k === 'jungle') { blob(7, 6, 3, lf); for (let y = 2; y < 9; y++) set(3 + (y % 2), y, vary(lf, r, 10)); }
+  else if (w.k === 'birch') { blob(7, 5, 3, lf); for (let y = 9; y < 16; y++) { set(7, y, [226, 224, 214]); set(8, y, y % 3 ? [200, 198, 188] : [40, 40, 36]); } }
+  else blob(7, 6, 3, lf);
+}
+
+// ---- recipes and fuel (run after 01_core.js has set up recipes) ----
+GROUPS['#planks'] = WOODDATA().map(w => w.planks);
+{ const i = RECIPES.findIndex(r => r.out[0] === 'planks' && r.items); if (i >= 0) RECIPES.splice(i, 1); }
+for (const w of WOODDATA()) {
+  if (w.bamboo) { GROUPS['#bamboo_blocks'] = ['bamboo_block', 'stripped_bamboo_block']; RECIPES.push(RSL('bamboo_planks', 2, ['#bamboo_blocks'])); RECIPES.push(RSH('bamboo_mosaic', 1, ['S', 'S'], { S: 'bamboo_slab' })); continue; }
+  const stem = !!w.nether; const wood = stem ? w.k + '_hyphae' : w.k + '_wood', sl = stem ? 'stripped_' + w.k + '_stem' : 'stripped_' + w.k + '_log';
+  GROUPS['#' + w.k + '_logs'] = [w.log, wood, sl, 'stripped_' + wood];
+  RECIPES.push(RSL(w.planks, 4, ['#' + w.k + '_logs']), RSH(wood, 3, ['LL', 'LL'], { L: w.log }), RSH('stripped_' + wood, 3, ['LL', 'LL'], { L: sl }));
+  if (!stem) for (const k of [w.log, wood, sl, 'stripped_' + wood, w.planks]) FUEL[k] = 15; if (w.sap) FUEL[w.sap] = 5;
+}
+GROUPS['#log'] = WOODDATA().filter(w => !w.bamboo).flatMap(w => GROUPS['#' + w.k + '_logs']);
+FUEL.bamboo_planks = 15; FUEL.bamboo_mosaic = 15; FUEL.bamboo_block = 15; FUEL.stripped_bamboo_block = 15;
+// "planks" in a recipe means any planks (sticks, crafting tables, chests, tools ...); "=planks" means oak planks only
+{ const _im = ingMatch; ingMatch = function (spec, id) { if (spec === 'planks') return GROUPS['#planks'].some(k => IT[k] === id); if (spec[0] === '=') return IT[spec.slice(1)] === id; return _im(spec, id); }; }
+
 // ================= SHAPED BLOCKS WITH BLOCK STATES (Minecraft rules) =================
 // Stairs, slabs, fences, fence gates, walls, glass panes / iron bars, doors, trapdoors, buttons and pressure plates.
 // A block with states is a "family": one block id per combination of its states (facing, half, open, hinge, powered,
@@ -1686,9 +1823,9 @@ function defineShapeBlocks() {
   const doorItem = (top, bot) => (set, r) => { const T = makeTileTmp(top), Bt = makeTileTmp(bot); for (let y = 0; y < 16; y++) for (let x = 0; x < 8; x++) { const src = y < 8 ? T : Bt; const sx = x * 2, sy = (y % 8) * 2; const c = src(sx, sy); if (c[3] > 0) set(x + 4, y, c); } };
   // paint into a scratch tile so the item icon can be made from the door halves
   function makeTileTmp(painter) { const px = []; const r = mulberry32(99); painter((x, y, c, a = 255) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x > 15 || y > 15) return; px[y * 16 + x] = [clamp(c[0], 0, 255), clamp(c[1], 0, 255), clamp(c[2], 0, 255), a]; }, r); return (x, y) => px[y * 16 + x] || [0, 0, 0, 0]; }
-  const WOODS = { oak: { base: [162, 128, 76], dark: [96, 70, 38], hi: [186, 150, 94], planks: 'planks', name: 'Oak' }, dark_oak: { base: [74, 50, 26], dark: [40, 26, 12], hi: [92, 64, 34], planks: 'dark_oak_planks', name: 'Dark Oak' } };
-  for (const w in WOODS) { const W = WOODS[w]; const tp = doorPaint(W.base, W.dark, W.hi, w, true), bp = doorPaint(W.base, W.dark, W.hi, w, false);
-    makeTile(w + '_door_top', tp); makeTile(w + '_door_bottom', bp); makeTile(w + '_door_item', doorItem(tp, bp)); makeTile(w + '_trapdoor', trapPaint(W.base, W.dark, W.hi, w)); }
+  const WOODS = {}; for (const w of WOODDATA()) { const b = w.k === 'oak' ? [162, 128, 76] : w.k === 'dark_oak' ? [74, 50, 26] : w.pl; WOODS[w.k] = { base: b, dark: [b[0] * 0.58, b[1] * 0.58, b[2] * 0.58], hi: [b[0] * 1.14, b[1] * 1.14, b[2] * 1.14], planks: w.planks, name: w.name, style: w.k === 'oak' ? 'oak' : w.k === 'dark_oak' ? 'dark_oak' : w.door === 'grid' ? 'dark_oak' : 'oak', nether: !!w.nether }; }
+  for (const w in WOODS) { const W = WOODS[w]; const tp = doorPaint(W.base, W.dark, W.hi, W.style, true), bp = doorPaint(W.base, W.dark, W.hi, W.style, false);
+    makeTile(w + '_door_top', tp); makeTile(w + '_door_bottom', bp); makeTile(w + '_door_item', doorItem(tp, bp)); makeTile(w + '_trapdoor', trapPaint(W.base, W.dark, W.hi, W.style)); }
   { const tp = doorPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron', true), bp = doorPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron', false);
     makeTile('iron_door_top', tp); makeTile('iron_door_bottom', bp); makeTile('iron_door_item', doorItem(tp, bp)); makeTile('iron_trapdoor', trapPaint([206, 206, 210], [120, 120, 124], [226, 226, 230], 'iron')); }
 
@@ -1702,12 +1839,13 @@ function defineShapeBlocks() {
     ['nether_brick', 'nether_bricks', 'Nether Brick', 1], ['blackstone', 'blackstone', 'Blackstone', 1], ['polished_blackstone_brick', 'polished_blackstone_bricks', 'Polished Blackstone Brick', 1],
     ['end_stone_brick', 'end_stone_bricks', 'End Stone Brick', 1], ['purpur', 'purpur_block', 'Purpur', 0], ['quartz', 'quartz_block', 'Quartz', 0],
   ];
-  for (const w in WOODS) { const m = M(WOODS[w].planks); if (!m) continue; const n = WOODS[w].name; const set = { mat: m.key, wood: true, keys: [] };
+  for (const w in WOODS) { const m = M(WOODS[w].planks); if (!m) continue; const n = WOODS[w].name; const set = { mat: m.key, wood: !WOODS[w].nether, timber: true, keys: [] };
     STAIRS(w + '_stairs', n + ' Stairs', m); SLAB(w + '_slab', n + ' Slab', m); FENCE(w + '_fence', n + ' Fence', m, 'wood'); GATE(w + '_fence_gate', n + ' Fence Gate', m);
     DOOR(w + '_door', n + ' Door', w + '_door_top', w + '_door_bottom', w + '_door_item', { wood: true });
     TRAPDOOR(w + '_trapdoor', n + ' Trapdoor', w + '_trapdoor', { wood: true }); BUTTON(w + '_button', n + ' Button', m, true); PLATE(w + '_pressure_plate', n + ' Pressure Plate', m, 'wood');
     set.keys.push(...['_stairs', '_slab', '_fence', '_fence_gate', '_door', '_trapdoor', '_pressure_plate', '_button'].map(s => w + s)); SHAPE_SETS.push(set); }
-  for (const [k, mk, n, wall] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: false, keys: [k + '_stairs', k + '_slab'] };
+  STONE_SETS.push(['bamboo_mosaic', 'bamboo_mosaic', 'Bamboo Mosaic', 0]);
+  for (const [k, mk, n, wall] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: mk === 'bamboo_mosaic', timber: mk === 'bamboo_mosaic', keys: [k + '_stairs', k + '_slab'] };
     STAIRS(k + '_stairs', n + ' Stairs', m); SLAB(k + '_slab', n + ' Slab', m); if (wall) { WALL(k + '_wall', n + ' Wall', m); set.keys.push(k + '_wall'); } SHAPE_SETS.push(set); }
   { const nb = M('nether_bricks'); FENCE('nether_brick_fence', 'Nether Brick Fence', nb, 'nether'); BL[B.NETHER_BRICK_FENCE].mine = 'pick'; SHAPE_SETS.push({ mat: 'nether_bricks', keys: ['nether_brick_fence'] }); }
   { const st = M('stone'); BUTTON('stone_button', 'Stone Button', st, false); PLATE('stone_pressure_plate', 'Stone Pressure Plate', st, 'stone'); SHAPE_SETS.push({ mat: 'stone', keys: ['stone_pressure_plate', 'stone_button'] }); }
@@ -1916,6 +2054,7 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
+paintWoodTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
@@ -3077,7 +3216,8 @@ class World {
         const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
         for (let k = 0; k < 4; k++) {
           const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (isW ? (cc[1] ? hereH : sideBase) : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
-          uvtmp[k * 2] = UVC[k][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
+          const kk = def.uvRot && def.uvRot[f] ? (k + 1) & 3 : k; // logs lying sideways turn their bark texture
+          uvtmp[k * 2] = UVC[kk][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[kk][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
           wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
           if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
           else aov[k] = 3;
@@ -4651,13 +4791,14 @@ function renderInvUI() {
 }
 // ---- recipe book ----
 const BOOK = RECIPES.map(r => ({ type: 'craft', r, out: IT[r.out[0]] })).concat(Object.keys(SMELT).map(k => ({ type: 'smelt', from: +k, out: SMELT[k] })));
-function specIcon(spec) { return spec[0] === '#' ? IT[GROUPS[spec][0]] : IT[spec]; }
-function specName(spec) { return spec === '#log' ? 'Any log or stem' : spec === '#stone' ? 'Cobblestone or Cobbled Deepslate' : ITEMS[IT[spec]].name; }
+function specIds(spec) { if (spec === 'planks') return GROUPS['#planks'].map(k => IT[k]); if (spec[0] === '=') return [IT[spec.slice(1)]]; return spec[0] === '#' ? GROUPS[spec].map(k => IT[k]) : [IT[spec]]; }
+function specIcon(spec) { return specIds(spec)[0]; }
+function specName(spec) { return spec === '#log' ? 'Any log or stem' : spec === '#stone' ? 'Cobblestone or Cobbled Deepslate' : spec === 'planks' ? 'Any planks' : spec[0] === '#' ? ITEMS[specIds(spec)[0]].name : ITEMS[specIds(spec)[0]].name; }
 function haveFor(e) {
   if (e.type === 'smelt') return countItem(e.from) > 0;
   const need = {}; const add = (spec) => need[spec] = (need[spec] || 0) + 1;
   if (e.r.items) e.r.items.forEach(add); else for (const row of e.r.shape) for (const ch of row) if (ch !== ' ') add(e.r.key[ch]);
-  for (const spec in need) { const have = spec[0] === '#' ? GROUPS[spec].reduce((s, k) => s + countItem(IT[k]), 0) : countItem(IT[spec]); if (have < need[spec]) return false; }
+  for (const spec in need) { const have = specIds(spec).reduce((s, id) => s + countItem(id), 0); if (have < need[spec]) return false; }
   return true;
 }
 let bookBuilt = false; const bookEls = [];
@@ -6870,6 +7011,7 @@ function randomTicks(dt) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y - 1, z) !== B.FARMLAND) continue;
         if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { const nid = B[(def.cropBase || 'wheat_').toUpperCase() + (def.crop + 1)]; world.set(x, y, z, nid); mpBlock(x, y, z, nid); }
+      } else if (def.sapling) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; saplingTick(ox + lx, y, oz + lz, id);
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y + 1, z) || world.get(x, y - 2, z) === B.SUGAR_CANE) continue; world.set(x, y + 1, z, B.SUGAR_CANE); mpBlock(x, y + 1, z, B.SUGAR_CANE);
@@ -13385,8 +13527,8 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
   for (const ids of after.values()) out.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...out); }
 
 // ---- recipes (Minecraft's) ----
-{ const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const has = (k) => IT[k] !== undefined;
-  for (const s of SHAPE_SETS) { const m = s.mat; for (const k of s.keys) { if (!has(k)) continue;
+{ const n0 = RECIPES.length; const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const has = (k) => IT[k] !== undefined;
+  for (const s of SHAPE_SETS) { const m = s.timber ? '=' + s.mat : s.mat; for (const k of s.keys) { if (!has(k)) continue;
     if (k.endsWith('_stairs')) R(k, 4, ['M  ', 'MM ', 'MMM'], { M: m });
     else if (k.endsWith('_slab')) R(k, 6, ['MMM'], { M: m });
     else if (k.endsWith('_wall')) R(k, 6, ['MMM', 'MMM'], { M: m });
@@ -13401,11 +13543,13 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
     else if (k === 'heavy_weighted_pressure_plate') R(k, 1, ['II'], { I: 'iron_ingot' });
     else if (k.endsWith('_pressure_plate')) R(k, 1, ['MM'], { M: m });
     else if (k.endsWith('_button')) RECIPES.push(RSL(k, 1, [m]));
+    else if (k.endsWith('_slab') && s.mat === 'bamboo_mosaic') { }
     else if (k === 'glass_pane') R(k, 16, ['GGG', 'GGG'], { G: 'glass' });
     else if (k === 'iron_bars') { if (!RECIPES.some(r => r.out[0] === 'iron_bars')) R(k, 16, ['III', 'III'], { I: 'iron_ingot' }); }
   } }
+  for (let i = n0; i < RECIPES.length; i++) BOOK.push({ type: 'craft', r: RECIPES[i], out: IT[RECIPES[i].out[0]] }); // the recipe book was built before these
   // stonecutter: one block makes one stair or wall, or two slabs
-  if (typeof STONECUT !== 'undefined') for (const s of SHAPE_SETS) { if (s.wood) continue; for (const k of s.keys) { if (/_stairs$|_wall$/.test(k)) STONECUT.push([s.mat, k, 1]); else if (/_slab$/.test(k)) STONECUT.push([s.mat, k, 2]); } }
+  if (typeof STONECUT !== 'undefined') for (const s of SHAPE_SETS) { if (s.timber || s.wood) continue; for (const k of s.keys) { if (/_stairs$|_wall$/.test(k)) STONECUT.push([s.mat, k, 1]); else if (/_slab$/.test(k)) STONECUT.push([s.mat, k, 2]); } }
   // furnace fuel (seconds; Minecraft ticks / 20)
   for (const s of SHAPE_SETS) if (s.wood) for (const k of s.keys) FUEL[k] = /_slab$/.test(k) ? 7.5 : /_door$/.test(k) ? 10 : /_button$/.test(k) ? 5 : 15;
 }
@@ -13460,6 +13604,7 @@ function shapeSupported(x, y, z, id) {
       case 'trapdoor': st = hit.ny === 0 ? { facing: dirOf(hit.nx, hit.nz), half: fy > 0.5 ? 'top' : 'bottom', open: 0, wl } : { facing: (pf + 2) % 4, half: hit.ny === 1 ? 'bottom' : 'top', open: 0, wl }; break;
       case 'button': st = hit.ny === 1 ? { face: 'floor', facing: pf, powered: 0 } : hit.ny === -1 ? { face: 'ceiling', facing: pf, powered: 0 } : { face: 'wall', facing: dirOf(hit.nx, hit.nz), powered: 0 }; break;
       case 'plate': st = { powered: 0 }; break;
+      case 'axis': st = { axis: hit.nx ? 'x' : hit.nz ? 'z' : 'y' }; break;
       case 'door': {
         if (y + 1 >= WH || !replaceableAt(x, y + 1, z) || !shSturdy(world.get(x, y - 1, z), 'up')) return false;
         const ccw = (pf + 3) % 4, cw = (pf + 1) % 4; const L = DV4[ccw], Rr = DV4[cw];
@@ -13579,6 +13724,128 @@ function shapesTick(dt) {
       selBox.scale.set((b[0] - a[0]) / 16, (b[1] - a[1]) / 16, (b[2] - a[2]) / 16); selBox.position.set(target.x + (a[0] + b[0]) / 32, target.y + (a[1] + b[1]) / 32, target.z + (a[2] + b[2]) / 32); } }
     else selBox.scale.set(1, 1, 1);
     return r; }; }
+
+// ================= WOODS AT RUN TIME: stripping, saplings growing into trees, new biomes =================
+// Axes strip logs and wood (keeping the way they lie). Saplings grow on random ticks in light 9 or more, or with bone
+// meal (Minecraft: 45% per use); dark oak and pale oak need four saplings in a 2x2 square, which also grows giant
+// spruce and jungle trees. Crimson and warped fungi grow into huge fungi on their own nylium with bone meal.
+// New biomes: Cherry Grove (pink trees and petals on high ground), Mangrove Swamp (mud, mangroves on arching roots in
+// warm swamps) and Pale Garden (pale oaks, pale moss and hanging moss in the coldest dark forests).
+Object.assign(BIO, { CHERRY_GROVE: 12, MANGROVE_SWAMP: 13, PALE_GARDEN: 14 });
+BIO_NAME.push('Cherry Grove', 'Mangrove Swamp', 'Pale Garden');
+
+// ---- tree shapes; put(x, y, z, id, isLog) does the placing (world growth or chunk generation) ----
+const TREES = {
+  blob(put, x, y, z, r, lv, top) { for (let yy = top - 3; yy <= top; yy++) { const rr = yy >= top - 1 ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) === rr && Math.abs(dz) === rr && (yy === top || r() < 0.5)) continue; put(x + dx, yy, z + dz, lv, false); } } },
+  oak(put, x, y, z, r) { const H = 4 + (r() * 3 | 0); TREES.blob(put, x, y, z, r, B.LEAVES, y + H); for (let i = 0; i < H; i++) put(x, y + i, z, B.LOG, true); },
+  birch(put, x, y, z, r) { const H = 5 + (r() * 3 | 0); TREES.blob(put, x, y, z, r, B.BIRCH_LEAVES, y + H); for (let i = 0; i < H; i++) put(x, y + i, z, B.BIRCH_LOG, true); },
+  jungle(put, x, y, z, r) { const H = 4 + (r() * 7 | 0); TREES.blob(put, x, y, z, r, B.JUNGLE_LEAVES, y + H); for (let i = 0; i < H; i++) put(x, y + i, z, B.JUNGLE_LOG, true); },
+  spruce(put, x, y, z, r) { const H = 6 + (r() * 4 | 0); for (let i = 0; i < H; i++) put(x, y + i, z, B.SPRUCE_LOG, true);
+    let rad = 0; for (let yy = y + H; yy >= y + 2; yy--) { for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) { if (Math.abs(dx) + Math.abs(dz) > rad + (rad > 1 ? 1 : 0)) continue; if (dx || dz || yy >= y + H) put(x + dx, yy, z + dz, B.SPRUCE_LEAVES, false); } rad = rad >= 2 ? 1 : rad + 1; }
+    put(x, y + H, z, B.SPRUCE_LEAVES, false); put(x, y + H + 1, z, B.SPRUCE_LEAVES, false); },
+  acacia(put, x, y, z, r) { const H = 5 + (r() * 3 | 0); const d = [[1, 0], [-1, 0], [0, 1], [0, -1]][r() * 4 | 0]; let tx = x, tz = z;
+    for (let i = 0; i < H; i++) { if (i >= H - 3) { tx += d[0]; tz += d[1]; } put(tx, y + i, tz, B.ACACIA_LOG, true); }
+    for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { if (Math.abs(dx) + Math.abs(dz) > 4) continue; put(tx + dx, y + H, tz + dz, B.ACACIA_LEAVES, false); if (Math.abs(dx) + Math.abs(dz) <= 2) put(tx + dx, y + H + 1, tz + dz, B.ACACIA_LEAVES, false); } },
+  big(put, x, y, z, r, log, lv, H0, extra) { const H = H0 + (r() * 3 | 0); // 2x2 trunk (x..x+1, z..z+1) with a wide flat crown
+    for (let yy = H - 2; yy <= H + 1; yy++) for (let dx = -3; dx <= 4; dx++) for (let dz = -3; dz <= 4; dz++) { const e = Math.max(Math.abs(dx - 0.5) - (yy > H ? 1.5 : 3), Math.abs(dz - 0.5) - (yy > H ? 1.5 : 3)); if (e > 0.6 || (e > -0.4 && r() < 0.4)) continue; put(x + dx, y + yy, z + dz, lv, false); if (extra && yy === H - 2 && r() < 0.2) extra(x + dx, y + yy - 1, z + dz); }
+    for (let i = 0; i < H; i++) for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) put(x + a, y + i, z + b, log, true); },
+  dark_oak(put, x, y, z, r) { TREES.big(put, x, y, z, r, B.DARK_OAK_LOG, B.DARK_OAK_LEAVES, 6); },
+  pale_oak(put, x, y, z, r) { TREES.big(put, x, y, z, r, B.PALE_OAK_LOG, B.PALE_OAK_LEAVES, 7, (a, b, c) => { for (let k = 0; k < 1 + (r() * 3 | 0); k++) put(a, b - k, c, B.PALE_HANGING_MOSS, false); }); },
+  mega_spruce(put, x, y, z, r) { const H = 14 + (r() * 10 | 0); for (let i = 0; i < H; i++) for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) put(x + a, y + i, z + b, B.SPRUCE_LOG, true);
+    for (let yy = y + Math.floor(H * 0.45); yy <= y + H + 1; yy++) { const rr = Math.max(1, Math.round((y + H + 1 - yy) * 0.35)) + ((yy & 1) ? 0 : 1); for (let dx = -rr; dx <= rr + 1; dx++) for (let dz = -rr; dz <= rr + 1; dz++) if ((dx - 0.5) ** 2 + (dz - 0.5) ** 2 <= rr * rr + 1) put(x + dx, yy, z + dz, B.SPRUCE_LEAVES, false); } },
+  mega_jungle(put, x, y, z, r) { const H = 18 + (r() * 12 | 0); for (let i = 0; i < H; i++) for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) put(x + a, y + i, z + b, B.JUNGLE_LOG, true);
+    for (let yy = y + H - 2; yy <= y + H + 1; yy++) { const rr = yy > y + H ? 2 : 4; for (let dx = -rr; dx <= rr + 1; dx++) for (let dz = -rr; dz <= rr + 1; dz++) if ((dx - 0.5) ** 2 + (dz - 0.5) ** 2 <= rr * rr + 1) put(x + dx, yy, z + dz, B.JUNGLE_LEAVES, false); } },
+  cherry(put, x, y, z, r) { const H = 4 + (r() * 3 | 0); for (let i = 0; i < H; i++) put(x, y + i, z, B.CHERRY_LOG, true);
+    const tops = [[x, y + H, z]]; const nb = 1 + (r() * 2 | 0);
+    for (let b = 0; b < nb; b++) { const d = [[1, 0], [-1, 0], [0, 1], [0, -1]][(r() * 4 | 0)]; let bx = x, by = y + H - 2, bz = z; const L = 2 + (r() * 3 | 0); for (let i = 0; i < L; i++) { bx += d[0]; bz += d[1]; if (i % 2) by++; put(bx, by, bz, withState(B.CHERRY_LOG, { axis: d[0] ? 'x' : 'z' }), true); } tops.push([bx, by + 1, bz]); }
+    for (const [cx, cy, cz] of tops) for (let dy = -1; dy <= 2; dy++) { const rr = dy === 2 ? 2 : dy === -1 ? 3 : 4; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { const q = dx * dx + dz * dz; if (q > rr * rr || (q > (rr - 1) * (rr - 1) && r() < 0.35)) continue; put(cx + dx, cy + dy, cz + dz, B.CHERRY_LEAVES, false); if (dy === -1 && q > 4 && r() < 0.15) put(cx + dx, cy + dy - 1, cz + dz, B.CHERRY_LEAVES, false); } } },
+  mangrove(put, x, y, z, r, ground) { const H = 6 + (r() * 4 | 0); const base = y + 2; // the trunk stands on arching roots
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) { if (r() < 0.25) continue; const L = 2 + (r() * 2 | 0); for (let i = 1; i <= L; i++) put(x + dx * i, base - Math.min(i, 2), z + dz * i, B.MANGROVE_ROOTS, true); for (let yy = base - 3; yy > base - 8; yy--) { const id = ground(x + dx * L, yy, z + dz * L); put(x + dx * L, yy, z + dz * L, B.MANGROVE_ROOTS, true); if (id && !FKIND[id] && SOLID[id]) break; } }
+    for (let yy = y; yy < base; yy++) put(x, yy, z, B.MANGROVE_ROOTS, true);
+    for (let i = 0; i < H; i++) put(x, base + i, z, B.MANGROVE_LOG, true);
+    for (let yy = base + H - 3; yy <= base + H + 1; yy++) { const rr = yy > base + H ? 2 : 3; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (dx * dx + dz * dz > rr * rr + 1 || r() < 0.12) continue; put(x + dx, yy, z + dz, B.MANGROVE_LEAVES, false); } } },
+  fungus(put, x, y, z, r, nether) { const warped = nether === 'warped'; const stem = warped ? B.WARPED_STEM : B.CRIMSON_STEM, cap = warped ? B.WARPED_WART_BLOCK : B.NETHER_WART_BLOCK; const H = 4 + (r() * 9 | 0);
+    for (let i = 0; i < H; i++) put(x, y + i, z, stem, true);
+    for (let yy = y + H - 3; yy <= y + H; yy++) { const rr = yy === y + H ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (!(Math.abs(dx) === rr || Math.abs(dz) === rr || yy === y + H)) continue; put(x + dx, yy, z + dz, r() < 0.08 ? B.SHROOMLIGHT : cap, false); } } },
+};
+
+// ---- growing a tree in the world ----
+const treeRoom = (id) => !id || !!PLANT[id] || (BL[id] && (BL[id].sapling || /leaves/.test(BL[id].key) || BL[id].render === 'cross' || isWaterId(id)));
+function growTree(x, y, z, kind, big) {
+  const r = Math.random; const cells = []; let blocked = false;
+  const put = (a, b, c, id, isLog) => { if (b < 1 || b >= WH - 1) return; const cur = world.get(a, b, c); if (isLog) { if (!treeRoom(cur) && !(cur === B.MANGROVE_ROOTS)) { if (b < y + 4 && !(kind === 'mangrove' && b < y + 2)) blocked = true; return; } } else if (cur && !treeRoom(cur)) return; cells.push([a, b, c, id, isLog]); };
+  const ground = (a, b, c) => world.get(a, b, c);
+  const fn = TREES[kind]; if (!fn) return false; fn(put, x, y, z, r, kind === 'mangrove' ? ground : kind);
+  if (blocked) return false;
+  for (const [a, b, c, id, isLog] of cells) { const cur = world.get(a, b, c); if (!isLog && cur && !treeRoom(cur)) continue; if (!isLog && cur && /leaves/.test(BL[cur].key) && id !== B.PALE_HANGING_MOSS) continue; world.set(a, b, c, id); }
+  // the soil under the trunk becomes dirt (grass and podzol do in Minecraft)
+  const under = world.get(x, y - 1, z); if (under === B.GRASS || under === B.SNOWY_GRASS) world.set(x, y - 1, z, B.DIRT);
+  return true;
+}
+// what a sapling grows into; 2x2 saplings make big trees
+function trySapling(x, y, z, id) {
+  const d = BL[id]; if (!d || !d.sapling) return false; const k = d.sapling;
+  if (world.lightAt(x + 0.5, y + 0.5, z + 0.5, G.daylight) < 0.55 && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) < 0.55) return false;
+  // find a 2x2 of the same sapling with this one in it
+  let sq = null; for (const [ox, oz] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) { const a = x + ox, c = z + oz; if ([[0, 0], [1, 0], [0, 1], [1, 1]].every(([p, q]) => world.get(a + p, y, c + q) === id)) { sq = [a, c]; break; } }
+  if ((k === 'dark_oak' || k === 'pale_oak') && !sq) return false;
+  const clear = (a, c) => { for (const [p, q] of [[0, 0], [1, 0], [0, 1], [1, 1]]) world.set(a + p, y, c + q, 0); };
+  const restore = (a, c) => { for (const [p, q] of [[0, 0], [1, 0], [0, 1], [1, 1]]) world.set(a + p, y, c + q, id); };
+  if (sq && (k === 'dark_oak' || k === 'pale_oak' || k === 'spruce' || k === 'jungle')) { clear(sq[0], sq[1]); const kind = k === 'spruce' ? 'mega_spruce' : k === 'jungle' ? 'mega_jungle' : k; if (growTree(sq[0], y, sq[1], kind)) return true; restore(sq[0], sq[1]); return false; }
+  world.set(x, y, z, 0); const kind = k === 'birch' ? 'birch' : k; if (growTree(x, y, z, kind)) return true; world.set(x, y, z, id); return false;
+}
+// saplings and fungi on random ticks (called from randomTicks in 12_farm.js)
+function saplingTick(x, y, z, id) { if (Math.random() < 0.25) trySapling(x, y, z, id); }
+// bone meal: 45% chance; fungi grow on their own nylium
+{ const _fu = farmUse; farmUse = function (h, hd) {
+    if (hd && hd.kind === 'bonemeal' && target) { const id = target.id; const d = BL[id]; const { x, y, z } = target;
+      const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); };
+      if (d && d.sapling) { if (Math.random() < 0.45) trySapling(x, y, z, id); fx(); return true; }
+      if ((id === B.CRIMSON_FUNGUS || id === B.WARPED_FUNGUS) && world.get(x, y - 1, z) === (id === B.CRIMSON_FUNGUS ? B.CRIMSON_NYLIUM : B.WARPED_NYLIUM)) { if (Math.random() < 0.4) { world.set(x, y, z, 0); if (!growTree(x, y, z, 'fungus')) world.set(x, y, z, id); } fx(); return true; }
+    }
+    return _fu(h, hd); }; }
+// fungus colour: TREES.fungus reads its 6th argument; growTree passes the kind, so map it here
+{ const _f = TREES.fungus; TREES.fungus = function (put, x, y, z, r) { const id = world.get(x, y - 1, z); return _f(put, x, y, z, r, id === B.WARPED_NYLIUM ? 'warped' : 'crimson'); }; }
+
+// ---- axes strip logs and wood ----
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const h = player.held(); const hd = h && ITEMS[h.id];
+    if (target && !targetMob && hd && hd.kind === 'tool' && hd.tool === 'axe' && !isSpec()) { const d = BL[target.id]; const base = d && d.fam && FAMILY[d.fam] ? BL[FAMILY[d.fam].base] : null;
+      if (base && base.stripTo && FAMILY[base.stripTo]) { mouseR = false; world.set(target.x, target.y, target.z, famId(base.stripTo, { axis: d.st.axis })); Sfx.play('wood', 1, 0.7); damageHeld(1); S.swing = 1; return; } }
+    return _ua.apply(this, arguments); }; }
+
+// ---- new biomes ----
+{ const _col = Gen.prototype.column; Gen.prototype.column = function (x, z) {
+    const c = _col.call(this, x, z);
+    if (c.b === BIO.SWAMP) { if (this.nT.f2(x / 560, z / 560, 2) > 0.02) c.b = BIO.MANGROVE_SWAMP; }
+    else if (c.b === BIO.DARK_FOREST) { if (this.nT.f2(x / 700 + 31, z / 700 - 17, 2) < -0.12) c.b = BIO.PALE_GARDEN; }
+    else if ((c.b === BIO.PLAINS || c.b === BIO.FOREST || c.b === BIO.MOUNTAINS) && c.h > SEA + 22 && c.h < SEA + 70) { if (this.nW.f2(x / 420 - 50, z / 420 + 90, 2) > 0.2) c.b = BIO.CHERRY_GROVE; }
+    return c; }; }
+{ const _dec = decorate; decorate = function (world, S, cx, cz) {
+    const r0 = _dec.apply(this, arguments); const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 7919, seed)); const bx = cx * 16, bz = cz * 16;
+    const b0 = g.column(bx + 8, bz + 8).b; if (b0 !== BIO.CHERRY_GROVE && b0 !== BIO.MANGROVE_SWAMP && b0 !== BIO.PALE_GARDEN) return r0;
+    if (startNear(world, 'village', cx, cz, 2)) return r0;
+    const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }, soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
+    // ground
+    for (let lx = 0; lx < 16; lx++) for (let lz = 0; lz < 16; lz++) { const x = bx + lx, z = bz + lz; const col = g.column(x, z); const y = col.h - 1;
+      if (col.b === BIO.MANGROVE_SWAMP && col.h >= SEA - 4) { hard(x, y, z, B.MUD); hard(x, y - 1, z, B.MUD); if (rnd01(x, y, z, seed + 5) < 0.06) hard(x, y, z, B.MUDDY_MANGROVE_ROOTS); }
+      else if (col.b === BIO.PALE_GARDEN && col.h > SEA) { const v = g.nW.f2(x / 18, z / 18, 1); if (v > 0.25) { hard(x, y, z, B.PALE_MOSS_BLOCK); if (rnd01(x, y + 1, z, seed) < 0.5) soft(x, y + 1, z, B.PALE_MOSS_CARPET); } }
+      else if (col.b === BIO.CHERRY_GROVE && col.h > SEA && rnd01(x, y + 1, z, seed + 9) < 0.12) soft(x, y + 1, z, B.PINK_PETALS); }
+    // trees
+    const tries = b0 === BIO.PALE_GARDEN ? 8 : b0 === BIO.MANGROVE_SWAMP ? 2 : 3;
+    for (let a = 0; a < tries; a++) { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); if (col.b !== b0 || col.h > WH - 40 || g.cave(x, col.h - 1, z)) continue;
+      const put = (px, py, pz, id, isLog) => (isLog ? hard : soft)(px, py, pz, id);
+      if (b0 === BIO.CHERRY_GROVE) { if (col.h <= SEA) continue; TREES.cherry(put, x, col.h, z, r); }
+      else if (b0 === BIO.PALE_GARDEN) { if (col.h <= SEA) continue; if (r() < 0.25) TREES.dark_oak(put, x, col.h, z, r); else TREES.pale_oak(put, x, col.h, z, r); }
+      else { if (col.h < SEA - 3) continue; const y = Math.max(col.h, SEA + 1); TREES.mangrove(put, x, y, z, r, (px, py, pz) => { const c2 = g.column(px, pz); return py < c2.h ? B.MUD : 0; }); }
+    }
+    return r0; }; }
+
+// ---- saplings can also go on mud, moss and farmland; propagules on mud and clay ----
+{ const _pb = placeBlock; placeBlock = function (hit, id) {
+    const d = BL[id]; if (d && d.sapling && hit) { let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (PLANT[hit.id]) { x = hit.x; y = hit.y; z = hit.z; } const below = world.get(x, y - 1, z);
+      if ([B.MUD, B.FARMLAND, B.PALE_MOSS_BLOCK, B.MUDDY_MANGROVE_ROOTS].includes(below) && replaceableAt(x, y, z)) { world.set(x, y, z, id); Sfx.play('grass', 1, 0.8); return true; } }
+    return _pb.apply(this, arguments); }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the
