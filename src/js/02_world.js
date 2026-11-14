@@ -718,7 +718,7 @@ class World {
     const ck = pcx + ',' + pcz + ',' + R;
     if (ck !== this.lastCenter) {
       this.lastCenter = ck; const list = [];
-      for (let dx = -R - 1; dx <= R + 1; dx++) for (let dz = -R - 1; dz <= R + 1; dz++) { const d2 = dx * dx + dz * dz; if (d2 <= (R + 1.5) * (R + 1.5)) list.push([pcx + dx, pcz + dz, d2]); }
+      for (let dx = -R - 2; dx <= R + 2; dx++) for (let dz = -R - 2; dz <= R + 2; dz++) { const d2 = dx * dx + dz * dz; if (d2 <= (R + 2) * (R + 2)) list.push([pcx + dx, pcz + dz, d2]); } /* every neighbour of every chunk that gets meshed, so none at the edge is left unmeshed */
       list.sort((a, b) => a[2] - b[2]); this.wanted = list;
       for (const c of [...this.chunks.values()]) { const dx = c.cx - pcx, dz = c.cz - pcz; if (dx * dx + dz * dz > (R + 3.5) * (R + 3.5)) this.unload(c); }
     }
@@ -728,16 +728,20 @@ class World {
     let pending = 0;
     for (const [cx, cz, d2] of this.wanted) {
       if (performance.now() - t0 > budgetMs) { pending++; continue; }
-      if (!this.chunks.has(ckey(cx, cz))) { this.generate(cx, cz); continue; }
+      if (!this.chunks.has(ckey(cx, cz))) { try { this.generate(cx, cz); } catch (e) { worldError(e, 'generating chunk ' + cx + ',' + cz); if (!this.chunks.has(ckey(cx, cz))) { const c = new Chunk(cx, cz); if (this.dim !== 'end') for (let i = 0; i < 256 * 4; i++) c.d[i] = B.BEDROCK; this.chunks.set(ckey(cx, cz), c); } } continue; }
       if (d2 > (R + 0.5) * (R + 0.5)) continue;
       const c = this.getChunk(cx, cz);
-      if (c.dirty && this.neighborsReady(cx, cz)) this.buildMesh(c);
+      if (c.dirty && this.neighborsReady(cx, cz)) { try { this.buildMesh(c); } catch (e) { worldError(e, 'building chunk ' + cx + ',' + cz); c.dirty = false; } } // one broken chunk must never stall loading
     }
     return pending;
   }
-  meshedAround(px, pz, r) { const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16); let ok = 0, tot = 0; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { tot++; const c = this.getChunk(pcx + dx, pcz + dz); if (c && !c.dirty) ok++; } return ok / tot; }
+  meshedAround(px, pz, r) { const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16); let ok = 0, tot = 0; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (dx * dx + dz * dz > (r + 0.5) * (r + 0.5)) continue; tot++; /* the same round area update() meshes */ const c = this.getChunk(pcx + dx, pcz + dz); if (c && !c.dirty) ok++; } return ok / tot; }
 }
 
+
+// an error while making a chunk is logged (once per message) instead of stopping the world from loading
+const worldErrSeen = new Set();
+function worldError(e, what) { const k = (e && e.message) + ''; if (worldErrSeen.has(k)) return; worldErrSeen.add(k); console.error('World ' + what + ':', e); if (typeof toast === 'function' && worldErrSeen.size <= 2) toast('A world generation error was skipped: ' + k, 4); }
 
 // ---- ravines (Minecraft canyon carver) ----
 // A ravine can start in about 1 chunk in 80 and run up to ~110 blocks, so every chunk checks the starts within 7 chunks

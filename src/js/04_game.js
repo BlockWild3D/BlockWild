@@ -917,7 +917,7 @@ function tick(dt) {
   const P = player;
   world.update(P.pos.x, P.pos.z, effRD(), (S.loading || S.boost) ? 40 : 8); S.boostT = (S.boostT || 0) - dt; if (S.boostT <= 0) { S.boostT = 0.5; S.boost = world.meshedAround(P.pos.x, P.pos.z, 1) < 1; }
   if (S.loading) {
-    const p = world.meshedAround(P.pos.x, P.pos.z, Math.min(2, S.renderDist)); $('loadBar').style.width = Math.round(p * 100) + '%';
+    const p = world.meshedAround(P.pos.x, P.pos.z, Math.min(2, Math.max(0, effRD() - 1))); // a ring that can actually be meshed at this render distance (2 used to stall at about half) $('loadBar').style.width = Math.round(p * 100) + '%';
     if (p >= 1) finishLoading();
   }
   const running = !S.loading && (!S.paused || (typeof MP !== 'undefined' && MP.active)); // multiplayer worlds keep running behind the pause menu

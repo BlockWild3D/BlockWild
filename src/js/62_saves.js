@@ -90,7 +90,7 @@ const Saves = {
     try { const old = localStorage.getItem('blockwild_save'); // the old single save becomes "My World"
       if (old) { const d = JSON.parse(old); const id = 'old' + this.newId(); d.name = d.name || 'My World'; d.wid = id; const meta = { id, name: d.name, seed: d.seed, mode: d.mode, day: d.day, last: Date.now(), size: old.length, ico: worldIcon(d) };
         if (await this.localPut(meta, JSON.stringify(d))) { this.metas.set(id, Object.assign(meta, { local: meta.last })); localStorage.removeItem('blockwild_save'); } } } catch (e) { }
-    this.ready = true; renderWorlds(); this.initCloud();
+    this.ready = true; renderWorlds(); if (!$('worlds').classList.contains('hidden') && !this.metas.size && $('wCreate').classList.contains('hidden')) openCreate(); this.initCloud();
   },
 };
 async function gzEncode(str) {
