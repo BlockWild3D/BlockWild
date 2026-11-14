@@ -27,6 +27,7 @@ function randomTicks(dt) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
         if (world.get(x, y - 1, z) !== B.FARMLAND) continue;
         if (Math.random() < (nearWater(x, y - 1, z) ? 0.9 : 0.4) && world.lightAt(x + 0.5, y + 0.5, z + 0.5, 1) > 0.45) { const nid = B[(def.cropBase || 'wheat_').toUpperCase() + (def.crop + 1)]; world.set(x, y, z, nid); mpBlock(x, y, z, nid); }
+      } else if (CU_NEXT[id] && Math.random() < 0.06) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; world.set(ox + lx, y, oz + lz, CU_NEXT[id]);
       } else if (def.sapling) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; saplingTick(ox + lx, y, oz + lz, id);
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;

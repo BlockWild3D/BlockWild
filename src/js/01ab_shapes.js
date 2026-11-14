@@ -164,6 +164,11 @@ function defineShapeBlocks() {
   DOOR('iron_door', 'Iron Door', 'iron_door_top', 'iron_door_bottom', 'iron_door_item', { hardness: 5, snd: 'stone', mine: 'pick', tool: 'pick', tier: 1, iron: true });
   TRAPDOOR('iron_trapdoor', 'Iron Trapdoor', 'iron_trapdoor', { hardness: 5, snd: 'stone', mine: 'pick', tool: 'pick', tier: 1, iron: true });
   SHAPE_SETS.push({ mat: 'iron_block', keys: ['iron_door', 'iron_trapdoor'] });
+  // copper: cut copper stairs and slabs, copper doors and trapdoors, in every age, waxed or not
+  for (const cs of COPPER_SHAPES()) { const m = M(cs.cut); if (!m) continue; const ex = { snd: 'stone', mine: 'pick', tool: 'pick', tier: 1, hardness: 3 };
+    STAIRS(cs.stairs, cs.name + 'Cut Copper Stairs', m); SLAB(cs.slab, cs.name + 'Cut Copper Slab', m); SHAPE_SETS.push({ mat: cs.cut, keys: [cs.stairs, cs.slab] });
+    for (const n of [cs.door + '_top', cs.door + '_bottom', cs.door + '_item', cs.trapdoor]) if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, CUDATA().cols[cs.a])));
+    DOOR(cs.door, cs.name + 'Copper Door', cs.door + '_top', cs.door + '_bottom', cs.door + '_item', ex); TRAPDOOR(cs.trapdoor, cs.name + 'Copper Trapdoor', cs.trapdoor, ex); }
   PANE('glass_pane', 'Glass Pane', 'glass', { render: 'boxes', cullSame: false });
   for (const [c, N] of COLORDATA()) { PANE(c + '_stained_glass_pane', N + ' Stained Glass Pane', c + '_stained_glass', { translucent: true, drop: null }); SHAPE_SETS.push({ mat: c + '_stained_glass', keys: [c + '_stained_glass_pane'] }); }
   PANE('iron_bars', 'Iron Bars', 'iron_bars', { hardness: 5, snd: 'stone', mine: 'pick', tool: 'pick', tier: 1 });

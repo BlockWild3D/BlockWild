@@ -192,7 +192,9 @@ function stronglyPowered(x, y, z) { // a solid block powered by a button / lever
 function blockPowered(x, y, z) { for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const X = x + a, Y = y + b, Z = z + c; if (isSource(X, Y, Z)) return true; const n = world.get(X, Y, Z); if (SOLID[n] && OPAQUE[n] && stronglyPowered(X, Y, Z)) return true; } return false; }
 const POWERED = new Map(); // last power state of doors / trapdoors / gates, so they only react when it changes
 function updatePowerAround(x, y, z) {
-  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) { const X = x + a, Y = y + b, Z = z + c; const id = world.get(X, Y, Z); const d = BL[id]; if (!d || !d.shape) continue;
+  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) { const X = x + a, Y = y + b, Z = z + c; const id = world.get(X, Y, Z); const d = BL[id]; if (!d) continue;
+    if (d.bulb) { const p = blockPowered(X, Y, Z); const k = keyOf(X, Y, Z); const was = POWERED.get(k) || false; if (p !== was) { POWERED.set(k, p); if (p) { world.set(X, Y, Z, d.bulbOther); Sfx.at(d.lit ? 'click_off' : 'click_on', new V3(X + 0.5, Y + 0.5, Z + 0.5), 1); } } continue; }
+    if (!d.shape) continue;
     if (d.shape !== 'door' && d.shape !== 'trapdoor' && d.shape !== 'gate') continue; if (d.shape === 'door' && d.st.half === 'upper') continue;
     const p = blockPowered(X, Y, Z) || (d.shape === 'door' && blockPowered(X, Y + 1, Z)); const k = keyOf(X, Y, Z); const was = POWERED.get(k) || false; if (p === was) continue; POWERED.set(k, p);
     if (!!d.st.open !== p) { if (d.shape === 'door') setDoor(X, Y, Z, p ? 1 : 0); else world.set(X, Y, Z, withState(id, { open: p ? 1 : 0 })); shapeSound(d, p, new V3(X + 0.5, Y + 0.5, Z + 0.5)); } }
