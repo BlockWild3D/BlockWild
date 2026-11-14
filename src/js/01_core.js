@@ -85,7 +85,21 @@ function pPlanks(set, r, base) {
 function pLogSide(set, r, base, dark) { for (let x = 0; x < 16; x++) { const s = r(); for (let y = 0; y < 16; y++) { let c = vary(mixc(base, dark, (x % 4 === 0 ? 0.55 : 0) + s * 0.25), r, 5); if (r() < 0.05) c = mixc(base, dark, 0.8); set(x, y, c); } } }
 function pLogTop(set, r, inner, ring, bark) { each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, d > 6.5 ? vary(bark, r, 6) : vary((Math.floor(d) % 2) ? ring : inner, r, 5)); }); }
 function pLeaves(set, r, base) { each((x, y) => { if (r() < 0.2) { set(x, y, [0, 0, 0], 0); return; } let c = vary(base, r, 20); if (r() < 0.22) c = mixc(c, [0, 0, 0], 0.3); set(x, y, c); }); }
-function pOre(set, r, col, hi, base) { (base || pStone)(set, r); for (let k = 0; k < 5; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0; const n = 3 + r() * 3 | 0; for (let i = 0; i < n; i++) { const x = cx + (r() * 3 | 0) - 1, y = cy + (r() * 3 | 0) - 1; set(x, y, r() < 0.35 ? hi : vary(col, r, 10)); } } }
+// ores like Minecraft's: six chunky clusters spread over the face, each with a bright top-left, a shaded bottom-right
+// and a dark rim cut into the stone around it, so they stand out from a distance
+const ORE_SHAPES = [[[1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [1, 3]], [[0, 0], [1, 0], [0, 1], [1, 1], [2, 1], [1, 2], [2, 2], [3, 2], [2, 3]], [[1, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2], [2, 3]], [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [1, 2], [2, 2]], [[2, 0], [1, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [1, 3]]];
+function pOre(set, r, col, hi, base) {
+  const buf = new Array(256); (base || pStone)((x, y, c) => { if (x >= 0 && y >= 0 && x < 16 && y < 16) buf[y * 16 + x] = c; set(x, y, c); }, r);
+  const ore = new Set(), at = (x, y) => ore.has(y * 16 + x);
+  const spots = [[0, 0], [8, 1], [4, 6], [11, 8], [1, 11], [7, 12]];
+  for (const [sx, sy] of spots) { const ox = sx + (r() * 2 | 0), oy = sy + (r() * 2 | 0); const sh = ORE_SHAPES[r() * ORE_SHAPES.length | 0]; for (const [dx, dy] of sh) { const x = ox + dx, y = oy + dy; if (x >= 0 && y >= 0 && x < 16 && y < 16) ore.add(y * 16 + x); } }
+  const dark = col.map(v => v * 0.6), lum = (col[0] + col[1] + col[2]) / 3;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { // the rim: stone next to ore, darkened (lightened around coal)
+    if (at(x, y)) continue; let near = false; for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx, y + dy)) { near = true; break; }
+    if (near && buf[y * 16 + x]) set(x, y, buf[y * 16 + x].map(v => lum < 60 ? Math.min(255, v * 1.3 + 12) : v * 0.62)); }
+  for (const k of ore) { const x = k % 16, y = k / 16 | 0; let c = vary(col, r, 10);
+    if (!at(x - 1, y) || !at(x, y - 1)) c = vary(hi, r, 8); else if (!at(x + 1, y) || !at(x, y + 1)) c = dark; set(x, y, c); }
+}
 function pBricks(set, r, base, mort, bw, bh) { each((x, y) => { const row = Math.floor(y / bh); const m = (y % bh) === bh - 1 || ((x + (row % 2) * (bw / 2)) % bw) === bw - 1; set(x, y, m ? vary(mort, r, 6) : vary(base, r, 10)); }); }
 function pFlower(set, r, pet, ctr) {
   clear(set); const G = [52, 125, 38];
@@ -112,7 +126,7 @@ makeTile('planks', (set, r) => pPlanks(set, r, [164, 132, 80]));
 makeTile('cobble', (set, r) => pCobble(set, r, false));
 makeTile('glass', (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; if (e) set(x, y, [214, 236, 246]); else if ((x - y === 4 || x - y === 5 || x - y === -6) && x > 2 && x < 13) set(x, y, [250, 255, 255]); else set(x, y, [0, 0, 0], 0); }));
 makeTile('brick', (set, r) => pBricks(set, r, [152, 70, 54], [176, 166, 156], 8, 4));
-makeTile('coal_ore', (set, r) => pOre(set, r, [38, 38, 38], [70, 70, 70]));
+makeTile('coal_ore', (set, r) => pOre(set, r, [30, 30, 32], [86, 86, 90]));
 makeTile('iron_ore', (set, r) => pOre(set, r, [200, 160, 128], [228, 196, 170]));
 makeTile('gold_ore', (set, r) => pOre(set, r, [236, 204, 44], [255, 246, 140]));
 makeTile('diamond_ore', (set, r) => pOre(set, r, [80, 220, 214], [200, 255, 250]));
@@ -263,8 +277,8 @@ makeTile('copper_block', (set, r) => each((x, y) => { let c = vary([192, 108, 78
 makeTile('obsidian', (set, r) => each((x, y) => { let c = vary([22, 16, 34], r, 5); const q = r(); if (q < 0.1) c = vary([60, 38, 96], r, 8); else if (q < 0.16) c = [8, 6, 14]; set(x, y, c); }));
 makeTile('netherrack', pNetherrack);
 makeTile('soul_sand', (set, r) => { each((x, y) => set(x, y, vary([86, 66, 52], r, 8))); for (let k = 0; k < 4; k++) { const cx = 2 + r() * 11 | 0, cy = 2 + r() * 11 | 0; set(cx, cy, [50, 36, 28]); set(cx + 2, cy, [50, 36, 28]); set(cx + 1, cy + 2, [44, 30, 24]); set(cx, cy + 2, [58, 42, 32]); set(cx + 2, cy + 2, [58, 42, 32]); } });
-makeTile('quartz_ore', (set, r) => { pNetherrack(set, r); for (let k = 0; k < 6; k++) { const x = 1 + r() * 13 | 0, y = 1 + r() * 13 | 0; set(x, y, [240, 236, 228]); set(x + 1, y, [214, 206, 196]); if (r() < 0.5) set(x, y + 1, [228, 222, 212]); } });
-makeTile('nether_gold_ore', (set, r) => { pNetherrack(set, r); for (let k = 0; k < 7; k++) { const x = 1 + r() * 13 | 0, y = 1 + r() * 13 | 0; set(x, y, [250, 214, 60]); if (r() < 0.6) set(x + 1, y, [220, 170, 30]); } });
+makeTile('quartz_ore', (set, r) => pOre(set, r, [226, 218, 206], [255, 252, 246], pNetherrack));
+makeTile('nether_gold_ore', (set, r) => pOre(set, r, [244, 196, 44], [255, 238, 120], pNetherrack));
 makeTile('nether_bricks', (set, r) => pBricks(set, r, [62, 30, 36], [28, 12, 16], 8, 4));
 makeTile('magma', (set, r) => { const cell = []; for (let i = 0; i < 64; i++) cell.push(r()); each((x, y) => { const v = cell[(y >> 1) * 8 + (x >> 1)]; set(x, y, v < 0.25 ? vary([255, 140, 30], r, 15) : v < 0.4 ? vary([200, 70, 20], r, 10) : vary([70, 26, 16], r, 8)); }); });
 makeTile('crimson_nylium', (set, r) => each((x, y) => { let c = vary([146, 26, 30], r, 14); if (r() < 0.15) c = vary([190, 50, 40], r, 8); set(x, y, c); }));

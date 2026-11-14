@@ -69,8 +69,8 @@ T2.birch_leaves = (set, r) => leafPaint(set, r, [110, 162, 66]);
 T2.spruce_leaves = (set, r) => leafPaint(set, r, [44, 96, 60]);
 T2.sand = (set, r) => { const n = tnoise(91, 4); each((x, y) => { let c = vary(mixc([206, 192, 146], [232, 222, 176], n(x, y) * 0.5 + r() * 0.5), r, 4); if (r() < 0.05) c = [186, 168, 122]; set(x, y, c); }); };
 T2.gravel = (set, r) => { const m = voronoi(r, 16); const pal = [[126, 118, 114], [100, 96, 94], [148, 140, 132], [84, 80, 80], [134, 120, 106]]; bevelStones(set, r, m, () => pal[r() * pal.length | 0], [70, 66, 64], 0.6); };
-function orePaint(col, hi, dk) { return (set, r) => { T2.stone(set, r); for (let k = 0; k < 4; k++) { const cx = 2 + r() * 11 | 0, cy = 2 + r() * 11 | 0; const px = []; for (let i = 0; i < 4 + (r() * 3 | 0); i++) px.push([cx + (r() * 3 | 0) - 1, cy + (r() * 3 | 0) - 1]); for (const [x, y] of px) { set(x + 1, y + 1, dk); } for (const [x, y] of px) set(x, y, vary(col, r, 10)); const [hx, hy] = px[0]; set(hx, hy, hi); } }; }
-T2.coal_ore = orePaint([40, 40, 42], [90, 90, 94], [70, 70, 72]);
+function orePaint(col, hi, dk) { return (set, r) => pOre(set, r, col, hi, T2.stone); } // the same chunky, rimmed clusters as every other ore
+T2.coal_ore = orePaint([30, 30, 32], [86, 86, 90], [70, 70, 72]);
 T2.iron_ore = orePaint([206, 168, 134], [240, 214, 190], [104, 92, 84]);
 T2.gold_ore = orePaint([240, 206, 50], [255, 250, 160], [130, 110, 50]);
 T2.diamond_ore = orePaint([84, 222, 214], [220, 255, 252], [60, 110, 110]);
