@@ -610,6 +610,12 @@ class World {
       G.n += 4;
     };
     const vtmp = new Array(12), uvtmp = new Array(8), bl = [0, 0, 0, 0], sh = [0, 0, 0, 0], aov = [0, 0, 0, 0];
+    // waterlogged blocks and underwater plants: the cell is also full of still water
+    const wlWater = (x, y, z, id, b0) => { const uvw = TILE_UV[TILE.water]; const topW = FKIND[get(x, y + 1, z)] === 1; const hh = topW ? 1 : FH[id];
+      for (let f = 0; f < 6; f++) { const F = FACES[f]; const nb = get(x + F.n[0], y + F.n[1], z + F.n[2]); if (OPAQUE[nb] || FKIND[nb] === 1) continue;
+        const ss = sky(x + F.n[0], y + F.n[1], z + F.n[2]);
+        for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (cc[1] ? hh : 0); vtmp[k * 3 + 2] = z + cc[2]; uvtmp[k * 2] = UVC[k][0] ? uvw[2] : uvw[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? uvw[3] : uvw[1]; sh[k] = F.s; bl[k] = b0; wsw[k] = !topW && cc[1] ? -1 : 0; }
+        quad(W, vtmp.slice(), uvtmp.slice(), ss, bl.slice(), sh.slice(), false, wsw.slice()); } };
     const d = c.d; const maxY = Math.min(WH - 1, c.maxY + 1);
     for (let y = 0; y <= maxY; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
       const ii = (y * 16 + z) * 16 + x; const id = d[ii]; if (!id) continue; const def = BL[id];
@@ -628,6 +634,7 @@ class World {
           const u2 = [uv[2], uv[1], uv[0], uv[1], uv[0], uv[3], uv[2], uv[3]];
           quad(O, v2, u2, s, [b0, b0, b0, b0], [0.95, 0.95, 0.95, 0.95], false, SW_TOP);
         }
+        if (FKIND[id] === 1) wlWater(x, y, z, id, b0);
         continue;
       }
       if (def.render === 'torch') {
@@ -668,13 +675,7 @@ class World {
             quad(def.translucent ? T : O, vtmp.slice(), uvtmp.slice(), edge ? sky(x + F.n[0], y + F.n[1], z + F.n[2]) : s, bl.slice(), sh.slice(), false, 0);
           }
         }
-        if (FKIND[id] === 1) { // waterlogged: the block's cell is also full of still water
-          const uvw = TILE_UV[TILE.water]; const topW = FKIND[get(x, y + 1, z)] === 1; const hh = topW ? 1 : FH[id];
-          for (let f = 0; f < 6; f++) { const F = FACES[f]; const nb = get(x + F.n[0], y + F.n[1], z + F.n[2]); if (OPAQUE[nb] || FKIND[nb] === 1) continue;
-            const ss = sky(x + F.n[0], y + F.n[1], z + F.n[2]);
-            for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (cc[1] ? hh : 0); vtmp[k * 3 + 2] = z + cc[2]; uvtmp[k * 2] = UVC[k][0] ? uvw[2] : uvw[0]; uvtmp[k * 2 + 1] = UVC[k][1] ? uvw[3] : uvw[1]; sh[k] = F.s; bl[k] = b0; wsw[k] = !topW && cc[1] ? -1 : 0; }
-            quad(W, vtmp.slice(), uvtmp.slice(), ss, bl.slice(), sh.slice(), false, wsw.slice()); }
-        }
+        if (FKIND[id] === 1) wlWater(x, y, z, id, b0);
         continue;
       }
       if (def.render === 'portal') {

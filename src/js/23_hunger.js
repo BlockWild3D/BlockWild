@@ -7,7 +7,7 @@
 // Starving at 0 food: 1 damage every 4 s, down to 10 health on Easy, 1 on Normal, and to death on Hard.
 // You can't sprint with 6 food or less. Peaceful refills hunger. Eating takes 1.6 s of holding use.
 const FOOD = { // [food points, saturation, effect chance list]
-  beetroot: [1, 1.2], beetroot_soup: [6, 7.2], mushroom_stew: [6, 7.2],
+  beetroot: [1, 1.2], dried_kelp: [1, 0.6], beetroot_soup: [6, 7.2], mushroom_stew: [6, 7.2],
   apple: [4, 2.4], bread: [5, 6], raw_pork: [3, 1.8], cooked_pork: [8, 12.8], raw_beef: [3, 1.8], steak: [8, 12.8],
   raw_chicken: [2, 1.2, [['hunger', 30, 0, 0.3]]], cooked_chicken: [6, 7.2], rotten_flesh: [4, 0.8, [['hunger', 30, 0, 0.8]]],
   golden_apple: [4, 9.6, [['regeneration', 5, 1, 1], ['absorption', 120, 0, 1]], true],

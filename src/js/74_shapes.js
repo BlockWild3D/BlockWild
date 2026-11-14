@@ -80,7 +80,10 @@ const shapeSound = (d, open, pos) => { const iron = !!d.iron; const k = d.shape 
 
 // ---- what holds a block up ----
 function shapeSupported(x, y, z, id) {
-  const d = BL[id]; if (!d || !d.shape) return true; const st = d.st;
+  const d = BL[id]; if (!d) return true;
+  if (d.support && !d.shape) { const below = world.get(x, y - 1, z); if (d.support === 'floor') return shSturdy(below, 'up') || (d.pickles && SOLID[below]);
+    if (d.support === 'kelp') return shSturdy(below, 'up') || !!BL[below].kelp; if (d.support === 'wall') { const [ax, az] = DV4[d.facing]; return shSturdy(world.get(x - ax, y, z - az), d.facing); } return true; }
+  if (!d.shape) return true; const st = d.st;
   if (d.shape === 'button') { if (st.face === 'floor') return shSturdy(world.get(x, y - 1, z), 'up'); if (st.face === 'ceiling') return shSturdy(world.get(x, y + 1, z), 'down');
     const [ax, az] = DV4[st.facing]; return shSturdy(world.get(x - ax, y, z - az), st.facing); }
   if (d.shape === 'plate') { const b = world.get(x, y - 1, z); const bd = BL[b]; return shSturdy(b, 'up') || !!(bd && (bd.shape === 'fence' || bd.shape === 'wall')); }
@@ -166,7 +169,7 @@ function pressButton(x, y, z) { const id = world.get(x, y, z); const d = BL[id];
 // ---- breaking: the other half of a door goes too; a waterlogged block leaves its water ----
 { const _bb = breakBlock; breakBlock = function (x, y, z) {
     const id = world.get(x, y, z); const d = BL[id]; const r = _bb.apply(this, arguments);
-    if (d && d.shape && world.get(x, y, z) !== id) {
+    if (d && (d.shape || d.wlb) && world.get(x, y, z) !== id) {
       if (d.shape === 'door') { const oy = d.st.half === 'upper' ? y - 1 : y + 1; const o = BL[world.get(x, oy, z)]; if (o && o.fam === d.fam) world.set(x, oy, z, 0); }
       if (d.wlb && !world.get(x, y, z)) world.set(x, y, z, B.WATER);
     }
@@ -219,9 +222,9 @@ function shapesTick(dt) {
     for (const [k, t] of PLATES) { if (on.has(k)) continue; const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || d.shape !== 'plate') { PLATES.delete(k); continue; }
       if (now - t >= 1.0) { PLATES.delete(k); if (d.st.powered) { world.set(x, y, z, withState(id, { powered: 0 })); Sfx.at('click_off', new V3(x + 0.5, y, z + 0.5), 0.8); powerQueue(x, y, z); } } } }
   // blocks whose support went: pop off and drop
-  if (SUPQ.size) { const list = [...SUPQ]; SUPQ.clear(); for (const k of list) { const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.shape || shapeSupported(x, y, z, id)) continue;
+  if (SUPQ.size) { const list = [...SUPQ]; SUPQ.clear(); for (const k of list) { const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || !(d.shape || d.support) || shapeSupported(x, y, z, id)) continue;
     if (d.shape === 'door') { const oy = d.st.half === 'upper' ? y - 1 : y + 1; const o = BL[world.get(x, oy, z)]; if (o && o.fam === d.fam) world.set(x, oy, z, 0); }
-    world.set(x, y, z, 0); Particles.blockBreak(x, y, z, id, 8); if (S.rules.doTileDrops !== false && (d.shape !== 'door' || d.st.half === 'lower')) dropItem(IT[d.fam], 1, x + 0.5, y + 0.3, z + 0.5); } }
+    world.set(x, y, z, d.wlb ? B.WATER : 0); Particles.blockBreak(x, y, z, id, 8); if (S.rules.doTileDrops !== false && (d.shape !== 'door' || d.st.half === 'lower')) { if (d.fam) dropItem(IT[d.fam], 1, x + 0.5, y + 0.3, z + 0.5); else { const dr = blockDrop(id); if (dr && dr[0] !== undefined) dropItem(dr[0], dr[1], x + 0.5, y + 0.3, z + 0.5); } } } }
   if (POWQ.size) { const list = [...POWQ]; POWQ.clear(); const done = new Set(); for (const k of list) { const [x, y, z] = k.split(',').map(Number); const c = keyOf(x >> 1, y >> 1, z >> 1); if (done.has(c)) continue; done.add(c); updatePowerAround(x, y, z); } }
 }
 { const _uw = updateWater; updateWater = function (dt) { const r = _uw.apply(this, arguments); try { shapesTick(dt); } catch (e) { if (typeof worldError === 'function') worldError(e); else console.error(e); } return r; }; }
