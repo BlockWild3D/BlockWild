@@ -887,6 +887,12 @@ function startWorld(data) {
 }
 let touchReady = false; function setupTouchOnce() { if (!touchReady) { setupTouch(); touchReady = true; } else show('touch', true); }
 function requestLockSoon() { if (!S.fallback) try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }
+// if you'd be inside blocks, step to the nearest spot with room (a little up or down, then beside you); only if there is
+// none nearby go to the surface. Keeps you in your cave or base instead of jumping you to the top of the world.
+function nudgeFree(P) { const x0 = Math.floor(P.pos.x), y0 = Math.floor(P.pos.y), z0 = Math.floor(P.pos.z); const room = (x, y, z) => !world.solid(x, y, z) && !world.solid(x, y + 1, z);
+  for (let r = 0; r <= 3; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    for (const dy of [0, 1, -1, 2, -2, 3]) { const x = x0 + dx, y = y0 + dy, z = z0 + dz; if (room(x, y, z) && world.solid(x, y - 1, z)) { P.pos.set(x + 0.5, y + 0.01, z + 0.5); return; } } }
+  P.pos.y = world.surfaceY(x0, z0) + 0.01; }
 function finishLoading() {
   S.loading = false; show('loading', false); show('hud', true); show('crosshair', true); show('info', true);
   if (handleArrival()) { }
@@ -894,7 +900,7 @@ function finishLoading() {
     search: for (let r = 0; r < 20; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const sx = x + dx, sz = z + dz; const sy = world.surfaceY(sx, sz); const below = world.get(sx, sy - 1, sz); if (sy >= world.gen.column(sx, sz).h && (below === B.GRASS || below === B.SNOWY_GRASS || below === B.SAND || below === B.DIRT)) { x = sx; z = sz; break search; } }
     player.pos.x = x + 0.5; player.pos.z = z + 0.5; player.pos.y = world.surfaceY(x, z) + 0.01;
     player.spawn.copy(player.pos); S.newWorld = false; toast(isSurv() ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
-  else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) player.pos.y = world.surfaceY(x, z) + 0.01; if (world.dim === 'end') EndFight.enter(); }
+  else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) nudgeFree(player); if (world.dim === 'end') EndFight.enter(); }
   updateHearts(); selectSlot(player.sel);
   if (MODS.hooks.worldStart) modFire('worldStart', { newWorld: !!S.firstStart, dimension: world.dim }); S.firstStart = false;
   if (!S.touch && !S.locked && !S.fallback) show('clickplay', true);

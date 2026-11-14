@@ -5,12 +5,16 @@ const G = { world: null, scene: null, player: null, daylight: 1, mode: 'survival
 const AX = ['x', 'y', 'z'];
 function sweep(e, axis, d) {
   if (d === 0) return false;
-  const p = e.pos; const a = AX[axis]; p[a] += d;
+  const p = e.pos; const a = AX[axis]; const old = p[a]; p[a] += d;
   const hw = e.hw, h = e.h; const w = G.world;
+  // only blocks the moving face actually ran into count: a block you already overlap (your head in a low ceiling after
+  // waking, a block placed into you) must never shove you through it. This used to lift players up through the ground.
   const X0 = Math.floor(p.x - hw), X1 = Math.floor(p.x + hw - 1e-7), Y0 = Math.floor(p.y), Y1 = Math.floor(p.y + h - 1e-7), Z0 = Math.floor(p.z - hw), Z1 = Math.floor(p.z + hw - 1e-7);
   let hit = false;
   for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) {
-    if (!(w.solid(x, y, z) || (e.lavaWalk && isLavaId(w.get(x, y, z))))) continue; hit = true;
+    if (!(w.solid(x, y, z) || (e.lavaWalk && isLavaId(w.get(x, y, z))))) continue;
+    if (axis === 0 ? (d > 0 ? x < old + hw - 1e-3 : x + 1 > old - hw + 1e-3) : axis === 1 ? (d > 0 ? y < old + h - 1e-3 : y + 1 > old + 1e-3) : (d > 0 ? z < old + hw - 1e-3 : z + 1 > old - hw + 1e-3)) continue;
+    hit = true;
     if (axis === 0) { if (d > 0) p.x = Math.min(p.x, x - hw - 1e-4); else p.x = Math.max(p.x, x + 1 + hw + 1e-4); }
     else if (axis === 1) { if (d > 0) p.y = Math.min(p.y, y - h - 1e-4); else p.y = Math.max(p.y, y + 1 + 1e-5); }
     else { if (d > 0) p.z = Math.min(p.z, z - hw - 1e-4); else p.z = Math.max(p.z, z + 1 + hw + 1e-4); }

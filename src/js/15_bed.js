@@ -22,10 +22,21 @@ function useBed(x, y, z) {
   S.sleeping = { t: 0, head }; player.vel.set(0, 0, 0); player.pos.set(head[0] + 0.5, head[1] + 0.56, head[2] + 0.5); show('sleepfx', true);
 }
 function updateSleep(dt) {
-  const sl = S.sleeping; if (!sl) return; sl.t += dt; player.vel.set(0, 0, 0); player.pitch = Math.max(player.pitch, 0.4);
+  const sl = S.sleeping; if (!sl) return; sl.t += dt; player.vel.set(0, 0, 0); player.pos.set(sl.head[0] + 0.5, sl.head[1] + 0.56, sl.head[2] + 0.5); // lie still in the bed player.pitch = Math.max(player.pitch, 0.4);
   $('sleepfx').style.opacity = Math.min(1, sl.t / 2.2);
   if (sl.t >= 2.6 && MP.active && (MP.role === 'client' || [...MP.peers.values()].some(p => p.joined && !p.sleeping))) { if (!sl.waitMsg) { sl.waitMsg = true; toast('Waiting for the other players to sleep...', 3); } $('sleepfx').style.opacity = 0.85; return; }
-  if (sl.t >= 2.6) { S.sleeping = null; S.time = 0.0; S.day++; $('sleepfx').style.opacity = 0; show('sleepfx', false); player.pos.y += 0.5; toast('Good morning!', 2); if (typeof MP !== 'undefined' && MP.timeChanged) MP.timeChanged(); }
+  if (sl.t >= 2.6) { S.sleeping = null; S.time = 0.0; S.day++; $('sleepfx').style.opacity = 0; show('sleepfx', false); standUpFromBed(sl.head); toast('Good morning!', 2); if (typeof MP !== 'undefined' && MP.timeChanged) MP.timeChanged(); }
+}
+// Minecraft's BedBlock.findStandUpPosition: get up beside the bed (around the head, then the foot) where there's floor
+// and two blocks of room; only if there's none, on top of the bed. Never pushed up through a cave roof.
+function standUpFromBed(head) {
+  const P = player; const foot = bedPartner(head[0], head[1], head[2]) || head; const y = head[1];
+  const free = (x, yy, z) => !world.solid(x, yy, z) && !world.solid(x, yy + 1, z) && !BL[world.get(x, yy, z)].fluid;
+  const spots = []; for (const b of [head, foot]) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) spots.push([b[0] + dx, b[2] + dz]);
+  for (const [x, z] of spots) { if ((x === head[0] && z === head[2]) || (x === foot[0] && z === foot[2])) continue;
+    for (const yy of [y, y - 1, y + 1]) if (free(x, yy, z) && world.solid(x, yy - 1, z)) { P.pos.set(x + 0.5, yy + 0.01, z + 0.5); P.vel.set(0, 0, 0); P.peak = null; return; } }
+  if (free(head[0], y + 1, head[2]) || !world.solid(head[0], y + 1, head[2])) { P.pos.set(head[0] + 0.5, y + 0.5625, head[2] + 0.5); P.vel.set(0, 0, 0); P.peak = null; return; }
+  P.pos.y = y + 0.5625; P.peak = null;
 }
 function bedSpawnPos() {
   if (!S.bed) return null; const [x, y, z] = S.bed; const w = Dim.get('overworld');
