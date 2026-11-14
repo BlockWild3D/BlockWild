@@ -5,13 +5,14 @@ function placeBed(hit) {
   const free = (a, b, c) => { const id = world.get(a, b, c); return !id || PLANT[id] || BL[id].fluid; };
   if (!free(x, y, z) || !free(hx, y, hz) || !SOLID[world.get(x, y - 1, z)] || !SOLID[world.get(hx, y - 1, hz)]) { toast("There isn't room for a bed here", 1.5); return false; }
   if (boxIntersectsBlock(player, x, y, z) || boxIntersectsBlock(player, hx, y, hz)) return false;
-  world.set(x, y, z, B.BED_FOOT); world.set(hx, y, hz, B.BED_HEAD); Sfx.play('wool', 0.8); return true;
+  const h = player.held(); const col = (h && ITEMS[h.id] && ITEMS[h.id].bedColor) || 'red'; const foot = col === 'red' ? B.BED_FOOT : B['BED_FOOT_' + col.toUpperCase()], head = col === 'red' ? B.BED_HEAD : B['BED_HEAD_' + col.toUpperCase()];
+  world.set(x, y, z, foot); world.set(hx, y, hz, head); Sfx.play('wool', 0.8); return true;
 }
-function bedPartner(x, y, z) { const id = world.get(x, y, z); const want = id === B.BED_HEAD ? B.BED_FOOT : B.BED_HEAD; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
-function breakBedPair(x, y, z, id) { if (id !== B.BED_HEAD && id !== B.BED_FOOT) return; const p = bedPartner(x, y, z); if (p) { world.set(p[0], p[1], p[2], 0); if (isSurv() && id === B.BED_FOOT) dropItem(IT.bed, 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
+function bedPartner(x, y, z) { const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.bedPart) return null; const want = d.bedPair; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
+function breakBedPair(x, y, z, id) { const d = BL[id]; if (!d || !d.bedPart) return; let p = null; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === d.bedPair) { p = [x + a, y, z + b]; break; } if (p) { world.set(p[0], p[1], p[2], 0); if (isSurv() && d.bedPart === 'foot') dropItem(IT[d.bedItem], 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
 function useBed(x, y, z) {
   if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
-  const head = world.get(x, y, z) === B.BED_HEAD ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
+  const head = (BL[world.get(x, y, z)] || {}).bedPart === 'head' ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
   S.bed = head; toast('Respawn point set', 2); chatPrint('Respawn point set', '#ccc');
   const ticks = timeTicks(); const night = ticks >= 12542 && ticks <= 23459;
   if (!night) { toast('You can sleep only at night', 2); return; }
@@ -40,7 +41,7 @@ function standUpFromBed(head) {
 }
 function bedSpawnPos() {
   if (!S.bed) return null; const [x, y, z] = S.bed; const w = Dim.get('overworld');
-  if (w.loaded(x, z) && w.get(x, y, z) !== B.BED_HEAD) { S.bed = null; toast('You have no home bed, or it was obstructed', 3); return null; }
+  if (w.loaded(x, z) && (BL[w.get(x, y, z)] || {}).bedPart !== 'head') { S.bed = null; toast('You have no home bed, or it was obstructed', 3); return null; }
   for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) { if (!w.loaded(x + a, z + b)) return new V3(x + 0.5, y + 0.6, z + 0.5); if (!w.solid(x + a, y, z + b) && !w.solid(x + a, y + 1, z + b)) return new V3(x + a + 0.5, y, z + b + 0.5); }
   return new V3(x + 0.5, y + 0.6, z + 0.5);
 }

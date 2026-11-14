@@ -165,6 +165,7 @@ function defineShapeBlocks() {
   TRAPDOOR('iron_trapdoor', 'Iron Trapdoor', 'iron_trapdoor', { hardness: 5, snd: 'stone', mine: 'pick', tool: 'pick', tier: 1, iron: true });
   SHAPE_SETS.push({ mat: 'iron_block', keys: ['iron_door', 'iron_trapdoor'] });
   PANE('glass_pane', 'Glass Pane', 'glass', { render: 'boxes', cullSame: false });
+  for (const [c, N] of COLORDATA()) { PANE(c + '_stained_glass_pane', N + ' Stained Glass Pane', c + '_stained_glass', { translucent: true, drop: null }); SHAPE_SETS.push({ mat: c + '_stained_glass', keys: [c + '_stained_glass_pane'] }); }
   PANE('iron_bars', 'Iron Bars', 'iron_bars', { hardness: 5, snd: 'stone', mine: 'pick', tool: 'pick', tier: 1 });
   SHAPE_SETS.push({ mat: 'glass', keys: ['glass_pane'] }, { mat: 'iron_block', keys: ['iron_bars'] });
 }

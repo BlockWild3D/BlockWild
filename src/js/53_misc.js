@@ -58,15 +58,15 @@ function vibrate(pos, src) { G.vibes.push({ pos: pos.clone ? pos.clone() : new V
 // 27 slots like a chest, but breaking one drops the box with everything still inside; place it again and the items are
 // there. Shulker boxes can't be put inside shulker boxes. Craft: shulker shell, chest, shulker shell.
 { const _rm = onBlockRemoved; onBlockRemoved = function (x, y, z, id) {
-    if (id === B.SHULKER_BOX) { const k = x + ',' + y + ',' + z; const inv = world.chestInv.get(k); world.chestInv.delete(k); const has = inv && inv.some(Boolean);
-      dropItem(IT.shulker_box, 1, x + 0.5, y + 0.5, z + 0.5, true, has ? { inv: inv.map(s => s ? Object.assign({}, s) : null) } : null); return; }
+    if (BL[id] && BL[id].shulker) { const k = x + ',' + y + ',' + z; const inv = world.chestInv.get(k); world.chestInv.delete(k); const has = inv && inv.some(Boolean);
+      dropItem(IT[BL[id].key], 1, x + 0.5, y + 0.5, z + 0.5, true, has ? { inv: inv.map(s => s ? Object.assign({}, s) : null) } : null); return; }
     return _rm(x, y, z, id); }; }
-{ const _pb = placeBlock; placeBlock = function (t, id) { const h = player.held(); const inv = id === B.SHULKER_BOX && h && h.id === IT.shulker_box && h.inv ? h.inv : null; const r = _pb.apply(this, arguments);
+{ const _pb = placeBlock; placeBlock = function (t, id) { const h = player.held(); const inv = BL[id] && BL[id].shulker && h && h.id === id && h.inv ? h.inv : null; const r = _pb.apply(this, arguments);
     if (r && inv) world.chestInv.set((t.x + t.nx) + ',' + (t.y + t.ny) + ',' + (t.z + t.nz), inv.map(s => s ? Object.assign({}, s) : null)); return r; }; }
 { const _x = xtra; xtra = function (s) { const o = _x(s); if (!s || !s.inv) return o; return Object.assign(o || {}, { inv: s.inv }); }; }
-{ const _tt = itemTooltip; itemTooltip = function (s) { const t = _tt(s); if (!s || s.id !== IT.shulker_box || !s.inv) return t; const items = s.inv.filter(Boolean); const lines = items.slice(0, 5).map(q => (q.pot && typeof potionName === 'function' ? potionName(q) : ITEMS[q.id].name) + ' x' + q.count); if (items.length > 5) lines.push('and ' + (items.length - 5) + ' more...'); return t + '\n' + lines.join('\n'); }; }
+{ const _tt = itemTooltip; itemTooltip = function (s) { const t = _tt(s); if (!s || !(BL[s.id] && BL[s.id].shulker) || !s.inv) return t; const items = s.inv.filter(Boolean); const lines = items.slice(0, 5).map(q => (q.pot && typeof potionName === 'function' ? potionName(q) : ITEMS[q.id].name) + ' x' + q.count); if (items.length > 5) lines.push('and ' + (items.length - 5) + ' more...'); return t + '\n' + lines.join('\n'); }; }
 { const _sc = slotClick; slotClick = function (cont, i, button, shift) {
-    const inShulker = S.chestKey && (() => { const p = String(S.chestKey).split(',').map(Number); return p.length === 3 && world.get(p[0], p[1], p[2]) === B.SHULKER_BOX; })();
-    if (inShulker) { if (cont === 'chest' && S.cursor && S.cursor.id === IT.shulker_box) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } if (cont === 'inv' && shift && player.inv[i] && player.inv[i].id === IT.shulker_box) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } }
+    const inShulker = S.chestKey && (() => { const p = String(S.chestKey).split(',').map(Number); return p.length === 3 && !!(BL[world.get(p[0], p[1], p[2])] || {}).shulker; })();
+    if (inShulker) { if (cont === 'chest' && S.cursor && BL[S.cursor.id] && BL[S.cursor.id].shulker) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } if (cont === 'inv' && shift && player.inv[i] && player.inv[i].id === IT.shulker_box) { toast("Shulker boxes can't go in shulker boxes", 1.5); return; } }
     return _sc(cont, i, button, shift); }; }
-{ const _ou = openUI; openUI = function (kind, key) { const r = _ou(kind, key); if (kind === 'chest' && $('chestTitle')) { const p = String(key).split(',').map(Number); if (p.length === 3 && world.get(p[0], p[1], p[2]) === B.SHULKER_BOX) { $('chestTitle').textContent = 'Shulker Box'; Sfx.play('vwoop', 0.3, 1.6); } } return r; }; }
+{ const _ou = openUI; openUI = function (kind, key) { const r = _ou(kind, key); if (kind === 'chest' && $('chestTitle')) { const p = String(key).split(',').map(Number); if (p.length === 3 && (BL[world.get(p[0], p[1], p[2])] || {}).shulker) { $('chestTitle').textContent = BL[world.get(p[0], p[1], p[2])].name; Sfx.play('vwoop', 0.3, 1.6); } } return r; }; }

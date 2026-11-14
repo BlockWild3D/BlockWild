@@ -43,6 +43,7 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
     else if (k.endsWith('_button')) RECIPES.push(RSL(k, 1, [m]));
     else if (k.endsWith('_slab') && s.mat === 'bamboo_mosaic') { }
     else if (k === 'glass_pane') R(k, 16, ['GGG', 'GGG'], { G: 'glass' });
+    else if (/_stained_glass_pane$/.test(k)) { R(k, 16, ['GGG', 'GGG'], { G: m }); R(k, 8, ['PPP', 'PDP', 'PPP'], { P: 'glass_pane', D: k.replace('_stained_glass_pane', '_dye') }); }
     else if (k === 'iron_bars') { if (!RECIPES.some(r => r.out[0] === 'iron_bars')) R(k, 16, ['III', 'III'], { I: 'iron_ingot' }); }
   } }
   for (let i = n0; i < RECIPES.length; i++) BOOK.push({ type: 'craft', r: RECIPES[i], out: IT[RECIPES[i].out[0]] }); // the recipe book was built before these
@@ -112,6 +113,7 @@ function shapeSupported(x, y, z, id) {
       case 'button': st = hit.ny === 1 ? { face: 'floor', facing: pf, powered: 0 } : hit.ny === -1 ? { face: 'ceiling', facing: pf, powered: 0 } : { face: 'wall', facing: dirOf(hit.nx, hit.nz), powered: 0 }; break;
       case 'plate': st = { powered: 0 }; break;
       case 'axis': st = { axis: hit.nx ? 'x' : hit.nz ? 'z' : 'y' }; break;
+      case 'glazed': st = { facing: (pf + 2) % 4 }; break;
       case 'door': {
         if (y + 1 >= WH || !replaceableAt(x, y + 1, z) || !shSturdy(world.get(x, y - 1, z), 'up')) return false;
         const ccw = (pf + 3) % 4, cw = (pf + 1) % 4; const L = DV4[ccw], Rr = DV4[cw];

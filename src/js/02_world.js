@@ -433,6 +433,13 @@ void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.5) discard; float g=clamp(vSh
 const chunkMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 1 } }, chunkUniforms), vertexShader: VS, fragmentShader: FS });
 const waterMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 0.66 } }, chunkUniforms), vertexShader: VS, fragmentShader: WFS, transparent: true, depthWrite: false, side: THREE.DoubleSide });
 const glowMat = new THREE.ShaderMaterial({ uniforms: chunkUniforms, vertexShader: VS, fragmentShader: GFS, side: THREE.DoubleSide });
+// stained glass: see-through, tinted by the texture's own alpha
+const TFS = FS_COMMON + `
+void main(){ vec4 t=texture2D(atlas,vUv); if(t.a<0.02) discard;
+ float f=fogMix(); vec3 n=normalize(cross(dFdx(vWorld),dFdy(vWorld)));
+ vec3 c=t.rgb*lightFor(n)*min(vShade,1.6); gl_FragColor=vec4(mix(c,fogColor,f), t.a); }`;
+const glassMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ alphaV: { value: 1 } }, chunkUniforms), vertexShader: VS, fragmentShader: TFS, transparent: true, depthWrite: false });
+glassMat.extensions = { derivatives: true };
 for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: true };
 
 // ---- World ----
@@ -595,7 +602,7 @@ class World {
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const n = this.getChunk(c.cx + dx, c.cz + dz); if (!n) continue; for (const L of n.lights) { const lx = L[0] - bx, lz = L[2] - bz; if (lx > -9 && lx < 25 && lz > -9 && lz < 25) lights.push([lx + 0.5, L[1] + 0.5, lz + 0.5, L[3]]); } }
     const nL = lights.length;
     const blk = (x, y, z) => { let best = 0; for (let k = 0; k < nL; k++) { const L = lights[k]; const a = x - L[0], b = y - L[1], e = z - L[2]; const d2 = a * a + b * b + e * e; if (d2 < 64) { const v = L[3] * (1 - Math.sqrt(d2) / 8); if (v > best) best = v; } } return best; };
-    const O = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, W = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, CV = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }; const SW_TOP = [0, 0, 1, 1]; const wsw = [0, 0, 0, 0];
+    const T = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, O = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, W = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }, CV = { p: [], u: [], l: [], s: [], w: [], i: [], n: 0 }; const SW_TOP = [0, 0, 1, 1]; const wsw = [0, 0, 0, 0];
     const quad = (G, verts, uvs, skyL, blks, shades, flip, sway) => {
       const b = G.n;
       for (let k = 0; k < 4; k++) { G.p.push(verts[k * 3], verts[k * 3 + 1], verts[k * 3 + 2]); G.u.push(uvs[k * 2], uvs[k * 2 + 1]); G.l.push(skyL, blks[k]); G.s.push(shades[k]); G.w.push(sway ? (typeof sway === 'number' ? sway : sway[k]) : 0); }
@@ -658,7 +665,7 @@ class World {
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
               uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = F.s; bl[k] = b0; }
-            quad(O, vtmp.slice(), uvtmp.slice(), edge ? sky(x + F.n[0], y + F.n[1], z + F.n[2]) : s, bl.slice(), sh.slice(), false, 0);
+            quad(def.translucent ? T : O, vtmp.slice(), uvtmp.slice(), edge ? sky(x + F.n[0], y + F.n[1], z + F.n[2]) : s, bl.slice(), sh.slice(), false, 0);
           }
         }
         if (FKIND[id] === 1) { // waterlogged: the block's cell is also full of still water
@@ -689,7 +696,7 @@ class World {
         const s = sky(nx, ny, nz); const uv = TILE_UV[def.texIds[f]];
         for (let k = 0; k < 4; k++) {
           const cc = F.c[k]; vtmp[k * 3] = x + cc[0]; vtmp[k * 3 + 1] = y + (isW ? (cc[1] ? hereH : sideBase) : (def.h && cc[1] ? def.h : cc[1])); vtmp[k * 3 + 2] = z + cc[2];
-          const kk = def.uvRot && def.uvRot[f] ? (k + 1) & 3 : k; // logs lying sideways turn their bark texture
+          const kk = def.uvRot && def.uvRot[f] ? (k + def.uvRot[f]) & 3 : k; // logs lying sideways turn their bark texture
           uvtmp[k * 2] = UVC[kk][0] ? uv[2] : uv[0]; uvtmp[k * 2 + 1] = UVC[kk][1] ? (def.h && f !== 2 && f !== 3 ? uv[1] + (uv[3] - uv[1]) * def.h : uv[3]) : uv[1];
           wsw[k] = waterTop && cc[1] ? (isLava ? -0.5 : -1) : leafy ? 0.3 : 0;
           if (!isW) { const A = F.ao[k]; const s1 = OPAQUE[get(x + A[0][0], y + A[0][1], z + A[0][2])], s2 = OPAQUE[get(x + A[1][0], y + A[1][1], z + A[1][2])], s3 = OPAQUE[get(x + A[2][0], y + A[2][1], z + A[2][2])]; aov[k] = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); }
@@ -700,7 +707,7 @@ class World {
         if (LIGHT[id]) { bl[0] = bl[1] = bl[2] = bl[3] = 1; sh[0] = sh[1] = sh[2] = sh[3] = 1 + LIGHT[id]; }
         // faces looking into deep covered space (cave air under 6+ blocks, below sea level) go to the cave mesh, which is only drawn near the player or when they are underground
         const caveFace = !this.flatSky && ny < SEA && ny < topAt(nx, nz) - 6;
-        quad(isW && !isLava ? W : caveFace ? CV : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
+        quad(def.translucent ? T : isW && !isLava ? W : caveFace ? CV : O, vtmp.slice(), uvtmp.slice(), s, bl.slice(), sh.slice(), aov[0] + aov[2] < aov[1] + aov[3], wsw.slice());
       }
     }
     const mk = (G, mat) => {
@@ -715,6 +722,8 @@ class World {
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); c.wmesh = null; }
     if (c.cmesh) { this.scene.remove(c.cmesh); c.cmesh.geometry.dispose(); c.cmesh = null; }
+    if (c.tmesh) { this.scene.remove(c.tmesh); c.tmesh.geometry.dispose(); c.tmesh = null; }
+    c.tmesh = mk(T, glassMat); if (c.tmesh) this.scene.add(c.tmesh);
     c.mesh = mk(O, chunkMat); c.wmesh = mk(W, waterMat); c.cmesh = mk(CV, chunkMat);
     if (c.mesh) this.scene.add(c.mesh); if (c.wmesh) this.scene.add(c.wmesh); if (c.cmesh) { c.cmesh.visible = this.caveView !== false; this.scene.add(c.cmesh); }
     c.dirty = false;
@@ -723,6 +732,7 @@ class World {
     if (c.mesh) { this.scene.remove(c.mesh); c.mesh.geometry.dispose(); }
     if (c.wmesh) { this.scene.remove(c.wmesh); c.wmesh.geometry.dispose(); }
     if (c.cmesh) { this.scene.remove(c.cmesh); c.cmesh.geometry.dispose(); }
+    if (c.tmesh) { this.scene.remove(c.tmesh); c.tmesh.geometry.dispose(); }
     this.chunks.delete(c.key); this.urgent.delete(c);
   }
   update(px, pz, R, budgetMs) {
