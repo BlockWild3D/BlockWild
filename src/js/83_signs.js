@@ -6,7 +6,7 @@
 // Text, items, pictures and armor are drawn as small 3D overlays near the player; the blocks themselves are in the world mesh.
 const OV = { meshes: new Map(), watch: new Set(), world: null, t: 0, tex: new Map() };
 const bdataOf = (w) => w.bdata || (w.bdata = new Map());
-const ovWatchable = (id) => { const d = BL[id]; return !!(d && (d.sign || d.frame || (d.painting && false) || d.armorStand === 'lower')); };
+let ovWatchable = (id) => { const d = BL[id]; return !!(d && (d.sign || d.frame || (d.painting && false) || d.armorStand === 'lower')); };
 { const _pw = packWorld; packWorld = function (w) { const r = _pw.apply(this, arguments); if (w.bdata && w.bdata.size) r.bdata = Object.fromEntries(w.bdata); return r; }; }
 { const _uw = unpackWorld; unpackWorld = function (w, d) { const r = _uw.apply(this, arguments); if (d && d.bdata) w.bdata = new Map(Object.entries(d.bdata)); return r; }; }
 // ---- support ----

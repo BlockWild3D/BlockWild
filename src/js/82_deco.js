@@ -84,7 +84,7 @@ function cbsSlot(t, d) { if (t.px === undefined) return -1; const f = d.st.facin
     if (d.campfire) { const list = DECO.cook.get(k); if (list) for (const c of list) dropItem(c.id, 1, x + 0.5, y + 0.6, z + 0.5); DECO.cook.delete(k); }
     return r; }; }
 { const _bb = breakBlock; breakBlock = function (x, y, z) { const id = world.get(x, y, z); const d = BL[id]; const r = _bb.apply(this, arguments); if (!d || world.get(x, y, z) === id || !isSurv() || S.rules.doTileDrops === false) return r;
-    if (d.dpot) { const silk = typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch'); if (silk) dropItem(IT.decorated_pot, 1, x + 0.5, y + 0.4, z + 0.5); else { dropItem(IT.brick, 4, x + 0.5, y + 0.4, z + 0.5); Sfx.play('dpot_shatter', 1); } }
+    if (d.dpot) { const silk = typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch'); const sh = typeof potShards === 'function' ? potShards(x, y, z) : ['clay_brick', 'clay_brick', 'clay_brick', 'clay_brick']; if (silk) dropItem(IT.decorated_pot, 1, x + 0.5, y + 0.4, z + 0.5, false, sh.some(k => k !== 'clay_brick') ? { data: { sherds: sh } } : null); else { for (const k of sh) if (IT[k] !== undefined) dropItem(IT[k], 1, x + 0.5, y + 0.4, z + 0.5); Sfx.play('dpot_shatter', 1); } }
     if (d.hive !== undefined && d.fam === 'bee_nest' && typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch')) dropItem(IT.bee_nest, 1, x + 0.5, y + 0.4, z + 0.5);
     return r; }; }
 // ---- every tick: campfires, conduits, scaffolding, swinging bells ----

@@ -945,7 +945,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -2892,6 +2892,107 @@ function paintItemBlockTiles() { const planks = tilePixels('planks'), sand = til
   ICONP.frogspawn = (s) => { for (let i = 0; i < 14; i++) { const x = 3 + (i * 5) % 10, y = 3 + ((i * 7) % 10); s(x, y, [30, 30, 24]); for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) s(x + a, y + b, [170, 180, 150]); } };
   for (const k of ['turtle_egg', 'frogspawn']) if (B[k.toUpperCase()] !== undefined) BL[B[k.toUpperCase()]].iconPaint = true; }
 
+// ================= THE LAST BLOCKS AND ITEMS (Minecraft) =================
+// Chests that face you, sniffer eggs, torchflower and pitcher crops, tripwire hooks and tripwire, the crafter,
+// calibrated sculk sensors; brick items, spectral arrows, ominous bottles, banner patterns, armor trim templates,
+// carrot / warped fungus on a stick, wolf armor, furnace / TNT / hopper minecarts. Rules: 85_more.js - 88_wires.js.
+const TRIMS = ['sentry', 'vex', 'wild', 'coast', 'dune', 'wayfinder', 'raiser', 'shaper', 'host', 'ward', 'silence', 'tide', 'snout', 'rib', 'eye', 'spire', 'flow', 'bolt'];
+const TRIM_MATS = { iron_ingot: [210, 210, 210], copper_ingot: [200, 110, 70], gold_ingot: [240, 200, 50], lapis_lazuli: [40, 70, 190], emerald: [40, 190, 80], diamond: [80, 220, 214], netherite_ingot: [80, 70, 76], redstone: [190, 20, 20], amethyst_shard: [160, 100, 220], quartz: [236, 230, 220], resin_brick: [220, 110, 30] };
+const BANNER_PATTERNS = [['flower', 'Flower Charge'], ['creeper', 'Creeper Charge'], ['skull', 'Skull Charge'], ['thing', 'Thing'], ['globe', 'Globe'], ['piglin', 'Snout'], ['flow', 'Flow'], ['guster', 'Guster']];
+function defineMoreBlocks() {
+  const ph = (n, c, a) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c, a === undefined ? 255 : a))); return n; };
+  const strip = (o) => { delete o.id; delete o.key; delete o.texIds; return o; };
+  // ---- chests face the player ----
+  { const d0 = BL[B.CHEST]; const t = tx(d0.tex); const ids = { 2: B.CHEST };
+    for (const f of [0, 1, 3]) { const o = strip(Object.assign({}, d0)); o.tex = [t[0], t[1], t[2], t[3], t[0], t[0]]; o.tex[[5, 0, 4, 1][f]] = t[4]; o.hidden = true; o.drop = 'chest'; o.st = { facing: f }; o.fam = 'chest'; ids[f] = defBlock('chest#' + f, d0.name, o); }
+    d0.fam = 'chest'; d0.st = { facing: 2 }; FAMILY.chest = { kind: 'facing4', props: ['facing'], ids, base: B.CHEST }; }
+  // ---- sniffer egg (3 hatch stages) ----
+  for (let h = 0; h < 3; h++) { ph('sniffer_egg' + h, [160, 60, 50]); const b = [[1, 0, 2, 15, 16, 14]]; defBlock(h ? 'sniffer_egg#' + h : 'sniffer_egg', 'Sniffer Egg', { tex: 'sniffer_egg' + h, render: 'boxes', boxes: b, rb: b, cb: b, sb: b, shape: 'deco', opaque: false, hardness: 0.5, snd: 'stone', hidden: h > 0, drop: 'sniffer_egg', snifferEgg: h }); }
+  // ---- torchflower and pitcher crops ----
+  for (let st = 0; st < 3; st++) { ph('torchflower_crop' + st, [100, 160, 60], 0); defBlock('torchflower_crop_' + st, 'Torchflower Crop', { tex: 'torchflower_crop' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', hidden: true, crop: st, cropBase: 'torchflower_crop_', drop: 'torchflower_seeds', plant: true }); }
+  for (let st = 0; st < 3; st++) { ph('pitcher_crop' + st, [80, 130, 120], 0); defBlock('pitcher_crop_' + st, 'Pitcher Crop', { tex: 'pitcher_crop' + st, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', hidden: true, crop: st, cropBase: 'pitcher_crop_', drop: 'pitcher_pod', plant: true }); }
+  // ---- tripwire hooks (facing, attached, powered) and tripwire string ----
+  ph('tripwire_hook_tex', [160, 160, 166]); ph('tripwire', [220, 220, 220], 0);
+  FAMILY.tripwire_hook = { kind: 'deco', props: ['facing', 'attached', 'powered'], ids: {}, base: 0 };
+  for (const f of [2, 3, 0, 1]) for (const at of [0, 1]) for (const pw of [0, 1]) { const first = f === 2 && !at && !pw;
+    const bs = [[6.2, 1, 14, 9.8, 15, 16, TILE.planks], [7.5, at ? 4 : 6, 9, 8.5, at ? 6 : 8, 14, TILE.tripwire_hook_tex], [6.5, at ? 3 : 5, at ? 9 : 10, 9.5, at ? 7 : 9, at ? 10 : 11, TILE.tripwire_hook_tex]].map(b => shRot(b, f));
+    const id = defBlock(first ? 'tripwire_hook' : 'tripwire_hook#' + f + '_' + at + '_' + pw, 'Tripwire Hook', { tex: 'planks', render: 'boxes', boxes: bs, rb: bs, cb: [], sb: [shRot([5, 0, 10, 11, 16, 16], f)], shape: 'deco', solid: false, opaque: false, hardness: 0, snd: 'wood', hidden: !first, drop: 'tripwire_hook', fam: 'tripwire_hook', st: { facing: f, attached: at, powered: pw }, support: 'signwall', noCollide: true, hook: true });
+    FAMILY.tripwire_hook.ids[[f, at, pw].join(',')] = id; if (first) FAMILY.tripwire_hook.base = id; }
+  FAMILY.tripwire = { kind: 'deco', props: ['attached', 'powered'], ids: {}, base: 0 };
+  for (const at of [0, 1]) for (const pw of [0, 1]) { const first = !at && !pw; const y = at ? 1 : 1.5; const bs = [[0, y, 7.5, 16, y + 0.25, 8.5, TILE.tripwire], [7.5, y, 0, 8.5, y + 0.25, 16, TILE.tripwire]];
+    const id = defBlock(first ? 'tripwire' : 'tripwire#' + at + '_' + pw, 'Tripwire', { tex: 'tripwire', render: 'boxes', boxes: bs, rb: bs, cb: [], sb: [[0, 0, 0, 16, 2, 16]], shape: 'wire_t', solid: false, opaque: false, hardness: 0, snd: 'wool', hidden: true, drop: 'string', fam: 'tripwire', st: { attached: at, powered: pw }, noCollide: true, tripwire: true });
+    FAMILY.tripwire.ids[at + ',' + pw] = id; if (first) FAMILY.tripwire.base = id; }
+  // ---- crafter: faces six ways, has 9 slots; triggered (lit) for a moment when powered ----
+  for (const t of ['crafter_top', 'crafter_top_triggered', 'crafter_front', 'crafter_front_triggered', 'crafter_side', 'crafter_bottom']) ph(t, [120, 110, 100]);
+  FAMILY.crafter = { kind: 'facing6', props: ['facing', 'ex'], ids: {}, base: 0 };
+  for (let f = 0; f < 6; f++) for (const ex of [0, 1]) { const tex = ['crafter_side', 'crafter_side', 'crafter_top' + (ex ? '_triggered' : ''), 'crafter_bottom', 'crafter_side', 'crafter_side']; tex[f6face(f)] = 'crafter_front' + (ex ? '_triggered' : ''); if (f === 0) { tex[2] = 'crafter_front' + (ex ? '_triggered' : ''); tex[3] = 'crafter_bottom'; } if (f === 1) { tex[3] = 'crafter_front' + (ex ? '_triggered' : ''); tex[2] = 'crafter_top' + (ex ? '_triggered' : ''); }
+    const first = f === 3 && !ex; const id = defBlock(first ? 'crafter' : 'crafter#' + f + '_' + ex, 'Crafter', { tex, hardness: 1.5, mine: 'pick', tool: 'pick', snd: 'stone', hidden: !first, drop: 'crafter', fam: 'crafter', st: { facing: f, ex }, facing6: f, ex, use: 'chest', slots: 9, crafter: true });
+    FAMILY.crafter.ids[f + ',' + ex] = id; if (first) FAMILY.crafter.base = id; }
+  // ---- calibrated sculk sensor ----
+  ph('calibrated_sculk_sensor_top', [40, 60, 80]); ph('calibrated_sculk_sensor_side', [40, 60, 80]);
+  for (const on of [0, 1]) { const bs = [[0, 0, 0, 16, 8, 16], [3, 8, 3, 4, 16, 4, TILE.amethyst_cluster !== undefined ? TILE.amethyst_cluster : TILE.glass], [12, 8, 12, 13, 16, 13, TILE.amethyst_cluster !== undefined ? TILE.amethyst_cluster : TILE.glass]];
+    defBlock(on ? 'calibrated_sculk_sensor#on' : 'calibrated_sculk_sensor', 'Calibrated Sculk Sensor', { tex: { s: 'calibrated_sculk_sensor_side', t: 'calibrated_sculk_sensor_top', b: 'sculk' }, render: 'boxes', boxes: bs, rb: bs, cb: [[0, 0, 0, 16, 8, 16]], sb: [[0, 0, 0, 16, 8, 16]], shape: 'deco', opaque: false, hardness: 1.5, snd: 'grass', light: on ? 0.2 : 0.07, hidden: !!on, drop: 'calibrated_sculk_sensor', sensor: 'calibrated', sensorOn: on }); }
+  const ss = BL[B.SCULK_SENSOR]; if (ss) { ss.sensor = 'sculk'; ss.sensorOn = 0; ss.drop = null; defBlock('sculk_sensor#on', 'Sculk Sensor', strip(Object.assign({}, ss, { light: 0.3, hidden: true, sensorOn: 1, drop: null }))); }
+}
+function paintMoreTiles() { const clear = (set) => each((x, y) => set(x, y, [0, 0, 0], 0)); const stone = tilePixels('stone'), planks = tilePixels('planks');
+  for (let h = 0; h < 3; h++) makeTile('sniffer_egg' + h, (set, r) => each((x, y) => { const sp = ((x * 5 + y * 3) % 9 === 0); const crack = h && ((x + y * 2) % (h === 1 ? 7 : 4) === 0); set(x, y, crack ? [60, 30, 26] : sp ? [60, 160, 150] : vary([170, 60, 50], r, 8)); }));
+  for (let st = 0; st < 3; st++) { makeTile('torchflower_crop' + st, (set, r) => { clear(set); const h = 5 + st * 3; for (let y = 15; y > 15 - h; y--) set(7 + (y & 1), y, [70, 140, 50]); for (const [a, b] of [[-1, 0], [1, 0], [0, -1]]) set(7 + a, 15 - h + b, st === 2 ? [240, 140, 40] : [120, 170, 70]); });
+    makeTile('pitcher_crop' + st, (set, r) => { clear(set); const h = 4 + st * 3; for (let y = 15; y > 15 - h; y--) { set(7, y, [70, 120, 110]); if (y % 3 === 0) { set(6, y, [90, 150, 130]); set(9, y, [90, 150, 130]); } } if (st === 2) for (let x = 6; x <= 9; x++) set(x, 15 - h, [120, 90, 160]); }); }
+  makeTile('tripwire_hook_tex', (set, r) => each((x, y) => set(x, y, vary(((x + y) & 3) === 0 ? [190, 190, 196] : [140, 140, 146], r, 4))));
+  makeTile('tripwire', (set, r) => { clear(set); each((x, y) => { if (x === 7 || x === 8 || y === 7 || y === 8) set(x, y, [230, 230, 230], 230); }); });
+  const crafterBase = (x, y) => { const p = stone(x, y); const e = x === 0 || y === 0 || x === 15 || y === 15; return e ? [60, 56, 54] : [p[0] * 0.8, p[1] * 0.76, p[2] * 0.72]; };
+  for (const trig of [false, true]) { const glow = trig ? [255, 140, 60] : [120, 60, 40];
+    makeTile('crafter_top' + (trig ? '_triggered' : ''), (set, r) => each((x, y) => { const q = planks(x, y); let c = (x > 2 && x < 13 && y > 2 && y < 13) ? [q[0], q[1], q[2]] : crafterBase(x, y); if ((x === 5 || x === 10 || y === 5 || y === 10) && x > 2 && x < 13 && y > 2 && y < 13) c = [70, 46, 26]; set(x, y, c); }));
+    makeTile('crafter_front' + (trig ? '_triggered' : ''), (set, r) => each((x, y) => { let c = crafterBase(x, y); if (x >= 4 && x <= 11 && y >= 5 && y <= 10) c = (y === 7 || y === 8) && (x === 6 || x === 9) ? glow : [40, 36, 36]; set(x, y, c); })); }
+  makeTile('crafter_side', (set, r) => each((x, y) => { let c = crafterBase(x, y); if (y >= 6 && y <= 9 && x > 2 && x < 13) c = (x + y) % 3 === 0 ? [200, 150, 60] : [110, 90, 60]; set(x, y, c); }));
+  makeTile('crafter_bottom', (set, r) => each((x, y) => set(x, y, crafterBase(x, y))));
+  makeTile('calibrated_sculk_sensor_side', (set, r) => each((x, y) => set(x, y, y < 8 ? vary([30, 50, 70], r, 6) : vary([20, 36, 50], r, 5))));
+  makeTile('calibrated_sculk_sensor_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, d < 3 ? vary([60, 220, 230], r, 10) : vary([30, 50, 70], r, 6)); }));
+}
+{ const M5 = (key, name, o, icon) => { if (IT[key] !== undefined && ITEMS[IT[key]].kind !== 'block') { Object.assign(ITEMS[IT[key]], o || {}); if (icon) ICONP[key] = icon; return IT[key]; } const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };
+  const box = (s, x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) s(x, y, typeof c === 'function' ? c(x, y) : c); };
+  // the old tripwire hook item is now the block
+  if (IT.tripwire_hook !== undefined && ITEMS[IT.tripwire_hook].kind !== 'block' && B.TRIPWIRE_HOOK !== undefined) { const old = IT.tripwire_hook; ITEMS[old].key = 'legacy_tripwire_hook'; IT.legacy_tripwire_hook = old; IT.tripwire_hook = B.TRIPWIRE_HOOK; const i = ITEM_IDS.indexOf(old); if (i >= 0) ITEM_IDS.splice(i, 1); }
+  M5('clay_brick', 'Brick', {}, (s) => { box(s, 2, 6, 13, 10, (x, y) => y === 6 ? [200, 110, 80] : y === 10 || x === 13 ? [120, 50, 36] : [170, 80, 56]); });
+  M5('spectral_arrow', 'Spectral Arrow', { arrow: true }, (s) => { pLine(s, 3, 12, 11, 4, [150, 120, 60]); for (const [x, y] of [[2, 11], [3, 13], [2, 13], [4, 14]]) s(x, y, [240, 220, 120]); for (const [x, y] of [[11, 3], [12, 3], [12, 4], [11, 2]]) s(x, y, [250, 230, 90]); });
+  M5('ominous_bottle', 'Ominous Bottle', { kind: 'food', food: 0, sat: 0, alwaysEat: true, drink: true, stack: 64 }, (s) => { for (let y = 4; y <= 14; y++) for (let x = 5; x <= 10; x++) { const neck = y < 7; if (neck && (x < 7 || x > 8)) continue; s(x, y, y === 4 ? [60, 60, 60] : neck ? [180, 200, 200] : (x === 5 || x === 10 || y === 14) ? [30, 70, 60] : [40, 110, 90]); } s(7, 10, [10, 10, 10]); s(8, 10, [10, 10, 10]); s(7, 12, [10, 10, 10]); s(8, 12, [10, 10, 10]); });
+  for (const [k, n] of BANNER_PATTERNS) M5(k + '_banner_pattern', n + ' Banner Pattern', { kind: 'bpattern', pattern: k, stack: 1 }, (s) => { box(s, 3, 2, 12, 13, (x, y) => (x === 3 || x === 12 || y === 2 || y === 13) ? [190, 170, 130] : [236, 226, 196]); const g = BANNER_GLYPH(k); for (let y = 0; y < 8; y++) for (let x = 0; x < 6; x++) if (g[y] && g[y][x] === '#') s(5 + x, 4 + y, [90, 70, 50]); });
+  for (const t of TRIMS) M5(t + '_armor_trim_smithing_template', t[0].toUpperCase() + t.slice(1) + ' Armor Trim Smithing Template', { kind: 'template', trim: t }, (s, r) => { for (let y = 2; y <= 13; y++) for (let x = 3; x <= 12; x++) { const e = x === 3 || x === 12 || y === 2 || y === 13; let h = 0; for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0; s(x, y, e ? [52, 44, 48] : ((x * 7 + y * 3 + h) % 5 === 0) ? [120, 180, 190] : vary([70, 76, 80], r, 6)); } });
+  M5('carrot_on_a_stick', 'Carrot on a Stick', { kind: 'steer', steer: 'pig', stack: 1, dur: 25 }, (s) => { pLine(s, 2, 14, 11, 5, [130, 90, 50]); pLine(s, 11, 5, 12, 9, [220, 220, 220]); for (let i = 0; i < 4; i++) s(12 - (i >> 1), 10 + i, [240, 140, 30]); s(13, 9, [60, 140, 40]); });
+  M5('warped_fungus_on_a_stick', 'Warped Fungus on a Stick', { kind: 'steer', steer: 'strider', stack: 1, dur: 100 }, (s) => { pLine(s, 2, 14, 11, 5, [130, 90, 50]); pLine(s, 11, 5, 12, 9, [220, 220, 220]); box(s, 10, 9, 14, 11, [30, 140, 130]); s(12, 12, [220, 160, 120]); s(12, 13, [220, 160, 120]); });
+  M5('wolf_armor', 'Wolf Armor', { kind: 'wolfarmor', stack: 1, dur: 64 }, (s) => { box(s, 2, 6, 13, 11, (x, y) => (y === 6 || y === 11) ? [110, 90, 80] : (x + y) % 3 === 0 ? [170, 140, 120] : [140, 116, 100]); box(s, 11, 4, 13, 6, [140, 116, 100]); });
+  M5('torchflower_seeds', 'Torchflower Seeds', { kind: 'seed', crop: 'torchflower_crop_0' }, (s) => { for (const [x, y] of [[6, 7], [9, 6], [7, 10], [10, 9]]) { s(x, y, [150, 110, 60]); s(x + 1, y, [120, 80, 40]); } });
+  M5('pitcher_pod', 'Pitcher Pod', { kind: 'seed', crop: 'pitcher_crop_0' }, (s) => { for (let y = 4; y <= 12; y++) for (let x = 6; x <= 9; x++) s(x, y, y < 6 ? [120, 90, 160] : [90, 140, 120]); });
+  const cartP = (top) => (s) => { box(s, 2, 8, 13, 12, (x, y) => (y === 8) ? [150, 150, 156] : (x === 2 || x === 13 || y === 12) ? [70, 70, 76] : [110, 110, 116]); s(4, 13, [40, 40, 40]); s(11, 13, [40, 40, 40]); if (top) top(s); };
+  M5('furnace_minecart', 'Minecart with Furnace', { kind: 'minecart', stack: 1, cart: 'furnace' }, cartP((s) => { box(s, 4, 3, 11, 8, (x, y) => (x >= 6 && x <= 9 && y >= 5 && y <= 7) ? [240, 140, 40] : [100, 100, 100]); }));
+  M5('tnt_minecart', 'Minecart with TNT', { kind: 'minecart', stack: 1, cart: 'tnt' }, cartP((s) => { box(s, 4, 3, 11, 8, (x, y) => y === 5 || y === 6 ? [230, 230, 230] : [200, 40, 30]); }));
+  M5('hopper_minecart', 'Minecart with Hopper', { kind: 'minecart', stack: 1, cart: 'hopper' }, cartP((s) => { box(s, 3, 4, 12, 7, (x, y) => y === 4 ? [80, 80, 86] : [56, 56, 62]); box(s, 6, 1, 9, 3, [70, 70, 76]); }));
+  for (const [k, cart] of [['chest_minecart', 'chest'], ['minecart', null]]) if (IT[k] !== undefined) ITEMS[IT[k]].cart = cart;
+  const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const L = (o, n, items) => RECIPES.push(RSL(o, n, items)); const r0 = RECIPES.length;
+  // bricks: clay balls smelt into brick items; four make a block of bricks
+  { const i = RECIPES.findIndex(r => r.out[0] === 'brick' && r.key && r.key.S === 'sand'); if (i >= 0) RECIPES.splice(i, 1); } R('brick', 1, ['BB', 'BB'], { B: 'clay_brick' }); if (IT.clay_ball !== undefined) SMELT[IT.clay_ball] = IT.clay_brick;
+  for (const k of ['flower_pot', 'decorated_pot']) { for (let i = RECIPES.length - 1; i >= 0; i--) if (RECIPES[i].out[0] === k) RECIPES.splice(i, 1); }
+  R('flower_pot', 1, ['B B', ' B '], { B: 'clay_brick' }); GROUPS['#pot_sherds'] = ['clay_brick', ...SHERDS.map(s => s + '_pottery_sherd')].filter(k => IT[k] !== undefined); R('decorated_pot', 1, [' B ', 'B B', ' B '], { B: '#pot_sherds' });
+  R('spectral_arrow', 2, [' G ', 'GAG', ' G '], { G: 'glowstone_dust', A: 'arrow' }); R('carrot_on_a_stick', 1, ['R ', ' C'], { R: 'fishing_rod', C: 'carrot' }); R('warped_fungus_on_a_stick', 1, ['R ', ' W'], { R: 'fishing_rod', W: 'warped_fungus' });
+  R('wolf_armor', 1, ['S  ', 'SSS', 'S S'], { S: 'armadillo_scute' }); L('furnace_minecart', 1, ['minecart', 'furnace']); L('tnt_minecart', 1, ['minecart', 'tnt']); L('hopper_minecart', 1, ['minecart', 'hopper']);
+  R('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' }); R('crafter', 1, ['III', 'ICI', 'RDR'], { I: 'iron_ingot', C: 'crafting_table', R: 'redstone', D: 'dropper' });
+  R('calibrated_sculk_sensor', 1, [' A ', 'ASA'], { A: 'amethyst_shard', S: 'sculk_sensor' });
+  L('creeper_banner_pattern', 1, ['paper', 'creeper_head']); L('skull_banner_pattern', 1, ['paper', 'wither_skeleton_skull']); L('flower_banner_pattern', 1, ['paper', 'oxeye_daisy']); L('thing_banner_pattern', 1, ['paper', 'enchanted_golden_apple']);
+  for (const t of TRIMS) R(t + '_armor_trim_smithing_template', 2, ['DTD', 'DCD', 'DDD'], { D: 'diamond', T: t + '_armor_trim_smithing_template', C: 'cobblestone' });
+  for (let i = RECIPES.length - 1; i >= r0; i--) { const rr = RECIPES[i]; const specs = rr.items || Object.values(rr.key || {}); if (specs.some(sp => sp[0] !== '#' && sp !== 'planks' && (sp[0] === '=' ? IT[sp.slice(1)] === undefined : IT[sp] === undefined))) RECIPES.splice(i, 1); }
+}
+// banner pattern pictures, 6 x 8 cells (used for the item icons and drawn on banners)
+function BANNER_GLYPH(k) { return {
+  flower: ['..##..', '.#..#.', '#.##.#', '#.##.#', '.#..#.', '..##..', '...#..', '..##..'],
+  creeper: ['......', '##..##', '##..##', '..##..', '.####.', '.####.', '.#..#.', '......'],
+  skull: ['.####.', '#....#', '#.##.#', '#....#', '.####.', '.#.#..', '#.#.#.', '......'],
+  thing: ['..#...', '.###..', '#####.', '.#.#..', '.###..', '#####.', '..#...', '......'],
+  globe: ['.####.', '#.##.#', '##..##', '#.#..#', '##.#.#', '#..#.#', '.####.', '......'],
+  piglin: ['......', '.####.', '#.##.#', '#....#', '#.##.#', '.####.', '......', '......'],
+  flow: ['.####.', '#....#', '#.##.#', '#.#..#', '#.###.', '#.....', '.#####', '......'],
+  guster: ['......', '#.##.#', '.#..#.', '#....#', '.####.', '..##..', '.#..#.', '......'] }[k] || []; }
+if (B.TRIPWIRE_HOOK !== undefined) BL[B.TRIPWIRE_HOOK].iconPaint = true;
+
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
   const r = mulberry32(seed); const g = []; for (let i = 0; i < period * period; i++) g.push(r());
@@ -3082,7 +3183,7 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
@@ -8061,6 +8162,7 @@ function randomTicks(dt) {
       } else if (id === B.BUDDING_AMETHYST || def.berry !== undefined || def.bamboo || def.cocoa !== undefined || id === B.CAVE_VINES || id === B.TWISTING_VINES || id === B.WEEPING_VINES) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; caveTick(ox + lx, y, oz + lz, id);
       } else if (id === B.KELP || (def.coralBlock && !def.dead)) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; oceanTick(ox + lx, y, oz + lz, id);
       } else if (def.stem !== undefined || def.mushroom) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; natureTick(ox + lx, y, oz + lz, id);
+      } else if (def.snifferEgg !== undefined) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; snifferEggTick(ox + lx, y, oz + lz, id);
       } else if (def.turtleEgg || def.frogspawn) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; eggTick(ox + lx, y, oz + lz, id);
       } else if (def.hive !== undefined) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; hiveTick(ox + lx, y, oz + lz, id);
       } else if (def.sapling) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; saplingTick(ox + lx, y, oz + lz, id);
@@ -15680,7 +15782,7 @@ function cbsSlot(t, d) { if (t.px === undefined) return -1; const f = d.st.facin
     if (d.campfire) { const list = DECO.cook.get(k); if (list) for (const c of list) dropItem(c.id, 1, x + 0.5, y + 0.6, z + 0.5); DECO.cook.delete(k); }
     return r; }; }
 { const _bb = breakBlock; breakBlock = function (x, y, z) { const id = world.get(x, y, z); const d = BL[id]; const r = _bb.apply(this, arguments); if (!d || world.get(x, y, z) === id || !isSurv() || S.rules.doTileDrops === false) return r;
-    if (d.dpot) { const silk = typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch'); if (silk) dropItem(IT.decorated_pot, 1, x + 0.5, y + 0.4, z + 0.5); else { dropItem(IT.brick, 4, x + 0.5, y + 0.4, z + 0.5); Sfx.play('dpot_shatter', 1); } }
+    if (d.dpot) { const silk = typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch'); const sh = typeof potShards === 'function' ? potShards(x, y, z) : ['clay_brick', 'clay_brick', 'clay_brick', 'clay_brick']; if (silk) dropItem(IT.decorated_pot, 1, x + 0.5, y + 0.4, z + 0.5, false, sh.some(k => k !== 'clay_brick') ? { data: { sherds: sh } } : null); else { for (const k of sh) if (IT[k] !== undefined) dropItem(IT[k], 1, x + 0.5, y + 0.4, z + 0.5); Sfx.play('dpot_shatter', 1); } }
     if (d.hive !== undefined && d.fam === 'bee_nest' && typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch')) dropItem(IT.bee_nest, 1, x + 0.5, y + 0.4, z + 0.5);
     return r; }; }
 // ---- every tick: campfires, conduits, scaffolding, swinging bells ----
@@ -15767,7 +15869,7 @@ for (const k of ['campfire', 'soul_campfire', 'chiseled_bookshelf', 'beehive', '
 // Text, items, pictures and armor are drawn as small 3D overlays near the player; the blocks themselves are in the world mesh.
 const OV = { meshes: new Map(), watch: new Set(), world: null, t: 0, tex: new Map() };
 const bdataOf = (w) => w.bdata || (w.bdata = new Map());
-const ovWatchable = (id) => { const d = BL[id]; return !!(d && (d.sign || d.frame || (d.painting && false) || d.armorStand === 'lower')); };
+let ovWatchable = (id) => { const d = BL[id]; return !!(d && (d.sign || d.frame || (d.painting && false) || d.armorStand === 'lower')); };
 { const _pw = packWorld; packWorld = function (w) { const r = _pw.apply(this, arguments); if (w.bdata && w.bdata.size) r.bdata = Object.fromEntries(w.bdata); return r; }; }
 { const _uw = unpackWorld; unpackWorld = function (w, d) { const r = _uw.apply(this, arguments); if (d && d.bdata) w.bdata = new Map(Object.entries(d.bdata)); return r; }; }
 // ---- support ----
@@ -16123,6 +16225,342 @@ if (typeof FISH_LOOT !== 'undefined') FISH_LOOT.treasure.push(['nautilus_shell',
     'cod_bucket', 'salmon_bucket', 'tropical_fish_bucket', 'pufferfish_bucket', 'axolotl_bucket', 'tadpole_bucket', 'powder_snow_bucket', 'fire_charge', 'spyglass', 'goat_horn', 'recovery_compass', 'knowledge_book', 'writable_book', 'written_book', 'map', 'bundle', 'brush', ...SHERDS.map(s => s + '_pottery_sherd'), 'suspicious_sand', 'suspicious_gravel', 'nautilus_shell', 'heart_of_the_sea', 'turtle_helmet', 'turtle_egg', 'frogspawn'];
   const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest);
   FUEL[IT.jukebox] = 15; for (const w of WOODDATA()) if (!w.nether) for (const k of [w.k + '_boat', w.k + '_chest_boat', 'bamboo_raft', 'bamboo_chest_raft']) if (IT[k] !== undefined) FUEL[IT[k]] = 60; }
+
+// ================= MORE RULES: POTS, SPECTRAL ARROWS, MINECARTS, RIDING PIGS AND STRIDERS, WOLF ARMOR (Minecraft) =================
+// Decorated pots remember the four sherds (or bricks) they were made from and break back into them. Spectral arrows
+// make what they hit glow (seen through walls) for 10 s. Minecarts with a furnace run on coal, with TNT blow up on a
+// powered activator rail (or when broken going fast), with a hopper pull items from the container above and from the
+// ground (a powered activator rail stops them); hoppers under the rails empty carts. A saddled pig follows a carrot on
+// a stick (use it for a short burst); a saddled strider walks lava and follows warped fungus on a stick. Wolf armor
+// takes the hits for a tamed wolf until it breaks; shears take it off.
+// ---------------- decorated pots ----------------
+{ const _ce = typeof craftExtra === 'function' ? craftExtra : () => null; craftExtra = function (r) { if (r && r.out[0] === 'decorated_pot') { const g = craftGrid; const at = (i) => g[i] ? ITEMS[g[i].id].key : 'clay_brick'; const n = S.gridN || 3;
+      const cells = n === 3 ? [1, 3, 5, 7] : [0, 1, 2, 3]; const sh = cells.map(i => at(i)); return sh.every(k => k === 'clay_brick') ? null : { data: { sherds: sh } }; } return _ce.apply(this, arguments); }; }
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const h = player.held(); const data = h && h.id === id && h.data; const r = _pb.apply(this, arguments);
+    if (r && id === B.DECORATED_POT && data && data.sherds && hit) { const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (world.get(x, y, z) === B.DECORATED_POT) bdataOf(world).set(keyOf(x, y, z), { sherds: data.sherds, f: playerFacing() }); if (typeof ovDrop === 'function') { OV.watch.add(keyOf(x, y, z)); ovDrop(keyOf(x, y, z)); } }
+    return r; }; }
+function potShards(x, y, z) { const e = bdataOf(world).get(keyOf(x, y, z)); bdataOf(world).delete(keyOf(x, y, z)); return e && e.sherds ? e.sherds : ['clay_brick', 'clay_brick', 'clay_brick', 'clay_brick']; }
+// ---------------- spectral arrows ----------------
+{ const _as = arrowSlot; arrowSlot = function () { const order = [36, ...Array(36).keys()]; for (const i of order) { const s = player.inv[i]; if (s && (s.id === IT.arrow || s.id === IT.tipped_arrow || s.id === IT.spectral_arrow)) return i; } return -1; }; }
+{ const _cnt = countItem; countItem = function (id) { if (id === IT.arrow) return _cnt(IT.arrow) + _cnt(IT.spectral_arrow); return _cnt(id); }; }
+{ const _fb = fireBow; fireBow = function (eye, dir) { const i = S.mode !== 'creative' ? arrowSlot() : -1; const spec = i >= 0 && player.inv[i] && player.inv[i].id === IT.spectral_arrow; const n0 = G.projectiles.length; const r = _fb.apply(this, arguments);
+    if (spec && G.projectiles.length > n0) { const a = G.projectiles[G.projectiles.length - 1]; a.spectral = true; } return r; }; }
+function setGlow(m, sec) { m.glowT = Math.max(m.glowT || 0, sec); if (!m.glowBox) { const b = new THREE.Box3(); const helper = new THREE.Box3Helper(b, 0xffffff); helper.material.depthTest = false; helper.renderOrder = 999; helper.material.transparent = true; G.scene.add(helper); m.glowBox = helper; } }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) { const live = G.projectiles.filter(a => a.spectral && !a.done); const r = _up.apply(this, arguments);
+    for (const a of live) { if (Math.random() < dt * 30) Particles.emit(a.pos.x, a.pos.y, a.pos.z, 1, [[1, 0.95, 0.5]], 0.2, 0.4, 0, 0.05, 1.6); if (!a.done) continue; let best = null, bd = 1.6; for (const m of G.mobs) { if (m.dead) continue; const d = m.pos.distanceTo(a.pos) - m.hw; if (d < bd) { bd = d; best = m; } } if (best && bd < 1.2) setGlow(best, 10); }
+    for (const m of G.mobs) if (m.glowBox) { m.glowT -= dt; if (m.glowT <= 0 || m.dead) { G.scene.remove(m.glowBox); m.glowBox = null; } else { m.glowBox.box.min.set(m.pos.x - m.hw, m.pos.y, m.pos.z - m.hw); m.glowBox.box.max.set(m.pos.x + m.hw, m.pos.y + m.h, m.pos.z + m.hw); } }
+    return r; }; }
+// ---------------- minecarts with a furnace, TNT or hopper ----------------
+const CART_BLOCK = { furnace: () => B.FURNACE, tnt: () => B.TNT, hopper: () => B.HOPPER };
+function dressCart(c) { if (!c.kind || c.kindMesh) return; const id = CART_BLOCK[c.kind](); const m = new THREE.Mesh(blockGeo(id), itemBlockMat); m.scale.setScalar(0.6); m.position.set(0, 0.55, 0); c.mesh.add(m); c.kindMesh = m; if (c.kind === 'hopper' && !c.inv) c.inv = new Array(5).fill(null); }
+{ const _cl = cartList; cartList = function () { const l = _cl.apply(this, arguments); l.forEach((o, i) => { const c = G.carts[i]; if (c && c.kind) { o.kind = c.kind; if (c.fuel) o.fuel = +c.fuel.toFixed(1); if (c.fsign) o.fs = c.fsign; if (c.inv) o.inv = c.inv.map(s => s ? Object.assign({ id: s.id, count: s.count }, xtra(s) || {}) : null); } }); return l; }; }
+{ const _lc = loadCarts; loadCarts = function (list) { const r = _lc.apply(this, arguments); (list || []).forEach((d, i) => { const c = G.carts[i]; if (!c || !d || !d.kind) return; c.kind = d.kind; c.fuel = d.fuel || 0; c.fsign = d.fs || 1; if (d.inv) c.inv = d.inv.map(s => s && ITEMS[s.id] ? s : null); dressCart(c); }); return r; }; }
+{ const _rc = removeCart; removeCart = function (c) { if (c.kind && !c.dropDone && c.hp >= 4) { c.dropDone = true; if (S.mode !== 'creative') { dropItem(CART_BLOCK[c.kind](), 1, c.pos.x, c.pos.y + 0.4, c.pos.z); if (c.inv && c.kind === 'hopper') for (const s of c.inv) if (s) dropItem(s.id, s.count, c.pos.x, c.pos.y + 0.4, c.pos.z, true, xtra(s)); } if (c.kind === 'tnt' && Math.abs(c.v) > 4) { const p = c.pos.clone(); setTimeout(() => explode(p.x, p.y + 0.5, p.z, 4, null, { cause: 'Minecart with TNT' }), 0); } } return _rc.apply(this, arguments); }; }
+{ const _cp = cartPhysics; cartPhysics = function (c, dt, push) {
+    if (c.kind === 'furnace' && c.fuel > 0) { c.fuel -= dt; if (Math.random() < dt * 8) Particles.emit(c.pos.x, c.pos.y + 1.1, c.pos.z, 1, [[0.4, 0.4, 0.4], [0.6, 0.6, 0.6]], 0.4, 1.5, -1.5, 0.15); if (Math.abs(c.v) < 3.2) c.v = (c.v ? Math.sign(c.v) : c.fsign || 1) * Math.min(3.2, Math.abs(c.v) + 6 * dt); c.fsign = Math.sign(c.v) || c.fsign; }
+    const r = _cp.apply(this, arguments);
+    // rails under the cart: powered activator rails light TNT carts and stop hopper carts
+    const here = findRail(c.pos); const act = here && here[3].type === 'activator_rail' && here[3].on;
+    if (c.kind === 'tnt' && act && !c.fuseT) { c.fuseT = 4; Sfx.at('hiss', c.pos.clone(), 1); }
+    if (c.fuseT) { c.fuseT -= dt; if (Math.random() < dt * 20) Particles.emit(c.pos.x, c.pos.y + 1.1, c.pos.z, 1, [[1, 0.8, 0.3], [0.5, 0.5, 0.5]], 0.6, 0.6, -1, 0.1); if (c.mesh && c.kindMesh) c.kindMesh.visible = (c.fuseT * 4 | 0) % 2 === 0; if (c.fuseT <= 0) { c.fuseT = 0; const p = c.pos.clone(); c.dropDone = true; removeCart(c); explode(p.x, p.y + 0.5, p.z, 4, null, { cause: 'Minecart with TNT' }); } }
+    if (c.kind === 'hopper' && !act) { c.hopT = (c.hopT || 0) - dt; if (c.hopT <= 0) { c.hopT = 0.2; const x = Math.floor(c.pos.x), y = Math.floor(c.pos.y + 0.2), z = Math.floor(c.pos.z); const me = { arr: c.inv, kind: 'box', slots: [0, 1, 2, 3, 4], x, y, z, k: 'cart:' + c.id };
+        const src = typeof contAt === 'function' ? contAt(x, y + 1, z) : null; if (src && src.arr !== c.inv) { for (const s of contExtractSlots(src, 1)) { const it = src.arr[s]; if (!it) continue; if (contInsert(me, it, 0)) { it.count--; if (!it.count) src.arr[s] = null; contChanged(src); break; } } }
+        for (const e of G.items || []) { if (e.gone || e.pickDelay > 0 || e.pos.distanceTo(c.pos) > 1.1) continue; while (e.count > 0 && contInsert(me, Object.assign({ id: e.id, count: 1 }, e.extra || {}), 0)) e.count--; if (e.count <= 0) { e.remove(); e.gone = true; } break; } } }
+    return r; }; }
+// hoppers (and comparators) see minecarts with chests or hoppers in the block above / in front of them
+{ const _ca = contAt; contAt = function (x, y, z) { const r = _ca.apply(this, arguments); if (r) return r; for (const c of G.carts || []) { if (!c.inv || c.dim !== world.dim) continue; if (Math.floor(c.pos.x) === x && Math.floor(c.pos.z) === z && Math.floor(c.pos.y + 0.2) === y) return { arr: c.inv, k: 'cart:' + c.id, x, y, z, kind: 'box', slots: [...Array(c.inv.length).keys()] }; } return null; }; }
+// ---------------- riding pigs and striders ----------------
+function rideMob(m) { const P = player; if (P.riding || P.dead || m.rider) return; P.riding = m; m.rider = 'local'; m.mobRide = true; P.flying = false; P.sneaking = false; Sfx.at('saddle', m.pos, 0.6); }
+function mobDismount() { const P = player; const m = P.riding; if (!m || !m.mobRide) return; P.riding = null; m.rider = null; m.mobRide = false;
+  for (const a of [Math.PI / 2, -Math.PI / 2, 0, Math.PI]) { const x = m.pos.x + Math.sin(m.yaw + a) * 1.1, z = m.pos.z + Math.cos(m.yaw + a) * 1.1, y = Math.floor(m.pos.y + 0.2); if (!world.solid(Math.floor(x), y, Math.floor(z)) && !world.solid(Math.floor(x), y + 1, Math.floor(z))) { P.pos.set(x, y + 0.01, z); break; } }
+  P.vel.set(0, 0, 0); P.peak = null; }
+{ const _dm = dismount; dismount = function () { if (player.riding && player.riding.mobRide) return mobDismount(); return _dm.apply(this, arguments); }; }
+{ const _ru = rideUpdate; rideUpdate = function (P, dt) { const m = P.riding; if (!m || !m.mobRide) return _ru.apply(this, arguments);
+    if (m.dead || m.gone) { P.riding = null; return; } if (!S.uiOpen && kd('sneak')) { mobDismount(); return; }
+    if (keys.KeyJ) look(-300 * dt, 0); if (keys.KeyL) look(300 * dt, 0); if (keys.KeyI) look(0, -300 * dt); if (keys.KeyK) look(0, 300 * dt);
+    const h = P.held(); const hd = h && ITEMS[h.id]; const steer = hd && hd.kind === 'steer' && hd.steer === m.type;
+    const base = m.type === 'strider' ? 2.3 : 2.4; m.boostT = Math.max(0, (m.boostT || 0) - dt); const sp = steer ? base * (m.boostT > 0 ? 2.2 : 1) * (m.type === 'strider' && !FKIND[world.get(Math.floor(m.pos.x), Math.floor(m.pos.y - 0.1), Math.floor(m.pos.z))] && !world.solid(Math.floor(m.pos.x), Math.floor(m.pos.y - 0.1), Math.floor(m.pos.z)) ? 0.5 : 1) : 0;
+    if (steer) { m.yaw = P.yaw + Math.PI; m.vel.x = -Math.sin(P.yaw) * sp; m.vel.z = -Math.cos(P.yaw) * sp; } else { m.wT = (m.wT || 0) - dt; if (m.wT <= 0) { m.wT = 1 + Math.random() * 2; m.wDir = Math.random() * Math.PI * 2; m.wGo = Math.random() < 0.5; } m.vel.x = m.wGo ? Math.sin(m.wDir) * 1 : 0; m.vel.z = m.wGo ? Math.cos(m.wDir) * 1 : 0; if (m.wGo) m.yaw = m.wDir; }
+    m.vel.y = Math.max(m.vel.y - 28 * dt, -30); if (m.hitH && m.onGround && (m.vel.x || m.vel.z)) m.vel.y = 8.2;
+    // striders stand on lava
+    if (m.type === 'strider') { const fy = Math.floor(m.pos.y - 0.05); const below = world.get(Math.floor(m.pos.x), fy, Math.floor(m.pos.z)); const at = world.get(Math.floor(m.pos.x), Math.floor(m.pos.y + 0.3), Math.floor(m.pos.z)); if (FKIND[at] === 2) { m.pos.y = Math.floor(m.pos.y + 0.3) + 1; m.vel.y = 0; } else if (FKIND[below] === 2 && m.vel.y < 0) { m.vel.y = 0; m.pos.y = fy + 1; m.onGround = true; } }
+    moveEntity(m, dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; if (m.animate) m.animate(dt);
+    const seat = m.type === 'strider' ? 1.6 : 0.82; P.pos.set(m.pos.x, m.pos.y + seat, m.pos.z); P.vel.copy(m.vel); P.onGround = true; P.peak = null; P.sprinting = false; P.sneaking = false; P.swimming = false; }; }
+{ const _mu = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.mobRide && this.rider === 'local') { this.age = (this.age || 0) + dt; this.hurtT = Math.max(0, (this.hurtT || 0) - dt); this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = Math.max(G.minLight || 0, world.lightAt(this.pos.x, this.pos.y + 1, this.pos.z, G.daylight)); } return; } return _mu.apply(this, arguments); }; }
+function saddleMesh(m) { if (m.saddleMesh || !m.root) return; const g = new THREE.Group(); const mat = new THREE.MeshLambertMaterial({ color: 0x6a3a1c }); const top = new THREE.Mesh(new THREE.BoxGeometry(m.hw * 1.6, 0.08, m.hw * 1.3), mat); const y = m.type === 'strider' ? m.h - 0.1 : m.h - 0.02; top.position.set(0, y, 0); g.add(top);
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(m.hw * 2.05, 0.3, 0.12), new THREE.MeshLambertMaterial({ color: 0x3a2a1a })); strap.position.set(0, y - 0.15, 0); g.add(strap); m.root.add(g); m.saddleMesh = g; }
+function wolfArmorMesh(m) { if (!m.root) return; if (m.wolfArmorMesh) { m.wolfArmorMesh.visible = !!m.wolfArmor; return; } if (!m.wolfArmor) return; const g = new THREE.Mesh(new THREE.BoxGeometry(m.hw * 2.3, m.h * 0.5, m.hw * 3.4), new THREE.MeshLambertMaterial({ color: 0x9a7e6a, transparent: true, opacity: 0.92 })); g.position.set(0, m.h * 0.62, 0); m.root.add(g); m.wolfArmorMesh = g; }
+{ const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id]; const m = targetMob; const sneaking = kd('sneak');
+    // furnace, TNT and hopper minecarts
+    if (typeof targetCart !== 'undefined' && targetCart && targetCart.kind && !sneaking) { const c = targetCart; mouseR = false; S.swing = 1;
+      if (c.kind === 'furnace') { if (h && (h.id === IT.coal || h.id === IT.charcoal)) { useHeld(1); c.fuel = (c.fuel || 0) + 180; const d = c.pos.clone().sub(player.pos); const rl = findRail(c.pos); if (rl) { const [p1, p2] = railLine(rl[0], rl[1], rl[2], rl[3]); const rd = p2.clone().sub(p1); c.fsign = Math.sign(rd.x * d.x + rd.z * d.z) || 1; c.v = c.fsign * 0.5; } Sfx.play('fire', 0.6); } return; }
+      if (c.kind === 'hopper') { const key = 'cart:' + c.id; world.chestInv.set(key, c.inv); Sfx.play('chest', 0.7); openUI('chest', key); $('chestTitle').textContent = 'Minecart with Hopper'; return; }
+      return; }
+    if (hd && hd.kind === 'minecart' && hd.cart && hd.cart !== 'chest' && target) { mouseR = false; const r = railAt(target.x, target.y, target.z); if (!r) return; const c = makeCart(target.x + 0.5, target.y + 0.0625, target.z + 0.5, false); c.kind = hd.cart; const [p1, p2] = railLine(target.x, target.y, target.z, r); c.yaw = Math.atan2(p2.x - p1.x, p2.z - p1.z); dressCart(c); useHeld(1); S.swing = 1; Sfx.play('stone', 0.7, 1.2); return; }
+    if (m && !m.dead && (m.type === 'pig' || m.type === 'strider')) {
+      if (h && h.id === IT.saddle && !m.saddled && !m.baby) { m.saddled = true; saddleMesh(m); useHeld(1); Sfx.at('saddle', m.pos, 0.8); S.swing = 1; mouseR = false; return; }
+      if (m.saddled && !sneaking && !(hd && (BREED_FOOD[m.type] || []).includes(hd.key))) { mouseR = false; rideMob(m); return; } }
+    // boosting while riding
+    if (player.riding && player.riding.mobRide && hd && hd.kind === 'steer' && hd.steer === player.riding.type) { mouseR = false; if ((player.riding.boostT || 0) <= 0) { player.riding.boostT = 2.5; if (S.mode !== 'creative') { h.dmg = (h.dmg || 0) + 7; if (h.dmg >= (hd.dur || 25)) { player.inv[handSlot()] = { id: IT.fishing_rod, count: 1 }; Sfx.play('break', 0.8); } invDirty(); } } return; }
+    // wolf armor
+    if (m && m.type === 'wolf' && !m.dead && m.tamed && (typeof isOwner !== 'function' || isOwner(m))) {
+      if (h && h.id === IT.wolf_armor && !m.wolfArmor && !m.baby) { m.wolfArmor = { dmg: h.dmg || 0 }; wolfArmorMesh(m); useHeld(1); Sfx.at('armor', m.pos, 0.8); S.swing = 1; mouseR = false; return; }
+      if (h && h.id === IT.shears && m.wolfArmor) { dropItem(IT.wolf_armor, 1, m.pos.x, m.pos.y + 0.6, m.pos.z, true, m.wolfArmor.dmg ? { dmg: m.wolfArmor.dmg } : null); m.wolfArmor = null; wolfArmorMesh(m); if (typeof damageHeld === 'function') damageHeld(1); Sfx.at('shear', m.pos, 0.8); S.swing = 1; mouseR = false; return; } }
+    return _ua.apply(this, arguments); }; }
+// wolf armor soaks up damage (64 points) until it breaks
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, noAnger) { if (this.type === 'wolf' && this.wolfArmor && dmg > 0) { this.wolfArmor.dmg += dmg; Sfx.at('armor', this.pos, 0.5); if (this.wolfArmor.dmg >= 64) { this.wolfArmor = null; wolfArmorMesh(this); Sfx.at('break', this.pos, 0.9); } this.hurtT = 0.3; return false; } return _h.apply(this, arguments); }; }
+// a dead pig or strider drops its saddle
+{ const _h2 = Mob.prototype.hurt; Mob.prototype.hurt = function () { const was = this.dead; const r = _h2.apply(this, arguments); if (this.dead && !was) { if (this.saddled) dropItem(IT.saddle, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); if (this.wolfArmor) dropItem(IT.wolf_armor, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); if (player.riding === this) mobDismount(); } return r; }; }
+{ const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (m.saddled) r.sa = 1; if (m.wolfArmor) r.wa = m.wolfArmor.dmg || 0; return r; }; }
+{ const _f = mobFromRecord; mobFromRecord = function (rec) { const m = _f.apply(this, arguments); if (m && rec) { if (rec.sa) { m.saddled = true; saddleMesh(m); } if (rec.wa !== undefined) { m.wolfArmor = { dmg: rec.wa }; wolfArmorMesh(m); } } return m; }; }
+// ---------------- pitcher crops finish as a two-block pitcher plant ----------------
+B.TORCHFLOWER_CROP_3 = B.TORCHFLOWER; B.PITCHER_CROP_3 = B.PITCHER_PLANT;
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id, record) { const r = _set.apply(this, arguments); if (r !== false && this === G.world && id === B.PITCHER_PLANT && BL[id].tallOther !== undefined && !this.get(x, y + 1, z)) _set.call(this, x, y + 1, z, BL[id].tallOther, record); return r; }; }
+// ---------------- creative order ----------------
+{ const keys = ['clay_brick', 'spectral_arrow', 'ominous_bottle', ...BANNER_PATTERNS.map(p => p[0] + '_banner_pattern'), ...TRIMS.map(t => t + '_armor_trim_smithing_template'), 'carrot_on_a_stick', 'warped_fungus_on_a_stick', 'wolf_armor', 'furnace_minecart', 'tnt_minecart', 'hopper_minecart', 'torchflower_seeds', 'pitcher_pod', 'sniffer_egg', 'tripwire_hook', 'crafter', 'calibrated_sculk_sensor'];
+  const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
+
+// ================= LOOM AND BANNER PATTERNS, ARMOR TRIMS (Minecraft) =================
+// The loom takes a banner, a dye and (for the special ones) a banner pattern item, and adds a layer; a banner holds up to
+// 6 layers, and placed banners show them. The smithing table also takes an armor trim template, a piece of armor and a
+// trim material (iron, copper, gold, lapis, emerald, diamond, netherite, redstone, amethyst, quartz) and draws the trim
+// on the armor you wear.
+const LOOM_BASIC = [['stripe_bottom', 'Base'], ['stripe_top', 'Chief'], ['stripe_left', 'Pale Dexter'], ['stripe_right', 'Pale Sinister'], ['stripe_center', 'Pale'], ['stripe_middle', 'Fess'], ['stripe_downright', 'Bend'], ['stripe_downleft', 'Bend Sinister'],
+  ['small_stripes', 'Paly'], ['cross', 'Saltire'], ['straight_cross', 'Cross'], ['triangle_bottom', 'Chevron'], ['triangle_top', 'Inverted Chevron'], ['diagonal_left', 'Per Bend Sinister'], ['diagonal_right', 'Per Bend'], ['half_vertical', 'Per Pale'], ['half_vertical_right', 'Per Pale Inverted'],
+  ['half_horizontal', 'Per Fess'], ['half_horizontal_bottom', 'Per Fess Inverted'], ['square_bottom_left', 'Base Dexter Canton'], ['square_bottom_right', 'Base Sinister Canton'], ['square_top_left', 'Chief Dexter Canton'], ['square_top_right', 'Chief Sinister Canton'],
+  ['circle', 'Roundel'], ['rhombus', 'Lozenge'], ['border', 'Bordure'], ['gradient', 'Gradient'], ['gradient_up', 'Base Gradient']];
+const DYE_RGB = Object.fromEntries(COLORDATA().map(c => [c[0], c[2]]));
+// does pattern p cover cell (x, y) of a 20 x 40 banner? returns 0..1 (gradients fade)
+function patternAt(p, x, y) { const W = 20, H = 40, u = (x + 0.5) / W, v = (y + 0.5) / H;
+  switch (p) {
+    case 'stripe_bottom': return v > 2 / 3 ? 1 : 0; case 'stripe_top': return v < 1 / 3 ? 1 : 0; case 'stripe_left': return u < 1 / 3 ? 1 : 0; case 'stripe_right': return u > 2 / 3 ? 1 : 0;
+    case 'stripe_center': return u > 0.38 && u < 0.62 ? 1 : 0; case 'stripe_middle': return v > 0.42 && v < 0.58 ? 1 : 0; case 'stripe_downright': return Math.abs(u - v) < 0.14 ? 1 : 0; case 'stripe_downleft': return Math.abs(u - (1 - v)) < 0.14 ? 1 : 0;
+    case 'small_stripes': return (x >> 1) % 2 === 0 && x > 0 && x < 19 ? 1 : 0; case 'cross': return Math.abs(u - v) < 0.12 || Math.abs(u - (1 - v)) < 0.12 ? 1 : 0; case 'straight_cross': return Math.abs(u - 0.5) < 0.12 || Math.abs(v - 0.5) < 0.06 ? 1 : 0;
+    case 'triangle_bottom': return v > 0.75 && Math.abs(u - 0.5) < (v - 0.75) * 2 ? 1 : 0; case 'triangle_top': return v < 0.25 && Math.abs(u - 0.5) < (0.25 - v) * 2 ? 1 : 0;
+    case 'diagonal_left': return u + v < 1 ? 1 : 0; case 'diagonal_right': return u > v ? 1 : 0; case 'half_vertical': return u < 0.5 ? 1 : 0; case 'half_vertical_right': return u >= 0.5 ? 1 : 0; case 'half_horizontal': return v < 0.5 ? 1 : 0; case 'half_horizontal_bottom': return v >= 0.5 ? 1 : 0;
+    case 'square_bottom_left': return u < 0.4 && v > 0.78 ? 1 : 0; case 'square_bottom_right': return u > 0.6 && v > 0.78 ? 1 : 0; case 'square_top_left': return u < 0.4 && v < 0.22 ? 1 : 0; case 'square_top_right': return u > 0.6 && v < 0.22 ? 1 : 0;
+    case 'circle': return Math.hypot(u - 0.5, (v - 0.5) * 2) < 0.22 ? 1 : 0; case 'rhombus': return Math.abs(u - 0.5) + Math.abs(v - 0.5) * 2 < 0.36 ? 1 : 0; case 'border': return x < 1 || x > 18 || y < 1 || y > 38 ? 1 : 0;
+    case 'gradient': return Math.max(0, 1 - v * 1.15); case 'gradient_up': return Math.max(0, (v - 0.13) * 1.15);
+  }
+  const g = BANNER_GLYPH(p); if (!g.length) return 0; const gx = Math.floor((x - 3) / 14 * 6), gy = Math.floor((y - 8) / 18 * 8); return gx >= 0 && gx < 6 && gy >= 0 && gy < 8 && g[gy][gx] === '#' ? 1 : 0; }
+function bannerCanvas(layers) { const c = document.createElement('canvas'); c.width = 20; c.height = 40; const g = c.getContext('2d'); const img = g.createImageData(20, 40);
+  for (const [p, col] of layers) { const rgb = DYE_RGB[col] || [255, 255, 255]; for (let y = 0; y < 40; y++) for (let x = 0; x < 20; x++) { const a = patternAt(p, x, y); if (!a) continue; const i = (y * 20 + x) * 4; const ia = img.data[i + 3] / 255; const k = a; img.data[i] = img.data[i] * (1 - k) * ia + rgb[0] * k + (ia ? 0 : 0); img.data[i + 1] = img.data[i + 1] * (1 - k) * ia + rgb[1] * k; img.data[i + 2] = img.data[i + 2] * (1 - k) * ia + rgb[2] * k; img.data[i + 3] = Math.max(img.data[i + 3], Math.round(255 * k)); } }
+  g.putImageData(img, 0, 0); return c; }
+// ---- the loom ----
+function openLoomUI() { const slots = [null, null, null, null]; let sel = null;
+  const avail = () => { const pat = slots[2] && ITEMS[slots[2].id].pattern; return pat ? [[pat, ITEMS[slots[2].id].name.replace(' Banner Pattern', '')]] : LOOM_BASIC; };
+  const result = () => { const b = slots[0], d = slots[1]; if (!b || !d || !sel) return null; const layers = (b.data && b.data.layers) || []; if (layers.length >= 6) return null; const col = ITEMS[d.id].key.replace('_dye', ''); return Object.assign({}, b, { count: 1, data: { layers: layers.concat([[sel, col]]) } }); };
+  const pn = S.panel = { title: 'Loom', slots, output: 3, ghosts: [IT.white_banner, IT.white_dye, IT.flower_banner_pattern, null],
+    accept: (i, s) => { const it = ITEMS[s.id]; return i === 0 ? !!(BL[s.id] && BL[s.id].banner) : i === 1 ? /_dye$/.test(it.key) : i === 2 ? it.kind === 'bpattern' : false; },
+    changed: () => { if (sel && !avail().some(p => p[0] === sel)) sel = null; slots[3] = result(); drawPats(); },
+    take: (shift) => { const r = result(); if (!r) return; if (shift) { if (addItem(r.id, 1, xtra(r))) return; } else { if (S.cursor) return; S.cursor = r; } for (const i of [0, 1]) { slots[i].count--; if (slots[i].count <= 0) slots[i] = null; } slots[3] = result(); Sfx.play('loom', 0.8); drawPats(); },
+    layout: (body) => { const row = document.createElement('div'); row.className = 'crow'; row.style.gap = '4px'; body.appendChild(row); for (let i = 0; i < 3; i++) makeSlot('panel', i, row);
+      const grid = document.createElement('div'); grid.id = 'loomPats'; grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,26px);gap:2px;max-height:150px;overflow:auto;margin:6px 0;background:#8b8b8b;padding:3px'; body.appendChild(grid);
+      const arr = document.createElement('img'); arr.className = 'arrowimg'; arr.src = UI_ICON.arrowR; body.appendChild(arr); makeSlot('panel', 3, body); drawPats(); },
+    onClose: () => { for (let i = 0; i < 3; i++) if (slots[i]) giveOrDrop(slots[i].id, slots[i].count, xtra(slots[i])); } };
+  function drawPats() { const grid = $('loomPats'); if (!grid) return; grid.innerHTML = ''; if (!slots[0] || !slots[1]) return; const col = ITEMS[slots[1].id].key.replace('_dye', ''); const base = BL[slots[0].id].banner;
+    for (const [p, name] of avail()) { const c = document.createElement('canvas'); c.width = 20; c.height = 40; const g = c.getContext('2d'); const b = DYE_RGB[base] || [255, 255, 255]; g.fillStyle = 'rgb(' + b.join(',') + ')'; g.fillRect(0, 0, 20, 40); g.drawImage(bannerCanvas([[p, col]]), 0, 0);
+      c.style.cssText = 'width:20px;height:40px;image-rendering:pixelated;cursor:pointer;border:2px solid ' + (sel === p ? '#fff' : '#555'); c.title = name; c.addEventListener('pointerdown', (e) => { e.preventDefault(); sel = p; slots[3] = result(); drawPats(); renderInvUI(); }); grid.appendChild(c); } }
+  openUI('panel'); }
+// ---- armor trims at the smithing table ----
+const TRIM_KEYS = Object.keys(TRIM_MATS);
+{ const _sr = smithResult; smithResult = function (sl) { const [t, b, a] = sl; if (t && b && a && ITEMS[t.id].trim && ITEMS[b.id].kind === 'armor' && !ITEMS[b.id].elytra && TRIM_KEYS.includes(ITEMS[a.id].key)) { const mk = ITEMS[a.id].key; const out = Object.assign({}, b, xtra(b) || {}, { count: 1 }); out.data = Object.assign({}, b.data || {}, { trim: { p: ITEMS[t.id].trim, m: mk } }); return out; } return _sr.apply(this, arguments); }; }
+{ const _os = openSmithUI; openSmithUI = function () { const r = _os.apply(this, arguments); const pn = S.panel; if (pn) { const acc = pn.accept; pn.accept = (i, s) => acc(i, s) || (i === 0 && !!ITEMS[s.id].trim) || (i === 1 && ITEMS[s.id].kind === 'armor' && !ITEMS[s.id].elytra) || (i === 2 && TRIM_KEYS.includes(ITEMS[s.id].key)); pn.changed = () => { pn.slots[3] = smithResult(pn.slots); }; pn.title = 'Upgrade Gear'; } return r; }; }
+{ const _tt = itemTooltip; itemTooltip = function (s) { let t = _tt.apply(this, arguments); if (s && s.data && s.data.trim) { const T = s.data.trim; const nm = (k) => k.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' '); t += '\nUpgrade:\n ' + nm(T.p) + ' Armor Trim\n ' + nm(T.m.replace(/_ingot|_shard/, '')) + ' Material'; }
+    if (s && s.data && s.data.layers && s.data.layers.length) t += '\n' + s.data.layers.map(([p, c]) => { const n = (LOOM_BASIC.find(q => q[0] === p) || BANNER_PATTERNS.find(q => q[0] === p) || [p, p])[1]; return c.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ') + ' ' + n; }).join('\n');
+    if (s && s.data && s.data.sherds) t += '\n' + s.data.sherds.map(k => ITEMS[IT[k]] ? ITEMS[IT[k]].name : k).join('\n'); return t; }; }
+{ const _am = armorMats; armorMats = function (inv) { const out = _am.apply(this, arguments); for (const slot in ARMOR_SLOT) { const s = inv && inv[ARMOR_SLOT[slot]]; if (out[slot] && s && s.data && s.data.trim) out[slot] += '|' + s.data.trim.p + ':' + s.data.trim.m; } return out; }; }
+{ const _at = armorTex2; armorTex2 = function (mat, part) { if (typeof mat !== 'string' || mat.indexOf('|') < 0) return _at.apply(this, arguments); const key = mat + '#' + part; if (armorTex2Cache[key]) return armorTex2Cache[key];
+    const [base, trim] = mat.split('|'); const [p, m] = trim.split(':'); const baseMats = _at.call(this, base, part); const col = TRIM_MATS[m] || [200, 200, 200]; let h = 0; for (const ch of p) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const style = h % 5;
+    const mats = baseMats.map((bm, fi) => { const src = bm.map.image; const cv = document.createElement('canvas'); cv.width = cv.height = 16; const x = cv.getContext('2d'); x.drawImage(src, 0, 0); const img = x.getImageData(0, 0, 16, 16);
+      for (let y = 0; y < 16; y++) for (let i = 0; i < 16; i++) { const a = img.data[(y * 16 + i) * 4 + 3]; if (!a) continue; const on = style === 0 ? (y === 4 || y === 11) : style === 1 ? Math.abs(i - 7.5) + (y - 3) * 0.6 < 2 && y > 2 : style === 2 ? ((i + y) % 6 === 0) : style === 3 ? (i === 3 || i === 12) && y > 2 && y < 13 : (y === 2 || (y === 8 && i % 3 === 0));
+        if (on) { const k = (y * 16 + i) * 4; const sh = (fi === 2 ? 1.1 : 0.95); img.data[k] = Math.min(255, col[0] * sh); img.data[k + 1] = Math.min(255, col[1] * sh); img.data[k + 2] = Math.min(255, col[2] * sh); } }
+      x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide }); });
+    return armorTex2Cache[key] = mats; }; }
+// ---- placed banners keep their layers (and give them back when broken) ----
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const h = player.held(); const layers = h && h.id === id && h.data && h.data.layers; const before = hit ? world.get(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz) : 0; const r = _pb.apply(this, arguments);
+    if (r && layers && layers.length && BL[id] && BL[id].banner) { const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if ((BL[world.get(x, y, z)] || {}).banner) { bdataOf(world).set(keyOf(x, y, z), { layers }); OV.watch.add(keyOf(x, y, z)); ovDrop(keyOf(x, y, z)); } } return r; }; }
+{ const _bb = breakBlock; breakBlock = function (x, y, z) { const id = world.get(x, y, z); const d = BL[id]; if (d && d.banner) { const k = keyOf(x, y, z); const e = bdataOf(world).get(k); if (e && e.layers) { const r = _bb.apply(this, arguments); if (world.get(x, y, z) !== id) { bdataOf(world).delete(k); OV.watch.delete(k); ovDrop(k);
+          if (isSurv() && S.rules.doTileDrops !== false) { for (const it of G.items) if (!it.gone && it.id === IT[d.fam] && it.pos.distanceTo(new V3(x + 0.5, y + 0.5, z + 0.5)) < 1.5 && !it.extra) { it.extra = { data: { layers: e.layers } }; break; } } } return r; } } return _bb.apply(this, arguments); }; }
+{ const _ow = ovWatchable; ovWatchable = (id) => _ow(id) || !!(BL[id] && BL[id].banner); }
+{ const _ob = ovBuild; ovBuild = function (k) { const [x, y, z] = k.split(',').map(Number); const d = BL[world.get(x, y, z)];
+    if (d && d.banner) { const e = bdataOf(world).get(k); if (!e || !e.layers || !e.layers.length) return null; const cv = bannerCanvas(e.layers); const f = d.st.facing; const fv = [DV4[f][0], 0, DV4[f][1]]; const grp = new THREE.Group();
+      const wall = d.st.wall; const cy = wall ? 1 / 16 : 15 / 16; const off = wall ? -(0.5 - 14.5 / 16) + 0.003 : (0.5 - 6.25 / 16) + 0.003; const backOff = wall ? -(0.5 - 15.5 / 16) - 0.003 : (0.5 - 7.25 / 16) - 0.003;
+      const m = ovPlane(14 / 16, 26 / 16, cv); m.position.set(x + 0.5 + fv[0] * off, y + cy, z + 0.5 + fv[2] * off); m.rotation.y = Math.atan2(fv[0], fv[2]); grp.add(m);
+      const m2 = ovPlane(14 / 16, 26 / 16, cv); m2.position.set(x + 0.5 + fv[0] * backOff, y + cy, z + 0.5 + fv[2] * backOff); m2.rotation.y = Math.atan2(-fv[0], -fv[2]); m2.scale.x = -1; grp.add(m2);
+      return { obj: grp, light: [x, y, z] }; }
+    if (d && d.dpot) { const e = bdataOf(world).get(k); if (!e || !e.sherds) return null; const grp = new THREE.Group(); const faces = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+      e.sherds.forEach((sk, i) => { if (sk === 'clay_brick') return; const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0)'; const ic = ICON_CANVAS[IT[sk]]; if (ic) { g.globalAlpha = 0.85; g.drawImage(ic, 2, 1, 12, 12); }
+        const [fx, fz] = faces[(i + (e.f || 0)) % 4]; const m = ovPlane(12 / 16, 11 / 16, c); m.position.set(x + 0.5 + fx * (7 / 16 + 0.004), y + 6.5 / 16, z + 0.5 + fz * (7 / 16 + 0.004)); m.rotation.y = Math.atan2(fx, fz); grp.add(m); }); return { obj: grp, light: [x, y, z] }; }
+    return _ob.apply(this, arguments); }; }
+{ const _ow2 = ovWatchable; ovWatchable = (id) => _ow2(id) || !!(BL[id] && BL[id].dpot); }
+// the loom block opens the loom
+{ const _ua = useAction; useAction = function (eye, dir) { if (target && !targetMob && target.id === B.LOOM && !kd('sneak')) { mouseR = false; openLoomUI(); return; } return _ua.apply(this, arguments); }; }
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (this.ctx && name === 'loom') { this.nz(0.25, 1400, 0.3 * v, 'bandpass', 1); this.tone(300, 260, 0.1, 0.04 * v, 'triangle'); return; } return _pl.apply(this, arguments); }; }
+// banner patterns turn up in structures and trims in the places Minecraft hides them
+if (typeof addLoot === 'function') { addLoot('house', [['flower_banner_pattern', 1, 1, 0.04]]); addLoot('stronghold', [['eye_armor_trim_smithing_template', 1, 1, 0.1], ['globe_banner_pattern', 1, 1, 0.05]]); addLoot('pyramid', [['dune_armor_trim_smithing_template', 1, 1, 0.14]]); addLoot('jungle_temple', [['wild_armor_trim_smithing_template', 1, 1, 0.33]]);
+  addLoot('shipwreck', [['coast_armor_trim_smithing_template', 1, 1, 0.17]]); addLoot('fortress', [['rib_armor_trim_smithing_template', 1, 1, 0.07], ['snout_armor_trim_smithing_template', 1, 1, 0.08], ['piglin_banner_pattern', 1, 1, 0.1]]); addLoot('end_city', [['spire_armor_trim_smithing_template', 1, 1, 0.07]]);
+  addLoot('mineshaft', [['wayfinder_armor_trim_smithing_template', 1, 1, 0.05]]); addLoot('dungeon', [['raiser_armor_trim_smithing_template', 1, 1, 0.05], ['shaper_armor_trim_smithing_template', 1, 1, 0.05], ['host_armor_trim_smithing_template', 1, 1, 0.05]]); addLoot('igloo', [['ward_armor_trim_smithing_template', 1, 1, 0.1], ['silence_armor_trim_smithing_template', 1, 1, 0.02]]);
+  addLoot('ruined_portal', [['tide_armor_trim_smithing_template', 1, 1, 0.1], ['flow_armor_trim_smithing_template', 1, 1, 0.08], ['bolt_armor_trim_smithing_template', 1, 1, 0.08], ['flow_banner_pattern', 1, 1, 0.05], ['guster_banner_pattern', 1, 1, 0.05]]); }
+if (MOBS.pillager) MOBS.pillager.drops = (MOBS.pillager.drops || []).concat([['sentry_armor_trim_smithing_template', 1, 1, 0.03]]); if (MOBS.evoker) MOBS.evoker.drops = (MOBS.evoker.drops || []).concat([['vex_armor_trim_smithing_template', 1, 1, 0.05]]);
+
+// ================= RAIDS AND SNIFFERS (Minecraft 1.21 rules) =================
+// Drinking an ominous bottle gives Bad Omen. Walking into a village with Bad Omen turns it into Raid Omen, and 30
+// seconds later a raid starts: waves of pillagers, vindicators, ravagers, witches and evokers (3 waves on Easy, 5 on
+// Normal, 7 on Hard) arrive at the edge of the village and head for its middle. Clear every wave for Hero of the
+// Village; lose every villager and the raid is lost. Patrol and outpost captains (pillagers with a banner) drop an
+// ominous bottle. Sniffers sniff out torchflower seeds and pitcher pods from grass, dirt and moss, are bred with
+// torchflower seeds and lay sniffer eggs, which hatch faster on moss.
+Object.assign(EFFECTS, { bad_omen: 'Bad Omen', raid_omen: 'Raid Omen', hero_of_the_village: 'Hero of the Village', water_breathing: EFFECTS.water_breathing || 'Water Breathing', conduit_power: 'Conduit Power', glowing: 'Glowing' });
+{ const _oe = onEatItem; onEatItem = function (id) { _oe.apply(this, arguments); if (id === IT.ominous_bottle) { giveEffect('bad_omen', 6000, 0); Sfx.play('omen', 1); toast('Bad Omen', 2); } }; }
+// ---- captains ----
+function makeCaptain(m) { m.captain = true; if (!m.root) return; const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), new THREE.MeshLambertMaterial({ color: 0x6a4a2a })); pole.position.set(0, m.h + 0.3, -0.18); g.add(pole);
+  const c = document.createElement('canvas'); c.width = 20; c.height = 40; const x = c.getContext('2d'); x.fillStyle = '#eee'; x.fillRect(0, 0, 20, 40); x.fillStyle = '#2a8a8a'; x.fillRect(0, 24, 20, 6); x.fillStyle = '#222'; x.fillRect(6, 6, 8, 12); x.fillStyle = '#888'; x.fillRect(7, 18, 6, 4); x.fillStyle = '#444'; x.fillRect(0, 34, 20, 6);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.84), new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide })); flag.position.set(0, m.h + 0.35, -0.22); g.add(flag); m.root.add(g); }
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) { const m = _sm.apply(this, arguments); if (m && type === 'pillager' && !(opts && opts.raid) && !RAID.spawning && Math.random() < 0.12) makeCaptain(m); return m; }; }
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function () { const was = this.dead; const r = _h.apply(this, arguments); if (this.dead && !was && this.captain && !this.raid) dropItem(IT.ominous_bottle, 1, this.pos.x, this.pos.y + 0.6, this.pos.z); return r; }; }
+// ---- raids ----
+const RAID = { r: null, spawning: false, check: 0 };
+const RAID_WAVES = { pillager: [4, 3, 3, 4, 4, 4, 2], vindicator: [0, 2, 0, 1, 4, 2, 5], ravager: [0, 0, 1, 0, 1, 0, 2], witch: [0, 0, 0, 3, 0, 0, 1], evoker: [0, 0, 0, 0, 1, 1, 2] };
+function villageCenter() { const P = player.pos; const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; const st = typeof startNear === 'function' ? startNear(world, 'village', cx, cz, 3) : null; if (st) return new V3(st.cx * 16 + 8, P.y, st.cz * 16 + 8);
+  const vs = G.mobs.filter(m => !m.dead && m.type === 'villager' && m.pos.distanceTo(P) < 48); if (vs.length < 3) return null; const c = new V3(); for (const v of vs) c.add(v.pos); return c.divideScalar(vs.length); }
+function raidStart(center) { const waves = S.difficulty === 'easy' ? 3 : S.difficulty === 'hard' ? 7 : 5; RAID.r = { c: center.clone(), wave: 0, waves, t: 15, mobs: [], total: 1, state: 'wait' }; Sfx.play('raid_horn', 1); toast('Raid', 3); }
+function raidSpawnWave(R) { const i = R.wave; R.wave++; const ang = Math.random() * Math.PI * 2; const d = 30 + Math.random() * 6; let sx = Math.floor(R.c.x + Math.cos(ang) * d), sz = Math.floor(R.c.z + Math.sin(ang) * d);
+  const sy = typeof world.surfaceY === 'function' ? world.surfaceY(sx, sz) + 1 : Math.floor(R.c.y) + 2; R.mobs = []; RAID.spawning = true;
+  try { for (const type in RAID_WAVES) { if (!MOBS[type]) continue; const n = RAID_WAVES[type][Math.min(i, 6)] + (R.waves > 5 && i >= 5 ? 1 : 0); for (let k = 0; k < n; k++) { const m = spawnMob(type, sx + (Math.random() * 4 - 2), sy, sz + (Math.random() * 4 - 2), { raid: true }); if (!m) continue; m.raid = true; m.persistent = true; R.mobs.push(m); } }
+    if (R.mobs.length) { const cap = R.mobs.find(m => m.type === 'pillager') || R.mobs[0]; makeCaptain(cap); } } finally { RAID.spawning = false; }
+  R.total = R.mobs.reduce((a, m) => a + (m.maxHp || m.hp || 1), 0) || 1; R.state = 'fight'; Sfx.play('raid_horn', 1); }
+function raidTick(dt) { const R = RAID.r; const P = player;
+  if (!R) { RAID.check -= dt; if (RAID.check > 0) return; RAID.check = 1; const e = P.effects || {};
+    if (e.bad_omen && world.dim === 'overworld' && S.difficulty !== 'peaceful' && !P.dead) { const c = villageCenter(); if (c) { delete P.effects.bad_omen; giveEffect('raid_omen', 30, 0); RAID.pendingC = c; toast('Raid Omen', 2); } }
+    if (RAID.pendingC && !(P.effects || {}).raid_omen) { raidStart(RAID.pendingC); RAID.pendingC = null; } return; }
+  if (world.dim !== 'overworld' || S.difficulty === 'peaceful') { endRaid(false, true); return; }
+  R.mobs = R.mobs.filter(m => !m.dead && !m.gone && G.mobs.includes(m));
+  const alive = R.mobs.reduce((a, m) => a + Math.max(0, m.hp), 0);
+  show('bossbar', true); $('bossname').textContent = R.state === 'wait' ? 'Raid' : 'Raid - Raiders Remaining: ' + R.mobs.length; $('bossfill').style.width = (R.state === 'wait' ? (1 - R.t / 15) * 100 : alive / R.total * 100) + '%';
+  // raiders head for the middle of the village when nothing else holds their attention
+  if (R.mobs.length <= 2) for (const m of R.mobs) setGlow(m, 2);
+  const vill = G.mobs.filter(m => !m.dead && m.type === 'villager' && Math.hypot(m.pos.x - R.c.x, m.pos.z - R.c.z) < 64).length; if (R.hadVill && vill === 0) { endRaid(false); return; } if (vill) R.hadVill = true;
+  if (R.state === 'wait') { R.t -= dt; if (R.t <= 0) raidSpawnWave(R); return; }
+  if (!R.mobs.length) { if (R.wave >= R.waves) endRaid(true); else { R.state = 'wait'; R.t = 15; } } }
+function endRaid(won, quiet) { const R = RAID.r; RAID.r = null; show('bossbar', false); if (quiet || !R) return;
+  if (won) { toast('Raid - Victory', 4); giveEffect('hero_of_the_village', 2400, 0); Sfx.play('levelup', 1); for (let i = 0; i < 8; i++) setTimeout(() => Particles.emit(R.c.x + (Math.random() - 0.5) * 16, R.c.y + 12 + Math.random() * 6, R.c.z + (Math.random() - 0.5) * 16, 30, [[1, 0.3, 0.3], [0.3, 1, 0.4], [0.3, 0.5, 1], [1, 1, 0.4]], 6, 1.2, 4, 0.2, 1.6), i * 300); }
+  else toast('Raid - Defeat', 4); }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.apply(this, arguments); const R = RAID.r;
+    if (R && this.raid && !this.dead && !this.chasing && !this.prey && this.onGround) { const dx = R.c.x - this.pos.x, dz = R.c.z - this.pos.z; const d = Math.hypot(dx, dz); if (d > 8) { const sp = (MOBS[this.type].speed || 2) * 0.8; const vy = this.vel.y; this.vel.set(dx / d * sp, 0, dz / d * sp); moveEntity(this, dt); if (this.hitH) this.vel.y = 8; else this.vel.y = vy; this.yaw = Math.atan2(dx, dz); if (this.root) { this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; } } }
+    return r; }; }
+// ---- sniffers ----
+Object.assign(BREED_FOOD, { sniffer: ['torchflower_seeds'] }); if (typeof TEMPT_FOOD !== 'undefined') TEMPT_FOOD.sniffer = ['torchflower_seeds'];
+{ const _br = breed; breed = function (a, b) { if (a.type === 'sniffer' && b.type === 'sniffer') { a.loveT = b.loveT = 0; a.loveCD = b.loveCD = 300; const x = Math.floor((a.pos.x + b.pos.x) / 2), y = Math.floor(Math.max(a.pos.y, b.pos.y) + 0.1), z = Math.floor((a.pos.z + b.pos.z) / 2);
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) if (!world.get(x + dx, y, z + dz) && SOLID[world.get(x + dx, y - 1, z + dz)]) { world.set(x + dx, y, z + dz, B.SNIFFER_EGG); mpBlock(x + dx, y, z + dz, B.SNIFFER_EGG); break; }
+      for (const m of [a, b]) hearts(m, 6); spawnOrb(x, y + 0.5, z, 1 + (Math.random() * 7 | 0)); return; } return _br.apply(this, arguments); }; }
+const SNIFF_SOIL = new Set(['grass', 'dirt', 'podzol', 'coarse_dirt', 'rooted_dirt', 'moss_block', 'mud', 'muddy_mangrove_roots', 'snowy_grass']);
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.type !== 'sniffer' || this.dead || this.baby) return _u.apply(this, arguments);
+    if (this.digT > 0) { this.digT -= dt; this.vel.x = this.vel.z = 0; if (Math.random() < dt * 8) Particles.blockBreak(Math.floor(this.pos.x + Math.sin(this.yaw)), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z + Math.cos(this.yaw)), world.get(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z)) || B.DIRT, 1);
+      if (this.digT <= 0) { const it = Math.random() < 0.5 ? IT.torchflower_seeds : IT.pitcher_pod; dropItem(it, 1, this.pos.x + Math.sin(this.yaw) * 1.2, this.pos.y + 0.4, this.pos.z + Math.cos(this.yaw) * 1.2); Sfx.at('grunt', this.pos, 0.8); this.sniffCD = 120 + Math.random() * 240; } if (this.root) { this.root.position.copy(this.pos); } return; }
+    this.sniffCD = (this.sniffCD === undefined ? 30 + Math.random() * 90 : this.sniffCD) - dt;
+    if (this.sniffCD <= 0 && this.onGround) { const below = BL[world.get(Math.floor(this.pos.x), Math.floor(this.pos.y - 0.5), Math.floor(this.pos.z))]; if (below && SNIFF_SOIL.has(below.key)) { this.digT = 4; Sfx.at('grunt', this.pos, 0.6); } else this.sniffCD = 10; }
+    return _u.apply(this, arguments); }; }
+function snifferEggTick(x, y, z, id) { const d = BL[id]; const moss = world.get(x, y - 1, z) === B.MOSS_BLOCK; if (Math.random() > (moss ? 0.035 : 0.017)) return;
+  if (d.snifferEgg < 2) { const nid = B['SNIFFER_EGG#' + (d.snifferEgg + 1)]; world.set(x, y, z, nid); mpBlock(x, y, z, nid); Sfx.at('egg_crack', new V3(x + 0.5, y, z + 0.5), 0.8); }
+  else { world.set(x, y, z, 0); mpBlock(x, y, z, 0); const m = spawnMob('sniffer', x + 0.5, y, z + 0.5); if (m && typeof setBaby === 'function') setBaby(m, true, 2400); Sfx.at('egg_crack', new V3(x + 0.5, y, z + 0.5), 1); } }
+if (typeof BRUSH_LOOT !== 'undefined') BRUSH_LOOT.sand.push(['sniffer_egg', 2]);
+// ---- the clock and sounds ----
+{ const _uw = updateWater; updateWater = function (dt) { const r = _uw.apply(this, arguments); if (world && !isClientMP()) { try { raidTick(dt); } catch (e) { console.error(e); } } return r; }; }
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (!this.ctx) return _pl.apply(this, arguments); if (!(v >= 0.02)) return;
+    if (name === 'raid_horn') { this.tone(110, 108, 3, 0.2 * v, 'sawtooth'); this.tone(165, 162, 3, 0.1 * v, 'sawtooth'); this.tone(55, 55, 3, 0.12 * v, 'triangle'); return; }
+    if (name === 'omen') { this.tone(200, 90, 1.2, 0.1 * v, 'sawtooth'); this.nz(1, 300, 0.2 * v, 'lowpass'); return; }
+    return _pl.apply(this, arguments); }; }
+
+// ================= TRIPWIRE, CRAFTER, SCULK SENSORS, MULTIPLAYER SYNC (Minecraft rules) =================
+// Tripwire: two tripwire hooks facing each other up to 40 blocks apart with string between them make a circuit; anything
+// touching the string powers both hooks (and the blocks they hang on) until 10 ticks after it leaves. String placed on
+// the ground becomes tripwire. Crafter: a redstone pulse crafts whatever its 3 x 3 grid holds and pushes the result
+// out of its front (into a container there if there is one). Sculk sensors hear vibrations (steps, blocks placed and
+// broken, doors, chests, eating, projectiles) within 8 blocks, calibrated ones within 16, and give a short redstone
+// pulse that is stronger the closer the sound. In multiplayer, sign text, paintings, banners, pots and the contents of
+// frames, stands and bookshelves are shared.
+const WIRES = { hooks: new Set(), sensors: new Set(), world: null, t: 0, sense: new Map(), stepT: 0 };
+const isHook = (id) => !!(BL[id] && BL[id].hook); const isWire = (id) => !!(BL[id] && BL[id].tripwire); const isSensor = (id) => !!(BL[id] && BL[id].sensor);
+function wiresScan() { WIRES.hooks.clear(); WIRES.sensors.clear(); WIRES.world = world; for (const [ck, m] of world.edits) { const cx = Math.floor(ck / 65536) - 32768, cz = (ck % 65536) - 32768; for (const [i, id] of m) { const k = keyOf(cx * 16 + (i & 15), i >> 8, cz * 16 + ((i >> 4) & 15)); if (isHook(id)) WIRES.hooks.add(k); if (isSensor(id)) WIRES.sensors.add(k); } } }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id, record) { const mine = this === G.world; const old = mine ? this.get(x, y, z) : 0; const r = _set.apply(this, arguments);
+    if (r !== false && mine) { const k = keyOf(x, y, z); if (isHook(id)) WIRES.hooks.add(k); else if (isHook(old)) WIRES.hooks.delete(k); if (isSensor(id)) WIRES.sensors.add(k); else if (isSensor(old)) WIRES.sensors.delete(k); }
+    return r; }; }
+// ---- redstone: powered hooks, sensing sculk sensors ----
+const K_HOOK = 20, K_SENSOR = 21;
+for (const d of BL) { if (!d) continue; if (d.hook) RSK[d.id] = K_HOOK; if (d.sensor) RSK[d.id] = K_SENSOR; if (d.crafter) RSU[d.id] = 12; if (d.hook || d.sensor) COND[d.id] = 0; }
+{ const _e = rsEmit; rsEmit = function (x, y, z, id, dir, strong) { const k = RSK[id];
+    if (k === K_HOOK) { const d = BL[id]; if (!d.st.powered) return 0; const back = F4TO6[(d.st.facing + 2) % 4]; return strong ? (dir === back ? 15 : 0) : 15; }
+    if (k === K_SENSOR) { const d = BL[id]; if (!d.sensorOn) return 0; const p = WIRES.sense.get(keyOf(x, y, z)) || 15; return strong ? (dir === 1 ? p : 0) : p; }
+    return _e.apply(this, arguments); }; }
+{ const _wl = wireLinksTo; wireLinksTo = function (id, s) { if (RSK[id] === K_SENSOR) return true; if (RSK[id] === K_HOOK) return (BL[id].st.facing & 1) !== (s & 1) || true; return _wl.apply(this, arguments); }; }
+// ---- tripwire ----
+function hookCircuit(x, y, z) { const d = BL[world.get(x, y, z)]; if (!d || !d.hook) return null; const [dx, dz] = DV4[d.st.facing]; const cells = [];
+  for (let i = 1; i <= 41; i++) { const X = x + dx * i, Z = z + dz * i; const id = world.get(X, y, Z); const n = BL[id]; if (n && n.hook) return n.st.facing === (d.st.facing + 2) % 4 && cells.length ? { cells, other: [X, y, Z] } : null; if (!n || !n.tripwire) return null; cells.push([X, y, Z]); } return null; }
+function entityOn(cells) { const ents = [player, ...G.mobs.filter(m => !m.dead), ...(G.items || []).filter(i => !i.gone), ...(G.projectiles || []).filter(p => !p.done)];
+  for (const [x, y, z] of cells) for (const e of ents) { if (!e.pos || (e === player && (player.dead || isSpec()))) continue; const hw = e.hw || 0.12, h = e.h || 0.25; if (e.pos.x + hw > x && e.pos.x - hw < x + 1 && e.pos.z + hw > z && e.pos.z - hw < z + 1 && e.pos.y < y + 0.16 && e.pos.y + h > y) return true; } return false; }
+function wiresTick(dt) { if (!world) return; if (WIRES.world !== world) wiresScan(); WIRES.t += dt; if (WIRES.t < 0.1) return; WIRES.t = 0;
+  const seen = new Set();
+  for (const k of [...WIRES.hooks]) { if (seen.has(k)) continue; const [x, y, z] = k.split(',').map(Number); if (!world.loaded(x, z)) continue; const id = world.get(x, y, z); if (!isHook(id)) { WIRES.hooks.delete(k); continue; } seen.add(k);
+    const c = hookCircuit(x, y, z); const d = BL[id];
+    if (!c) { if (d.st.attached || d.st.powered) world.set(x, y, z, withState(id, { attached: 0, powered: 0 })); continue; }
+    seen.add(keyOf(...c.other)); const hit = entityOn(c.cells); const now = RS.tick; if (hit) WIRES.sense.set('trip:' + k, now); const last = WIRES.sense.get('trip:' + k); const on = hit || (last !== undefined && now - last < 10);
+    for (const [hx, hy, hz] of [[x, y, z], c.other]) { const hid = world.get(hx, hy, hz); const nid = withState(hid, { attached: 1, powered: on ? 1 : 0 }); if (nid !== hid) { world.set(hx, hy, hz, nid); mpBlock(hx, hy, hz, nid); Sfx.at(on ? 'click_on' : 'click_off', new V3(hx + 0.5, hy + 0.5, hz + 0.5), 0.8); } }
+    for (const [wx, wy, wz] of c.cells) { const wid = world.get(wx, wy, wz); const nid = FAMILY.tripwire.ids['1,' + (on ? 1 : 0)]; if (wid !== nid) world.set(wx, wy, wz, nid); } } }
+{ const _sb = shapeBoxes; shapeBoxes = function (id, x, y, z, get, which) { const d = BL[id]; if (d && d.shape === 'wire_t') { if (which !== 'r') return d.sb; const yy = d.st.attached ? 1 : 1.5; const t = TILE.tripwire;
+      const link = (dx, dz) => { const n = BL[get(x + dx, y, z + dz)]; return !!(n && (n.tripwire || n.hook)); }; const ew = link(1, 0) || link(-1, 0), ns = link(0, 1) || link(0, -1); const bs = [];
+      if (ew || !ns) bs.push([0, yy, 7.5, 16, yy + 0.25, 8.5, t]); if (ns || !ew) bs.push([7.5, yy, 0, 8.5, yy + 0.25, 16, t]); return bs; } return _sb.apply(this, arguments); }; }
+// ---- the crafter ----
+{ const _ru = rsUpdate; rsUpdate = function (x, y, z) { const id = world.get(x, y, z); const d = BL[id]; if (d && d.crafter) { const k = keyOf(x, y, z); const p = powerAt(x, y, z) > 0; const was = RS.edge.get(k) || false; if (p !== was) { RS.edge.set(k, p); if (p && !rsPending(x, y, z, 'craft')) rsSchedule(x, y, z, 'craft', 4); } return; } return _ru.apply(this, arguments); }; }
+{ const _rr = rsRun; rsRun = function (kind, x, y, z) { const id = world.get(x, y, z); const d = BL[id];
+    if (kind === 'craft' && d && d.crafter) { const c = contAt(x, y, z); const grid = c.arr.slice(0, 9); const r = gridMatch(grid, 3); const pos = new V3(x + 0.5, y + 0.5, z + 0.5);
+      world.set(x, y, z, withState(id, { ex: 1 })); rsSchedule(x, y, z, 'crafted', 4);
+      if (!r) { Sfx.at('dispense_fail', pos, 0.8); return; } const outId = IT[r.out[0]], n = r.out[1]; const v = RV[d.st.facing]; const fx = x + v[0], fy = y + v[1], fz = z + v[2];
+      for (let i = 0; i < 9; i++) { const s = c.arr[i]; if (!s) continue; const remain = s.id === IT.milk_bucket || s.id === IT.water_bucket || s.id === IT.lava_bucket ? IT.bucket : s.id === IT.honey_bottle ? IT.glass_bottle : null; s.count--; if (s.count <= 0) c.arr[i] = remain ? { id: remain, count: 1 } : null; }
+      contChanged(c); const out = contAt(fx, fy, fz); let left = n; if (out) { const it = { id: outId, count: 1 }; while (left > 0 && contInsert(out, it, d.st.facing ^ 1)) left--; }
+      if (left > 0) { const e = dropItem(outId, left, x + 0.5 + v[0] * 0.7, y + 0.5 + v[1] * 0.7, z + 0.5 + v[2] * 0.7, false); if (e && e.vel) e.vel.set(v[0] * 3, v[1] * 3 + 1, v[2] * 3); }
+      Sfx.at('crafter', pos, 0.9); Particles.emit(x + 0.5 + v[0] * 0.6, y + 0.5 + v[1] * 0.6, z + 0.5 + v[2] * 0.6, 6, [[0.9, 0.9, 0.9]], 1, 0.4, 0, 0.2); return; }
+    if (kind === 'crafted' && d && d.crafter) { world.set(x, y, z, withState(id, { ex: 0 })); return; }
+    if (kind === 'sensor_off' && d && d.sensor && d.sensorOn) { world.set(x, y, z, d.sensor === 'calibrated' ? B.CALIBRATED_SCULK_SENSOR : B.SCULK_SENSOR); WIRES.sense.delete(keyOf(x, y, z)); RS.edge.set('sc:' + keyOf(x, y, z), RS.tick + 10); return; }
+    return _rr.apply(this, arguments); }; }
+{ const _cs = containerSignal; containerSignal = function (x, y, z) { const d = BL[world.get(x, y, z)]; if (d && d.crafter) { const inv = world.chestInv.get(keyOf(x, y, z)); return inv ? inv.slice(0, 9).filter(Boolean).length : 0; } if (d && d.sensor) return d.sensorOn ? (WIRES.sense.get(keyOf(x, y, z)) || 1) : 0; return _cs.apply(this, arguments); }; }
+{ const _ou = openUI; openUI = function (kind, key) { const r = _ou.apply(this, arguments); if (kind === 'chest') { const p = String(key).split(',').map(Number); if (p.length === 3 && (BL[world.get(p[0], p[1], p[2])] || {}).crafter) $('chestTitle').textContent = 'Crafter'; } return r; }; }
+// ---- sculk sensors ----
+{ const _vb = vibrate; vibrate = function (pos, src) { const r = _vb.apply(this, arguments); try { senseVibration(pos); } catch (e) { console.error(e); } return r; }; }
+function senseVibration(pos) { if (!world || isClientMP()) return;
+  for (const k of WIRES.sensors) { const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.sensor) continue; const range = d.sensor === 'calibrated' ? 16 : 8;
+    const dist = Math.hypot(pos.x - x - 0.5, pos.y - y - 0.5, pos.z - z - 0.5); if (dist > range || dist < 0.6 || d.sensorOn) continue; if ((RS.edge.get('sc:' + k) || 0) > RS.tick) continue;
+    const p = Math.max(1, Math.min(15, 15 - Math.floor(dist / range * 15))); WIRES.sense.set(k, p); world.set(x, y, z, d.sensor === 'calibrated' ? B['CALIBRATED_SCULK_SENSOR#ON'] : B['SCULK_SENSOR#ON']); mpBlock(x, y, z, world.get(x, y, z));
+    rsSchedule(x, y, z, 'sensor_off', d.sensor === 'calibrated' ? 10 : 30); Sfx.at('sculk_click', new V3(x + 0.5, y + 0.5, z + 0.5), 0.8); Particles.emit(x + 0.5, y + 1, z + 0.5, 4, [[0.2, 0.9, 0.9]], 0.8, 0.6, -1, 0.3); } }
+// more things make vibrations (the warden already hears steps of mobs near it)
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const r = _pb.apply(this, arguments); if (r && hit) vibrate(new V3(hit.x + hit.nx + 0.5, hit.y + hit.ny + 0.5, hit.z + hit.nz + 0.5), 'player'); return r; }; }
+{ const _sd = setDoor; setDoor = function (x, y, z) { const r = _sd.apply(this, arguments); vibrate(new V3(x + 0.5, y + 0.5, z + 0.5), 'player'); return r; }; }
+{ const _oc = openChest; openChest = function (x, y, z) { vibrate(new V3(x + 0.5, y + 0.5, z + 0.5), 'player'); return _oc.apply(this, arguments); }; }
+{ const _oe = onEatItem; onEatItem = function () { vibrate(player.pos.clone(), 'player'); return _oe.apply(this, arguments); }; }
+function stepVibes(dt) { const P = player; if (!WIRES.sensors.size || P.dead || P.sneaking || !P.onGround || isSpec()) return; if (Math.hypot(P.vel.x, P.vel.z) < 1) return; WIRES.stepT -= dt; if (WIRES.stepT > 0) return; WIRES.stepT = 0.45; vibrate(P.pos.clone(), 'player'); }
+// ---- placing tripwire (string) and hooks ----
+{ const _ua = useAction; useAction = function (eye, dir) { const h = player.held();
+    if (h && h.id === IT.string && target && !targetMob && target.ny === 1 && !(BL[target.id] && BL[target.id].use && !kd('sneak'))) { const x = target.x, y = target.y + 1, z = target.z; if (replaceableAt(x, y, z) && SOLID[world.get(x, y - 1, z)]) { world.set(x, y, z, FAMILY.tripwire.base); mpBlock(x, y, z, FAMILY.tripwire.base); useHeld(1); Sfx.play('wool', 0.8); S.swing = 1; mouseR = false; return; } }
+    return _ua.apply(this, arguments); }; }
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const d = BL[id]; if (d && d.hook && hit) { if (hit.ny !== 0) return false; const vid = FAMILY.tripwire_hook.ids[[dirOf(hit.nx, hit.nz), 0, 0].join(',')]; const x = hit.x + hit.nx, y = hit.y, z = hit.z + hit.nz; if (!shapeSupported(x, y, z, vid)) return false; return _pb.call(this, hit, vid); } return _pb.apply(this, arguments); }; }
+// ---- multiplayer: block data and container contents ----
+let SYNC_QUIET = false;
+class SyncMap extends Map { constructor(entries, tag, w) { super(entries || []); this.tag = tag; this.w = w; }
+  set(k, v) { super.set(k, v); syncOut(this, k, v); return this; } delete(k) { const had = super.delete(k); if (had && this.tag === 'bdata') syncOut(this, k, undefined); return had; } }
+function syncOut(map, k, v) { if (SYNC_QUIET || !map.w || typeof MP === 'undefined' || !MP.active || !/^-?\d+,-?\d+,-?\d+$/.test(k)) return;
+  if (map.tag === 'bdata') mpSend({ t: 'bdata', dim: map.w.dim, k, v: v === undefined ? null : v }, false); else if (Array.isArray(v)) mpSend({ t: 'chest', dim: map.w.dim, k, inv: v.map(slotOut) }, false); }
+function syncWrap() { if (typeof Dim === 'undefined') return; for (const d in Dim.worlds) { const w = Dim.worlds[d]; if (!(w.chestInv instanceof SyncMap)) w.chestInv = new SyncMap(w.chestInv, 'chest', w); if (w.bdata && !(w.bdata instanceof SyncMap)) w.bdata = new SyncMap(w.bdata, 'bdata', w); else if (!w.bdata) w.bdata = new SyncMap(null, 'bdata', w); } }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m && m.t === 'bdata') { const w = Dim.get(m.dim); syncWrap(); SYNC_QUIET = true; try { if (m.v === null) w.bdata.delete(m.k); else w.bdata.set(m.k, m.v); } finally { SYNC_QUIET = false; } if (w === world && typeof ovDrop === 'function') { const e = m.v; if (e && e.anchor) OV.watch.add(m.k); ovDrop(m.k); } if (MP.role === 'host') mpSendAll(m, false, peer.id); return; }
+    SYNC_QUIET = true; try { const r = _on.apply(this, arguments); if (m && m.t === 'chest' && typeof ovDrop === 'function') ovDrop(m.k); return r; } finally { SYNC_QUIET = false; } }; }
+{ const _cw = clientWelcome; clientWelcome = function (m) { SYNC_QUIET = true; try { const r = _cw.apply(this, arguments); for (const d in (m.worlds || {})) if (m.worlds[d].bdata) { const w = Dim.get(d); w.bdata = new SyncMap(Object.entries(m.worlds[d].bdata), 'bdata', w); } if (typeof OV !== 'undefined') OV.world = null; return r; } finally { SYNC_QUIET = false; } }; }
+// mutations made in place get sent too
+function chestTouched(k) { const inv = world.chestInv.get(k); if (inv) world.chestInv.set(k, inv); }
+{ const _ua = useAction; useAction = function (eye, dir) { const t = target; const r = _ua.apply(this, arguments); if (t && typeof MP !== 'undefined' && MP.active) { const d = BL[world.get(t.x, t.y, t.z)] || {}; const by = d.armorStand === 'upper' ? t.y - 1 : t.y; if (d.armorStand || d.cbs || d.dpot || d.frame || d.jukebox) chestTouched(keyOf(t.x, by, t.z)); } return r; }; }
+// ---- the clock and sounds ----
+{ const _uw = updateWater; updateWater = function (dt) { const r = _uw.apply(this, arguments); try { syncWrap(); if (world && !isClientMP()) { wiresTick(dt); stepVibes(dt); } } catch (e) { console.error(e); } return r; }; }
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (!this.ctx) return _pl.apply(this, arguments); if (!(v >= 0.02)) return;
+    if (name === 'sculk_click') { this.tone(1800, 1400, 0.05, 0.05 * v, 'square'); this.nz(0.15, 600, 0.15 * v, 'lowpass'); return; } if (name === 'crafter') { this.nz(0.12, 1200, 0.3 * v, 'bandpass', 2); this.tone(500, 700, 0.08, 0.05 * v, 'triangle'); return; }
+    return _pl.apply(this, arguments); }; }
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the
