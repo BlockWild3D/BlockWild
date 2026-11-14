@@ -133,7 +133,7 @@ function hitBoat(b) {
   S.atkCD = 0.25; S.swing = 1; b.hurtT = 0.4; b.hp += S.mode === 'creative' ? 99 : dmg; Sfx.play('wood', 0.7);
   Particles.emit(b.pos.x, b.pos.y + 0.4, b.pos.z, 6, [[0.64, 0.52, 0.31], [0.44, 0.33, 0.18]], 2, 0.4, 10, 0.3);
   if (b.hp >= 4) {
-    if (S.mode !== 'creative') dropItem(IT.boat, 1, b.pos.x, b.pos.y + 0.4, b.pos.z, true);
+    if (S.mode !== 'creative') dropItem(typeof boatItemOf === 'function' ? boatItemOf(b) : IT.boat, 1, b.pos.x, b.pos.y + 0.4, b.pos.z, true);
     if (typeof MP !== 'undefined' && MP.active) mpSend({ t: 'boatdel', id: b.id }, false);
     removeBoat(b);
   } else boatSync(b, false);

@@ -31,6 +31,7 @@ function randomTicks(dt) {
       } else if (id === B.BUDDING_AMETHYST || def.berry !== undefined || def.bamboo || def.cocoa !== undefined || id === B.CAVE_VINES || id === B.TWISTING_VINES || id === B.WEEPING_VINES) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; caveTick(ox + lx, y, oz + lz, id);
       } else if (id === B.KELP || (def.coralBlock && !def.dead)) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; oceanTick(ox + lx, y, oz + lz, id);
       } else if (def.stem !== undefined || def.mushroom) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; natureTick(ox + lx, y, oz + lz, id);
+      } else if (def.turtleEgg || def.frogspawn) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; eggTick(ox + lx, y, oz + lz, id);
       } else if (def.hive !== undefined) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; hiveTick(ox + lx, y, oz + lz, id);
       } else if (def.sapling) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; saplingTick(ox + lx, y, oz + lz, id);
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
