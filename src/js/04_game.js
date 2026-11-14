@@ -163,7 +163,7 @@ function slotClick(cont, i, button, shift) {
     let tgt, order;
     if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
     if (cont !== 'inv') { tgt = player.inv; order = [...Array(9).keys()].concat([...Array(27).keys()].map(k => k + 9)); }
-    else if (chestArr) { tgt = chestArr; order = [...Array(27).keys()]; }
+    else if (chestArr) { tgt = chestArr; order = [...Array(chestArr.length).keys()]; }
     else if (furnState) { tgt = furnState.s; order = FUEL[s.id] && !SMELT[s.id] ? [1] : [0]; }
     else if (enchState) { if (s.id === IT.lapis_lazuli) { tgt = enchState.s; order = [1]; } else if (enchCat(s.id) && !enchState.s[0]) { enchState.s[0] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; } else return; }
     else if (s.id === IT.shield && i !== 36 && !player.inv[36]) { tgt = player.inv; order = [36]; }
@@ -191,7 +191,7 @@ function renderCursor() { const el = $('cursorItem'); const c = S.cursor; if (!c
 function renderInvUI() {
   for (let i = 0; i < 41; i++) paintSlot(slotEls.inv[i], player.inv[i]);
   for (let i = 37; i <= 40; i++) { const el = slotEls.inv[i]; el.classList.toggle('empty', !player.inv[i]); if (!player.inv[i]) el.firstChild.src = ICON[IT[['iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'][i - 37]]]; } slotEls.inv[36].classList.toggle('empty', !player.inv[36]); if (!player.inv[36]) { const im = slotEls.inv[36].firstChild; im.src = ICON[IT.shield]; }
-  if (chestArr) for (let i = 0; i < 27; i++) paintSlot(slotEls.chest[i], chestArr[i]);
+  if (chestArr) for (let i = 0; i < 27; i++) { const on = i < chestArr.length; slotEls.chest[i].style.display = on ? '' : 'none'; if (on) paintSlot(slotEls.chest[i], chestArr[i]); }
   if (S.uiOpen === 'inv' || S.uiOpen === 'table') { for (let i = 0; i < S.gridN * S.gridN; i++) paintSlot(slotEls.grid[i], craftGrid[i]); const r = currentRecipe(); paintSlot(outEl, r ? { id: IT[r.out[0]], count: r.out[1] } : null); }
   if (furnState) for (let i = 0; i < 3; i++) paintSlot(slotEls.furn[i], furnState.s[i]);
   if (enchState) renderEnch();

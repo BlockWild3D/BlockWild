@@ -45,7 +45,7 @@ function setRailShape(x, y, z, shape) { const r = railAt(x, y, z); if (!r || r.s
 // rails and levers pop off when the block under them goes; power is recomputed after changes
 { const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) {
     const r = _set.apply(this, arguments);
-    if (r !== false && this === G.world) { const above = this.get(x, y + 1, z); const d = BL[above]; if (d && (d.rail || d.key === 'lever' || d.key === 'lever_on' || d.key === 'redstone_torch') && !SOLID[id] && !(typeof MP !== 'undefined' && MP.active && MP.role === 'client')) { _set.call(this, x, y + 1, z, 0); mpBlock(x, y + 1, z, 0); const dr = blockDrop(above, null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 1.3, z + 0.5); }
+    if (r !== false && this === G.world) { const above = this.get(x, y + 1, z); const d = BL[above]; if (d && (d.rail || d.key === 'lever' || d.key === 'lever_on' || d.key === 'redstone_torch' || d.key === 'redstone_torch_off') && !SOLID[id] && !(typeof MP !== 'undefined' && MP.active && MP.role === 'client')) { _set.call(this, x, y + 1, z, 0); mpBlock(x, y + 1, z, 0); const dr = blockDrop(above, null); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 1.3, z + 0.5); }
       if ((BL[id] && (BL[id].power || BL[id].rail)) || POWER.watch) POWER.dirty = true; }
     return r;
   }; }

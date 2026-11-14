@@ -644,7 +644,7 @@ class World {
         const t = def.texIds[0]; const { u0, v0, px } = tileSub(t);
         const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
         // a torch with nothing under it hangs on a wall: its foot against the wall, leaning out (Minecraft's wall torch)
-        let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
+        let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH || id === B.REDSTONE_TORCH_OFF) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           if (wx || wz) for (let k = 0; k < 4; k++) { const ly = (vtmp[k * 3 + 1] - y) / (10 / 16); vtmp[k * 3] += wx * (0.38 - ly * 0.24); vtmp[k * 3 + 2] += wz * (0.38 - ly * 0.24); vtmp[k * 3 + 1] += 0.22; }
@@ -674,6 +674,7 @@ class World {
             for (let k = 0; k < 4; k++) { const cc = F.c[k]; const lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
+              const ur = def.uvRot ? def.uvRot[f] : 0; for (let q = 0; q < ur; q++) { const t = uf; uf = 1 - vf; vf = t; } // turned textures (repeaters, pistons)
               uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * uf; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * vf; sh[k] = F.s; bl[k] = b0; }
             quad(def.translucent ? T : O, vtmp.slice(), uvtmp.slice(), edge ? sky(x + F.n[0], y + F.n[1], z + F.n[2]) : s, bl.slice(), sh.slice(), false, 0);
           }

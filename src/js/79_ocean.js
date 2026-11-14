@@ -3,7 +3,7 @@
 // on a block's side become wall fans), kelp growing upward, coral dying out of water, and oceans filled in at world
 // generation: seagrass and kelp forests in cooler oceans, coral reefs with fans and sea pickles in warm ones.
 { const _pb = placeBlock; placeBlock = function (hit, id) {
-    const d = BL[id]; if (!d || !hit || !(d.kelp || d.support === 'floor' || d.coralBlock)) return _pb.apply(this, arguments);
+    const d = BL[id]; if (!d || !hit || !(d.kelp || (d.support === 'floor' && !d.shape) || d.coralBlock)) return _pb.apply(this, arguments);
     if (d.coralBlock) return _pb.apply(this, arguments);
     if (d.pickles) { const hd = BL[hit.id]; if (hd && hd.pickles && hd.pickles < 4) { world.set(hit.x, hit.y, hit.z, B[('sea_pickle#' + (hd.pickles + 1)).toUpperCase()]); Sfx.play('grass', 1, 1.2); return true; } }
     let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; const cur = world.get(x, y, z);
