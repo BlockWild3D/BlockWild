@@ -671,7 +671,9 @@ class World {
             const F = FACES[f]; const edge = (F.n[0] > 0 && a1 === 1) || (F.n[0] < 0 && a0 === 0) || (F.n[1] > 0 && y1 === 1) || (F.n[1] < 0 && y0 === 0) || (F.n[2] > 0 && c1 === 1) || (F.n[2] < 0 && c0 === 0);
             if (edge && OPAQUE[get(x + F.n[0], y + F.n[1], z + F.n[2])]) continue;
             const uv = TILE_UV[bx[6] != null ? bx[6] : def.texIds[f]];
-            for (let k = 0; k < 4; k++) { const cc = F.c[k]; const lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
+            for (let k = 0; k < 4; k++) { const cc = F.c[k]; let lx = cc[0] ? a1 : a0, ly = cc[1] ? y1 : y0, lz = cc[2] ? c1 : c0; vtmp[k * 3] = x + lx; vtmp[k * 3 + 1] = y + ly; vtmp[k * 3 + 2] = z + lz;
+              // boxes reaching outside their block (banner cloth, piston arms) stretch the texture over the box instead of reading past the tile
+              if (a0 < 0 || a1 > 1) lx = (lx - a0) / (a1 - a0); if (y0 < 0 || y1 > 1) ly = (ly - y0) / (y1 - y0); if (c0 < 0 || c1 > 1) lz = (lz - c0) / (c1 - c0);
               let uf, vf; if (f === 0) { uf = 1 - lz; vf = ly; } else if (f === 1) { uf = lz; vf = ly; } else if (f === 2) { uf = lx; vf = 1 - lz; } else if (f === 3) { uf = lx; vf = lz; } else if (f === 4) { uf = lx; vf = ly; } else { uf = 1 - lx; vf = ly; }
               if (sw && f >= 2 && f <= 3) { const t = uf; uf = vf; vf = t; }
               const ur = def.uvRot ? def.uvRot[f] : 0; for (let q = 0; q < ur; q++) { const t = uf; uf = 1 - vf; vf = t; } // turned textures (repeaters, pistons)
