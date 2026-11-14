@@ -2175,8 +2175,12 @@ class Gen {
   }
   caveTest(y, f, k) {
     const Y = y - YOFF; const a = f[k], c = f[k + 1];
-    if (a * a + c * c < (Y < 0 ? 0.0078 : 0.0055)) return true;
-    if (Y > -60 && Y < 130 && f[k + 2] > 0.05) { const p = f[k + 3], q = f[k + 4]; if (p * p + q * q < 0.0016) return true; }
+    // tunnels only run where a slow regional field allows them, and narrow to nothing at its edge, so each tunnel is a
+    // few dozen blocks long and ends in a point instead of winding on forever
+    const reg = f[k + 5], tun = clamp((reg + 0.16) / 0.2, 0, 1);
+    if (tun > 0 && a * a + c * c < (Y < 0 ? 0.0078 : 0.0055) * tun) return true;
+    const nood = clamp((reg - 0.02) / 0.15, 0, 1);
+    if (nood > 0 && Y > -60 && Y < 130 && f[k + 2] > 0.05) { const p = f[k + 3], q = f[k + 4]; if (p * p + q * q < 0.0016 * nood) return true; }
     if (Y < 50) { const v = f[k + 5]; const th = 0.34 - (Y < -8 ? 0.07 : 0) + (Y > 30 ? (Y - 30) * 0.035 : 0); if (v > th - 0.12 && v + f[k + 6] * 0.2 > th) return true; }
     return false;
   }
@@ -12657,6 +12661,19 @@ function tpItemMesh(id, left) {
   inner.scale.setScalar(tool ? 1.05 : 0.7); inner.position.set(0, -0.02, 0.04);
   g.add(inner); return g;
 }
+// third-person swings per tool: windup pose W and strike pose S as [arm x, arm y, arm z, body twist]; a/b = when the
+// windup ends and the strike lands. Sword: a sideways slash across the body. Axe: raised high over the head and
+// chopped down. Pickaxe: a shorter overhead pick. Shovel: a forward scoop. Hoe: raised and pulled down towards you.
+// Mace: both arms up for a heavy slam. Trident/spear: drawn back and thrust forward.
+const TP_SWINGS = {
+  sword: { a: 0.22, b: 0.5, W: [-1.5, -0.9, -1.1, -0.3], S: [-1.3, 0.8, -1.1, 0.35] },
+  axe: { a: 0.3, b: 0.55, W: [-2.9, 0.1, 0, -0.1], S: [-0.5, 0.2, 0, 0.15] },
+  pick: { a: 0.25, b: 0.5, W: [-2.5, 0.15, -0.2, -0.1], S: [-0.6, 0.25, -0.2, 0.12] },
+  shovel: { a: 0.22, b: 0.5, W: [-0.5, 0.1, 0, -0.1], S: [-1.7, 0.3, 0, 0.2] },
+  hoe: { a: 0.28, b: 0.52, W: [-2.2, 0.1, 0, -0.1], S: [-0.3, 0.2, 0, 0.15] },
+  mace: { a: 0.38, b: 0.6, W: [-3.0, 0, 0.1, -0.15], S: [-0.4, 0.25, 0, 0.25], L: [-2.6, -0.5, -0.6, -0.3] },
+  thrust: { a: 0.22, b: 0.45, W: [-1.3, 0.05, 0, -0.15], S: [-1.5, 0.1, 0, 0.2], pz: [-2, 4] },
+};
 { const _mk = makePlayerModel; makePlayerModel = function (skin, name) {
   const M = _mk(skin, name); const P = M.P; M.held.visible = false;
   const hand = new THREE.Group(); hand.position.set(0, -10 * PX, 0); P.armR.add(hand);
@@ -12688,11 +12705,18 @@ function tpItemMesh(id, left) {
       const lift = 0.94 + clamp(pitch, -0.6, 0.6) * 0.5; arm.rotation.x = arm.rotation.x * 0.5 - lift; arm.rotation.y = (bl === 'off' ? -1 : 1) * Math.PI / 6;
       const s = sh(mesh); if (s) { arm.updateMatrix(); s.quaternion.copy(arm.quaternion).invert(); s.position.set(bl === 'off' ? -0.08 : 0.08, 0.02, 0.1); } } // upright, facing forward
     else { for (const [m, left] of [[this.mainMesh, false], [this.offMesh, true]]) { const s = sh(m); if (s) { s.rotation.set(0, 0, 0); s.position.set(left ? 0.05 : -0.05, -0.02, 0.12); } } }
-    // Minecraft's attack swing (HumanoidModel.setupAttackAnimation); attack time runs 0 -> 1
-    if (swing > 0) { const f = 1 - swing; const by = Math.sin(Math.sqrt(f) * Math.PI * 2) * 0.2; B.rotation.y = -by;
-      P.armR.rotation.y -= by; P.armL.rotation.y -= by; P.armL.rotation.x += by;
-      let e = 1 - f; e *= e; e *= e; e = 1 - e; const f2 = Math.sin(e * Math.PI), f3 = Math.sin(f * Math.PI) * -(-clamp(pitch, -1, 1) - 0.7) * 0.75;
-      P.armR.rotation.x -= f2 * 1.2 + f3; P.armR.rotation.y -= by * 2; P.armR.rotation.z -= Math.sin(f * Math.PI) * -0.4; }
+    // the swing, by what's in the hand (attack time runs 0 -> 1). Tools each have their own move, the rest use
+    // Minecraft's own (HumanoidModel.setupAttackAnimation)
+    P.armR.position.z = 0;
+    if (swing > 0) { const f = 1 - swing; const kind = typeof swingKind === 'function' ? swingKind(this.mainId) : 'item'; const A = TP_SWINGS[kind];
+      if (A) { const [w, st] = phases(f, A.a, A.b), k = Math.min(1, w + st), mix = (cur, i) => cur * (1 - k) + A.W[i] * w + A.S[i] * st;
+        P.armR.rotation.x = mix(P.armR.rotation.x, 0); P.armR.rotation.y = mix(P.armR.rotation.y, 1); P.armR.rotation.z = mix(P.armR.rotation.z, 2); B.rotation.y = mix(B.rotation.y, 3);
+        if (A.L) { P.armL.rotation.x = P.armL.rotation.x * (1 - k) + A.L[0] * w + A.L[2] * st; P.armL.rotation.y = P.armL.rotation.y * (1 - k) + A.L[1] * w + A.L[3] * st; }
+        if (A.pz) P.armR.position.z = (A.pz[0] * w + A.pz[1] * st) * PX; }
+      else { const by = Math.sin(Math.sqrt(f) * Math.PI * 2) * 0.2; B.rotation.y = -by;
+        P.armR.rotation.y -= by; P.armL.rotation.y -= by; P.armL.rotation.x += by;
+        let e = 1 - f; e *= e; e *= e; e = 1 - e; const f2 = Math.sin(e * Math.PI), f3 = Math.sin(f * Math.PI) * -(-clamp(pitch, -1, 1) - 0.7) * 0.75;
+        P.armR.rotation.x -= f2 * 1.2 + f3; P.armR.rotation.y -= by * 2; P.armR.rotation.z -= Math.sin(f * Math.PI) * -0.4; } }
   };
   return M; }; }
 // feed the off-hand item and blocking state from the game to your own model in F5

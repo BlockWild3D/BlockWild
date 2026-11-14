@@ -56,8 +56,12 @@ class Gen {
   }
   caveTest(y, f, k) {
     const Y = y - YOFF; const a = f[k], c = f[k + 1];
-    if (a * a + c * c < (Y < 0 ? 0.0078 : 0.0055)) return true;
-    if (Y > -60 && Y < 130 && f[k + 2] > 0.05) { const p = f[k + 3], q = f[k + 4]; if (p * p + q * q < 0.0016) return true; }
+    // tunnels only run where a slow regional field allows them, and narrow to nothing at its edge, so each tunnel is a
+    // few dozen blocks long and ends in a point instead of winding on forever
+    const reg = f[k + 5], tun = clamp((reg + 0.16) / 0.2, 0, 1);
+    if (tun > 0 && a * a + c * c < (Y < 0 ? 0.0078 : 0.0055) * tun) return true;
+    const nood = clamp((reg - 0.02) / 0.15, 0, 1);
+    if (nood > 0 && Y > -60 && Y < 130 && f[k + 2] > 0.05) { const p = f[k + 3], q = f[k + 4]; if (p * p + q * q < 0.0016 * nood) return true; }
     if (Y < 50) { const v = f[k + 5]; const th = 0.34 - (Y < -8 ? 0.07 : 0) + (Y > 30 ? (Y - 30) * 0.035 : 0); if (v > th - 0.12 && v + f[k + 6] * 0.2 > th) return true; }
     return false;
   }
