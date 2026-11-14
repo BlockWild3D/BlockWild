@@ -48,6 +48,15 @@ for (const d of BL) if (d && d.shape && !(d.shape === 'slab' && d.st.type !== 'b
   for (let i = n0; i < RECIPES.length; i++) BOOK.push({ type: 'craft', r: RECIPES[i], out: IT[RECIPES[i].out[0]] }); // the recipe book was built before these
   // stonecutter: one block makes one stair or wall, or two slabs
   if (typeof STONECUT !== 'undefined') for (const s of SHAPE_SETS) { if (s.timber || s.wood) continue; for (const k of s.keys) { if (/_stairs$|_wall$/.test(k)) STONECUT.push([s.mat, k, 1]); else if (/_slab$/.test(k)) STONECUT.push([s.mat, k, 2]); } }
+  // stonecutter: a stone also cuts into its polished / brick / chiseled forms and their shapes (Minecraft's chains)
+  if (typeof STONECUT !== 'undefined') { const SC = (a, b, n = 1) => { if (IT[a] !== undefined && IT[b] !== undefined && !STONECUT.some(r => r[0] === a && r[1] === b)) STONECUT.push([a, b, n]); };
+    const CH = { granite: ['polished_granite'], diorite: ['polished_diorite'], andesite: ['polished_andesite'], stone: ['stone_bricks', 'chiseled_stone_bricks', 'stone_brick_stairs', 'stone_brick_slab', 'stone_brick_wall'], stone_bricks: ['chiseled_stone_bricks'],
+      sandstone: ['cut_sandstone', 'chiseled_sandstone', 'cut_sandstone_slab'], red_sandstone: ['cut_red_sandstone', 'chiseled_red_sandstone', 'cut_red_sandstone_slab'], quartz_block: ['quartz_pillar', 'quartz_bricks', 'chiseled_quartz_block'],
+      cobbled_deepslate: ['polished_deepslate', 'deepslate_bricks', 'deepslate_tiles', 'chiseled_deepslate', 'polished_deepslate_stairs', 'polished_deepslate_slab', 'polished_deepslate_wall'], polished_deepslate: ['deepslate_bricks', 'deepslate_tiles'], deepslate_bricks: ['deepslate_tiles'],
+      blackstone: ['polished_blackstone', 'polished_blackstone_bricks', 'chiseled_polished_blackstone', 'polished_blackstone_stairs', 'polished_blackstone_slab', 'polished_blackstone_wall'], polished_blackstone: ['polished_blackstone_bricks', 'chiseled_polished_blackstone'],
+      tuff: ['polished_tuff', 'tuff_bricks', 'chiseled_tuff', 'chiseled_tuff_bricks', 'polished_tuff_stairs', 'polished_tuff_slab', 'polished_tuff_wall'], polished_tuff: ['tuff_bricks', 'chiseled_tuff_bricks'], tuff_bricks: ['chiseled_tuff_bricks'],
+      nether_bricks: ['chiseled_nether_bricks'], purpur_block: ['purpur_pillar'], smooth_stone: ['smooth_stone_slab'], end_stone: ['end_stone_bricks', 'end_stone_brick_stairs', 'end_stone_brick_slab', 'end_stone_brick_wall'] };
+    for (const a in CH) for (const b of CH[a]) SC(a, b, /_slab$/.test(b) ? 2 : 1); }
   // furnace fuel (seconds; Minecraft ticks / 20)
   for (const s of SHAPE_SETS) if (s.wood) for (const k of s.keys) FUEL[k] = /_slab$/.test(k) ? 7.5 : /_door$/.test(k) ? 10 : /_button$/.test(k) ? 5 : 15;
 }

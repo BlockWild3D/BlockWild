@@ -153,10 +153,11 @@ function defineShapeBlocks() {
     DOOR(w + '_door', n + ' Door', w + '_door_top', w + '_door_bottom', w + '_door_item', { wood: true });
     TRAPDOOR(w + '_trapdoor', n + ' Trapdoor', w + '_trapdoor', { wood: true }); BUTTON(w + '_button', n + ' Button', m, true); PLATE(w + '_pressure_plate', n + ' Pressure Plate', m, 'wood');
     set.keys.push(...['_stairs', '_slab', '_fence', '_fence_gate', '_door', '_trapdoor', '_pressure_plate', '_button'].map(s => w + s)); SHAPE_SETS.push(set); }
-  STONE_SETS.push(['bamboo_mosaic', 'bamboo_mosaic', 'Bamboo Mosaic', 0]);
-  for (const [k, mk, n, wall] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: mk === 'bamboo_mosaic', timber: mk === 'bamboo_mosaic', keys: [k + '_stairs', k + '_slab'] };
-    STAIRS(k + '_stairs', n + ' Stairs', m); SLAB(k + '_slab', n + ' Slab', m); if (wall) { WALL(k + '_wall', n + ' Wall', m); set.keys.push(k + '_wall'); } SHAPE_SETS.push(set); }
+  STONE_SETS.push(['bamboo_mosaic', 'bamboo_mosaic', 'Bamboo Mosaic', 0], ...EXTRA_STONE_SETS());
+  for (const [k, mk, n, wall, slabOnly] of STONE_SETS) { const m = M(mk); if (!m) continue; const set = { mat: mk, wood: mk === 'bamboo_mosaic', timber: mk === 'bamboo_mosaic', keys: slabOnly ? [k + '_slab'] : [k + '_stairs', k + '_slab'] };
+    if (!slabOnly) STAIRS(k + '_stairs', n + ' Stairs', m); SLAB(k + '_slab', n + ' Slab', m); if (wall) { WALL(k + '_wall', n + ' Wall', m); set.keys.push(k + '_wall'); } SHAPE_SETS.push(set); }
   { const nb = M('nether_bricks'); FENCE('nether_brick_fence', 'Nether Brick Fence', nb, 'nether'); BL[B.NETHER_BRICK_FENCE].mine = 'pick'; SHAPE_SETS.push({ mat: 'nether_bricks', keys: ['nether_brick_fence'] }); }
+  { const pb = M('polished_blackstone'); if (pb) { BUTTON('polished_blackstone_button', 'Polished Blackstone Button', pb, false); PLATE('polished_blackstone_pressure_plate', 'Polished Blackstone Pressure Plate', pb, 'stone'); SHAPE_SETS.push({ mat: 'polished_blackstone', keys: ['polished_blackstone_pressure_plate', 'polished_blackstone_button'] }); } }
   { const st = M('stone'); BUTTON('stone_button', 'Stone Button', st, false); PLATE('stone_pressure_plate', 'Stone Pressure Plate', st, 'stone'); SHAPE_SETS.push({ mat: 'stone', keys: ['stone_pressure_plate', 'stone_button'] }); }
   PLATE('light_weighted_pressure_plate', 'Light Weighted Pressure Plate', M('gold_block'), 'light'); PLATE('heavy_weighted_pressure_plate', 'Heavy Weighted Pressure Plate', M('iron_block'), 'heavy');
   SHAPE_SETS.push({ mat: 'gold_block', keys: ['light_weighted_pressure_plate'] }, { mat: 'iron_block', keys: ['heavy_weighted_pressure_plate'] });
