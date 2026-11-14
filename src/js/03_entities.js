@@ -437,7 +437,7 @@ class Mob {
   update(dt) {
     const P = G.player, w = G.world, t = this.t; this.age += dt;
     this.hurtT = Math.max(0, this.hurtT - dt); this.atkCD -= dt; this.flee -= dt; this.angry -= dt;
-    this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = t.glowAll ? 1 : w.lightAt(this.pos.x, this.pos.y + Math.min(this.h, 2) * 0.7, this.pos.z, G.daylight); this.light = Math.max(this.light, G.minLight || 0); }
+    this.lightT -= dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = t.glowAll ? 1 : w.lightAt(this.pos.x, this.pos.y + Math.min(this.h, 2) * 0.7, this.pos.z, G.daylight); this.realLight = this.light; this.light = Math.max(this.light, G.minLight || 0); }
     if (this.dead) {
       this.deadT += dt; const k = Math.min(1, this.deadT * 3.5); this.root.rotation.z = (1 - Math.pow(1 - k, 3)) * Math.PI / 2 * (this.deathSide || (this.deathSide = Math.random() < 0.5 ? -1 : 1)); if (t.fly) this.pos.y -= dt * 2;
       this.root.position.set(this.pos.x, this.pos.y, this.pos.z); this.hurtT = 0.2; this.colorize();
@@ -449,7 +449,10 @@ class Mob {
     if (t.waterHurt && water) { this.lavaT += dt; if (this.lavaT > 0.8) { this.lavaT = 0; this.hurt(1, null, 0); this.teleport(); } }
     const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, dy = P.pos.y - this.pos.y; const dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
     const canTarget = isSurv() && !P.dead;
-    let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.light < 0.45)));
+    /* spiders (Minecraft): hunt you at light level 11 or below; out in brighter light one that is already chasing you gives up
+       after a few seconds on average. Uses the real light, not fullbright or night vision, which only change what you see */
+    if (t.darkHostile) { const rl = this.realLight != null ? this.realLight : 1; if (rl < 0.8) this.darkAggro = true; else if (this.darkAggro && Math.random() < 0.18 * dt) this.darkAggro = false; }
+    let hostileNow = t.kind === 'hostile' || (t.kind === 'neutral' && (this.angry > 0 || (t.darkHostile && this.darkAggro)));
     if (this.type === 'piglin') { if (this.angry <= 0 && (playerHoldsGold() || this.admireT > 0)) hostileNow = false; if (this.goldHand) { this.goldHand.visible = this.admireT > 0; } }
     if (this.type === 'enderman' && this.angry <= 0 && canTarget && dist < 28 && isLookingAt(this)) { this.angry = 25; Sfx.at('scream', this.pos, 1); }
     if (this.admireT > 0) { this.admireT -= dt; if (this.admireT <= 0) { const [id, n, ex] = rollBarter(); const it = dropItem(id, n, this.pos.x, this.pos.y + 1.2, this.pos.z, false, ex || null); const d = new V3(dx, 0, dz).normalize(); it.vel.set(d.x * 3, 3, d.z * 3); Sfx.at('snort', this.pos, 1); } }
