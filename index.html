@@ -1531,6 +1531,11 @@ function makeModApi(mod) {
     heal(n) { player.health = Math.min(20, player.health + n); updateHearts(); },
     message(text, seconds) { toast(String(text), seconds || 3); },
     explode(x, y, z, power) { explode(x, y, z, power || 3); },
+    // break a block as if the player mined it with what they are holding: drops, experience, tool wear, hunger
+    breakBlock(x, y, z) { x = Math.floor(x); y = Math.floor(y); z = Math.floor(z); if (!world.get(x, y, z)) return false; breakBlock(x, y, z); return !world.get(x, y, z); },
+    // what the player holds: { key, tool ('pick', 'axe', 'shovel', 'hoe', 'sword' or null), tier, count, durability left (null if it has none) }
+    held() { const h = player.held(); if (!h) return null; const d = ITEMS[h.id] || {}; const mx = typeof maxDur === 'function' ? maxDur(h.id) : 0; return { key: d.key || null, tool: d.tool || null, tier: d.tier || 0, count: h.count, durability: mx ? mx - (h.dmg || 0) : null }; },
+    get sneaking() { return !!(player && player.sneaking); },
   };
   return api;
 }
@@ -4710,32 +4715,67 @@ function hostileLightOk(x, y, z) { const L = lightLevels(x, y, z); return world.
 function animalLightOk(x, y, z) { return world.dim !== 'overworld' || Math.max(Math.round(world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) * 15), Math.round(world.skyAt(x, y, z) * 15)) >= 9; }
 function pickWeighted(tab) { let tot = 0; for (const k in tab) tot += tab[k]; let q = Math.random() * tot; for (const k in tab) { q -= tab[k]; if (q <= 0) return k; } return Object.keys(tab)[0]; }
 function freeAt(x, y, z, h = 2) { for (let k = 0; k < h; k++) if (world.get(x, y + k, z)) return false; return true; }
+// ---- Minecraft natural monster spawning ----
+// Every game tick (20 a second), each chunk within 8 chunks of you (and inside the simulation distance) gets one try:
+// a random column, a random height from the bottom up to the top block there + 1. If that spot is open, up to 3 groups
+// spread out from it (each up to 4 steps of -5..+5 blocks sideways, same height), trying to place the mob picked for the
+// group. A spot needs: 24+ blocks from you, a solid non-bedrock block underneath, room for the mob's body, no liquid,
+// and darkness: block light 0, and sky light passes Minecraft's random checks (always fails in daylight on the surface).
+// The cap is 70 monsters per 289 chunks (17x17), scaled to the chunks that can spawn. Monsters that are not persistent
+// despawn at random beyond 32 blocks (1 in 800 per tick) and at once beyond 128.
+const MONSTER_EXTRA = new Set(['spider', 'cave_spider', 'enderman', 'zombified_piglin']);
+function isMonster(m) { return !!(m && m.t && !m.isBoss && !m.tamed && (m.t.kind === 'hostile' || MONSTER_EXTRA.has(m.type))); }
+function monsterPersistent(m) { return !!(m.customName || m.t.persist || m.persist || m.isBoss || m.tamed || m.holdsLoot); }
+const MON_WEIGHTS = { spider: [100, 4], zombie: [95, 4], skeleton: [100, 4], creeper: [100, 4], enderman: [10, 4] };
+function chunkTops(c) { const now = performance.now() / 1000; if (c._tops && now - c._topsT < 10) return c._tops; if (MON.budget-- <= 0) return c._tops || null; const t = c._tops || new Int16Array(256); const d = c.d; const y0 = Math.min(WH - 2, (c.maxY || WH - 2) + 1);
+  for (let i = 0; i < 256; i++) { let y = y0; while (y > 0 && !d[y * 256 + i]) y--; t[i] = y; } c._tops = t; c._topsT = now + Math.random() * 5; return t; }
+function monsterRoom(type, x, y, z) { const t = MOBS[type]; if (!t) return false; const hw = (t.w || 0.6) / 2, h = t.h || 1.8;
+  for (let bx = Math.floor(x + 0.5 - hw); bx <= Math.floor(x + 0.5 + hw - 1e-3); bx++) for (let bz = Math.floor(z + 0.5 - hw); bz <= Math.floor(z + 0.5 + hw - 1e-3); bz++) for (let by = y; by < y + Math.ceil(h - 1e-3); by++) { const id = world.get(bx, by, bz); if (SOLID[id] || FKIND[id]) return false; }
+  return true; }
+function monsterDarkEnough(x, y, z) { const sky = Math.round(world.skyAt(x, y, z) * 15); if (sky > (Math.random() * 32 | 0)) return false;
+  if (Math.round(world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) * 15) > 0) return false;
+  return Math.round(sky * clamp(G.daylight, 0, 1)) <= (Math.random() * 8 | 0); }
+const MON = { chunks: [], cap: 0, count: 0, acc: 0 };
+// once a second: despawning, the cap and the list of chunks that can spawn
+function monsterSpawnTick(P) {
+  const mons = G.mobs.filter(isMonster);
+  // despawning (1 in 800 per tick = about 2.5% a second beyond 32 blocks; at once beyond 128)
+  for (const m of mons) { if (monsterPersistent(m) || m.dead) continue; const d = m.pos.distanceTo(P.pos); if (d > 128 || (d > 32 && Math.random() < 0.0247)) m.gone = true; }
+  const pcx = Math.floor(P.pos.x) >> 4, pcz = Math.floor(P.pos.z) >> 4, r = Math.min(8, Math.max(2, S.simDist || 5)); MON.chunks = [];
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { const c = world.getChunk(pcx + dx, pcz + dz); if (c) MON.chunks.push(c); }
+  MON.cap = Math.floor(70 * MON.chunks.length / 289); MON.count = mons.filter(m => !monsterPersistent(m) && !m.gone).length;
+}
+// every game tick (20 a second, run from the frame loop): one try in each chunk while under the cap
+function monsterAttempts(P, ticks) {
+  if (!isSurv() || S.difficulty === 'peaceful' || !MON.chunks.length) return; const minY = 1; MON.budget = 6;
+  for (let tk = 0; tk < ticks && MON.count < MON.cap; tk++) for (const c of MON.chunks) {
+    if (MON.count >= MON.cap) break; if (!world.chunks.has(ckey(c.cx, c.cz))) continue; const tops = chunkTops(c); if (!tops) continue; const lx = Math.random() * 16 | 0, lz = Math.random() * 16 | 0; const top = tops[lz * 16 + lx] + 1; if (top <= minY) continue;
+    const x0 = c.cx * 16 + lx, z0 = c.cz * 16 + lz, y = minY + (Math.random() * (top - minY + 1) | 0); if (SOLID[c.d[y * 256 + lz * 16 + lx]]) continue;
+    let spawned = 0;
+    for (let g = 0; g < 3; g++) { let x = x0, z = z0, type = null; const steps = Math.ceil(Math.random() * 4) || 1;
+      for (let st = 0; st < steps; st++) { x += (Math.random() * 6 | 0) - (Math.random() * 6 | 0); z += (Math.random() * 6 | 0) - (Math.random() * 6 | 0);
+        const ddx = x + 0.5 - P.pos.x, ddy = y - P.pos.y, ddz = z + 0.5 - P.pos.z, d2 = ddx * ddx + ddy * ddy + ddz * ddz; if (d2 <= 576 || d2 > 16384) continue;
+        if (!world.loaded(x, z)) continue;
+        if (!type) { const tab = {}; for (const k in MON_WEIGHTS) tab[k] = MON_WEIGHTS[k][0]; type = pickWeighted(tab); }
+        const below = world.get(x, y - 1, z); if (!SOLID[below] || below === B.BEDROCK || FKIND[below]) continue;
+        if (!monsterRoom(type, x, y, z) || !monsterDarkEnough(x, y, z)) continue;
+        const m = spawnMob(type, x + 0.5, y, z + 0.5); if (m) { m.natural = true; MON.count++; spawned++; }
+        if (spawned >= MON_WEIGHTS[type][1] || MON.count >= MON.cap) break; }
+      if (spawned >= 4 || MON.count >= MON.cap) break; }
+  }
+}
 const spawnerT = new Map();
 function updateSpawning(dt) {
+  if (world && world.dim === 'overworld' && !MP.proxyMode && S.rules.doMobSpawning && !isClientMP()) { MON.acc = Math.min(2, MON.acc + dt * 20); const n = Math.floor(MON.acc); if (n) { MON.acc -= n; monsterAttempts(player, n); } }
   S.spawnT -= dt; if (S.spawnT > 0) return; S.spawnT = 1; if (MP.proxyMode) return;
   const P = player; const hostiles = G.mobs.filter(m => m.t.kind !== 'passive' && !m.isBoss);
+  // Peaceful (Minecraft): hostile mobs vanish
+  if (S.difficulty === 'peaceful' && !isClientMP()) for (const m of G.mobs) if (isMonster(m) && !m.remote) m.gone = true;
   if (!S.rules.doMobSpawning) return;
   if (isSurv() || world.dim !== 'overworld') {
     if (world.dim === 'overworld') {
-      // Minecraft-style monster spawning: anywhere dark enough (block light 0, sky light 7 or less), so caves fill with
-      // monsters day and night and the surface only at night; mobs come in small packs; one cap for the whole area
-      const cap = 32;
-      if (hostiles.length < cap && isSurv() && S.difficulty !== 'peaceful') for (let tries = 0; tries < 10; tries++) {
-        const a = Math.random() * Math.PI * 2, d = 24 + Math.random() * 40; const x = Math.floor(P.pos.x + Math.cos(a) * d), z = Math.floor(P.pos.z + Math.sin(a) * d);
-        if (!world.loaded(x, z)) continue; const top = surfaceSpawnY(x, z);
-        // a random height between deep underground and a little above you (Minecraft picks y up to the heightmap)
-        const y0 = clamp(Math.floor(P.pos.y) - 40 + (Math.random() * 64 | 0), 3, top > 0 ? top + 1 : WH - 3); let y = -1;
-        for (let yy = y0; yy > Math.max(2, y0 - 24); yy--) { if (freeAt(x, yy, z, 2) && SOLID[world.get(x, yy - 1, z)]) { y = yy; break; } }
-        if (y < 2 || !hostileLightOk(x, y, z)) continue;
-        const type = pickWeighted({ zombie: 30, skeleton: 25, spider: 20, creeper: 17, enderman: 3 });
-        if (type === 'enderman' && !freeAt(x, y, z, 3)) continue;
-        const pack = type === 'enderman' ? 1 : 1 + (Math.random() * 3 | 0); let n = 0;
-        for (let i = 0; i < pack * 3 && n < pack; i++) { const px = x + (Math.random() * 7 | 0) - 3, pz = z + (Math.random() * 7 | 0) - 3;
-          for (const py of [y, y + 1, y - 1]) if (world.loaded(px, pz) && freeAt(px, py, pz, 2) && SOLID[world.get(px, py - 1, pz)] && hostileLightOk(px, py, pz) && Math.hypot(px - P.pos.x, pz - P.pos.z) > 24) { const m = spawnMob(type, px + 0.5, py, pz + 0.5); if (m) m.natural = true; n++; break; } }
-        if (n) break;
-      }
-      // far-away monsters wander off now and then (Minecraft: random despawn beyond 32 blocks)
-      for (const m of hostiles) if (m.natural && !m.tamed && !m.nameTag && !m.raid && m.pos.distanceTo(P.pos) > 32 && Math.random() < 0.025) m.gone = true;
+      // Minecraft's natural monster spawning (NaturalSpawner), see monsterSpawnTick below
+      monsterSpawnTick(P);
     } else if (world.dim === 'nether') {
       if (hostiles.length < 18 && S.difficulty !== 'peaceful') for (let tries = 0; tries < 5; tries++) {
         const a = Math.random() * Math.PI * 2, d = 16 + Math.random() * 30; const x = Math.floor(P.pos.x + Math.cos(a) * d), z = Math.floor(P.pos.z + Math.sin(a) * d);
@@ -4766,8 +4806,8 @@ function updateSpawning(dt) {
     if (world.get(x, y, z) !== B.SPAWNER) continue;
     const t = (spawnerT.get(k) || 0) - 1; spawnerT.set(k, t);
     Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[1, 0.5, 0.1], [0.4, 0.4, 0.4]], 1, 0.6, -2, 0.6);
-    if (t > 0 || !isSurv()) continue; spawnerT.set(k, 4 + Math.random() * 6);
-    if (G.mobs.filter(m => m.pos.distanceTo(new V3(x, y, z)) < 9).length >= 4) continue;
+    if (t > 0 || !isSurv() || S.difficulty === 'peaceful') continue; spawnerT.set(k, 10 + Math.random() * 30); /* Minecraft: every 10-40 s, up to 4 tries, at most 6 of its mob nearby */
+    if (G.mobs.filter(m => m.type === type && Math.abs(m.pos.x - x - 0.5) < 4.5 && Math.abs(m.pos.y - y) < 2.5 && Math.abs(m.pos.z - z - 0.5) < 4.5).length >= 6) continue;
     for (let tries = 0; tries < 6; tries++) { const sx = x + (Math.random() * 7 | 0) - 3, sz = z + (Math.random() * 7 | 0) - 3, sy = y + (Math.random() * 3 | 0) - 1; if (freeAt(sx, sy, sz) && SOLID[world.get(sx, sy - 1, sz)]) { spawnMob(type, sx + 0.5, sy, sz + 0.5); Particles.emit(sx + 0.5, sy + 0.8, sz + 0.5, 15, [0.6, 0.6, 0.6], 2, 0.6, -1, 0.6); break; } }
   }
 }
@@ -5011,7 +5051,7 @@ function quitToTitle() {
   if (world) for (const c of [...world.chunks.values()]) world.unload(c); world = null; G.world = null; Dim.worlds = {};
   selBox.visible = false; crackMesh.visible = false; releaseLock(); refreshMenu(); show('menu', true);
 }
-function findSpawn(gen) { for (let r = 0; r < 4000; r += 24) for (let a = 0; a < 12; a++) { const x = Math.round(Math.cos(a * 0.5236) * r), z = Math.round(Math.sin(a * 0.5236) * r); const c = gen.column(x, z); if (c.b !== BIO.OCEAN && c.b !== BIO.BEACH && c.b !== BIO.MOUNTAINS && c.h > SEA + 1) return [x, z]; } return [0, 0]; }
+function findSpawn(gen) { for (let r = 0; r < 4000; r += 24) for (let a = 0; a < 12; a++) { const x = Math.round(Math.cos(a * 0.5236) * r), z = Math.round(Math.sin(a * 0.5236) * r); const c = gen.column(x, z); if (c.b !== BIO.OCEAN && c.b !== BIO.BEACH && c.b !== BIO.MOUNTAINS && c.b !== BIO.DESERT && c.h > SEA + 1) return [x, z]; } return [0, 0]; }
 // Worlds saved before the Minecraft-height update (v3 and older) had sea level at y 32 in a 96-block world. Their
 // Overworld builds, chests, beds, boats and players move up 95 blocks so they keep the same height above sea level
 // (the terrain around them is generated with the new heights). Nether and End coordinates are unchanged.
@@ -5068,7 +5108,12 @@ function finishLoading() {
   S.loading = false; show('loading', false); show('hud', true); show('crosshair', true); show('info', true);
   if (handleArrival()) { }
   else if (S.newWorld) { let x = Math.floor(player.pos.x), z = Math.floor(player.pos.z);
-    search: for (let r = 0; r < 20; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const sx = x + dx, sz = z + dz; const sy = world.surfaceY(sx, sz); const below = world.get(sx, sy - 1, sz); if (sy >= world.gen.column(sx, sz).h && (below === B.GRASS || below === B.SNOWY_GRASS || below === B.SAND || below === B.DIRT)) { x = sx; z = sz; break search; } }
+    /* Minecraft: you start on a grass block open to the sky, with room to stand. Search outward through the loaded area;
+       only if there is no grass anywhere nearby fall back to any dry ground */
+    let found = false; for (const ok of [(id) => id === B.GRASS || id === B.SNOWY_GRASS, (id) => SOLID[id] && !FKIND[id] && BL[id] && !/leaves|log/.test(BL[id].key || '')]) {
+      search: for (let r = 0; r < 64; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const sx = x + dx, sz = z + dz; if (!world.loaded(sx, sz)) continue;
+        const sy = world.surfaceY(sx, sz); const below = world.get(sx, sy - 1, sz); if (sy > SEA && ok(below) && !world.solid(sx, sy, sz) && !world.solid(sx, sy + 1, sz) && !FKIND[world.get(sx, sy, sz)]) { x = sx; z = sz; found = true; break search; } }
+      if (found) break; }
     player.pos.x = x + 0.5; player.pos.z = z + 0.5; player.pos.y = world.surfaceY(x, z) + 0.01;
     player.spawn.copy(player.pos); S.newWorld = false; toast(isSurv() ? 'Punch a tree to get started!' : 'Creative mode - press E for all items', 4); }
   else { const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z); if (world.solid(x, Math.floor(player.pos.y), z) || world.solid(x, Math.floor(player.pos.y + 1), z)) nudgeFree(player); if (world.dim === 'end') EndFight.enter(); }
@@ -5671,6 +5716,36 @@ api.addHud({ width: SIZE, height: SIZE, corner: 'top-left', every: 0.15, draw(ct
   ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.fillText('N', R, 13);
 } });
+`,
+`// @name Vein Miner
+// @description Hold the \` key (above Tab) while mining an ore or a log to break the whole connected vein or tree at once (up to 64 blocks). Uses the right tool, wears it down and costs hunger per block, like the Vein Miner mod.
+// @author BlockWild
+// @version 1.0
+const KEY = 'Backquote';   // hold this while mining; change to 'ShiftLeft' to use sneak instead
+const MAX = 64;            // most blocks broken at once
+// blocks that count as the same vein (normal and deepslate ores, lit and unlit redstone)
+const group = (k) => !k ? null : k.endsWith('_ore') ? k.replace(/^deepslate_/, '').replace(/^lit_/, '') : k;
+const isOre = (k) => /_ore$/.test(k) || k === 'ancient_debris';
+const isLog = (k) => /(_log|_stem)$/.test(k) || k === 'log';
+let busy = false;
+api.on('blockBreak', (e) => {
+  if (busy || !api.keyDown(KEY)) return;
+  const k = e.block; const ore = isOre(k), log = isLog(k); if (!ore && !log) return;
+  const h = api.held(); if (!h || h.tool !== (ore ? 'pick' : 'axe')) return; // pickaxe for ores, axe for logs
+  const want = group(k), seen = new Set([e.x + ',' + e.y + ',' + e.z]), queue = [[e.x, e.y, e.z]], found = [];
+  while (queue.length && found.length < MAX - 1) {
+    const [x, y, z] = queue.shift();
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      const nx = x + dx, ny = y + dy, nz = z + dz, id = nx + ',' + ny + ',' + nz; if (seen.has(id)) continue; seen.add(id);
+      if (group(api.getBlock(nx, ny, nz)) === want && found.length < MAX - 1) { found.push([nx, ny, nz]); queue.push([nx, ny, nz]); }
+    }
+  }
+  // nearest first, and stop if the tool breaks or runs low
+  const p = api.player.pos; found.sort((a, b) => Math.hypot(a[0] - p.x, a[1] - p.y, a[2] - p.z) - Math.hypot(b[0] - p.x, b[1] - p.y, b[2] - p.z));
+  busy = true;
+  try { for (const [x, y, z] of found) { const t = api.held(); if (!t || t.tool !== h.tool || (t.durability != null && t.durability <= 1)) break; api.breakBlock(x, y, z); } }
+  finally { busy = false; }
+});
 `,
 `// @name Endless Day
 // @description The sun never sets: time stops at midday.
@@ -7410,7 +7485,9 @@ function fuzzySpawnAround(center) {
   const R = Math.max(0, S.rules.spawnRadius | 0); const cx = Math.floor(center.x), cz = Math.floor(center.z);
   if (!world.loaded(cx, cz)) return null;
   const ok = (x, z) => { if (!world.loaded(x, z)) return null; const y = world.surfaceY(x, z); if (y <= 1 || y >= WH - 2) return null; const below = world.get(x, y - 1, z); if (!SOLID[below] || FKIND[below] || below === B.CACTUS || below === B.MAGMA_BLOCK) return null; if (world.get(x, y, z) && !PLANT[world.get(x, y, z)]) return null; if (world.get(x, y + 1, z)) return null; return y; };
-  for (let i = 0; i < (R ? 64 : 1); i++) { const x = cx + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0), z = cz + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0); const y = ok(x, z); if (y !== null) return new V3(x + 0.5, y, z + 0.5); }
+  // first look for a grass block (BlockWild starts and respawns you on grass whenever there is some in the spawn area)
+  const grass = (x, z) => { const y = ok(x, z); if (y === null) return null; const b = world.get(x, y - 1, z); return b === B.GRASS || b === B.SNOWY_GRASS ? y : null; };
+  for (const test of [grass, ok]) for (let i = 0; i < (R ? 96 : 1); i++) { const x = cx + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0), z = cz + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0); const y = test(x, z); if (y !== null) return new V3(x + 0.5, y, z + 0.5); }
   return new V3(center.x, world.surfaceY(cx, cz), center.z);
 }
 // place the player once the spawn area has loaded (respawning far from spawn has to wait for the chunks)

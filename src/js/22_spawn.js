@@ -17,7 +17,9 @@ function fuzzySpawnAround(center) {
   const R = Math.max(0, S.rules.spawnRadius | 0); const cx = Math.floor(center.x), cz = Math.floor(center.z);
   if (!world.loaded(cx, cz)) return null;
   const ok = (x, z) => { if (!world.loaded(x, z)) return null; const y = world.surfaceY(x, z); if (y <= 1 || y >= WH - 2) return null; const below = world.get(x, y - 1, z); if (!SOLID[below] || FKIND[below] || below === B.CACTUS || below === B.MAGMA_BLOCK) return null; if (world.get(x, y, z) && !PLANT[world.get(x, y, z)]) return null; if (world.get(x, y + 1, z)) return null; return y; };
-  for (let i = 0; i < (R ? 64 : 1); i++) { const x = cx + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0), z = cz + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0); const y = ok(x, z); if (y !== null) return new V3(x + 0.5, y, z + 0.5); }
+  // first look for a grass block (BlockWild starts and respawns you on grass whenever there is some in the spawn area)
+  const grass = (x, z) => { const y = ok(x, z); if (y === null) return null; const b = world.get(x, y - 1, z); return b === B.GRASS || b === B.SNOWY_GRASS ? y : null; };
+  for (const test of [grass, ok]) for (let i = 0; i < (R ? 96 : 1); i++) { const x = cx + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0), z = cz + (R ? Math.floor(Math.random() * (2 * R + 1)) - R : 0); const y = test(x, z); if (y !== null) return new V3(x + 0.5, y, z + 0.5); }
   return new V3(center.x, world.surfaceY(cx, cz), center.z);
 }
 // place the player once the spawn area has loaded (respawning far from spawn has to wait for the chunks)

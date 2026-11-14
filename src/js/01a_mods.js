@@ -141,6 +141,11 @@ function makeModApi(mod) {
     heal(n) { player.health = Math.min(20, player.health + n); updateHearts(); },
     message(text, seconds) { toast(String(text), seconds || 3); },
     explode(x, y, z, power) { explode(x, y, z, power || 3); },
+    // break a block as if the player mined it with what they are holding: drops, experience, tool wear, hunger
+    breakBlock(x, y, z) { x = Math.floor(x); y = Math.floor(y); z = Math.floor(z); if (!world.get(x, y, z)) return false; breakBlock(x, y, z); return !world.get(x, y, z); },
+    // what the player holds: { key, tool ('pick', 'axe', 'shovel', 'hoe', 'sword' or null), tier, count, durability left (null if it has none) }
+    held() { const h = player.held(); if (!h) return null; const d = ITEMS[h.id] || {}; const mx = typeof maxDur === 'function' ? maxDur(h.id) : 0; return { key: d.key || null, tool: d.tool || null, tier: d.tier || 0, count: h.count, durability: mx ? mx - (h.dmg || 0) : null }; },
+    get sneaking() { return !!(player && player.sneaking); },
   };
   return api;
 }

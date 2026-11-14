@@ -116,6 +116,36 @@ api.addHud({ width: SIZE, height: SIZE, corner: 'top-left', every: 0.15, draw(ct
   ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.fillText('N', R, 13);
 } });
 `,
+`// @name Vein Miner
+// @description Hold the \` key (above Tab) while mining an ore or a log to break the whole connected vein or tree at once (up to 64 blocks). Uses the right tool, wears it down and costs hunger per block, like the Vein Miner mod.
+// @author BlockWild
+// @version 1.0
+const KEY = 'Backquote';   // hold this while mining; change to 'ShiftLeft' to use sneak instead
+const MAX = 64;            // most blocks broken at once
+// blocks that count as the same vein (normal and deepslate ores, lit and unlit redstone)
+const group = (k) => !k ? null : k.endsWith('_ore') ? k.replace(/^deepslate_/, '').replace(/^lit_/, '') : k;
+const isOre = (k) => /_ore$/.test(k) || k === 'ancient_debris';
+const isLog = (k) => /(_log|_stem)$/.test(k) || k === 'log';
+let busy = false;
+api.on('blockBreak', (e) => {
+  if (busy || !api.keyDown(KEY)) return;
+  const k = e.block; const ore = isOre(k), log = isLog(k); if (!ore && !log) return;
+  const h = api.held(); if (!h || h.tool !== (ore ? 'pick' : 'axe')) return; // pickaxe for ores, axe for logs
+  const want = group(k), seen = new Set([e.x + ',' + e.y + ',' + e.z]), queue = [[e.x, e.y, e.z]], found = [];
+  while (queue.length && found.length < MAX - 1) {
+    const [x, y, z] = queue.shift();
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      const nx = x + dx, ny = y + dy, nz = z + dz, id = nx + ',' + ny + ',' + nz; if (seen.has(id)) continue; seen.add(id);
+      if (group(api.getBlock(nx, ny, nz)) === want && found.length < MAX - 1) { found.push([nx, ny, nz]); queue.push([nx, ny, nz]); }
+    }
+  }
+  // nearest first, and stop if the tool breaks or runs low
+  const p = api.player.pos; found.sort((a, b) => Math.hypot(a[0] - p.x, a[1] - p.y, a[2] - p.z) - Math.hypot(b[0] - p.x, b[1] - p.y, b[2] - p.z));
+  busy = true;
+  try { for (const [x, y, z] of found) { const t = api.held(); if (!t || t.tool !== h.tool || (t.durability != null && t.durability <= 1)) break; api.breakBlock(x, y, z); } }
+  finally { busy = false; }
+});
+`,
 `// @name Endless Day
 // @description The sun never sets: time stops at midday.
 // @author BlockWild
