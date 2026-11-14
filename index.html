@@ -945,7 +945,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -2570,6 +2570,195 @@ function paintRedstoneTiles() {
   if (!RECIPES.some(r => r.out[0] === 'tripwire_hook')) R('tripwire_hook', 2, ['I', 'S', 'P'], { I: 'iron_ingot', S: 'stick', P: 'planks' });
 }
 
+// ================= DECORATION BLOCKS (Minecraft) =================
+// Lanterns and soul lanterns (standing or hanging), chains, campfires and soul campfires, soul torches, bells,
+// scaffolding, flower pots with every small plant, mob heads (floor and wall), cakes with candles, candles in 17
+// colours (1-4 per block, lit or not), lodestones, respawn anchors, conduits, chiseled bookshelves, decorated pots,
+// beehives and bee nests, honey bottles. Run-time rules are in 82_deco.js. Original pixel art.
+function defineDecoBlocks() {
+  const ph = (n, c, a) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c, a === undefined ? 255 : a))); return n; };
+  const strip = (o) => { delete o.id; delete o.key; delete o.texIds; return o; };
+  const DV = [[0, -1], [1, 0], [0, 1], [-1, 0]]; const F46 = [5, 0, 4, 1]; // four-way facing -> the mesh face that looks that way
+  // a family: one block per combination of props; the first is the item, the rest are hidden and drop it
+  const fam = (key, name, props, mk, kind) => { const names = Object.keys(props); const F = FAMILY[key] = { kind: kind || 'deco', props: names, ids: {}, base: 0, mat: key };
+    let combos = [{}]; for (const p of names) { const next = []; for (const c of combos) for (const v of props[p]) next.push(Object.assign({}, c, { [p]: v })); combos = next; }
+    combos.forEach((st, i) => { const o = mk(st); if (!o) return; o.fam = key; o.st = st; if (o.hidden === undefined) o.hidden = i > 0; if (o.drop === undefined) o.drop = key; if (!o.shape) o.shape = 'deco'; if (o.boxes && !o.rb) o.rb = o.boxes; if (o.boxes && !o.cb) o.cb = o.boxes; if (o.boxes && !o.sb) o.sb = o.boxes;
+      const id = defBlock(i === 0 ? key : key + '#' + names.map(p => st[p]).join('_'), name, o); F.ids[names.map(p => st[p]).join(',')] = id; if (i === 0) F.base = id; }); return F; };
+  // ---- lanterns ----
+  for (const [k, n, light] of [['lantern', 'Lantern', 1], ['soul_lantern', 'Soul Lantern', 0.67]]) { ph(k + '_body', [200, 160, 80]); ph('lantern_cap', [60, 60, 66]);
+    fam(k, n, { hanging: [0, 1] }, (st) => { const h = st.hanging ? 1 : 0; const bs = [[5, h, 5, 11, 7 + h, 11, TILE[k + '_body']], [6, 7 + h, 6, 10, 9 + h, 10, TILE.lantern_cap]]; if (h) bs.push([7, 10, 7.5, 9, 16, 8.5, TILE.lantern_cap], [7.5, 10, 7, 8.5, 16, 9, TILE.lantern_cap]); else bs.push([7, 9, 7.5, 9, 11, 8.5, TILE.lantern_cap]);
+      return { tex: 'lantern_cap', render: 'boxes', boxes: bs, cb: [[5, h, 5, 11, 9 + h, 11]], sb: [[5, h, 5, 11, 9 + h, 11]], opaque: false, solid: true, hardness: 3.5, mine: 'pick', snd: 'metal', light, lantern: true, support: 'lantern' }; }); }
+  // ---- chains ----
+  ph('chain', [70, 72, 80], 0);
+  fam('chain', 'Chain', { axis: ['y', 'x', 'z'] }, (st) => { const b = st.axis === 'y' ? [6.5, 0, 6.5, 9.5, 16, 9.5] : st.axis === 'x' ? [0, 6.5, 6.5, 16, 9.5, 9.5] : [6.5, 6.5, 0, 9.5, 9.5, 16];
+    return { tex: 'chain', render: 'boxes', boxes: [b], opaque: false, solid: true, hardness: 5, mine: 'pick', tool: 'pick', tier: 1, snd: 'metal', uvRot: st.axis === 'y' ? null : uvRotToward(st.axis === 'x' ? [1, 0, 0] : [0, 0, 1]) }; }, 'axis');
+  // ---- campfires: four logs and a fire, facing four ways ----
+  for (const [k, n, light, fire] of [['campfire', 'Campfire', 1, 'campfire_fire'], ['soul_campfire', 'Soul Campfire', 0.67, 'soul_campfire_fire']]) { ph('campfire_log', [110, 80, 50]); ph(k + '_log_lit', [150, 90, 40]); ph(fire, [250, 170, 40], 0); ph('campfire_ash', [80, 76, 72]);
+    fam(k, n, { facing: [2, 3, 0, 1], lit: [1, 0] }, (st) => { const logL = TILE[st.lit ? k + '_log_lit' : 'campfire_log'];
+      let bs = [[1, 0, 0, 5, 4, 16, TILE.campfire_log], [11, 0, 0, 15, 4, 16, TILE.campfire_log], [0, 3, 1, 16, 7, 5, logL], [0, 3, 11, 16, 7, 15, logL], [5, 0, 0, 11, 1, 16, TILE.campfire_ash]];
+      if (st.lit) bs.push([0, 1, 8, 16, 15, 8.02, TILE[fire]], [8, 1, 0, 8.02, 15, 16, TILE[fire]]); bs = bs.map(b => shRot(b, st.facing));
+      return { tex: 'campfire_log', render: 'boxes', boxes: bs, cb: [[0, 0, 0, 16, 7, 16]], sb: [[0, 0, 0, 16, 7, 16]], opaque: false, solid: true, hardness: 2, mine: 'axe', snd: 'wood', light: st.lit ? light : 0, campfire: k, drop: k === 'campfire' ? () => ['charcoal', 2] : 'soul_soil' }; }); }
+  // ---- soul torch ----
+  ph('soul_torch', [90, 200, 220], 0); defBlock('soul_torch', 'Soul Torch', strip(Object.assign({}, BL[B.TORCH], { tex: 'soul_torch', light: 0.67, drop: 'soul_torch' })));
+  // ---- bell: two stone posts, a bar and the bell ----
+  ph('bell_body', [230, 190, 60]); ph('bell_bar', [90, 80, 70]);
+  fam('bell', 'Bell', { facing: [0, 1, 2, 3] }, (st) => { const bs = [[2, 0, 6, 4, 16, 10, TILE.stone], [12, 0, 6, 14, 16, 10, TILE.stone], [4, 13, 7, 12, 15, 9, TILE.bell_bar], [5, 6, 5, 11, 13, 11, TILE.bell_body], [4, 4, 4, 12, 6, 12, TILE.bell_body]].map(b => shRot(b, st.facing));
+    return { tex: 'bell_body', render: 'boxes', boxes: bs, cb: [[0, 0, 0, 16, 16, 16]].map(b => b), sb: bs, opaque: false, solid: true, hardness: 5, mine: 'pick', snd: 'metal', bell: true, support: 'floor' }; });
+  // ---- scaffolding: distance 0-7 from a supported column ----
+  ph('scaffolding_top', [200, 170, 90], 0); ph('scaffolding_side', [200, 170, 90], 0);
+  fam('scaffolding', 'Scaffolding', { distance: [0, 1, 2, 3, 4, 5, 6, 7], bottom: [0, 1] }, (st) => { const bs = [[0, 14, 0, 16, 16, 16, TILE.scaffolding_top], [0, 0, 0, 2, 14, 2], [14, 0, 0, 16, 14, 2], [0, 0, 14, 2, 14, 16], [14, 0, 14, 16, 14, 16]];
+      if (st.bottom) bs.push([0, 0, 0, 16, 2, 2], [0, 0, 14, 16, 2, 16], [0, 0, 2, 2, 2, 14], [14, 0, 2, 16, 2, 14]);
+      return { tex: 'scaffolding_side', render: 'boxes', boxes: bs, cb: [[0, 14, 0, 16, 16, 16]], sb: [[0, 0, 0, 16, 16, 16]], opaque: false, solid: true, hardness: 0, snd: 'scaffold', climb: true, scaffold: true, mine: 'axe' }; });
+  // ---- flower pots ----
+  ph('flower_pot', [150, 80, 60]); const pot = [[5, 0, 5, 11, 6, 11, TILE.flower_pot], [6, 4.9, 6, 10, 5, 10, TILE.dirt]];
+  defBlock('flower_pot', 'Flower Pot', { tex: 'flower_pot', render: 'boxes', boxes: pot.slice(0, 1).concat([[6, 5, 6, 10, 5.5, 10, TILE.dirt]]), rb: pot, cb: [[5, 0, 5, 11, 6, 11]], sb: [[5, 0, 5, 11, 6, 11]], shape: 'deco', opaque: false, solid: true, hardness: 0, snd: 'stone', pot: true, support: 'floor' });
+  BL[B.FLOWER_POT].boxes = BL[B.FLOWER_POT].rb = [[5, 0, 5, 11, 6, 11, TILE.flower_pot], [6, 4, 6, 10, 4.1, 10, TILE.dirt]];
+  const plants = ['dandelion', 'rose', 'poppy', ...FLOWERDATA().map(f => f[0]), ...WOODDATA().map(w => w.sap).filter(Boolean), 'fern', 'dead_bush', 'brown_mushroom', 'red_mushroom', 'crimson_fungus', 'warped_fungus', 'crimson_roots', 'warped_roots', 'azalea', 'flowering_azalea', 'cactus', 'bamboo', 'mangrove_propagule'];
+  const seen = new Set(); const POTTED = defineDecoBlocks.potted = [];
+  for (const pk of plants) { const pid = B[pk.toUpperCase()]; if (pid === undefined || seen.has(pk)) continue; const pd = BL[pid]; if (!pd || !pd.texIds) continue; seen.add(pk);
+    let bs; if (pk === 'cactus') bs = [[6, 4, 6, 10, 16, 10, TILE.cactus_side !== undefined ? TILE.cactus_side : pd.texIds[0]]];
+    else if (pk === 'azalea' || pk === 'flowering_azalea') bs = [[4, 6, 4, 12, 14, 12, pd.texIds[2]], [7, 4, 7, 9, 6, 9, TILE.log_side]];
+    else if (pd.render === 'cross' || pk === 'bamboo') { const t = pd.texIds[0]; bs = [[2.5, 4, 8, 13.5, 16, 8.02, t], [8, 4, 2.5, 8.02, 16, 13.5, t]]; } else continue;
+    const all = [[5, 0, 5, 11, 6, 11, TILE.flower_pot], [6, 4, 6, 10, 4.1, 10, TILE.dirt], ...bs];
+    const id = defBlock('potted_' + pk, 'Potted ' + pd.name, { tex: 'flower_pot', render: 'boxes', boxes: all, rb: all, cb: [[5, 0, 5, 11, 6, 11]], sb: [[5, 0, 5, 11, 6, 11]], shape: 'deco', opaque: false, solid: true, hardness: 0, snd: 'stone', hidden: true, drop: (r) => ['flower_pot', 1], potted: pid, support: 'floor' });
+    POTTED.push([pid, id]); }
+  // ---- mob heads: floor and wall, facing four ways ----
+  const HEADS = [['skeleton_skull', 'Skeleton Skull'], ['wither_skeleton_skull', 'Wither Skeleton Skull'], ['zombie_head', 'Zombie Head'], ['creeper_head', 'Creeper Head'], ['piglin_head', 'Piglin Head'], ['dragon_head', 'Dragon Head'], ['player_head', 'Player Head']];
+  const old = BL[B.WITHER_SKELETON_SKULL]; if (old) { old.key = 'legacy_wither_skeleton_skull'; old.hidden = true; delete B.WITHER_SKELETON_SKULL; B.LEGACY_WITHER_SKELETON_SKULL = old.id; old.drop = 'wither_skeleton_skull'; }
+  for (const [k, n] of HEADS) { ph(k + '_skin', [180, 180, 180]); ph(k + '_face', [180, 180, 180]); ph(k + '_face_w', [180, 180, 180]);
+    fam(k, n, { wall: [0, 1], facing: [2, 3, 0, 1] }, (st) => { const big = k === 'dragon_head'; const b0 = st.wall ? (big ? [2, 2, 4, 14, 14, 16] : [4, 4, 8, 12, 12, 16]) : (big ? [2, 0, 2, 14, 12, 14] : [4, 0, 4, 12, 8, 12]);
+      const b = shRot(b0, st.facing); const tex = [k + '_skin', k + '_skin', k + '_skin', k + '_skin', k + '_skin', k + '_skin']; tex[F46[st.facing]] = k + (st.wall ? '_face_w' : '_face');
+      return { tex, render: 'boxes', boxes: [b], opaque: false, solid: true, hardness: 1, snd: 'stone', head: k, support: st.wall ? 'headwall' : 'floor', wallFacing: st.wall ? st.facing : undefined }; }); }
+  // ---- cake (7 slices) ----
+  ph('cake_top', [240, 236, 230]); ph('cake_side', [240, 220, 200]); ph('cake_bottom', [170, 110, 60]); ph('cake_inner', [200, 140, 90]);
+  fam('cake', 'Cake', { bites: [0, 1, 2, 3, 4, 5, 6] }, (st) => { const b = [1 + st.bites * 2, 0, 1, 15, 8, 15]; return { tex: ['cake_side', st.bites ? 'cake_inner' : 'cake_side', 'cake_top', 'cake_bottom', 'cake_side', 'cake_side'], render: 'boxes', boxes: [b], opaque: false, solid: true, hardness: 0.5, snd: 'wool', drop: null, cake: st.bites, support: 'floor' }; });
+  // ---- candles: 17 colours, 1-4 candles, lit or not ----
+  ph('candle_flame', [255, 220, 120]); const CPOS = [[[7, 0, 7, 9, 6, 9]], [[5, 0, 7, 7, 6, 9], [9, 0, 6, 11, 5, 8]], [[7, 0, 9, 9, 6, 11], [5, 0, 7, 7, 5, 9], [9, 0, 6, 11, 3, 8]], [[5, 0, 5, 7, 6, 7], [9, 0, 5, 11, 5, 7], [5, 0, 8, 7, 3, 10], [8, 0, 8, 10, 4, 10]]];
+  const CANDLES = [['candle', 'Candle', [226, 206, 160]], ...COLORDATA().map(c => [c[0] + '_candle', c[1] + ' Candle', c[2]])];
+  for (const [k, n] of CANDLES) { ph(k, [200, 200, 200]);
+    fam(k, n, { candles: [1, 2, 3, 4], lit: [0, 1] }, (st) => { const bs = []; for (const b of CPOS[st.candles - 1]) { bs.push(b.concat([TILE[k]])); bs.push([b[0] + 0.75, b[4], b[2] + 0.75, b[3] - 0.75, b[4] + 1, b[5] - 0.75, TILE.lantern_cap]); if (st.lit) bs.push([b[0] + 0.5, b[4] + 1, b[2] + 0.5, b[3] - 0.5, b[4] + 2.5, b[5] - 0.5, TILE.candle_flame]); }
+      const bb = [5, 0, 5, 11, 6, 11]; return { tex: k, render: 'boxes', boxes: bs, cb: [bb], sb: [bb], opaque: false, solid: true, hardness: 0.1, snd: 'wool', light: st.lit ? st.candles * 0.2 : 0, candle: k, drop: (r) => [k, st.candles], support: 'floor' }; }); }
+  // candle cakes
+  for (const [k, n] of CANDLES) fam(k + '_cake', 'Cake with ' + n, { lit: [0, 1] }, (st) => { const bs = [[1, 0, 1, 15, 8, 15], [7, 8, 7, 9, 14, 9, TILE[k]], [7.75, 14, 7.75, 8.25, 15, 8.25, TILE.lantern_cap]]; if (st.lit) bs.push([7.5, 15, 7.5, 8.5, 16.5, 8.5, TILE.candle_flame]);
+    return { tex: ['cake_side', 'cake_side', 'cake_top', 'cake_bottom', 'cake_side', 'cake_side'], render: 'boxes', boxes: bs, cb: [[1, 0, 1, 15, 8, 15]], sb: [[1, 0, 1, 15, 8, 15]], opaque: false, solid: true, hardness: 0.5, snd: 'wool', light: st.lit ? 0.2 : 0, candleCake: k, drop: k, hidden: true, support: 'floor' }; });
+  // ---- lodestone, respawn anchor, conduit ----
+  defBlock('lodestone', 'Lodestone', { tex: { s: ph('lodestone_side', [130, 130, 134]), t: ph('lodestone_top', [120, 120, 124]) }, hardness: 3.5, tool: 'pick', tier: 1, snd: 'stone', lodestone: true });
+  ph('respawn_anchor_top', [40, 20, 60]); ph('respawn_anchor_top_off', [30, 20, 40]); ph('respawn_anchor_bottom', [30, 20, 40]); for (let c = 0; c <= 4; c++) ph('respawn_anchor_side' + c, [40, 20, 60]);
+  fam('respawn_anchor', 'Respawn Anchor', { charges: [0, 1, 2, 3, 4] }, (st) => ({ tex: { s: 'respawn_anchor_side' + st.charges, t: st.charges ? 'respawn_anchor_top' : 'respawn_anchor_top_off', b: 'respawn_anchor_bottom' }, shape: undefined, hardness: 50, tool: 'pick', tier: 4, snd: 'stone', light: [0, 0.2, 0.47, 0.73, 1][st.charges], anchor: st.charges }));
+  for (const id of Object.values(FAMILY.respawn_anchor.ids)) delete BL[id].shape;
+  ph('conduit', [150, 130, 100]); defBlock('conduit', 'Conduit', { tex: 'conduit', render: 'boxes', boxes: [[5, 5, 5, 11, 11, 11]], rb: [[5, 5, 5, 11, 11, 11]], cb: [[5, 5, 5, 11, 11, 11]], sb: [[5, 5, 5, 11, 11, 11]], shape: 'deco', opaque: false, solid: true, hardness: 3, mine: 'pick', snd: 'stone', light: 1, conduit: true });
+  // ---- chiseled bookshelf: 6 book slots, seen from the front ----
+  ph('chiseled_bookshelf_side', [160, 120, 70]); ph('chiseled_bookshelf_top', [160, 120, 70]); ph('chiseled_bookshelf_full', [120, 60, 40]); ph('chiseled_bookshelf_empty', [70, 50, 30]);
+  const SLOT = [[0, 8, 5, 16], [5, 8, 11, 16], [11, 8, 16, 16], [0, 0, 5, 8], [5, 0, 11, 8], [11, 0, 16, 8]]; // MC slot order: top row left to right, then bottom row (seen from the front)
+  fam('chiseled_bookshelf', 'Chiseled Bookshelf', { facing: [2, 3, 0, 1], books: [...Array(64).keys()] }, (st) => {
+    const bs = [[0, 0, 0, 16, 16, 15]]; SLOT.forEach((s, i) => bs.push([s[0], s[1], 15, s[2], s[3], 16, TILE[(st.books >> i) & 1 ? 'chiseled_bookshelf_full' : 'chiseled_bookshelf_empty']]));
+    const rb = bs.map(b => shRot(b, (st.facing + 2) % 4)); return { tex: { s: 'chiseled_bookshelf_side', t: 'chiseled_bookshelf_top' }, render: 'boxes', boxes: rb, cb: [[0, 0, 0, 16, 16, 16]], sb: [[0, 0, 0, 16, 16, 16]], opaque: true, hardness: 1.5, mine: 'axe', snd: 'wood', cbs: true }; });
+  // ---- decorated pot ----
+  ph('decorated_pot_side', [150, 80, 50]); ph('decorated_pot_top', [150, 80, 50]);
+  defBlock('decorated_pot', 'Decorated Pot', { tex: { s: 'decorated_pot_side', t: 'decorated_pot_top' }, render: 'boxes', boxes: [[1, 0, 1, 15, 13, 15], [4, 13, 4, 12, 14, 12], [3, 14, 3, 13, 16, 13]], rb: [[1, 0, 1, 15, 13, 15], [4, 13, 4, 12, 14, 12], [3, 14, 3, 13, 16, 13]], cb: [[1, 0, 1, 15, 16, 15]], sb: [[1, 0, 1, 15, 16, 15]], shape: 'deco', opaque: false, solid: true, hardness: 0, snd: 'stone', dpot: true, drop: null });
+  // ---- beehives and bee nests: honey level 0-5 ----
+  for (const [k, n] of [['beehive', 'Beehive'], ['bee_nest', 'Bee Nest']]) { for (const t of ['_front', '_front_honey', '_side', '_end']) ph(k + t, [190, 150, 80]);
+    fam(k, n, { facing: [2, 3, 0, 1], honey: [0, 1, 2, 3, 4, 5] }, (st) => { const tex = [k + '_side', k + '_side', k + '_end', k + '_end', k + '_side', k + '_side']; tex[F46[st.facing]] = k + (st.honey === 5 ? '_front_honey' : '_front');
+      return { tex, shape: undefined, hardness: k === 'beehive' ? 0.6 : 0.3, mine: 'axe', snd: 'wood', hive: st.honey, drop: k === 'bee_nest' ? null : k }; });
+    for (const id of Object.values(FAMILY[k].ids)) delete BL[id].shape; }
+  defBlock('honeycomb_block_rs', 'Honeycomb Block', { tex: 'honey_block', hidden: true, drop: 'honeycomb_block' }); // placeholder so old saves of this key keep loading
+}
+function paintDecoTiles() {
+  const clear = (set) => each((x, y) => set(x, y, [0, 0, 0], 0)); const dk = (p, f) => [p[0] * f, p[1] * f, p[2] * f];
+  // lanterns: an iron frame round glowing glass
+  for (const [k, glow, hot] of [['lantern', [255, 196, 90], [255, 236, 170]], ['soul_lantern', [80, 210, 230], [190, 250, 255]]]) makeTile(k + '_body', (set, r) => each((x, y) => { const fr = x <= 5 || x >= 10 || y <= 1 || y === 9 || y >= 15 || (y >= 7 && y <= 8 && false);
+    const edge = x === 5 || x === 10 || y === 9 || y === 15 || y === 8 || y === 1 || y === 0; set(x, y, edge ? vary([54, 56, 64], r, 4) : fr ? vary([74, 76, 86], r, 4) : (x === 7 || x === 8) && y >= 11 && y <= 13 ? hot : vary(glow, r, 10)); }));
+  makeTile('lantern_cap', (set, r) => each((x, y) => set(x, y, vary(((x + y) & 3) === 0 ? [92, 94, 104] : [62, 64, 72], r, 4))));
+  makeTile('chain', (set, r) => { clear(set); for (let y = 0; y < 16; y++) { const link = (y >> 2) & 1; const c = y % 4 === 0 ? [40, 42, 50] : [78, 82, 96]; if (link) { set(7, y, c); set(8, y, c); } else { set(6, y, c); set(9, y, dk(c, 0.8)); if (y % 4 === 1 || y % 4 === 3) { set(7, y, c); set(8, y, c); } } } });
+  const planks = tilePixels('planks'), stone = tilePixels('stone');
+  makeTile('campfire_log', (set, r) => each((x, y) => { const ring = (y + (x >> 2)) % 4 === 0; set(x, y, vary(ring ? [76, 56, 34] : [108, 82, 50], r, 6)); }));
+  for (const [k, ember] of [['campfire', [255, 140, 30]], ['soul_campfire', [80, 220, 230]]]) {
+    makeTile(k + '_log_lit', (set, r) => each((x, y) => { const ring = (y + (x >> 2)) % 4 === 0; const glow = r() < 0.22 && y > 3; set(x, y, glow ? ember : vary(ring ? [60, 44, 28] : [92, 68, 42], r, 6)); }));
+    makeTile(k + '_fire', (set, r) => { clear(set); const soul = k === 'soul_campfire'; for (let x = 1; x < 15; x++) { const h = 6 + Math.round(5 * Math.abs(Math.sin(x * 1.7)) + r() * 3); for (let y = 15; y > 15 - h; y--) { const t = (15 - y) / h; set(x, y, soul ? mixc([90, 230, 240], [20, 120, 170], t) : mixc([255, 240, 140], [230, 80, 10], t), t > 0.85 ? 160 : 255); } } }); }
+  makeTile('campfire_ash', (set, r) => each((x, y) => set(x, y, vary([70, 66, 62], r, 10))));
+  makeTile('soul_torch', (set, r) => { clear(set); for (let y = 6; y < 16; y++) { set(7, y, [120, 90, 50]); set(8, y, [100, 74, 40]); } for (const [x, y, c] of [[7, 5, [120, 240, 250]], [8, 5, [70, 200, 220]], [7, 6, [80, 220, 240]], [8, 6, [40, 170, 200]], [7, 4, [200, 255, 255]], [8, 4, [140, 240, 250]]]) set(x, y, c); });
+  makeTile('bell_body', (set, r) => each((x, y) => set(x, y, vary(y === 3 || y === 10 ? [196, 150, 30] : (x + y) % 6 === 0 ? [255, 236, 120] : [238, 196, 56], r, 6))));
+  makeTile('bell_bar', (set, r) => each((x, y) => set(x, y, vary([84, 74, 66], r, 5))));
+  makeTile('scaffolding_top', (set, r) => each((x, y) => { const e = x < 2 || x > 13 || y < 2 || y > 13; const slat = !e && (y === 5 || y === 10 || (x === 7 || x === 8)); set(x, y, vary(e ? [214, 184, 104] : slat ? [196, 164, 88] : [0, 0, 0], r, 6), e || slat ? 255 : 0); }));
+  makeTile('scaffolding_side', (set, r) => each((x, y) => set(x, y, vary(x % 4 === 0 ? [180, 150, 78] : [214, 184, 104], r, 6))));
+  makeTile('flower_pot', (set, r) => each((x, y) => set(x, y, vary(y === 10 || y === 11 ? [120, 58, 40] : [156, 82, 58], r, 5))));
+  // heads: plain skin on the back and sides, a face on the front (two versions: floor heads use the lower half of the
+  // texture, wall heads the middle)
+  const HD = { skeleton_skull: [[200, 200, 196], [150, 150, 146]], wither_skeleton_skull: [[44, 44, 44], [24, 24, 24]], zombie_head: [[80, 130, 70], [56, 100, 50]], creeper_head: [[94, 186, 76], [60, 140, 50]], piglin_head: [[232, 160, 150], [190, 120, 110]], dragon_head: [[36, 30, 40], [20, 16, 24]], player_head: [[196, 140, 104], [70, 46, 30]] };
+  for (const k in HD) { const [c, c2] = HD[k];
+    makeTile(k + '_skin', (set, r) => each((x, y) => set(x, y, vary(k === 'player_head' && y < 10 ? c2 : r() < 0.2 ? c2 : c, r, 6))));
+    for (const w of [false, true]) makeTile(k + (w ? '_face_w' : '_face'), (set, r) => { const o = w ? 4 : 8; each((x, y) => set(x, y, vary(k === 'player_head' && y < o + 2 ? c2 : r() < 0.15 ? c2 : c, r, 6)));
+      const S2 = (x, y, col) => set(4 + x, o + y, col); const dark = [16, 14, 16];
+      if (k === 'skeleton_skull' || k === 'wither_skeleton_skull') { for (const [x, y] of [[1, 3], [2, 3], [1, 4], [2, 4], [5, 3], [6, 3], [5, 4], [6, 4], [3, 5], [4, 5]]) S2(x, y, k === 'wither_skeleton_skull' ? [6, 6, 6] : [40, 36, 36]); for (let x = 1; x < 7; x++) S2(x, 6, k === 'wither_skeleton_skull' ? [70, 70, 70] : [110, 106, 100]); for (const x of [2, 4, 6]) S2(x, 7, k === 'wither_skeleton_skull' ? [10, 10, 10] : [60, 56, 54]); }
+      else if (k === 'creeper_head') { for (const [x, y] of [[1, 2], [2, 2], [1, 3], [2, 3], [5, 2], [6, 2], [5, 3], [6, 3], [3, 4], [4, 4], [2, 5], [3, 5], [4, 5], [5, 5], [2, 6], [5, 6]]) S2(x, y, [12, 26, 10]); }
+      else if (k === 'zombie_head') { for (const [x, y] of [[1, 3], [2, 3], [5, 3], [6, 3]]) S2(x, y, [20, 40, 30]); for (let x = 2; x < 6; x++) S2(x, 6, [40, 70, 36]); }
+      else if (k === 'piglin_head') { for (let x = 2; x < 6; x++) for (let y = 4; y < 7; y++) S2(x, y, [240, 176, 166]); S2(3, 5, [110, 60, 60]); S2(4, 5, [110, 60, 60]); S2(1, 3, [255, 255, 255]); S2(6, 3, [255, 255, 255]); S2(2, 3, [40, 30, 30]); S2(5, 3, [40, 30, 30]); S2(1, 7, [240, 230, 200]); S2(6, 7, [240, 230, 200]); }
+      else if (k === 'dragon_head') { for (const [x, y] of [[1, 2], [2, 2], [5, 2], [6, 2]]) S2(x, y, [200, 60, 220]); for (let x = 0; x < 8; x++) S2(x, 6, [60, 50, 66]); S2(1, 7, [230, 230, 220]); S2(6, 7, [230, 230, 220]); }
+      else if (k === 'player_head') { for (const [x, y, col] of [[1, 4, [250, 250, 250]], [2, 4, [70, 60, 140]], [5, 4, [70, 60, 140]], [6, 4, [250, 250, 250]], [3, 6, [150, 90, 70]], [4, 6, [150, 90, 70]]]) S2(x, y, col); } }); }
+  makeTile('cake_top', (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; const dot = !e && r() < 0.06; set(x, y, dot ? [220, 40, 50] : vary(e ? [226, 220, 212] : [246, 242, 236], r, 3)); }));
+  makeTile('cake_side', (set, r) => each((x, y) => { const icing = y < 5 || (y < 7 && (x * 7) % 5 < 2); set(x, y, icing ? vary([246, 242, 236], r, 3) : y === 12 ? [220, 60, 60] : vary([196, 130, 76], r, 6)); }));
+  makeTile('cake_inner', (set, r) => each((x, y) => { const icing = y < 5; set(x, y, icing ? vary([246, 242, 236], r, 3) : y === 12 ? [220, 60, 60] : vary([220, 170, 110], r, 8)); }));
+  makeTile('cake_bottom', (set, r) => each((x, y) => set(x, y, vary([170, 108, 60], r, 6))));
+  makeTile('candle_flame', (set, r) => each((x, y) => set(x, y, y < 8 ? [255, 250, 200] : [255, 190, 70])));
+  for (const [k, , c] of [['candle', '', [226, 206, 160]], ...COLORDATA().map(cc => [cc[0] + '_candle', '', cc[2]])]) makeTile(k, (set, r) => each((x, y) => set(x, y, vary((x + y) % 5 === 0 ? mixc(c, [255, 255, 255], 0.25) : x % 2 ? dk(c, 0.9) : c, r, 4))));
+  makeTile('lodestone_side', (set, r) => each((x, y) => { const p = stone(x, y); const band = y >= 6 && y <= 9; set(x, y, band ? vary([60, 62, 70], r, 5) : (x === 0 || x === 15) ? dk(p, 0.6) : dk(p, 0.88)); }));
+  makeTile('lodestone_top', (set, r) => each((x, y) => { const p = stone(x, y); const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, d < 3 ? vary([60, 62, 70], r, 5) : d > 6.5 ? dk(p, 0.6) : dk(p, 0.88)); }));
+  const obs = (x, y, r) => vary(((x * 3 + y * 5) % 7) === 0 ? [60, 30, 90] : [24, 14, 36], r, 5);
+  for (let c = 0; c <= 4; c++) makeTile('respawn_anchor_side' + c, (set, r) => each((x, y) => { const ind = x >= 5 && x <= 10 && y >= 4 && y <= 12; const lv = ind && (12 - y) / 2 < c; set(x, y, ind ? (lv ? vary([255, 140, 60], r, 10) : [50, 30, 60]) : (y < 2 || y > 13) ? vary([80, 70, 90], r, 5) : obs(x, y, r)); }));
+  makeTile('respawn_anchor_top', (set, r) => each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); set(x, y, d < 5 ? vary([180, 80, 240], r, 20) : obs(x, y, r)); }));
+  makeTile('respawn_anchor_top_off', (set, r) => each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); set(x, y, d < 5 ? vary([40, 26, 60], r, 6) : obs(x, y, r)); }));
+  makeTile('respawn_anchor_bottom', (set, r) => each((x, y) => set(x, y, obs(x, y, r))));
+  makeTile('conduit', (set, r) => each((x, y) => { const e = x <= 5 || x >= 10 || y <= 5 || y >= 10; set(x, y, e ? vary(((x + y) & 1) ? [130, 110, 80] : [160, 136, 98], r, 6) : vary([90, 200, 210], r, 10)); }));
+  makeTile('chiseled_bookshelf_side', (set, r) => { const p = planks; each((x, y) => { const q = p(x, y); set(x, y, (x < 1 || x > 14) ? dk(q, 0.7) : [q[0], q[1], q[2]]); }); });
+  makeTile('chiseled_bookshelf_top', (set, r) => each((x, y) => { const q = planks(x, y); set(x, y, (x === 0 || y === 0 || x === 15 || y === 15) ? dk(q, 0.6) : [q[0], q[1], q[2]]); }));
+  const frame = (x, y) => x === 0 || x === 15 || x === 5 || x === 10 || y === 0 || y === 15 || y === 7 || y === 8;
+  makeTile('chiseled_bookshelf_empty', (set, r) => each((x, y) => { const q = planks(x, y); set(x, y, frame(x, y) ? [q[0], q[1], q[2]] : vary([46, 32, 20], r, 4)); }));
+  const BOOKC = [[150, 40, 40], [50, 80, 150], [60, 120, 60], [140, 110, 50], [110, 60, 120]];
+  makeTile('chiseled_bookshelf_full', (set, r) => each((x, y) => { const q = planks(x, y); if (frame(x, y)) { set(x, y, [q[0], q[1], q[2]]); return; } const c = BOOKC[(x * 3 + (y > 7 ? 1 : 0)) % 5]; set(x, y, (y === 1 || y === 9) ? dk(c, 0.6) : (y === 4 || y === 12) ? mixc(c, [230, 200, 120], 0.6) : c); }));
+  makeTile('decorated_pot_side', (set, r) => each((x, y) => set(x, y, vary((y === 3 || y === 12) ? [110, 52, 34] : ((x + y * 2) % 9 === 0 ? [180, 104, 70] : [152, 80, 52]), r, 5))));
+  makeTile('decorated_pot_top', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, d < 3 ? [40, 24, 16] : vary([152, 80, 52], r, 5)); }));
+  for (const [k, base, dark] of [['beehive', [196, 156, 92], [150, 110, 60]], ['bee_nest', [214, 176, 76], [176, 120, 44]]]) {
+    const side = (x, y, r) => vary(k === 'beehive' ? ((y % 5 === 0) ? dark : base) : ((y % 4 === 1) ? dark : base), r, 6);
+    makeTile(k + '_side', (set, r) => each((x, y) => set(x, y, side(x, y, r))));
+    makeTile(k + '_end', (set, r) => each((x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); set(x, y, vary(k === 'beehive' ? (d > 6.5 ? dark : (Math.round(d) % 2 ? base : mixc(base, dark, 0.4))) : ((x + y) % 3 === 0 ? dark : base), r, 5)); }));
+    for (const honey of [false, true]) makeTile(k + (honey ? '_front_honey' : '_front'), (set, r) => each((x, y) => { let c = side(x, y, r); if (x >= 5 && x <= 10 && y >= 8 && y <= 10) c = [24, 18, 10];
+      if (honey && ((y === 1 || y === 2) && x > 1 && x < 14 || ((x === 3 || x === 7 || x === 12) && y < 6 + (x % 3)))) c = vary([246, 176, 30], r, 8); set(x, y, c); })); }
+}
+{ const R = (o, n, sh, k) => RECIPES.push(RSH(o, n, sh, k)); const L = (o, n, items) => RECIPES.push(RSL(o, n, items)); const r0 = RECIPES.length;
+  const M3 = (key, name, o, icon) => { const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };
+  if (IT.charcoal === undefined) { M3('charcoal', 'Charcoal', {}, (s) => { for (let y = 3; y <= 12; y++) for (let x = 4; x <= 11; x++) if (Math.abs(x - 7.5) + Math.abs(y - 7.5) < 6) s(x, y, (x + y) % 4 === 0 ? [80, 70, 62] : [44, 40, 36]); }); SMELT[IT.log] = IT.charcoal; for (const w of WOODDATA()) if (!w.nether && IT[w.log] !== undefined) SMELT[IT[w.log]] = IT.charcoal; FUEL[IT.charcoal] = 80; }
+  M3('honey_bottle', 'Honey Bottle', { kind: 'food', food: 6, sat: 1.2, stack: 16, alwaysEat: false, drink: true }, (s) => { for (let y = 4; y <= 14; y++) for (let x = 5; x <= 10; x++) { const neck = y < 7; if (neck && (x < 7 || x > 8)) continue; s(x, y, y === 4 ? [140, 100, 70] : neck ? [220, 230, 240] : (x === 5 || x === 10 || y === 14) ? [200, 140, 30] : [246, 182, 40]); } });
+  FUEL[IT.charcoal] = 80;
+  R('lantern', 1, ['NNN', 'NTN', 'NNN'], { N: 'iron_nugget', T: 'torch' }); R('soul_lantern', 1, ['NNN', 'NTN', 'NNN'], { N: 'iron_nugget', T: 'soul_torch' });
+  R('soul_torch', 4, ['C', 'S', 'O'], { C: 'coal', S: 'stick', O: 'soul_soil' }); R('chain', 1, ['N', 'I', 'N'], { N: 'iron_nugget', I: 'iron_ingot' });
+  R('campfire', 1, [' S ', 'SCS', 'LLL'], { S: 'stick', C: 'coal', L: '#log' }); R('soul_campfire', 1, [' S ', 'SCS', 'LLL'], { S: 'stick', C: 'soul_soil', L: '#log' });
+  R('scaffolding', 6, ['BSB', 'B B', 'B B'], { B: 'bamboo', S: 'string' }); R('flower_pot', 1, ['B B', ' B '], { B: 'brick' });
+  R('cake', 1, ['MMM', 'SES', 'WWW'], { M: 'milk_bucket', S: 'sugar', E: 'egg', W: 'wheat' });
+  R('candle', 1, ['S', 'H'], { S: 'string', H: 'honeycomb' }); for (const c of COLORDATA()) L(c[0] + '_candle', 1, ['candle', c[0] + '_dye']);
+  R('lodestone', 1, ['SSS', 'SNS', 'SSS'], { S: 'chiseled_stone_bricks', N: 'netherite_ingot' }); R('respawn_anchor', 1, ['CCC', 'GGG', 'CCC'], { C: 'crying_obsidian', G: 'glowstone' });
+  R('conduit', 1, ['NNN', 'NHN', 'NNN'], { N: 'nautilus_shell', H: 'heart_of_the_sea' });
+  R('chiseled_bookshelf', 1, ['PPP', 'SSS', 'PPP'], { P: 'planks', S: '#wooden_slabs' }); R('decorated_pot', 1, [' B ', 'B B', ' B '], { B: 'brick' });
+  R('beehive', 1, ['PPP', 'HHH', 'PPP'], { P: 'planks', H: 'honeycomb' }); L('honey_bottle', 4, ['honey_block', 'glass_bottle', 'glass_bottle', 'glass_bottle', 'glass_bottle']); R('honey_block', 1, ['HH', 'HH'], { H: 'honey_bottle' }); L('sugar', 3, ['honey_bottle']);
+  for (let i = RECIPES.length - 1; i >= r0; i--) { const r = RECIPES[i]; const specs = r.items || Object.values(r.key || {}); if (specs.some(sp => sp[0] !== '#' && sp !== 'planks' && sp[0] !== '=' && IT[sp] === undefined)) RECIPES.splice(i, 1); } // drop recipes whose ingredients do not exist yet
+}
+// ---- flat inventory pictures for blocks that Minecraft shows as item sprites ----
+{ const box = (s, x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) s(x, y, typeof c === 'function' ? c(x, y) : c); };
+  const lanternP = (glow, hot) => (s) => { box(s, 7, 0, 8, 0, [70, 72, 80]); s(6, 1, [70, 72, 80]); s(9, 1, [70, 72, 80]); box(s, 5, 2, 10, 3, [60, 62, 70]); box(s, 4, 4, 11, 14, [52, 54, 62]); box(s, 5, 5, 10, 13, (x, y) => (x === 7 || x === 8) && y >= 8 && y <= 11 ? hot : glow); box(s, 4, 14, 11, 14, [40, 42, 48]); box(s, 5, 4, 10, 4, [78, 80, 90]); };
+  ICONP.lantern = lanternP([236, 160, 60], [255, 238, 170]); ICONP.soul_lantern = lanternP([60, 180, 200], [190, 250, 255]);
+  ICONP.chain = (s) => { for (let i = 0; i < 4; i++) { const cx = 4 + i * 3, cy = 12 - i * 3; const c = i & 1 ? [92, 96, 110] : [64, 68, 80]; for (const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1]]) s(cx + a, cy + b, c); } };
+  const fireP = (f1, f2) => (s) => { for (let x = 3; x <= 12; x++) { const h = 4 + Math.round(3 * Math.abs(Math.sin(x * 1.3))); for (let y = 11 - h; y <= 10; y++) s(x, y, y < 11 - h + 2 ? f1 : f2); }
+    for (let i = 0; i < 12; i++) { s(2 + i, 13 - (i >> 2), [104, 76, 46]); s(2 + i, 14 - (i >> 2), [80, 58, 34]); s(13 - i, 13 - (i >> 2), [118, 86, 52]); s(13 - i, 14 - (i >> 2), [90, 66, 40]); } };
+  ICONP.campfire = fireP([255, 230, 120], [240, 110, 20]); ICONP.soul_campfire = fireP([180, 250, 255], [40, 170, 200]);
+  ICONP.bell = (s) => { box(s, 7, 1, 8, 2, [90, 80, 70]); for (let y = 3; y <= 12; y++) { const w = y < 5 ? 2 : y < 10 ? 3 : 4 + (y - 10); box(s, 8 - w, y, 7 + w, y, (x) => x === 8 - w ? [190, 140, 30] : x < 7 ? [255, 230, 110] : [236, 190, 56]); } box(s, 2, 13, 13, 13, [170, 120, 24]); s(7, 14, [120, 100, 60]); s(8, 14, [120, 100, 60]); };
+  ICONP.flower_pot = (s) => { box(s, 4, 7, 11, 8, [120, 58, 40]); for (let y = 9; y <= 14; y++) box(s, 5, y, 10, y, (x) => x === 5 ? [128, 64, 46] : [160, 84, 60]); };
+  ICONP.cake = (s) => { for (let y = 5; y <= 13; y++) { const top = y <= 7; box(s, 1 + (y - 5 > 2 ? 0 : 2 - (y - 5)), y, 14 - (y - 5 > 2 ? 0 : 2 - (y - 5)), y, top ? (x) => ((x * 7 + y) % 9 === 0 ? [220, 40, 50] : [248, 244, 238]) : (x) => (y === 8 ? [236, 226, 214] : y === 11 ? [210, 60, 60] : [196, 130, 76])); } };
+  ICONP.repeater = (s) => { box(s, 1, 10, 14, 13, (x, y) => y === 10 ? [196, 196, 196] : y === 13 ? [110, 110, 110] : [160, 160, 160]); box(s, 3, 11, 12, 11, [150, 20, 18]); for (const x of [3, 11]) { box(s, x, 5, x + 1, 9, [126, 94, 52]); box(s, x, 3, x + 1, 4, [255, 60, 40]); } };
+  ICONP.comparator = (s) => { box(s, 1, 10, 14, 13, (x, y) => y === 10 ? [196, 196, 196] : y === 13 ? [110, 110, 110] : [160, 160, 160]); box(s, 3, 11, 12, 11, [150, 20, 18]); for (const [x, t] of [[2, 4], [7, 2], [12, 4]]) { box(s, x, t + 2, x + 1, 9, [126, 94, 52]); box(s, x, t, x + 1, t + 1, x === 7 ? [110, 26, 22] : [255, 60, 40]); } };
+  ICONP.hopper = (s) => { box(s, 1, 2, 14, 5, (x, y) => y === 2 ? [96, 96, 104] : (x > 2 && x < 13 && y < 5) ? [30, 30, 34] : [70, 70, 76]); for (let y = 6; y <= 10; y++) box(s, 2 + (y - 6), y, 13 - (y - 6), y, (x) => x === 2 + (y - 6) ? [50, 50, 56] : [74, 74, 80]); box(s, 7, 11, 8, 14, [60, 60, 66]); };
+  const candleP = (c) => (s) => { box(s, 7, 6, 8, 14, (x, y) => x === 7 ? mixc(c, [255, 255, 255], 0.25) : c); s(7, 4, [40, 34, 30]); s(7, 5, [40, 34, 30]); s(8, 5, mixc(c, [0, 0, 0], 0.2)); };
+  ICONP.candle = candleP([226, 206, 160]); for (const c of COLORDATA()) ICONP[c[0] + '_candle'] = candleP(c[2]);
+  for (const k of ['lantern', 'soul_lantern', 'chain', 'campfire', 'soul_campfire', 'bell', 'flower_pot', 'cake', 'repeater', 'comparator', 'hopper', 'candle', ...COLORDATA().map(c => c[0] + '_candle')]) if (B[k.toUpperCase()] !== undefined) BL[B[k.toUpperCase()]].iconPaint = true; }
+
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
   const r = mulberry32(seed); const g = []; for (let i = 0; i < period * period; i++) g.push(r());
@@ -2760,11 +2949,12 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
   const d = BL[id];
+  if (d && d.iconPaint && ICONP[d.key]) { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(iconCanvas(ICONP[d.key]), 0, 0, 48, 48); return c; }
   if (d && d.iconTile && TILE[d.iconTile] !== undefined) { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(tileCanvas(TILE[d.iconTile]), 0, 0, 48, 48); return c; }
   if (!d || d.render !== 'boxes' || d.flatIcon || !d.boxes || d.ladder) return _bic(id);
   const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
@@ -2772,10 +2962,10 @@ paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); pain
   const face = (t, m, sx, sy, w, h, dark) => { if (w <= 0 || h <= 0) return; lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, 48, 48); lx.setTransform(...m); lx.drawImage(tileCanvas(t), sx, sy, w, h, sx, sy, w, h);
     if (dark) { lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalCompositeOperation = 'source-atop'; lx.fillStyle = 'rgba(0,0,0,' + dark + ')'; lx.fillRect(0, 0, 48, 48); lx.globalCompositeOperation = 'source-over'; } x.drawImage(L, 0, 0); };
   const boxes = d.boxes.slice().sort((a, b) => a[1] - b[1] || b[0] - a[0] || a[2] - b[2]);
-  for (const [x0, y0, z0, x1, y1, z1] of boxes) {
-    face(d.texIds[4], [1.25, 0.625, 0, 1.5, 4 + x0 * 1.25, 13 - x0 * 0.625], z0, 16 - y1, z1 - z0, y1 - y0, 0.22);       // west side
-    face(d.texIds[0], [1.25, -0.625, 0, 1.5, 4 + z1 * 1.25, 13 + z1 * 0.625], x0, 16 - y1, x1 - x0, y1 - y0, 0.42);      // south side
-    face(d.texIds[2], [1.25, -0.625, 1.25, 0.625, 4, 13 + (16 - y1) * 1.5], x0, z0, x1 - x0, z1 - z0, 0);                 // top
+  for (const [x0, y0, z0, x1, y1, z1, bt] of boxes) { const T3 = (f) => bt != null ? bt : d.texIds[f];
+    face(T3(4), [1.25, 0.625, 0, 1.5, 4 + x0 * 1.25, 13 - x0 * 0.625], z0, 16 - y1, z1 - z0, y1 - y0, 0.22);       // west side
+    face(T3(0), [1.25, -0.625, 0, 1.5, 4 + z1 * 1.25, 13 + z1 * 0.625], x0, 16 - y1, x1 - x0, y1 - y0, 0.42);      // south side
+    face(T3(2), [1.25, -0.625, 1.25, 0.625, 4, 13 + (16 - y1) * 1.5], x0, z0, x1 - x0, z1 - z0, 0);                 // top
   }
   return c; }; }
 
@@ -3877,7 +4067,7 @@ class World {
         const t = def.texIds[0]; const { u0, v0, px } = tileSub(t);
         const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
         // a torch with nothing under it hangs on a wall: its foot against the wall, leaning out (Minecraft's wall torch)
-        let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH || id === B.REDSTONE_TORCH_OFF) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
+        let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH || id === B.REDSTONE_TORCH_OFF || id === B.SOUL_TORCH) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           if (wx || wz) for (let k = 0; k < 4; k++) { const ly = (vtmp[k * 3 + 1] - y) / (10 / 16); vtmp[k * 3] += wx * (0.38 - ly * 0.24); vtmp[k * 3 + 2] += wz * (0.38 - ly * 0.24); vtmp[k * 3 + 1] += 0.22; }
@@ -6198,7 +6388,7 @@ function saveGame(notify) {
   try {
     const worlds = {}; for (const k in Dim.worlds) worlds[k] = packWorld(Dim.worlds[k]);
     const dragon = G.mobs.find(m => m.type === 'dragon'); if (dragon) S.dragonHp = Math.max(1, Math.round(dragon.hp));
-    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, food: player.food, sat: player.sat, exh: player.exh, absorb: player.absorb, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
+    const data = { v: 4, keys: saveKeys(), seed: world.seed, mode: S.mode, time: S.time, day: S.day, dim: S.dim, dragonDead: S.dragonDead, crystalsGone: S.crystalsGone, dragonHp: S.dragonHp, player: { pos: player.pos.toArray(), yaw: player.yaw, pitch: player.pitch, health: player.health, food: player.food, sat: player.sat, exh: player.exh, absorb: player.absorb, spawn: player.spawn.toArray(), inv: player.inv, sel: player.sel, xp: [XP.level, XP.points], effects: player.effects }, rules: S.rules, difficulty: S.difficulty, cheats: S.cheats, bed: S.bed || null, anchor: S.anchor || null, spawnPoint: player.spawnPoint ? player.spawnPoint.toArray() : null, mpPlayers: MP.saved, boats: boatList(), worlds };
     Saves.store(data, notify);
   } catch (e) { console.warn(e); if (notify) toast('Could not save the world', 3); }
 }
@@ -6239,7 +6429,7 @@ function startWorld(data) {
   const dim = data.dim || 'overworld';
   const wd = data.worlds || (data.edits ? { overworld: { edits: data.edits, chests: data.chests } } : {});
   migrateOldHeights(data);
-  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
+  REMAP = makeRemap(data); Object.assign(S.rules, data.rules || {}); S.difficulty = data.difficulty || 'normal'; S.bed = data.bed || null; S.anchor = data.anchor || null; S.sleeping = null; if (MP.role !== 'client') MP.saved = data.mpPlayers || {}; S.cheats = data.cheats != null ? !!data.cheats : (data.mode === 'creative'); for (const x of $('cheatSeg').children) x.classList.toggle('on', (x.dataset.m === 'on') === S.cheats); setLevel(0, 0); player.effects = {}; clearOrbs(); $('chatLog').innerHTML = '';
   for (const k in wd) unpackWorld(Dim.get(k), wd[k]);
   clearBoats(); loadBoats(data.boats);
   world = Dim.get(dim); G.world = world; S.dim = dim;
@@ -7736,6 +7926,7 @@ function randomTicks(dt) {
       } else if (id === B.BUDDING_AMETHYST || def.berry !== undefined || def.bamboo || def.cocoa !== undefined || id === B.CAVE_VINES || id === B.TWISTING_VINES || id === B.WEEPING_VINES) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; caveTick(ox + lx, y, oz + lz, id);
       } else if (id === B.KELP || (def.coralBlock && !def.dead)) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; oceanTick(ox + lx, y, oz + lz, id);
       } else if (def.stem !== undefined || def.mushroom) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; natureTick(ox + lx, y, oz + lz, id);
+      } else if (def.hive !== undefined) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; hiveTick(ox + lx, y, oz + lz, id);
       } else if (def.sapling) { const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; saplingTick(ox + lx, y, oz + lz, id);
       } else if (id === B.SUGAR_CANE && Math.random() < 0.35) {
         const y = (j / 256) | 0, lz = ((j >> 4) & 15), lx = j & 15; const x = ox + lx, z = oz + lz;
@@ -13290,14 +13481,14 @@ function buildMansionChunk(world, c) {
 MOBS.wither_skeleton.drops.push(['wither_skeleton_skull', 1, 1, 0.025]);
 // ---------- summoning ----------
 function witherPattern(x, y, z) { // (x,y,z) = a skull just placed; look for the T in both orientations
-  const ss = (a, b, c) => { const id = world.get(a, b, c); return id === B.SOUL_SAND; }, sk = (a, b, c) => world.get(a, b, c) === B.WITHER_SKELETON_SKULL;
+  const ss = (a, b, c) => { const id = world.get(a, b, c); return id === B.SOUL_SAND; }, sk = (a, b, c) => (BL[world.get(a, b, c)] || {}).head === 'wither_skeleton_skull';
   for (const [dx, dz] of [[1, 0], [0, 1]]) for (let o = -2; o <= 0; o++) { const cx = x + dx * (o + 1), cz = z + dz * (o + 1); // centre skull column
     const mid = y - 1; if (!sk(cx - dx, y, cz - dz) || !sk(cx, y, cz) || !sk(cx + dx, y, cz + dz)) continue;
     if (ss(cx - dx, mid, cz - dz) && ss(cx, mid, cz) && ss(cx + dx, mid, cz + dz) && ss(cx, mid - 1, cz)) return [cx, mid - 1, cz, dx, dz]; }
   return null;
 }
 { const _pb = placeBlock; placeBlock = function (t, id) { const r = _pb.apply(this, arguments);
-    if (r && id === B.WITHER_SKELETON_SKULL && S.difficulty !== 'peaceful') { const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; const p = witherPattern(x, y, z);
+    if (r && (BL[id] || {}).head === 'wither_skeleton_skull' && S.difficulty !== 'peaceful') { const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; const p = witherPattern(x, y, z);
       if (p) { const [cx, by, cz, dx, dz] = p; for (const k of [-1, 0, 1]) { world.set(cx + dx * k, by + 1, cz + dz * k, 0); world.set(cx + dx * k, by + 2, cz + dz * k, 0); mpBlock(cx + dx * k, by + 1, cz + dz * k, 0); mpBlock(cx + dx * k, by + 2, cz + dz * k, 0); } world.set(cx, by, cz, 0); mpBlock(cx, by, cz, 0);
         const w = spawnMob('wither', cx + 0.5, by, cz + 0.5); w.spawnT = 10; w.hp = 1; toast('The Wither awakens!', 3); Sfx.play('roar', 1.2, 0.5); } }
     return r; }; }
@@ -15266,6 +15457,171 @@ if (typeof ITEM_IDS !== 'undefined') { const keys = ['redstone', 'redstone_torch
 // fuel listed by item name (wood blocks, carpets, bamboo ...) also counts by item id, which is what furnaces look up
 for (const k of Object.keys(FUEL)) if (isNaN(+k) && IT[k] !== undefined && FUEL[IT[k]] === undefined) FUEL[IT[k]] = FUEL[k];
 FUEL[IT.daylight_detector] = 15; FUEL[IT.note_block] = 15; if (IT.trapped_chest !== undefined) FUEL[IT.trapped_chest] = 15;
+
+// ================= DECORATION BLOCKS AT RUN TIME (Minecraft rules) =================
+// Lanterns hang from the block above when placed on a ceiling; heads go on floors or walls; candles stack up to four
+// and light with flint and steel (and go out with a click); a candle on an untouched cake makes a candle cake; cakes are
+// eaten a slice at a time (2 hunger each); flower pots take any small plant; campfires burn (1 damage a second, soul
+// campfires 2), cook up to four raw foods in 30 seconds, light with flint and steel and go out with a shovel or water;
+// bells ring; scaffolding holds up to 7 blocks out from a supported column and drops when it can't; respawn anchors
+// charge with glowstone, set your spawn in the Nether and explode anywhere else; conduits framed by 16+ prismarine
+// blocks give Conduit Power (water breathing, night vision, haste) underwater; chiseled bookshelves hold 6 books, one per
+// slot; decorated pots hold one stack; beehives and bee nests fill with honey near flowers and give honeycomb to shears
+// and honey bottles to glass bottles.
+const DECO = { watch: new Set(), watchWorld: null, cook: new Map(), scq: new Set(), t: 0, slow: 0 };
+const decoWatchable = (id) => { const d = BL[id]; return !!(d && (d.campfire || d.conduit)); };
+// ---- what holds things up ----
+{ const _ss = shapeSupported; shapeSupported = function (x, y, z, id) { const d = BL[id]; if (!d) return true;
+    if (d.support === 'lantern') { if (d.st.hanging) { const a = world.get(x, y + 1, z); const ad = BL[a]; return !!(SOLID[a] || (ad && (ad.fam === 'chain' && ad.st.axis === 'y'))); } const b = world.get(x, y - 1, z); return !!SOLID[b]; }
+    if (d.support === 'headwall') { const f = d.st.facing; const [ax, az] = DV4[f]; return !!SOLID[world.get(x - ax, y, z - az)]; }
+    return _ss.apply(this, arguments); }; }
+// ---- placing ----
+const isCandleItem = (id) => !!(BL[id] && BL[id].candle && BL[id].fam === BL[id].candle && FAMILY[BL[id].candle].base === id);
+function scaffoldDistance(x, y, z) { const b = world.get(x, y - 1, z); const bd = BL[b]; if (bd && bd.scaffold) return bd.st.distance; if (SOLID[b] && !(bd && bd.scaffold)) return 0;
+  let best = 8; for (const [a, c] of DV4) { const n = BL[world.get(x + a, y, z + c)]; if (n && n.scaffold) best = Math.min(best, n.st.distance + 1); } return best; }
+function scaffoldState(x, y, z) { let dist = scaffoldDistance(x, y, z); const below = BL[world.get(x, y - 1, z)]; const bottom = dist > 0 && !(below && below.scaffold) && !SOLID[world.get(x, y - 1, z)] ? 1 : 0; return { distance: dist, bottom }; }
+{ const _pb = placeBlock; placeBlock = function (hit, id) {
+    const d = BL[id]; if (!d || !hit) return _pb.apply(this, arguments);
+    const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; const pf = playerFacing(); const hd = BL[hit.id];
+    // a candle added to a candle of the same colour; a candle on an untouched cake
+    if (isCandleItem(id) && hd && hd.candle === d.candle && hd.st.candles < 4) { world.set(hit.x, hit.y, hit.z, withState(hit.id, { candles: hd.st.candles + 1 })); Sfx.play('wool', 1, 1.2); return true; }
+    if (isCandleItem(id) && hd && hd.cake === 0) { world.set(hit.x, hit.y, hit.z, FAMILY[d.candle + '_cake'].ids['0']); Sfx.play('wool', 1, 1.2); return true; }
+    if (id === B.SOUL_TORCH && !SOLID[world.get(x, y - 1, z)] && !(hit.ny === 0 && SOLID[hit.id])) return false;
+    if (!d.fam || !FAMILY[d.fam] || FAMILY[d.fam].kind !== 'deco') return _pb.apply(this, arguments);
+    let vid = id;
+    if (d.lantern) { const canHang = SOLID[world.get(x, y + 1, z)] || (BL[world.get(x, y + 1, z)] || {}).fam === 'chain'; const canStand = SOLID[world.get(x, y - 1, z)]; const hang = (hit.ny === -1 && canHang) || (!canStand && canHang); vid = withState(id, { hanging: hang ? 1 : 0 }); }
+    else if (d.campfire) vid = withState(id, { facing: pf, lit: 1 });
+    else if (d.bell) vid = withState(id, { facing: (pf + 1) % 4 });
+    else if (d.head) vid = hit.ny === 0 ? withState(id, { wall: 1, facing: dirOf(hit.nx, hit.nz) }) : withState(id, { wall: 0, facing: (pf + 2) % 4 });
+    else if (d.cbs || d.hive !== undefined) vid = withState(id, { facing: (pf + 2) % 4 });
+    else if (d.scaffold) { if (!replaceableAt(x, y, z)) return false; const st = scaffoldState(x, y, z); if (st.distance > 7) return false; vid = withState(id, st); }
+    if (!shapeSupported(x, y, z, vid)) return false;
+    return _pb.call(this, hit, vid); }; }
+// ---- using ----
+function lightUp(x, y, z, d, id) { if (d.candle && !d.st.lit && world.get(x, y, z) === id) { world.set(x, y, z, withState(id, { lit: 1 })); return true; } if (d.candleCake && !d.st.lit) { world.set(x, y, z, withState(id, { lit: 1 })); return true; } if (d.campfire && !d.st.lit) { world.set(x, y, z, withState(id, { lit: 1 })); return true; } return false; }
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const h = player.held(); const hd = h && ITEMS[h.id]; const sneaking = kd('sneak'); const hk = hd && hd.key;
+    if (target && !targetMob && !isSpec()) { const { x, y, z } = target; const id = target.id; const d = BL[id]; const pos = new V3(x + 0.5, y + 0.5, z + 0.5); const done = (snd, v, r) => { if (snd) Sfx.play(snd, v || 1, r); S.swing = 1; mouseR = false; };
+      if (d && !(sneaking && h)) {
+        // flint and steel / fire charges light candles, candle cakes and campfires
+        if ((hk === 'flint_and_steel' || hk === 'fire_charge') && (d.candle || d.candleCake || d.campfire)) { if (lightUp(x, y, z, d, id)) { if (hk === 'fire_charge') useHeld(1); else if (typeof damageHeld === 'function') damageHeld(1); done('ignite', 0.8); return; } }
+        if ((d.candle || d.candleCake) && d.st.lit && !h) { world.set(x, y, z, withState(id, { lit: 0 })); Particles.emit(x + 0.5, y + 0.6, z + 0.5, 4, [[0.6, 0.6, 0.6]], 0.4, 0.8, -2, 0.1); done('fizz', 0.4); return; }
+        if (d.campfire && d.st.lit && hd && hd.kind === 'tool' && hd.tool === 'shovel') { world.set(x, y, z, withState(id, { lit: 0 })); done('fizz', 0.6); return; }
+        if (d.campfire && d.st.lit && h && SMELT[h.id] !== undefined && ITEMS[SMELT[h.id]] && ITEMS[SMELT[h.id]].kind === 'food') { const k = keyOf(x, y, z); const list = DECO.cook.get(k) || []; if (list.length < 4) { list.push({ id: h.id, t: 0 }); DECO.cook.set(k, list); useHeld(1); done('wood', 0.6, 1.3); return; } }
+        // cakes: one slice a click (when hungry, or in Creative)
+        if (d.cake !== undefined || d.candleCake) { if (S.mode === 'creative' || player.food < 20) { const nb = d.candleCake ? 1 : d.cake + 1; if (d.candleCake) dropItem(IT[d.candleCake], 1, x + 0.5, y + 0.6, z + 0.5);
+            if (nb >= 7) world.set(x, y, z, 0); else world.set(x, y, z, FAMILY.cake.ids[String(nb)]); if (isSurv()) { player.food = Math.min(20, player.food + 2); player.sat = Math.min(player.food, player.sat + 0.4); if (typeof renderFood === 'function') renderFood(); } done('eat', 0.8); return; } }
+        // flower pots
+        if (d.pot && h && !d.potted) { const p = defineDecoBlocks.potted.find(q => q[0] === h.id); if (p) { world.set(x, y, z, p[1]); useHeld(1); done('grass', 0.8); return; } }
+        if (d.potted && !h) { world.set(x, y, z, B.FLOWER_POT); giveOrDrop(d.potted, 1); done('grass', 0.8); return; }
+        // bells
+        if (d.bell) { Sfx.at('bell', pos, 1); done(); BELL_SWING.set(keyOf(x, y, z), 1); return; }
+        // respawn anchors
+        if (d.anchor !== undefined) { if (h && h.id === IT.glowstone && d.anchor < 4) { world.set(x, y, z, withState(id, { charges: d.anchor + 1 })); useHeld(1); done('anchor_charge', 1); return; }
+          if (d.anchor > 0) { if (world.dim === 'nether') { S.anchor = [x, y, z]; toast('Respawn point set', 2); chatPrint('Respawn point set', '#ccc'); done('anchor_set', 1); return; }
+            world.set(x, y, z, 0); done(); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { fire: true, cause: 'Intentional Game Design' }); return; } }
+        // chiseled bookshelves: the slot under the crosshair
+        if (d.cbs) { const slot = cbsSlot(target, d); if (slot >= 0) { const k = keyOf(x, y, z); let inv = world.chestInv.get(k); if (!inv) { inv = new Array(6).fill(null); world.chestInv.set(k, inv); }
+            const full = (d.st.books >> slot) & 1; const BOOKS = ['book', 'enchanted_book', 'writable_book', 'written_book', 'knowledge_book'];
+            if (!full && h && BOOKS.includes(hk)) { inv[slot] = Object.assign({}, h, { count: 1 }); useHeld(1); world.set(x, y, z, withState(id, { books: d.st.books | (1 << slot) })); CBS_LAST.set(k, slot + 1); done('book_put', 0.8); return; }
+            if (full) { const it = inv[slot] || { id: IT.book, count: 1 }; inv[slot] = null; giveOrDrop(it.id, 1, xtra(it)); world.set(x, y, z, withState(id, { books: d.st.books & ~(1 << slot) })); CBS_LAST.set(k, slot + 1); done('book_take', 0.8); return; } } }
+        // decorated pots hold one stack
+        if (d.dpot && h) { const k = keyOf(x, y, z); let inv = world.chestInv.get(k); if (!inv) { inv = [null]; world.chestInv.set(k, inv); } const s = inv[0];
+          if (!s || (s.id === h.id && !xtra(s) && !xtra(h) && s.count < stackMax(s.id))) { if (s) s.count++; else inv[0] = Object.assign({}, h, { count: 1 }); useHeld(1); POT_WOBBLE.set(k, 0.4); done('dpot_insert', 0.8, 1 + (inv[0].count / 64) * 0.5); rsNotify(x, y, z); return; } POT_WOBBLE.set(k, 0.4); done('dpot_full', 0.6); return; }
+        // hives
+        if (d.hive === 5 && h && (hk === 'shears' || hk === 'glass_bottle')) { world.set(x, y, z, withState(id, { honey: 0 })); if (hk === 'shears') { dropItem(IT.honeycomb, 3, x + 0.5, y + 1.1, z + 0.5); if (typeof damageHeld === 'function') damageHeld(1); } else { useHeld(1); giveOrDrop(IT.honey_bottle, 1); } done(hk === 'shears' ? 'shear' : 'bottle_fill', 1); return; }
+      } }
+    return _ua.apply(this, arguments); }; }
+const BELL_SWING = new Map(), POT_WOBBLE = new Map(), CBS_LAST = new Map();
+function cbsSlot(t, d) { if (t.px === undefined) return -1; const f = d.st.facing; const [ax, az] = DV4[f]; if (t.nx !== ax || t.nz !== az || t.ny) return -1; // only the front face
+  const lx = t.px - t.x, ly = t.py - t.y, lz = t.pz - t.z; const u = f === 2 ? lx : f === 0 ? 1 - lx : f === 1 ? 1 - lz : lz; // left to right as seen from the front
+  const col = u < 5 / 16 ? 0 : u < 11 / 16 ? 1 : 2; return (ly >= 0.5 ? 0 : 3) + col; }
+// honey bottles: give back the bottle and cure poison
+{ const _oe = typeof onEatItem === 'function' ? onEatItem : null; onEatItem = function (id) { if (_oe) _oe.apply(this, arguments); if (id === IT.honey_bottle) { if (player.effects) delete player.effects.poison; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') giveOrDrop(IT.glass_bottle, 1); } }; }
+// ---- breaking ----
+{ const _obr = onBlockRemoved; onBlockRemoved = function (x, y, z, id) { const r = _obr.apply(this, arguments); const d = BL[id]; if (!d) return r; const k = keyOf(x, y, z); const w = G.world;
+    if (d.cbs || d.dpot) { const inv = w.chestInv.get(k); if (inv) for (const s of inv) if (s) dropItem(s.id, s.count, x + 0.5, y + 0.5, z + 0.5, false, xtra(s)); w.chestInv.delete(k); }
+    if (d.campfire) { const list = DECO.cook.get(k); if (list) for (const c of list) dropItem(c.id, 1, x + 0.5, y + 0.6, z + 0.5); DECO.cook.delete(k); }
+    return r; }; }
+{ const _bb = breakBlock; breakBlock = function (x, y, z) { const id = world.get(x, y, z); const d = BL[id]; const r = _bb.apply(this, arguments); if (!d || world.get(x, y, z) === id || !isSurv() || S.rules.doTileDrops === false) return r;
+    if (d.dpot) { const silk = typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch'); if (silk) dropItem(IT.decorated_pot, 1, x + 0.5, y + 0.4, z + 0.5); else { dropItem(IT.brick, 4, x + 0.5, y + 0.4, z + 0.5); Sfx.play('dpot_shatter', 1); } }
+    if (d.hive !== undefined && d.fam === 'bee_nest' && typeof enchOf === 'function' && enchOf(player.held(), 'silk_touch')) dropItem(IT.bee_nest, 1, x + 0.5, y + 0.4, z + 0.5);
+    return r; }; }
+// ---- every tick: campfires, conduits, scaffolding, swinging bells ----
+function decoScan() { DECO.watch.clear(); DECO.watchWorld = world; for (const [ck, m] of world.edits) { const cx = Math.floor(ck / 65536) - 32768, cz = (ck % 65536) - 32768; for (const [i, id] of m) if (decoWatchable(id)) DECO.watch.add(keyOf(cx * 16 + (i & 15), i >> 8, cz * 16 + ((i >> 4) & 15))); } }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id, record) { const mine = this === G.world; const old = mine ? this.get(x, y, z) : 0; const r = _set.apply(this, arguments);
+    if (r !== false && mine) { const k = keyOf(x, y, z); if (decoWatchable(id)) DECO.watch.add(k); else if (decoWatchable(old)) DECO.watch.delete(k);
+      if (BL[old] && BL[old].scaffold || BL[id] && BL[id].scaffold || BL[old] && SOLID[old] !== SOLID[id]) for (const [a, b, c] of [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 0, 0]]) { const n = BL[this.get(x + a, y + b, z + c)]; if (n && n.scaffold) DECO.scq.add(keyOf(x + a, y + b, z + c)); } }
+    return r; }; }
+const CONDUIT_FRAME = new Set(['prismarine', 'prismarine_bricks', 'dark_prismarine', 'sea_lantern']);
+function conduitFrame(x, y, z) { // blocks of the 3 square rings (radius 2) round the conduit, and water all round it
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) { if (!a && !b && !c) continue; if (!isWaterId(world.get(x + a, y + b, z + c))) return 0; }
+  let n = 0; for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) { const ring = (a === 0 && (Math.abs(b) === 2 || Math.abs(c) === 2)) || (b === 0 && (Math.abs(a) === 2 || Math.abs(c) === 2)) || (c === 0 && (Math.abs(a) === 2 || Math.abs(b) === 2)); if (!ring) continue; const d = BL[world.get(x + a, y + b, z + c)]; if (d && CONDUIT_FRAME.has(d.key)) n++; }
+  return n; }
+function decoTick(dt) {
+  if (!world) return; if (DECO.watchWorld !== world) decoScan(); const P = player; DECO.t += dt; DECO.slow += dt;
+  // scaffolding: recompute distance, drop what is too far from support
+  if (DECO.scq.size) { const list = [...DECO.scq]; DECO.scq.clear(); for (const k of list) { const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.scaffold) continue; const st = scaffoldState(x, y, z);
+      if (st.distance > 7) { world.set(x, y, z, 0); mpBlock(x, y, z, 0); if (isSurv() || true) dropItem(IT.scaffolding, 1, x + 0.5, y + 0.3, z + 0.5); Particles.blockBreak(x, y, z, id, 6); } else { const nid = withState(id, st); if (nid !== id) { world.set(x, y, z, nid); mpBlock(x, y, z, nid); } } } }
+  // campfires: cooking, smoke, burning feet
+  for (const k of DECO.watch) { const [x, y, z] = k.split(',').map(Number); const d = BL[world.get(x, y, z)]; if (!d) continue;
+    if (d.campfire) { if (!d.st.lit) continue; const list = DECO.cook.get(k);
+      if (list) { for (const c of list) c.t += dt; const done = list.filter(c => c.t >= 30); if (done.length) { for (const c of done) dropItem(SMELT[c.id], 1, x + 0.5, y + 0.6, z + 0.5); DECO.cook.set(k, list.filter(c => c.t < 30)); } }
+      if (Math.random() < dt * 1.5 && Math.abs(x - P.pos.x) < 48 && Math.abs(z - P.pos.z) < 48) { const tall = world.get(x, y - 1, z) === B.HAY_BLOCK; Particles.emit(x + 0.5, y + 0.6, z + 0.5, 1, [[0.55, 0.55, 0.55], [0.4, 0.4, 0.4]], 0.4, tall ? 7 : 4, -1.2, 0.25); }
+      if (list && list.length && Math.random() < dt * 4) Particles.emit(x + 0.5, y + 0.55, z + 0.5, 1, [[1, 0.6, 0.2]], 0.5, 0.4, -1, 0.3);
+      if (isWaterId(world.get(x, y + 1, z)) || (FKIND[world.get(x, y + 1, z)] === 1)) world.set(x, y, z, withState(d.id, { lit: 0 })); }
+    else if (d.conduit && DECO.slow >= 2) { const n = conduitFrame(x, y, z); if (n >= 16) { const range = Math.floor(n / 7) * 16; Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[0.5, 0.9, 1]], 1.5, 1.2, 0, 0.6);
+        if (P.pos.distanceTo(new V3(x + 0.5, y + 0.5, z + 0.5)) <= range && (isWaterId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.5), Math.floor(P.pos.z))) || isWaterId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y), Math.floor(P.pos.z))))) { giveEffect('water_breathing', 13, 0); giveEffect('night_vision', 13, 0); giveEffect('haste', 13, 0); } } } }
+  if (DECO.slow >= 2) DECO.slow = 0;
+  // standing in a lit campfire hurts (not while sneaking, not with fire resistance)
+  if (!P.dead && isSurv()) { const fd = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 0.05), Math.floor(P.pos.z))]; if (fd && fd.campfire && fd.st.lit && !kd('sneak') && !(P.effects && P.effects.fire_resistance)) { DECO.burnT = (DECO.burnT || 0) - dt; if (DECO.burnT <= 0) { DECO.burnT = 0.5; P.hurt(fd.campfire === 'soul_campfire' ? 2 : 1, null, 'Campfire'); } } }
+  for (const [k, t] of BELL_SWING) { const v = t - dt; if (v <= 0) BELL_SWING.delete(k); else BELL_SWING.set(k, v); }
+  for (const [k, t] of POT_WOBBLE) { const v = t - dt; if (v <= 0) POT_WOBBLE.delete(k); else POT_WOBBLE.set(k, v); }
+}
+{ const _uw = updateWater; updateWater = function (dt) { const r = _uw.apply(this, arguments); if (world && !isClientMP()) { try { decoTick(dt); } catch (e) { console.error(e); } } return r; }; }
+// beehives fill with honey (random ticks) when flowers are near: the bees are out working
+function hiveTick(x, y, z, id) { const d = BL[id]; if (d.hive >= 5 || Math.random() > 0.25) return; let flowers = 0;
+  for (let a = -5; a <= 5 && !flowers; a++) for (let b = -2; b <= 2 && !flowers; b++) for (let c = -5; c <= 5; c++) { const n = BL[world.get(x + a, y + b, z + c)]; if (n && (n.flower || /tulip|daisy|orchid|allium|bluet|cornflower|lily_of|dandelion|^rose$|poppy|torchflower|sunflower|lilac|peony|azalea|petals|blossom/.test(n.key))) { flowers++; break; } }
+  if (flowers) world.set(x, y, z, withState(id, { honey: d.hive + 1 })); }
+// a comparator reads a chiseled bookshelf (last slot used) and a decorated pot (how full)
+{ const _cs = containerSignal; containerSignal = function (x, y, z) { const d = BL[world.get(x, y, z)]; if (d && d.cbs) return CBS_LAST.get(keyOf(x, y, z)) || 0; if (d && d.hive !== undefined) return d.hive;
+    if (d && d.dpot) { const inv = world.chestInv.get(keyOf(x, y, z)); const s = inv && inv[0]; return s ? Math.floor(1 + s.count / stackMax(s.id) * 14) : 0; } if (d && d.anchor !== undefined) return Math.floor(d.anchor / 4 * 15);
+    return _cs.apply(this, arguments); }; }
+// ---- respawning at a charged anchor in the Nether ----
+function anchorSpawn() { if (!S.anchor) return null; const [x, y, z] = S.anchor; const w = Dim.get('nether'); if (w.loaded(x, z)) { const d = BL[w.get(x, y, z)]; if (!d || d.anchor === undefined || d.anchor < 1) { S.anchor = null; toast('You have no charged respawn anchor, or it was obstructed', 3); return null; } w.set(x, y, z, withState(d.id, { charges: d.anchor - 1 })); }
+  for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { if (!w.loaded(x + a, z + b)) return new V3(x + a + 0.5, y, z + b + 0.5); if (!w.solid(x + a, y, z + b) && !w.solid(x + a, y + 1, z + b) && w.solid(x + a, y - 1, z + b)) return new V3(x + a + 0.5, y, z + b + 0.5); }
+  return new V3(x + 0.5, y + 1, z + 0.5); }
+{ const btn = $('btnRespawn'); const fresh = btn.cloneNode(true); btn.parentNode.replaceChild(fresh, btn); const handler = () => {
+    player.dead = false; player.health = 20; player.vel.set(0, 0, 0); player.peak = null; updateHearts(); show('death', false); S.sleeping = null;
+    const ap = S.anchor ? anchorSpawn() : null;
+    if (ap) { Sfx.play('anchor_set', 0.8); if (world.dim !== 'nether') travelTo('nether', { type: 'bed', x: Math.floor(ap.x), z: Math.floor(ap.z), pos: ap }); else { player.pos.copy(ap); world.lastCenter = null; requestLock(); } return; }
+    const t = respawnTarget();
+    if (world.dim !== 'overworld') travelTo('overworld', t.type === 'spawn' ? { type: 'spawn' } : { type: 'bed', x: Math.floor(t.pos.x), z: Math.floor(t.pos.z), pos: t.pos });
+    else { if (t.type === 'spawn') placeAtWorldSpawn(); else { player.pos.copy(t.pos); world.lastCenter = null; } requestLock(); } };
+  fresh.addEventListener('click', handler); }
+// ---- sounds ----
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) {
+    if (!this.ctx) return _pl.apply(this, arguments); if (!(v >= 0.02)) return;
+    switch (name) {
+      case 'bell': for (const [f, a, d] of [[820, 0.16, 2.2], [1640, 0.06, 1.2], [2260, 0.04, 0.8], [410, 0.05, 1.6]]) this.tone(f, f * 0.998, d, a * v, 'sine'); return;
+      case 'anchor_charge': this.tone(220, 440, 0.3, 0.12 * v, 'sawtooth'); this.nz(0.3, 800, 0.2 * v, 'bandpass', 3); return;
+      case 'anchor_set': this.tone(330, 660, 0.5, 0.1 * v, 'sine'); this.tone(495, 990, 0.5, 0.06 * v, 'sine'); return;
+      case 'scaffold': this.nz(0.1, 1400, 0.35 * v, 'bandpass', 2); this.tone(500, 380, 0.05, 0.05 * v, 'triangle'); return;
+      case 'book_put': case 'book_take': this.nz(0.1, 2200, 0.3 * v, 'bandpass', 1.5); return;
+      case 'dpot_insert': this.tone(420 * (rate || 1), 380 * (rate || 1), 0.12, 0.1 * v, 'triangle'); return;
+      case 'dpot_full': this.tone(300, 280, 0.1, 0.08 * v, 'triangle'); return;
+      case 'dpot_shatter': this.nz(0.25, 3000, 0.4 * v, 'highpass'); this.tone(600, 200, 0.15, 0.06 * v, 'triangle'); return;
+      case 'shear': this.nz(0.08, 4000, 0.3 * v, 'highpass'); return;
+      case 'bottle_fill': this.tone(400, 900, 0.25, 0.08 * v, 'sine'); return;
+      case 'ignite': this.nz(0.2, 2400, 0.3 * v, 'bandpass', 1); return;
+      case 'fizz': this.nz(0.3, 5000, 0.25 * v, 'highpass'); return;
+    }
+    return _pl.apply(this, arguments); }; }
+// ---- creative inventory: decoration together after the lever group ----
+{ const keys = ['lantern', 'soul_lantern', 'chain', 'campfire', 'soul_campfire', 'soul_torch', 'bell', 'scaffolding', 'flower_pot', 'skeleton_skull', 'wither_skeleton_skull', 'zombie_head', 'creeper_head', 'piglin_head', 'dragon_head', 'player_head', 'cake',
+    'candle', ...COLORDATA().map(c => c[0] + '_candle'), 'lodestone', 'respawn_anchor', 'conduit', 'chiseled_bookshelf', 'decorated_pot', 'beehive', 'bee_nest', 'honey_bottle'];
+  const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); const at = rest.indexOf(IT.lectern); rest.splice(at >= 0 ? at + 1 : rest.length, 0, ...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
+for (const k of ['campfire', 'soul_campfire', 'chiseled_bookshelf', 'beehive', 'bee_nest', 'scaffolding']) if (IT[k] !== undefined) FUEL[IT[k]] = k === 'scaffolding' ? 2.5 : 15;
 
 // ================= SPAWN EGGS (Minecraft) =================
 // One egg for every mob in the game (made last, so mobs added by any file get one). Use it on a block to spawn the

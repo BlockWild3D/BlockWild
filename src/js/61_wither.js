@@ -10,14 +10,14 @@
 MOBS.wither_skeleton.drops.push(['wither_skeleton_skull', 1, 1, 0.025]);
 // ---------- summoning ----------
 function witherPattern(x, y, z) { // (x,y,z) = a skull just placed; look for the T in both orientations
-  const ss = (a, b, c) => { const id = world.get(a, b, c); return id === B.SOUL_SAND; }, sk = (a, b, c) => world.get(a, b, c) === B.WITHER_SKELETON_SKULL;
+  const ss = (a, b, c) => { const id = world.get(a, b, c); return id === B.SOUL_SAND; }, sk = (a, b, c) => (BL[world.get(a, b, c)] || {}).head === 'wither_skeleton_skull';
   for (const [dx, dz] of [[1, 0], [0, 1]]) for (let o = -2; o <= 0; o++) { const cx = x + dx * (o + 1), cz = z + dz * (o + 1); // centre skull column
     const mid = y - 1; if (!sk(cx - dx, y, cz - dz) || !sk(cx, y, cz) || !sk(cx + dx, y, cz + dz)) continue;
     if (ss(cx - dx, mid, cz - dz) && ss(cx, mid, cz) && ss(cx + dx, mid, cz + dz) && ss(cx, mid - 1, cz)) return [cx, mid - 1, cz, dx, dz]; }
   return null;
 }
 { const _pb = placeBlock; placeBlock = function (t, id) { const r = _pb.apply(this, arguments);
-    if (r && id === B.WITHER_SKELETON_SKULL && S.difficulty !== 'peaceful') { const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; const p = witherPattern(x, y, z);
+    if (r && (BL[id] || {}).head === 'wither_skeleton_skull' && S.difficulty !== 'peaceful') { const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz; const p = witherPattern(x, y, z);
       if (p) { const [cx, by, cz, dx, dz] = p; for (const k of [-1, 0, 1]) { world.set(cx + dx * k, by + 1, cz + dz * k, 0); world.set(cx + dx * k, by + 2, cz + dz * k, 0); mpBlock(cx + dx * k, by + 1, cz + dz * k, 0); mpBlock(cx + dx * k, by + 2, cz + dz * k, 0); } world.set(cx, by, cz, 0); mpBlock(cx, by, cz, 0);
         const w = spawnMob('wither', cx + 0.5, by, cz + 0.5); w.spawnT = 10; w.hp = 1; toast('The Wither awakens!', 3); Sfx.play('roar', 1.2, 0.5); } }
     return r; }; }

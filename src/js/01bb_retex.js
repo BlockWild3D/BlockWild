@@ -67,11 +67,12 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
   const d = BL[id];
+  if (d && d.iconPaint && ICONP[d.key]) { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(iconCanvas(ICONP[d.key]), 0, 0, 48, 48); return c; }
   if (d && d.iconTile && TILE[d.iconTile] !== undefined) { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(tileCanvas(TILE[d.iconTile]), 0, 0, 48, 48); return c; }
   if (!d || d.render !== 'boxes' || d.flatIcon || !d.boxes || d.ladder) return _bic(id);
   const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
@@ -79,10 +80,10 @@ paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); pain
   const face = (t, m, sx, sy, w, h, dark) => { if (w <= 0 || h <= 0) return; lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, 48, 48); lx.setTransform(...m); lx.drawImage(tileCanvas(t), sx, sy, w, h, sx, sy, w, h);
     if (dark) { lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalCompositeOperation = 'source-atop'; lx.fillStyle = 'rgba(0,0,0,' + dark + ')'; lx.fillRect(0, 0, 48, 48); lx.globalCompositeOperation = 'source-over'; } x.drawImage(L, 0, 0); };
   const boxes = d.boxes.slice().sort((a, b) => a[1] - b[1] || b[0] - a[0] || a[2] - b[2]);
-  for (const [x0, y0, z0, x1, y1, z1] of boxes) {
-    face(d.texIds[4], [1.25, 0.625, 0, 1.5, 4 + x0 * 1.25, 13 - x0 * 0.625], z0, 16 - y1, z1 - z0, y1 - y0, 0.22);       // west side
-    face(d.texIds[0], [1.25, -0.625, 0, 1.5, 4 + z1 * 1.25, 13 + z1 * 0.625], x0, 16 - y1, x1 - x0, y1 - y0, 0.42);      // south side
-    face(d.texIds[2], [1.25, -0.625, 1.25, 0.625, 4, 13 + (16 - y1) * 1.5], x0, z0, x1 - x0, z1 - z0, 0);                 // top
+  for (const [x0, y0, z0, x1, y1, z1, bt] of boxes) { const T3 = (f) => bt != null ? bt : d.texIds[f];
+    face(T3(4), [1.25, 0.625, 0, 1.5, 4 + x0 * 1.25, 13 - x0 * 0.625], z0, 16 - y1, z1 - z0, y1 - y0, 0.22);       // west side
+    face(T3(0), [1.25, -0.625, 0, 1.5, 4 + z1 * 1.25, 13 + z1 * 0.625], x0, 16 - y1, x1 - x0, y1 - y0, 0.42);      // south side
+    face(T3(2), [1.25, -0.625, 1.25, 0.625, 4, 13 + (16 - y1) * 1.5], x0, z0, x1 - x0, z1 - z0, 0);                 // top
   }
   return c; }; }
 
