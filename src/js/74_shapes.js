@@ -81,8 +81,16 @@ const shapeSound = (d, open, pos) => { const iron = !!d.iron; const k = d.shape 
 // ---- what holds a block up ----
 function shapeSupported(x, y, z, id) {
   const d = BL[id]; if (!d) return true;
-  if (d.support && !d.shape) { const below = world.get(x, y - 1, z); if (d.support === 'floor') return shSturdy(below, 'up') || (d.pickles && SOLID[below]);
-    if (d.support === 'kelp') return shSturdy(below, 'up') || !!BL[below].kelp; if (d.support === 'wall') { const [ax, az] = DV4[d.facing]; return shSturdy(world.get(x - ax, y, z - az), d.facing); } return true; }
+  if (d.support) { const below = world.get(x, y - 1, z), above = world.get(x, y + 1, z); const sp = d.support;
+    if (sp === 'floor') return shSturdy(below, 'up') || (d.pickles && SOLID[below]);
+    if (sp === 'kelp') return shSturdy(below, 'up') || !!BL[below].kelp; if (sp === 'wall') { const [ax, az] = DV4[d.facing]; return shSturdy(world.get(x - ax, y, z - az), d.facing); }
+    if (sp === 'ceiling') return SOLID[above] && OPAQUE[above]; if (sp === 'ceiling_vine') return (SOLID[above] && OPAQUE[above]) || /^cave_vines/.test(BL[above].key);
+    if (sp === 'twisting') return SOLID[below] || below === B.TWISTING_VINES; if (sp === 'weeping') return SOLID[above] || above === B.WEEPING_VINES;
+    if (sp === 'bamboo') return below === B.BAMBOO || [B.GRASS, B.DIRT, B.SAND, B.RED_SAND, B.GRAVEL, B.MUD, B.PODZOL, B.COARSE_DIRT, B.MOSS_BLOCK, B.ROOTED_DIRT, B.MYCELIUM].includes(below);
+    if (sp === 'cocoa') { const [ax, az] = DV4[d.facing]; return /^jungle_log|^jungle_wood|^stripped_jungle/.test(BL[world.get(x + ax, y, z + az)].key || ''); }
+    if (sp === 'bud') { const n = [[0, -1, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]][d.crossDir || 0]; const b = world.get(x + n[0], y + n[1], z + n[2]); return SOLID[b] && OPAQUE[b]; }
+    if (sp === 'lichen') { const n = [[0, -1, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, 0, -1], [1, 0, 0]][d.lichen]; const b = world.get(x + n[0], y + n[1], z + n[2]); return SOLID[b] && OPAQUE[b]; }
+    if (!d.shape) return true; }
   if (!d.shape) return true; const st = d.st;
   if (d.shape === 'button') { if (st.face === 'floor') return shSturdy(world.get(x, y - 1, z), 'up'); if (st.face === 'ceiling') return shSturdy(world.get(x, y + 1, z), 'down');
     const [ax, az] = DV4[st.facing]; return shSturdy(world.get(x - ax, y, z - az), st.facing); }

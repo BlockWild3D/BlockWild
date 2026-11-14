@@ -626,8 +626,11 @@ class World {
       if (def.render === 'cross') {
         const uv = TILE_UV[def.texIds[0]]; const s = sky(x, y, z); const b0 = nL ? blk(x + 0.5, y + 0.5, z + 0.5) : 0;
         const P = [[0.15, 0.15, 0.85, 0.85], [0.15, 0.85, 0.85, 0.15]];
+        const cd = def.crossDir || 0; // pointing up (0), down (1), north, south, west, east: amethyst buds, dripstone, spore blossoms
+        const tf = (lx, ly, lz) => cd === 0 ? [lx, ly, lz] : cd === 1 ? [lx, 1 - ly, lz] : cd === 2 ? [lx, lz, 1 - ly] : cd === 3 ? [lx, 1 - lz, ly] : cd === 4 ? [1 - ly, lz, lx] : [ly, lz, lx];
         for (const [ax, az, cx2, cz2] of P) {
-          const v = [x + ax, y, z + az, x + cx2, y, z + cz2, x + cx2, y + 0.95, z + cz2, x + ax, y + 0.95, z + az];
+          let v = [x + ax, y, z + az, x + cx2, y, z + cz2, x + cx2, y + 0.95, z + cz2, x + ax, y + 0.95, z + az];
+          if (cd) { const w = []; for (let k = 0; k < 4; k++) { const q = tf(v[k * 3] - x, v[k * 3 + 1] - y, v[k * 3 + 2] - z); w.push(x + q[0], y + q[1], z + q[2]); } v = w; }
           const u = [uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]];
           quad(O, v, u, s, [b0, b0, b0, b0], [0.95, 0.95, 0.95, 0.95], false, SW_TOP);
           const v2 = [v[3], v[4], v[5], v[0], v[1], v[2], v[9], v[10], v[11], v[6], v[7], v[8]];
