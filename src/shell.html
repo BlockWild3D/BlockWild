@@ -29,17 +29,18 @@ button{font-family:'VT323',monospace}
 #airRow{display:flex;gap:0;flex-direction:row-reverse;min-height:18px}
 #hearts img{width:18px;height:18px;image-rendering:pixelated}
 #hotrow{display:flex;gap:10px;align-items:flex-end}
-#offhud{width:44px;height:44px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
+#offhud{width:52px;height:52px;background:rgba(80,80,80,.55);border:2px solid rgba(0,0,0,.7);visibility:hidden}
 .offrow{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:21px;color:#404040}
 .offrow .slot.empty img{visibility:visible!important;opacity:.25}
 #panelBody .slot.empty img[src]{visibility:visible!important;opacity:.25}
 .anvilName{font:inherit;font-size:20px;width:300px;padding:4px 8px;background:#222;color:#fff;border:2px solid #555;margin-bottom:6px}.anvilCost{font-size:20px;min-height:24px;margin-top:4px}
 #hotbar{display:flex;background:rgba(0,0,0,.4);border:2px solid rgba(0,0,0,.7);padding:2px;gap:2px;pointer-events:auto}
-.slot{width:44px;height:44px;background:#8b8b8b;border:2px solid;border-color:#373737 #fff #fff #373737;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.slot{width:52px;height:52px;background:#8b8b8b;border:2px solid;border-color:#373737 #fff #fff #373737;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .slot:hover{background:#a0a0a0}
 #hotbar .slot{background:rgba(80,80,80,.55);border-color:rgba(0,0,0,.55);cursor:default}
 #hotbar .slot.sel{border-color:#fff;outline:2px solid #fff;outline-offset:-1px;background:rgba(140,140,140,.6)}
-.slot img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
+.slot img{width:48px;height:48px;image-rendering:pixelated;pointer-events:none}
+#bookGrid .slot img,body.touch #hotbar .slot img{width:32px;height:32px}
 .slot .cnt{position:absolute;right:2px;bottom:-3px;font-size:21px;line-height:1;text-shadow:2px 2px 0 #3f3f3f;pointer-events:none;color:#fff}
 #toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);font-size:26px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:40;text-align:center;transition:opacity .4s;opacity:0}
 #debug{position:fixed;left:6px;top:6px;font-size:19px;line-height:1.05;text-shadow:1px 1px 0 #000;white-space:pre;pointer-events:none;z-index:7;background:rgba(0,0,0,.25);padding:3px 6px}
@@ -147,7 +148,7 @@ button{font-family:'VT323',monospace}
 #inv{position:fixed;inset:0;z-index:18;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;align-content:center;align-items:safe center;justify-content:safe center;align-content:safe center;gap:10px;flex-wrap:wrap;overflow:auto;padding:10px}
 .panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;outline:2px solid #000;padding:10px;color:#3f3f3f;border-radius:3px}
 .panel h3{font-family:'VT323';font-weight:normal;font-size:24px;margin:2px 0 6px;color:#404040}
-.grid{display:grid;grid-template-columns:repeat(9,44px);gap:2px}
+.grid{display:grid;grid-template-columns:repeat(9,52px);gap:2px}
 .gap{height:10px}
 #bookGrid{display:grid;grid-template-columns:repeat(8,40px);gap:2px;max-height:min(250px,36vh);overflow-y:auto;width:min(340px,86vw)}
 #bookGrid .slot{width:40px;height:40px}
@@ -161,7 +162,7 @@ button{font-family:'VT323',monospace}
 .crow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .cgrid{display:grid;gap:2px}
 .arrowimg{width:36px;height:18px;image-rendering:pixelated}
-#outSlotBox .slot,#furnOut .slot{width:52px;height:52px}
+#outSlotBox .slot,#furnOut .slot{width:60px;height:60px}
 .fcol{display:flex;flex-direction:column;align-items:center;gap:3px}
 .flamebox,.progbox{position:relative;image-rendering:pixelated}
 .flamebox img{width:27px;height:30px;image-rendering:pixelated;display:block}
@@ -184,9 +185,10 @@ button{font-family:'VT323',monospace}
 .tabs{display:flex;gap:4px;margin-bottom:6px}
 .tabs button{font-size:20px;padding:2px 10px;background:#8b8b8b;border:2px solid #555;color:#fff;cursor:pointer}
 .tabs button.on{background:#5b8a3c}
-#palette{display:grid;grid-template-columns:repeat(9,44px);gap:2px;max-height:min(330px,50vh);overflow-y:auto}
+#palette{display:grid;grid-template-columns:repeat(9,52px);gap:2px;max-height:min(330px,50vh);overflow-y:auto}
 #invClose{position:fixed;top:10px;right:12px;width:44px;height:44px;font-size:26px;background:#6f6f6f;color:#fff;border:2px solid #000;box-shadow:inset 2px 2px 0 #aaa,inset -2px -3px 0 #4a4a4a;cursor:pointer;z-index:2}
 .invhint{margin-top:8px;font-size:17px;color:#555;max-width:410px;line-height:1.1}
+@media (max-width:1180px) and (min-width:701px){.slot{width:44px;height:44px}.slot img{width:40px;height:40px}.grid,#palette{grid-template-columns:repeat(9,44px)}#offhud{width:44px;height:44px}}
 @media (max-height:560px),(max-width:700px){.slot{width:34px;height:34px}.slot img{width:24px;height:24px}.slot .cnt{font-size:17px}.grid,#palette{grid-template-columns:repeat(9,34px)}#craftList{max-height:60vh}.invhint{display:none}#inv{align-items:flex-start}.panel{padding:6px}.panel h3{font-size:20px;margin:0 0 3px}.rec{font-size:17px}}
 body.touch #info{right:auto;left:8px;text-align:left}
 body.touch #hotbar .slot{width:40px;height:40px}

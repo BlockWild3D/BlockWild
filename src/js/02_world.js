@@ -349,18 +349,20 @@ function scale2x(src, n) { const m = n * 2, out = new Uint32Array(m * m); const 
     if (C === A && C !== D && A !== Bq) e0 = A; if (A === Bq && A !== C && Bq !== D) e1 = Bq; if (D === C && D !== Bq && C !== A) e2 = C; if (Bq === D && Bq !== A && D !== C) e3 = D;
     out[(y * 2) * m + x * 2] = e0; out[(y * 2) * m + x * 2 + 1] = e1; out[(y * 2 + 1) * m + x * 2] = e2; out[(y * 2 + 1) * m + x * 2 + 1] = e3; }
   return out; }
+// pixels stay square (like Minecraft) unless the old rounded look is asked for in settings
+const HD_SMOOTH = (() => { try { return JSON.parse(localStorage.getItem('blockwild_settings') || '{}').texSmooth === true; } catch (e) { return false; } })();
 function quantize(d) { const u = new Uint32Array(256); for (let i = 0; i < 256; i++) { const k = i * 4; u[i] = ((d[k + 3] > 127 ? 255 : 0) << 24 | (d[k + 2] & 0xfc) << 16 | (d[k + 1] & 0xfc) << 8 | (d[k] & 0xfc)) >>> 0; } return u; }
 function hdTile(i) {
   if (!HD) return; const sx = (i % ATN) * 16, sy = Math.floor(i / ATN) * 16; const src = actx.getImageData(sx, sy, 16, 16).data;
   // Scale2x needs exact colour matches, so compare on slightly quantised colours but output the original colours
   const q = quantize(src); const orig = new Map(); for (let k = 0; k < 256; k++) if (!orig.has(q[k])) orig.set(q[k], k);
-  const up = scale2x(scale2x(q, 16), 32); const img = hdCtx.createImageData(CELL, CELL); const o = img.data; const lum = new Float32Array(TS * TS);
+  const up = HD_SMOOTH ? scale2x(scale2x(q, 16), 32) : (() => { const u = new Uint32Array(TS * TS); for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) u[y * TS + x] = q[(y >> 2) * 16 + (x >> 2)]; return u; })(); const img = hdCtx.createImageData(CELL, CELL); const o = img.data; const lum = new Float32Array(TS * TS);
   for (let k = 0; k < TS * TS; k++) { const s = orig.get(up[k]) * 4; lum[k] = (src[s] * 0.3 + src[s + 1] * 0.59 + src[s + 2] * 0.11) / 255; }
   const L = (x, y) => lum[clamp(y, 0, TS - 1) * TS + clamp(x, 0, TS - 1)];
   for (let y = -PAD; y < TS + PAD; y++) for (let x = -PAD; x < TS + PAD; x++) {
     const cx = clamp(x, 0, TS - 1), cy = clamp(y, 0, TS - 1); const s = orig.get(up[cy * TS + cx]) * 4;
-    const relief = clamp(1 + (L(cx - 1, cy - 1) - L(cx + 1, cy + 1)) * 0.55, 0.86, 1.14);
-    const h = (Math.imul(cx * 73856093 ^ cy * 19349663 ^ i * 83492791, 2654435761) >>> 0) / 4294967296; const grain = 0.965 + h * 0.07;
+    const relief = clamp(1 + (L(cx - 1, cy - 1) - L(cx + 1, cy + 1)) * 0.4, 0.9, 1.1);
+    const h = (Math.imul(cx * 73856093 ^ cy * 19349663 ^ i * 83492791, 2654435761) >>> 0) / 4294967296; const grain = 0.99 + h * 0.02; // only a whisper of grain: the tiles stay clean
     const t = ((y + PAD) * CELL + (x + PAD)) * 4; const f = relief * grain;
     o[t] = clamp(src[s] * f, 0, 255); o[t + 1] = clamp(src[s + 1] * f, 0, 255); o[t + 2] = clamp(src[s + 2] * f, 0, 255); o[t + 3] = src[s + 3];
   }

@@ -87,4 +87,5 @@ paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); pain
   }
   return c; }; }
 
+cleanTiles();
 buildIcons();

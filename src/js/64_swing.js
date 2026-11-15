@@ -46,6 +46,6 @@ function hitSnd(id) { const s = BL[id] && BL[id].snd; return s === 'glass' ? 'st
     const mining = S.started && !S.paused && !S.uiOpen && mouseL && target && S.mineT > 0 && S.mineKey && !player.dead;
     if (mining) { if (S.mineKey !== digKey) { digKey = S.mineKey; digT = 0; }
       if (S.swing <= 0.02) S.swing = 1; // keep swinging while you dig
-      digT -= dt; if (digT <= 0) { digT = 0.2; Sfx.play(hitSnd(target.id), 0.32, 0.5); Particles.blockBreak(target.x, target.y, target.z, target.id, 3); } }
+      digT -= dt; if (digT <= 0) { digT = 0.2; const hh = player.held(); if (!(typeof toolSwingKind === 'function' && toolSwingKind(hh ? hh.id : 0))) Sfx.play(hitSnd(target.id), 0.32, 0.5); /* tools play it on their strike (89) */ Particles.blockBreak(target.x, target.y, target.z, target.id, 3); } }
     else { digKey = ''; digT = 0; }
     return r; }; }
