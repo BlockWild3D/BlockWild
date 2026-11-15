@@ -79,8 +79,15 @@ const NAUT_SHELL = [232, 214, 190], NAUT_STRIPE = [190, 96, 60];
 function nautilusBuild(kind) { return function (m, r) { const zombie = kind !== 'nautilus', coral = kind === 'coral' || (m.opts && m.opts.coral);
     const shell = coral ? [214, 120, 150] : zombie ? [176, 200, 210] : NAUT_SHELL, stripe = coral ? [120, 200, 170] : zombie ? [70, 120, 80] : NAUT_STRIPE, flesh = zombie ? [70, 110, 70] : [214, 150, 120];
     const sp = fur(shell, 5, { extra: (f, set, fw, fh) => { if (f === 'top' || f === 'bottom') return; for (let x = 0; x < fw; x += 3) for (let y = 0; y < fh; y++) set(x, y, stripe); if (zombie) for (let k = 0; k < 4; k++) set((k * 5 + 2) % fw, (k * 3 + 1) % fh, [60, 140, 70]); } });
-    m.shell = sbox(m, r, 0.9, 0.9, 0.95, 0, 0.55, -0.12, 'naut_shell' + kind + (coral ? 'c' : ''), sp);
-    sbox(m, r, 0.62, 0.5, 0.35, 0, 0.42, 0.45, 'naut_body' + kind, fur(flesh, 5, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') set(f === 'left' ? fw - 2 : 1, 1, [20, 20, 20]); } }));
+    // a coiled shell: the sides carry the spiral, the rest curved bands; a rounded crown and a curl at the back
+    const spiral = fur(shell, 4, { extra: (f, set, fw, fh) => { if (f === 'left' || f === 'right') { const cx = fw * 0.5, cy = fh * 0.55;
+        for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const dx = x - cx, dy = y - cy; const rr = Math.hypot(dx, dy) / (fw * 0.5); const a = (Math.atan2(dy, f === 'left' ? -dx : dx) / (Math.PI * 2) + 1) % 1; const t = (rr * 2 + a) % 1; if (t < 0.3 && rr > 0.12) set(x, y, stripe); else if (rr <= 0.12) set(x, y, mixc(stripe, [40, 30, 30], 0.4)); } }
+      else if (f !== 'bottom') for (let x = 0; x < fw; x++) for (let y = 0; y < fh; y++) if ((x + Math.round(Math.sin(y / fh * Math.PI) * 2)) % 4 === 0) set(x, y, stripe);
+      if (zombie) for (let k = 0; k < 5; k++) set((k * 5 + 2) % fw, (k * 3 + 1) % fh, [60, 140, 70]); } });
+    m.shell = sbox(m, r, 0.82, 0.86, 0.9, 0, 0.55, -0.1, 'naut_shell2' + kind + (coral ? 'c' : ''), spiral);
+    sbox(m, r, 0.66, 0.12, 0.74, 0, 1.04, -0.1, 'naut_crown' + kind + (coral ? 'c' : ''), sp);
+    sbox(m, r, 0.6, 0.5, 0.18, 0, 0.62, -0.62, 'naut_curl' + kind + (coral ? 'c' : ''), sp);
+    sbox(m, r, 0.56, 0.46, 0.3, 0, 0.42, 0.42, 'naut_body' + kind, fur(flesh, 5, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') set(f === 'left' ? fw - 2 : 1, 1, [20, 20, 20]); } }));
     m.tent = []; for (let i = 0; i < 6; i++) { const p = pivot(r, -0.22 + (i % 3) * 0.22, 0.3 + Math.floor(i / 3) * 0.15, 0.6); sbox(m, p, 0.08, 0.08, 0.42, 0, 0, 0.2, 'naut_tent' + kind, fur(flesh, 4)); m.tent.push(p); }
     m.nArmor = sbox(m, r, 0.98, 0.3, 1.0, 0, 1.02, -0.12, 'naut_armor_plate', fur([210, 210, 214], 4)); m.nArmor.visible = false;
     m.saddleN = sbox(m, r, 0.6, 0.1, 0.5, 0, 1.04, -0.1, 'naut_saddle', fur([116, 66, 34], 5)); m.saddleN.visible = false; }; }

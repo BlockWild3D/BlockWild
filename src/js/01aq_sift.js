@@ -33,8 +33,8 @@ function paintSiftTiles() {
   const PINK = [230, 146, 194], PINK_HI = [242, 170, 212], PINK_LO = [214, 126, 178];
   const SOIL = [146, 112, 156], SOIL_LO = [118, 88, 130], SOIL_HI = [172, 140, 180];
   makeTile('sift_grass_top', (set, r) => { const n = tnoise(9101, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.62 ? PINK_HI : v < 0.32 ? PINK_LO : PINK, r, 7)); }); for (let k = 0; k < 4; k++) set(r() * 16 | 0, r() * 16 | 0, [250, 200, 228]); });
-  makeTile('sift_soil', (set, r) => { const n = tnoise(9102, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.66 ? SOIL_HI : v < 0.3 ? SOIL_LO : SOIL, r, 6)); }); for (let k = 0; k < 5; k++) { const x = r() * 15 | 0, y = r() * 15 | 0; set(x, y, [196, 176, 206]); set(x + 1, y, [160, 140, 172]); } });
-  makeTile('sift_grass_side', (set, r) => { const n = tnoise(9102, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.66 ? SOIL_HI : v < 0.3 ? SOIL_LO : SOIL, r, 6)); });
+  makeTile('sift_soil', (set, r) => { each((x, y) => { const q = r(); set(x, y, vary(q > 0.86 ? SOIL_HI : q < 0.16 ? SOIL_LO : SOIL, r, 5)); }); for (let k = 0; k < 6; k++) { const x = r() * 15 | 0, y = r() * 15 | 0; set(x, y, [190, 168, 200]); set(x + 1, y, [126, 98, 140]); } });
+  makeTile('sift_grass_side', (set, r) => { each((x, y) => { const q = r(); set(x, y, vary(q > 0.86 ? SOIL_HI : q < 0.16 ? SOIL_LO : SOIL, r, 5)); });
     for (let x = 0; x < 16; x++) { const d = 3 + ((x * 7 + 3) % 5 === 0 ? 2 : (x * 3) % 4 === 0 ? 1 : 0); for (let y = 0; y < d; y++) set(x, y, vary(y === d - 1 ? PINK_LO : y === 0 ? PINK_HI : PINK, r, 6)); } });
   // siftstone: pale lilac stone with soft wavy strata
   const stoneC = (x, y, r, base) => { const w = Math.sin(x * 0.55 + y * 0.2) * 1.2 + y; const band = Math.floor(w / 4) % 3; return vary(band === 0 ? mixd(base, 1.05) : band === 1 ? base : mixd(base, 0.9), r, 6); };
@@ -61,9 +61,13 @@ function paintSiftTiles() {
   makeTile('salmon_sculk', sculkT([230, 132, 112], [246, 166, 140], [255, 232, 210]));
   makeTile('sift_sand', (set, r) => { const n = tnoise(9301, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.65 ? [242, 210, 186] : v < 0.3 ? [214, 176, 150] : [232, 196, 170], r, 6)); }); for (let k = 0; k < 6; k++) set(r() * 16 | 0, r() * 16 | 0, [196, 150, 130]); });
   makeTile('siftite_ore', (set, r) => { each((x, y) => set(x, y, stoneC(x, y, r, [176, 164, 190]))); for (const [cx, cy] of [[4, 4], [11, 6], [6, 11], [12, 12]]) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (Math.abs(dx) + Math.abs(dy) < 2 || r() < 0.4) set(clamp(cx + dx, 0, 15), clamp(cy + dy, 0, 15), dx === 0 && dy === -1 ? [210, 250, 255] : (dx + dy) & 1 ? [80, 190, 214] : [240, 150, 210]); });
-  makeTile('siftite_block', (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; const g = (x === 7 || x === 8 || y === 7 || y === 8); set(x, y, vary(e ? [40, 110, 140] : g ? [240, 160, 214] : (x + y) % 6 < 3 ? [100, 206, 226] : [80, 180, 210], r, 4)); }));
+  makeTile('siftite_block', (set, r) => each((x, y) => { // like a netherite block: dark plates in two columns with bright soul-cyan seams and a pink glint
+    const plate = (x >> 3) + ((y + (x >> 3) * 4) >> 3) * 2; const sx = x & 7, sy = (y + (x >> 3) * 4) & 7; const seam = sx === 7 || sy === 7; const hi = sx === 0 || sy === 0;
+    set(x, y, vary(seam ? [32, 70, 92] : hi ? [140, 232, 246] : (plate & 1) ? [70, 160, 190] : [60, 146, 178], r, 4)); if (!seam && sx === 2 && sy === 2) set(x, y, [250, 180, 226]); }));
   // the rift: deep blue swirled with soul-cyan and Sift pink
-  makeTile('sift_portal', (set, r) => each((x, y) => { const v = Math.sin(x * 0.8 + y * 0.35) + Math.sin(y * 0.6 - x * 0.4) * 0.9 + r() * 0.7; set(x, y, v > 1.15 ? [250, 170, 230] : v > 0.45 ? [70, 220, 236] : v > -0.4 ? [40, 110, 190] : [20, 34, 92]); }));
+  makeTile('sift_portal', (set, r) => each((x, y) => { // a swirl: rings around the centre, twisted by the angle
+    const dx = x - 7.5, dy = y - 7.5; const d = Math.hypot(dx, dy), a = Math.atan2(dy, dx); const v = Math.sin(d * 1.1 - a * 2) + r() * 0.5;
+    set(x, y, v > 1.05 ? [250, 180, 234] : v > 0.4 ? [90, 226, 240] : v > -0.4 ? [44, 116, 196] : [22, 36, 96]); }));
 }
 const ARMOR_BASE_S = { head: 11, chest: 16, legs: 15, feet: 13 };
 { const MI = (key, name, o, icon) => { if (IT[key] !== undefined) { if (icon) ICONP[key] = icon; Object.assign(ITEMS[IT[key]], o || {}); return IT[key]; } const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };

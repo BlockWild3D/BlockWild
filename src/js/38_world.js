@@ -56,8 +56,8 @@ function decorate(world, S, cx, cz) {
   }; }
 // ---------- small structures: swamp huts, igloos, jungle temples, shipwrecks ----------
 Object.assign(PLACE, {
-  swamp_hut: { spacing: 32, sep: 8, salt: 14358, biomes: [BIO.SWAMP] }, igloo: { spacing: 32, sep: 8, salt: 14359, biomes: [BIO.SNOWY, BIO.TAIGA] },
-  jungle_temple: { spacing: 32, sep: 8, salt: 14360, biomes: [BIO.JUNGLE] }, shipwreck: { spacing: 24, sep: 4, salt: 165745296, biomes: [BIO.OCEAN, BIO.BEACH] },
+  swamp_hut: { spacing: 32, sep: 8, salt: 14358, biomes: [BIO.SWAMP], whole: 5 }, igloo: { spacing: 32, sep: 8, salt: 14359, biomes: [BIO.SNOWY, BIO.TAIGA], whole: 4 },
+  jungle_temple: { spacing: 32, sep: 8, salt: 14360, biomes: [BIO.JUNGLE], whole: 7 }, shipwreck: { spacing: 24, sep: 4, salt: 165745296, biomes: [BIO.OCEAN, BIO.BEACH] },
 });
 Object.assign(STRUCT_NAMES, { swamp_hut: 'swamp_hut', witch_hut: 'swamp_hut', igloo: 'igloo', jungle_temple: 'jungle_temple', jungle_pyramid: 'jungle_temple', shipwreck: 'shipwreck', mineshaft: 'mineshaft' });
 Object.assign(LOOT, {

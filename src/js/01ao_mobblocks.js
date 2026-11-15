@@ -49,11 +49,14 @@ function defineMobBlocks() {
 }
 function paintMobTiles() {
   const sh = (c, f) => [c[0] * f, c[1] * f, c[2] * f]; const bark = tilePixels(TILE.pale_oak_log !== undefined ? 'pale_oak_log' : 'log');
-  for (const awake of [false, true]) makeTile('creaking_heart_side' + (awake ? '_awake' : ''), (set, r) => { each((x, y) => { const p = bark(x, y); set(x, y, [p[0] * 0.92, p[1] * 0.9, p[2] * 0.88]); });
-    // a dark split down the middle with the heart's eyes looking out
-    for (let y = 2; y < 14; y++) { set(7, y, [40, 32, 30]); set(8, y, [52, 42, 38]); }
-    for (const [x, y] of [[5, 6], [6, 6], [9, 6], [10, 6], [5, 10], [10, 10]]) set(x, y, awake ? [255, 150, 40] : [70, 56, 50]); for (const [x, y] of [[6, 7], [9, 7]]) set(x, y, awake ? [255, 210, 120] : [60, 48, 44]); });
-  makeTile('creaking_heart_top', (set, r) => each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); const ring = Math.floor(d) % 2; set(x, y, d > 7 ? [120, 108, 100] : d < 2.2 ? [240, 120, 40] : vary(ring ? [196, 186, 176] : [176, 166, 156], r, 3)); }));
+  for (const awake of [false, true]) makeTile('creaking_heart_side' + (awake ? '_awake' : ''), (set, r) => {
+    // pale oak bark with darker furrows, split by a lens-shaped opening; inside, the heart: dull and dark while it
+    // sleeps, glowing orange with two bright eyes when it wakes
+    each((x, y) => { const p = bark(x, y); const furrow = (x * 7 + (y >> 2) * 3) % 5 === 0; set(x, y, sh(p, furrow ? 0.72 : 0.9)); });
+    for (let y = 1; y < 15; y++) { const t = 1 - Math.abs(y - 7.5) / 6.8; const w = Math.max(0, Math.round(t * 3.2)); for (let x = 8 - w - 1; x <= 7 + w + 1; x++) { const edge = x === 8 - w - 1 || x === 7 + w + 1;
+        if (edge) set(x, y, [58, 46, 42]); else { const c = Math.abs(x - 7.5) / (w + 0.5); set(x, y, awake ? mixc([255, 196, 90], [214, 92, 30], c) : mixc([96, 78, 70], [62, 50, 46], c)); } } }
+    for (const [x, y] of [[6, 6], [9, 6]]) { set(x, y, awake ? [255, 246, 200] : [40, 32, 30]); set(x, y + 1, awake ? [255, 170, 60] : [52, 42, 38]); } });
+  makeTile('creaking_heart_top', (set, r) => each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); const ring = Math.floor(d * 1.3) % 2; set(x, y, d > 7.2 ? [104, 92, 86] : d < 2 ? [214, 110, 40] : d < 2.8 ? [90, 70, 60] : vary(ring ? [206, 196, 188] : [184, 174, 166], r, 3)); }));
   const RES = [[196, 92, 22], [228, 120, 34], [246, 156, 60], [255, 196, 110]];
   makeTile('resin_clump', (set, r) => { clear(set); for (let k = 0; k < 7; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0, R = 1 + r() * 1.6; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const d = Math.hypot(dx, dy); if (d > R) continue; set(cx + dx, cy + dy, d < 0.8 ? RES[3] : dx + dy < 0 ? RES[2] : RES[1]); } } });
   makeTile('resin_block', (set, r) => { const n = tnoise(1501, 4); each((x, y) => set(x, y, vary(RX.tone(RES, n(x, y) * 0.9), r, 4))); RX.blobs(set, r, 10, RES[3], 1); RX.blobs(set, r, 8, RES[0], 2); });

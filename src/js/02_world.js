@@ -97,7 +97,7 @@ class Gen {
 // Values are Minecraft Java's. Mineshaft-style per-chunk features (dungeons, desert wells) use per-chunk chances instead.
 const PLACE = {
   village:        { spacing: 34, sep: 8,  salt: 10387, biomes: [BIO.PLAINS, BIO.DESERT, BIO.SNOWY] },
-  desert_pyramid: { spacing: 32, sep: 8,  salt: 14357, biomes: [BIO.DESERT] },
+  desert_pyramid: { spacing: 32, sep: 8,  salt: 14357, biomes: [BIO.DESERT], whole: 10 },
   outpost:        { spacing: 32, sep: 8,  salt: 16574, biomes: [BIO.PLAINS, BIO.DESERT, BIO.SNOWY, BIO.MOUNTAINS], chance: 0.2, avoid: ['village', 10] },
   ruined_portal:  { spacing: 40, sep: 15, salt: 34222, land: true },
 };
@@ -109,6 +109,8 @@ function regionStart(world, kind, rx, rz) {
   const col = world.gen.column(cx * 16 + 8, cz * 16 + 8);
   let ok = !(p.chance && r() >= p.chance);
   if (ok && p.biomes && !p.biomes.includes(col.b)) ok = false;
+  // biome-bound buildings (witch huts, jungle temples, igloos, pyramids) need their whole footprint in that biome, not a sliver of it
+  if (ok && p.biomes && p.whole) for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => [a * p.whole, b * p.whole])) { if (!p.biomes.includes(world.gen.column(cx * 16 + 8 + dx, cz * 16 + 8 + dz).b)) { ok = false; break; } }
   if (ok && p.land && col.h <= SEA + 1) ok = false;
   if (ok && p.avoid && startNear(world, p.avoid[0], cx, cz, p.avoid[1])) ok = false;
   const res = ok ? { cx, cz, col, seed: ihash(cx, cz, p.salt, world.seed) } : null;
@@ -218,12 +220,7 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   const [dx0, dz0, ox, oz] = doors[doorSide];
   hard(dx0, fy + 1, dz0, 0); hard(dx0, fy + 2, dz0, 0);
   for (let i = 1; i <= 2; i++) { const px = dx0 + ox * i, pz = dz0 + oz * i; const gh = g.column(px, pz).h; if (gh > SEA) { hard(px, gh - 1, pz, M.road || B.DIRT_PATH); hard(px, gh, pz, 0); hard(px, gh + 1, pz, 0); } }
-  // roof (stepped pyramid)
-  for (let k = 0; ; k++) {
-    const ax = x0 - 1 + k, bx2 = x0 + w - k, az = z0 - 1 + k, bz2 = z0 + d - k; if (ax > bx2 || az > bz2) break;
-    for (let x = ax; x <= bx2; x++) for (let z = az; z <= bz2; z++) hard(x, fy + 5 + k, z, (k === 0 && (x < x0 || x >= x0 + w || z < z0 || z >= z0 + d)) ? M.roof : (k === 0 ? M.wall : M.roof));
-  }
-  hard(doorX, fy + 5, doorZ, B.GLOWSTONE);
+  houseRoof(x0, z0, w, d, fy, hard, M, doorSide);
   // interior
   const ins = [[x0 + 1, z0 + 1], [x0 + w - 2, z0 + 1], [x0 + 1, z0 + d - 2], [x0 + w - 2, z0 + d - 2]].filter(([x, z]) => Math.abs(x - dx0) + Math.abs(z - dz0) > 1);
   if (ins[0]) hard(ins[0][0], fy + 1, ins[0][1], B.CRAFTING_TABLE);
@@ -231,6 +228,7 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   if (ins[2] && r() < 0.85) hard(ins[2][0], fy + 1, ins[2][1], [B.FLETCHING_TABLE, B.CARTOGRAPHY_TABLE, B.BARREL, B.SMOKER, B.STONECUTTER, B.CAULDRON, B.LOOM, B.COMPOSTER, B.BOOKSHELF][r() * 9 | 0]); // a job site for whoever lives here
   { const [h, f] = houseBedCells(x0, z0, w, d, doorSide); const col = HOUSE_BED_COLORS[ihash(x0, z0, 5150, world.seed) % HOUSE_BED_COLORS.length]; const U = col === 'red' ? '' : '_' + col.toUpperCase();
     hard(h[0], fy + 1, h[1], B['BED_HEAD' + U]); hard(f[0], fy + 1, f[1], B['BED_FOOT' + U]); }
+  if (ins[3]) hard(ins[3][0], fy + 1, ins[3][1], B.LANTERN); else hard(doorX, fy + 4, doorZ, B.GLOWSTONE);
   S.mobs.push(['villager', doorX + 0.5, fy + 1, doorZ + 0.5]);
 }
 function buildWell(S, g, x0, z0, hard, M) {
@@ -506,6 +504,7 @@ class World {
     const x0 = bx, x1 = bx + 15, z0 = bz, z1 = bz + 15;
     for (const S of lists) { const a = S.soft; for (let i = 0; i < a.length; i += 4) { const x = a[i], y = a[i + 1], z = a[i + 2]; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const j = (y * 16 + (z - bz)) * 16 + (x - bx); const cur = d[j]; if (cur === 0 || PLANT[cur]) d[j] = a[i + 3]; } }
     for (const S of lists) { const a = S.hard; for (let i = 0; i < a.length; i += 4) { const x = a[i], y = a[i + 1], z = a[i + 2]; if (x < x0 || x > x1 || z < z0 || z > z1) continue; d[(y * 16 + (z - bz)) * 16 + (x - bx)] = a[i + 3]; } }
+    if (this.dim === 'overworld') worldgenCleanup(this, c);
     const localHints = [];
     if (this.dim === 'overworld') { const sh = g.strongholds.find(s => s.cx === cx && s.cz === cz); if (sh) buildStronghold(this, c, sh); }
     if (this.dim === 'nether') buildFortressChunk(this, c, localHints);

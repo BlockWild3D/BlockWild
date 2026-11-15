@@ -58,3 +58,19 @@ function crowdTick(dt) {
 const isSurvMobDamage = () => !isClientMP();
 { const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (world && !S.loading) crowdTick(dt); return r; }; }
 DEATH_YOU.cramming = 'You were squished too much';
+// ================= VOICES FOR THE NEWER MOBS =================
+// [ambient, hurt, death], built from the same voice parts as the rest (68_voices.js)
+Object.assign(MOB_VOICE, {
+  blub: [(d, p) => { V.bubble(d, p * 1.5); V.chime(d, p * 0.8, [660, 880, 990]); }, (d, p) => V.squeak(d, p * 0.7, 0, 0.12), (d, p) => V.chime(d, p * 0.7, [990, 880, 660, 440])],
+  sulfur_cube: [(d, p) => { V.bubble(d, p * 0.55); Voice.noise(d, { at: 0.12, len: 0.18, freq: 380 * p, q: 1.5, env: [[0.02, 0.8], [0.18, 0]] }); }, (d, p) => Voice.noise(d, { len: 0.22, freq: 520 * p, q: 1.3, env: [[0.01, 1], [0.22, 0]] }), (d, p) => { V.bubble(d, p * 0.4); Voice.noise(d, { len: 0.5, freq: 300 * p, q: 1.1, env: [[0.01, 1], [0.5, 0]] }); }],
+  frostbite: [(d, p) => { V.grumble(d, p * 0.7, 0.7); V.scrape(d, p * 1.6, 0.25); }, (d, p) => { V.grumble(d, p * 0.9, 0.3); V.chitter(d, p * 1.2, 3); }, (d, p) => { V.grumble(d, p * 0.6, 1.0); V.scrape(d, p * 2, 0.5); }],
+  nautilus: [(d, p) => { V.bubble(d, p * 0.8); V.clickTrain(d, p * 0.5); }, (d, p) => V.bubble(d, p * 1.3), (d, p) => { V.bubble(d, p * 0.6); V.flop(d, p * 0.7); }],
+  zombie_nautilus: [(d, p) => { V.bubble(d, p * 0.6); V.grumble(d, p * 0.6, 0.5); }, (d, p) => V.grumble(d, p * 0.9, 0.3), (d, p) => { V.grumble(d, p * 0.5, 0.9); V.bubble(d, p * 0.5); }],
+  ghastling: [(d, p) => V.whine(d, p * 1.1, 0.35), (d, p) => V.whine(d, p * 1.4, 0.25), (d, p) => V.whine(d, p * 0.9, 0.8)],
+  happy_ghast: [(d, p) => { Voice.tone(d, { len: 0.9, wave: 'sine', pitch: [[0, 330 * p], [0.4, 420 * p], [0.9, 300 * p]], vib: [5, 12], env: [[0.15, 0.7], [0.6, 0.5], [0.9, 0]] }); }, (d, p) => V.whine(d, p * 0.8, 0.4), (d, p) => V.whine(d, p * 0.6, 1.2)],
+  camel_husk: [(d, p) => V.grumble(d, p * 0.55, 0.8), (d, p) => V.grumble(d, p * 0.8, 0.35), (d, p) => V.roar(d, p * 1.3, 0.9)],
+  skeleton_horse: [(d, p) => { V.neigh(d, p * 1.25); V.scrape(d, p * 1.4, 0.2); }, (d, p) => V.snortHorse(d, p * 1.3), (d, p) => V.neigh(d, p * 0.8)],
+  zombie_horse: [(d, p) => { V.neigh(d, p * 0.75); V.grumble(d, p * 0.6, 0.4); }, (d, p) => V.snortHorse(d, p * 0.8), (d, p) => V.neigh(d, p * 0.6)],
+  copper_golem: [(d, p) => { V.chime(d, p * 0.9, [740, 988]); }, (d, p) => V.clank(d, p * 1.6, false), (d, p) => V.clank(d, p * 1.2, true)],
+  illusioner: [(d, p) => V.grumble(d, p * 0.95, 0.45), (d, p) => V.grumble(d, p * 1.2, 0.25), (d, p) => V.grumble(d, p * 0.8, 0.9)],
+});
