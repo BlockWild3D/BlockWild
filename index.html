@@ -454,7 +454,8 @@ class Perlin {
 
 // ---------------- Texture atlas ----------------
 const ATN = 32; // 32 x 32 tiles of 16 px
-const atlasCanvas = document.createElement('canvas'); atlasCanvas.width = atlasCanvas.height = ATN * 16;
+const ATH = 56; // rows in use: the detailed (HD) atlas is ATH x 72 px tall, which must stay under 4096
+const atlasCanvas = document.createElement('canvas'); atlasCanvas.width = ATN * 16; atlasCanvas.height = 64 * 16; // power-of-two height for the classic atlas
 const actx = atlasCanvas.getContext('2d');
 const TILE = {}; let tileCount = 0; const TILE_AVG = [];
 const vary = (c, r, v) => { const f = (r() * 2 - 1) * v; return [c[0] + f, c[1] + f, c[2] + f]; };
@@ -947,7 +948,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineMobBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -1435,7 +1436,7 @@ function modPainter(spec, kind) {
 }
 const _modImgQueue = [];
 function modTile(name, spec) {
-  if (TILE[name] === undefined && tileCount >= ATN * ATN) throw new Error('No room left in the texture atlas');
+  if (TILE[name] === undefined && tileCount >= ATN * ATH) throw new Error('No room left in the texture atlas');
   if (spec && spec.image) { const i = makeTile(name, modPainter({ color: spec.color || '#888888' })); _modImgQueue.push([i, spec.image]); return name; }
   makeTile(name, modPainter(spec, 'block')); return name;
 }
@@ -1906,7 +1907,7 @@ function EXTRA_STONE_SETS() { return [
   ['smooth_quartz', 'smooth_quartz', 'Smooth Quartz', 0], ['mud_brick', 'mud_bricks', 'Mud Brick', 1], ['red_nether_brick', 'red_nether_bricks', 'Red Nether Brick', 1],
   ['polished_deepslate', 'polished_deepslate', 'Polished Deepslate', 1], ['polished_blackstone', 'polished_blackstone', 'Polished Blackstone', 1], ['polished_tuff', 'polished_tuff', 'Polished Tuff', 1],
   ['sulfur', 'sulfur', 'Sulfur', 1], ['polished_sulfur', 'polished_sulfur', 'Polished Sulfur', 1], ['sulfur_brick', 'sulfur_bricks', 'Sulfur Brick', 1],
-  ['cinnabar', 'cinnabar', 'Cinnabar', 1], ['polished_cinnabar', 'polished_cinnabar', 'Polished Cinnabar', 1], ['cinnabar_brick', 'cinnabar_bricks', 'Cinnabar Brick', 1],
+  ['cinnabar', 'cinnabar', 'Cinnabar', 1], ['polished_cinnabar', 'polished_cinnabar', 'Polished Cinnabar', 1], ['cinnabar_brick', 'cinnabar_bricks', 'Cinnabar Brick', 1], ['resin_brick', 'resin_bricks', 'Resin Brick', 1],
 ]; }
 function defineStoneBlocks() {
   const ph = (n, c) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c))); return n; };
@@ -3060,6 +3061,110 @@ function paintNewTiles() {
   R('ice_ball', 4, [' S ', 'SIS', ' S '], { S: 'snowball', I: 'ice' });
 }
 
+// ================= BLOCKS AND ITEMS FOR THE NEWER MOBS =================
+// The Garden Awakens: creaking heart, resin clumps / block / bricks, eyeblossoms. Chase the Skies: dried ghast (it
+// hydrates in water) and harnesses. The Copper Age: copper chests (they age like copper) and copper golem statues.
+// Spring to Life: leaf litter, wildflowers, firefly bushes, bushes, cactus flowers, short and tall dry grass, blue and
+// brown eggs. Tiny Takeover: the golden dandelion. Mounts of Mayhem: nautilus armor. Rules: 94_mobs2.js.
+function cgCol(a) { return [[214, 124, 84], [168, 136, 96], [104, 150, 120], [80, 168, 140]][a]; } // copper golem colours by age
+function cuAge(a) { return ['', 'exposed_', 'weathered_', 'oxidized_'][a]; }
+function defineMobBlocks() {
+  const ph = (n, c, a) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c, a === undefined ? 255 : a))); return n; };
+  const strip = (o) => { delete o.id; delete o.key; delete o.texIds; return o; };
+  // ---- creaking heart: dormant by day, awake (eyes lit) at night ----
+  for (const t of ['creaking_heart_side', 'creaking_heart_side_awake', 'creaking_heart_top']) ph(t, [200, 190, 180]);
+  defBlock('creaking_heart', 'Creaking Heart', { tex: { s: 'creaking_heart_side', t: 'creaking_heart_top' }, hardness: 10, mine: 'axe', snd: 'wood', heart: 1, drop: ['resin_clump', 2] });
+  defBlock('creaking_heart#awake', 'Creaking Heart', { tex: { s: 'creaking_heart_side_awake', t: 'creaking_heart_top' }, hardness: 10, mine: 'axe', snd: 'wood', heart: 2, hidden: true, drop: ['resin_clump', 2] });
+  // ---- resin clumps (on any face, like glow lichen) and resin blocks ----
+  ph('resin_clump', [220, 110, 30], 0); const rc = BL.length;
+  for (let f = 0; f < 6; f++) { const b = [[0, 0, 0, 16, 0.6, 16], [0, 15.4, 0, 16, 16, 16], [0, 0, 15.4, 16, 16, 16], [0, 0, 0, 0.6, 16, 16], [0, 0, 0, 16, 16, 0.6], [15.4, 0, 0, 16, 16, 16]][f];
+    defBlock(f ? 'resin_clump#' + f : 'resin_clump', 'Resin Clump', { tex: 'resin_clump', render: 'boxes', boxes: [b], support: 'lichen', solid: false, opaque: false, hardness: 0, snd: 'grass', lichen: f, lichenBase: rc, hidden: f > 0, drop: 'resin_clump', flatIcon: true }); }
+  for (const [k, n] of [['resin_block', 'Block of Resin'], ['resin_bricks', 'Resin Bricks'], ['chiseled_resin_bricks', 'Chiseled Resin Bricks']]) defBlock(k, n, { tex: ph(k, [220, 110, 30]), hardness: k === 'resin_block' ? 0 : 1.5, tool: k === 'resin_block' ? null : 'pick', tier: 0, mine: k === 'resin_block' ? null : 'pick', snd: k === 'resin_block' ? 'squish' : 'stone' });
+  // ---- eyeblossoms: open at night, closed by day ----
+  for (const [k, n] of [['open_eyeblossom', 'Open Eyeblossom'], ['closed_eyeblossom', 'Closed Eyeblossom']]) defBlock(k, n, { tex: ph(k, [120, 120, 120], 0), solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, eyeblossom: k === 'open_eyeblossom' ? 2 : 1, light: k === 'open_eyeblossom' ? 0.06 : 0 });
+  // ---- dried ghast: four looks as it soaks up water ----
+  for (let h = 0; h < 4; h++) { ph('dried_ghast_' + h, [180, 170, 160]); const b = [[3, 0, 3, 13, 10, 13]];
+    defBlock(h ? 'dried_ghast#' + h : 'dried_ghast', 'Dried Ghast', { tex: 'dried_ghast_' + h, render: 'boxes', boxes: b, rb: b, cb: b, sb: b, shape: 'deco', opaque: false, hardness: 0, snd: 'sand', hidden: h > 0, drop: 'dried_ghast', hydration: h }); }
+  // ---- copper chests (all four ages, waxed too), facing the player ----
+  for (let a = 0; a < 4; a++) { for (const t of ['side', 'top', 'front']) ph('copper_chest_' + t + a, cgCol(a));
+    for (const waxed of [false, true]) { const key = (waxed ? 'waxed_' : '') + cuAge(a) + 'copper_chest'; const name = (waxed ? 'Waxed ' : '') + ['', 'Exposed ', 'Weathered ', 'Oxidized '][a] + 'Copper Chest';
+      const ids = {}; for (const f of [2, 0, 1, 3]) { const tex = ['copper_chest_side' + a, 'copper_chest_side' + a, 'copper_chest_top' + a, 'copper_chest_top' + a, 'copper_chest_side' + a, 'copper_chest_side' + a]; tex[[5, 0, 4, 1][f]] = 'copper_chest_front' + a;
+        ids[f] = defBlock(f === 2 ? key : key + '#' + f, name, { tex, hardness: 3, mine: 'pick', tool: 'pick', tier: 0, snd: 'stone', use: 'chest', copperChest: a, waxed, hidden: f !== 2, drop: key, fam: key, st: { facing: f } }); }
+      FAMILY[key] = { kind: 'facing4', props: ['facing'], ids, base: ids[2] }; } }
+  // ---- copper golem statues: four poses, four ages, facing the player ----
+  for (let a = 0; a < 4; a++) { ph('cg_body' + a, cgCol(a)); ph('cg_face' + a, cgCol(a)); }
+  const POSES = [ // boxes in 1/16 block: legs, body, head, face plate, antenna, two arms
+    (T, F) => [[5, 0, 6.5, 7.5, 4, 9.5, T], [8.5, 0, 6.5, 11, 4, 9.5, T], [4, 4, 5, 12, 10, 11, T], [4.5, 10, 4.5, 11.5, 15, 11.5, T], [5, 11, 11.5, 11, 14, 12, F], [7.5, 15, 7.5, 8.5, 16, 8.5, T], [2.5, 4.5, 7, 4, 9.5, 9, T], [12, 4.5, 7, 13.5, 9.5, 9, T]],
+    (T, F) => [[5, 0, 4.5, 7.5, 4, 7.5, T], [8.5, 0, 8.5, 11, 4, 11.5, T], [4, 4, 5, 12, 10, 11, T], [4.5, 10, 4.5, 11.5, 15, 11.5, T], [5, 11, 11.5, 11, 14, 12, F], [7.5, 15, 7.5, 8.5, 16, 8.5, T], [2.5, 5, 9, 4, 9.5, 13, T], [12, 5, 3, 13.5, 9.5, 7, T]],
+    (T, F) => [[5, 0, 9.5, 7.5, 2.5, 15, T], [8.5, 0, 9.5, 11, 2.5, 15, T], [4, 0, 5, 12, 6, 11, T], [4.5, 6, 4.5, 11.5, 11, 11.5, T], [5, 7, 11.5, 11, 10, 12, F], [7.5, 11, 7.5, 8.5, 12, 8.5, T], [2.5, 1, 7, 4, 6, 9, T], [12, 1, 7, 13.5, 6, 9, T]],
+    (T, F) => [[3.5, 0, 6.5, 6, 4, 9.5, T], [10, 0, 6.5, 12.5, 4, 9.5, T], [4, 4, 5, 12, 10, 11, T], [4.5, 10, 4.5, 11.5, 15, 11.5, T], [5, 11, 11.5, 11, 14, 12, F], [7.5, 15, 7.5, 8.5, 16, 8.5, T], [0.5, 9, 7, 4, 10.5, 9, T], [12, 9, 7, 15.5, 10.5, 9, T]]];
+  for (let a = 0; a < 4; a++) { const key = cuAge(a) + 'copper_golem_statue'; const name = ['', 'Exposed ', 'Weathered ', 'Oxidized '][a] + 'Copper Golem Statue'; const ids = {}; let base = 0;
+    for (let p = 0; p < 4; p++) for (const f of [2, 3, 0, 1]) { const bs = POSES[p](TILE['cg_body' + a], TILE['cg_face' + a]).map(b => shRot(b, f)); const first = p === 0 && f === 2;
+      const id = defBlock(first ? key : key + '#' + p + '_' + f, name, { tex: 'cg_body' + a, render: 'boxes', boxes: bs, rb: bs, cb: [[3, 0, 3, 13, 14, 13]], sb: [[3, 0, 3, 13, 16, 13]], shape: 'deco', opaque: false, hardness: 3, mine: 'pick', tool: 'pick', tier: 0, snd: 'stone', hidden: !first, drop: key, fam: key, st: { facing: f, pose: p }, statue: a });
+      ids[f + ',' + p] = id; if (first) base = id; }
+    FAMILY[key] = { kind: 'deco', props: ['facing', 'pose'], ids, base }; }
+  // ---- Spring to Life plants ----
+  for (const [k, n, o] of [['leaf_litter', 'Leaf Litter', { flat: 1 }], ['wildflowers', 'Wildflowers', { flat: 1 }], ['firefly_bush', 'Firefly Bush', { light: 0.13 }], ['bush', 'Bush', {}], ['cactus_flower', 'Cactus Flower', {}],
+    ['short_dry_grass', 'Short Dry Grass', {}], ['tall_dry_grass', 'Tall Dry Grass', {}], ['golden_dandelion', 'Golden Dandelion', {}]]) {
+    ph(k, [120, 150, 80], 0);
+    if (o.flat) defBlock(k, n, { tex: k, render: 'boxes', boxes: [[0, 0, 0, 16, 1, 16]], solid: false, opaque: false, hardness: 0, snd: 'grass', carpet: true, flatIcon: true, replaceable: k === 'leaf_litter' });
+    else defBlock(k, n, { tex: k, solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, light: o.light || 0, replaceable: /grass|bush$/.test(k) && k !== 'firefly_bush', drop: /dry_grass|^bush$/.test(k) ? null : k }); }
+}
+function paintMobTiles() {
+  const sh = (c, f) => [c[0] * f, c[1] * f, c[2] * f]; const bark = tilePixels(TILE.pale_oak_log !== undefined ? 'pale_oak_log' : 'log');
+  for (const awake of [false, true]) makeTile('creaking_heart_side' + (awake ? '_awake' : ''), (set, r) => { each((x, y) => { const p = bark(x, y); set(x, y, [p[0] * 0.92, p[1] * 0.9, p[2] * 0.88]); });
+    // a dark split down the middle with the heart's eyes looking out
+    for (let y = 2; y < 14; y++) { set(7, y, [40, 32, 30]); set(8, y, [52, 42, 38]); }
+    for (const [x, y] of [[5, 6], [6, 6], [9, 6], [10, 6], [5, 10], [10, 10]]) set(x, y, awake ? [255, 150, 40] : [70, 56, 50]); for (const [x, y] of [[6, 7], [9, 7]]) set(x, y, awake ? [255, 210, 120] : [60, 48, 44]); });
+  makeTile('creaking_heart_top', (set, r) => each((x, y) => { const d = Math.hypot(x - 7.5, y - 7.5); const ring = Math.floor(d) % 2; set(x, y, d > 7 ? [120, 108, 100] : d < 2.2 ? [240, 120, 40] : vary(ring ? [196, 186, 176] : [176, 166, 156], r, 3)); }));
+  const RES = [[196, 92, 22], [228, 120, 34], [246, 156, 60], [255, 196, 110]];
+  makeTile('resin_clump', (set, r) => { clear(set); for (let k = 0; k < 7; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0, R = 1 + r() * 1.6; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const d = Math.hypot(dx, dy); if (d > R) continue; set(cx + dx, cy + dy, d < 0.8 ? RES[3] : dx + dy < 0 ? RES[2] : RES[1]); } } });
+  makeTile('resin_block', (set, r) => { const n = tnoise(1501, 4); each((x, y) => set(x, y, vary(RX.tone(RES, n(x, y) * 0.9), r, 4))); RX.blobs(set, r, 10, RES[3], 1); RX.blobs(set, r, 8, RES[0], 2); });
+  makeTile('resin_bricks', (set, r) => brickWall(set, r, { bw: 8, bh: 4, base: RES[1], mortar: [120, 54, 14], hv: 6 }));
+  makeTile('chiseled_resin_bricks', (set, r) => each((x, y) => { let c = RES[1]; if (x === 0 || y === 0) c = RES[2]; else if (x === 15 || y === 15) c = RES[0]; const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5); if (Math.max(dx, dy) < 5.5) { c = (Math.round(dx + dy) % 3 === 0) ? RES[0] : RES[2]; if (dx < 1.2 && dy < 1.2) c = RES[3]; } set(x, y, vary(c, r, 3)); }));
+  const eyeb = (open) => (set, r) => { clear(set); for (let y = 6; y < 16; y++) set(7 + ((y >> 2) & 1), y, [86, 100, 92]); for (const [x, y] of [[5, 13], [6, 12], [10, 12], [11, 11]]) set(x, y, [96, 116, 104]);
+    for (let y = 1; y <= 6; y++) for (let x = 4; x <= 11; x++) { const d = Math.hypot((x - 7.5) / 3.8, (y - 3.5) / 2.6); if (d > 1) continue; set(x, y, open ? (d < 0.4 ? [255, 170, 40] : d < 0.65 ? [250, 236, 210] : [160, 150, 160]) : (y < 4 ? [110, 104, 120] : [140, 132, 148])); } };
+  makeTile('open_eyeblossom', eyeb(true)); makeTile('closed_eyeblossom', eyeb(false));
+  for (let h = 0; h < 4; h++) makeTile('dried_ghast_' + h, (set, r) => { const wet = h / 3; const base = mixc([168, 156, 146], [236, 236, 234], wet); each((x, y) => { let c = vary(base, r, 6); if ((x * 7 + y * 3) % 11 === 0) c = shadeC(base, 0.8 - 0.1 * (1 - wet)); if (h === 0 && (x + y * 2) % 9 === 0) c = shadeC(base, 0.7); set(x, y, c); });
+    for (const [x, y] of [[4, 6], [5, 6], [10, 6], [11, 6]]) set(x, y, h === 3 ? [70, 70, 74] : [96, 88, 82]); for (let x = 6; x <= 9; x++) set(x, 10, h ? [110, 104, 104] : [90, 82, 78]); });
+  for (let a = 0; a < 4; a++) { const C = cgCol(a); const cu = (x, y, r) => vary(shadeC(C, ((x * 3 + y * 5) % 7 === 0) ? 0.86 : ((x + y) % 5 === 0 ? 1.1 : 1)), r, 4);
+    makeTile('copper_chest_side' + a, (set, r) => each((x, y) => set(x, y, x === 0 || x === 15 || y === 0 || y === 15 ? shadeC(C, 0.62) : y === 5 ? shadeC(C, 0.7) : cu(x, y, r))));
+    makeTile('copper_chest_top' + a, (set, r) => each((x, y) => set(x, y, x === 0 || x === 15 || y === 0 || y === 15 ? shadeC(C, 0.62) : (x === 2 || x === 13 || y === 2 || y === 13) ? shadeC(C, 1.15) : cu(x, y, r))));
+    makeTile('copper_chest_front' + a, (set, r) => each((x, y) => { let c = x === 0 || x === 15 || y === 0 || y === 15 ? shadeC(C, 0.62) : y === 5 ? shadeC(C, 0.7) : cu(x, y, r); if (x >= 7 && x <= 8 && y >= 4 && y <= 7) c = y === 7 ? [60, 50, 40] : [236, 220, 170]; set(x, y, c); }));
+    makeTile('cg_body' + a, (set, r) => each((x, y) => set(x, y, ((x + y * 3) % 9 === 0) ? shadeC(C, 1.18) : cu(x, y, r))));
+    makeTile('cg_face' + a, (set, r) => each((x, y) => { let c = cu(x, y, r); if (y >= 4 && y <= 9 && (x >= 2 && x <= 5 || x >= 10 && x <= 13)) c = [250, 236, 180]; if (y >= 12 && x >= 6 && x <= 9) c = shadeC(C, 0.7); set(x, y, c); })); }
+  makeTile('leaf_litter', (set, r) => { clear(set); const LC = [[176, 108, 50], [150, 84, 40], [200, 140, 64], [130, 96, 52]]; for (let k = 0; k < 16; k++) { const cx = r() * 16 | 0, cy = r() * 16 | 0, c = LC[r() * 4 | 0]; for (const [a, b] of [[0, 0], [1, 0], [0, 1], [-1, 0], [1, 1]]) if (r() < 0.85) set(cx + a, cy + b, vary(c, r, 6)); } });
+  makeTile('wildflowers', (set, r) => { clear(set); for (let k = 0; k < 9; k++) { const cx = 2 + r() * 12 | 0, cy = 2 + r() * 12 | 0; const c = [[250, 230, 90], [250, 250, 240], [240, 200, 60]][r() * 3 | 0]; set(cx, cy, [250, 170, 40]); for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) set(cx + a, cy + b, c); set(cx + 1, cy + 2, [70, 130, 50]); } });
+  const plant = (fn) => (set, r) => { clear(set); fn(set, r); };
+  makeTile('bush', plant((set, r) => { for (let y = 4; y < 16; y++) for (let x = 1; x < 15; x++) { const d = Math.hypot((x - 7.5) / 7, (y - 10) / 6); if (d < 1 && r() < 0.85) set(x, y, vary(r() < 0.2 ? [90, 150, 60] : [64, 118, 44], r, 8)); } }));
+  makeTile('firefly_bush', plant((set, r) => { for (let y = 3; y < 16; y++) for (let x = 2; x < 14; x++) { const d = Math.hypot((x - 7.5) / 6, (y - 9.5) / 6.5); if (d < 1 && r() < 0.75) set(x, y, vary([58, 96, 46], r, 7)); } for (let k = 0; k < 5; k++) set(2 + r() * 12 | 0, 2 + r() * 10 | 0, [250, 240, 120]); }));
+  makeTile('cactus_flower', plant((set, r) => { for (let y = 8; y < 16; y++) { set(7, y, [80, 130, 60]); set(8, y, [70, 120, 54]); } for (let y = 2; y < 9; y++) for (let x = 3; x < 13; x++) { const d = Math.hypot((x - 7.5) / 4.5, (y - 5) / 3.4); if (d < 1) set(x, y, d < 0.35 ? [250, 220, 120] : [236, 120, 170]); } }));
+  makeTile('short_dry_grass', plant((set, r) => { for (let k = 0; k < 8; k++) { const x = 2 + k * 1.6 | 0, h = 4 + r() * 5 | 0; for (let y = 15; y > 15 - h; y--) set(x + ((15 - y) > h / 2 ? (k & 1 ? 1 : -1) : 0), y, vary([206, 176, 112], r, 10)); } }));
+  makeTile('tall_dry_grass', plant((set, r) => { for (let k = 0; k < 9; k++) { const x = 1 + k * 1.6 | 0, h = 9 + r() * 6 | 0; for (let y = 15; y > 15 - h; y--) set(x + ((15 - y) > h * 0.6 ? (k & 1 ? 1 : -1) : 0), y, vary(k % 3 ? [214, 186, 120] : [184, 150, 94], r, 10)); } }));
+  makeTile('golden_dandelion', plant((set, r) => { for (let y = 8; y < 16; y++) set(7, y, [80, 140, 50]); set(6, 12, [80, 140, 50]); set(5, 11, [80, 140, 50]); for (let y = 3; y <= 8; y++) for (let x = 4; x <= 11; x++) { const d = Math.hypot(x - 7.5, y - 5.5); if (d < 3.3) set(x, y, d < 1.2 ? [255, 246, 170] : ((x + y) & 1) ? [255, 210, 40] : [236, 176, 20]); } }));
+}
+// ---- items ----
+{ const MI = (key, name, o, icon) => { if (IT[key] !== undefined) { if (icon) ICONP[key] = icon; Object.assign(ITEMS[IT[key]], o || {}); return IT[key]; } const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };
+  const box = (s, x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) s(x, y, typeof c === 'function' ? c(x, y) : c); };
+  MI('resin_brick', 'Resin Brick', {}, (s) => { box(s, 2, 5, 13, 10, (x, y) => y === 5 ? [252, 170, 70] : y === 10 || x === 13 ? [176, 80, 20] : [230, 124, 36]); });
+  for (const [c, N, rgb] of COLORDATA()) MI(c + '_harness', N + ' Harness', { kind: 'harness', stack: 1, hcol: rgb }, (s) => { box(s, 2, 4, 13, 7, (x, y) => y === 4 ? shadeC(rgb, 1.15) : rgb); box(s, 3, 8, 12, 9, [120, 76, 40]); for (const x of [4, 11]) box(s, x - 1, 10, x + 1, 12, [190, 220, 236]); box(s, 2, 2, 4, 3, [100, 64, 34]); box(s, 11, 2, 13, 3, [100, 64, 34]); });
+  for (const [m, n, col, def] of [['copper', 'Copper', [214, 124, 84], 3], ['iron', 'Iron', [210, 210, 214], 5], ['golden', 'Golden', [240, 200, 60], 7], ['diamond', 'Diamond', [90, 220, 214], 11], ['netherite', 'Netherite', [76, 68, 72], 19]])
+    MI(m + '_nautilus_armor', n + ' Nautilus Armor', { kind: 'nautilus_armor', stack: 1, ndef: def, ncol: col, fireproof: m === 'netherite' }, (s) => { for (let y = 3; y <= 12; y++) for (let x = 2; x <= 13; x++) { const d = Math.hypot(x - 8, y - 8); if (d > 5.8 || d < 2.3 && x > 7) continue; s(x, y, d > 4.8 ? shadeC(col, 0.7) : ((Math.atan2(y - 8, x - 8) * 3 | 0) & 1) ? col : shadeC(col, 1.2)); } });
+  MI('blue_egg', 'Blue Egg', { kind: 'egg', stack: 16, eggVar: 'cold' }, (s) => { for (let y = 3; y <= 13; y++) for (let x = 4; x <= 11; x++) { const d = Math.hypot((x - 7.5) / 3.8, (y - 8.4) / (y < 8 ? 5 : 4.6)); if (d < 1) s(x, y, d > 0.85 ? [70, 110, 150] : (x < 7 && y < 8) ? [200, 230, 250] : [130, 180, 220]); } });
+  MI('brown_egg', 'Brown Egg', { kind: 'egg', stack: 16, eggVar: 'warm' }, (s) => { for (let y = 3; y <= 13; y++) for (let x = 4; x <= 11; x++) { const d = Math.hypot((x - 7.5) / 3.8, (y - 8.4) / (y < 8 ? 5 : 4.6)); if (d < 1) s(x, y, d > 0.85 ? [110, 70, 40] : (x < 7 && y < 8) ? [230, 190, 150] : [190, 140, 96]); } });
+  // icons for blocks that read better as a picture
+  ICONP.dried_ghast = (s) => { box(s, 3, 4, 12, 13, (x, y) => ((x * 7 + y * 3) % 11 === 0) ? [140, 128, 118] : [176, 164, 152]); for (const [x, y] of [[5, 7], [6, 7], [9, 7], [10, 7]]) s(x, y, [90, 82, 76]); box(s, 6, 10, 9, 10, [100, 92, 86]); };
+  for (let a = 0; a < 4; a++) ICONP[cuAge(a) + 'copper_golem_statue'] = (s) => { const C = cgCol(a); box(s, 5, 1, 10, 2, shadeC(C, 0.8)); s(7, 0, C); s(8, 0, C); box(s, 4, 3, 11, 7, C); for (const [x, y] of [[5, 5], [6, 5], [9, 5], [10, 5]]) s(x, y, [250, 236, 180]); box(s, 4, 8, 11, 12, shadeC(C, 0.9)); box(s, 2, 8, 3, 11, shadeC(C, 0.8)); box(s, 12, 8, 13, 11, shadeC(C, 0.8)); box(s, 5, 13, 6, 15, shadeC(C, 0.75)); box(s, 9, 13, 10, 15, shadeC(C, 0.75)); };
+  // recipes
+  const R = (o, n, shp, k) => RECIPES.push(RSH(o, n, shp, k)), L = (o, n, items) => RECIPES.push(RSL(o, n, items));
+  L('resin_block', 1, Array(9).fill('resin_clump')); L('resin_clump', 9, ['resin_block']); R('resin_bricks', 1, ['RR', 'RR'], { R: 'resin_brick' }); R('chiseled_resin_bricks', 1, ['S', 'S'], { S: 'resin_brick_slab' });
+  R('dried_ghast', 1, ['TTT', 'TST', 'TTT'], { T: 'ghast_tear', S: 'soul_sand' }); R('copper_chest', 1, ['CCC', 'CHC', 'CCC'], { C: 'copper_ingot', H: 'chest' });
+  for (const [c] of COLORDATA()) R(c + '_harness', 1, ['LLL', 'GWG'], { L: 'leather', G: 'glass', W: c + '_wool' });
+  R('golden_dandelion', 1, ['NNN', 'NDN', 'NNN'], { N: 'gold_nugget', D: 'dandelion' });
+  L('orange_dye', 1, ['open_eyeblossom']); L('gray_dye', 1, ['closed_eyeblossom']); L('yellow_dye', 1, ['wildflowers']); L('pink_dye', 1, ['cactus_flower']);
+  SMELT[IT.resin_clump] = IT.resin_brick;
+}
+
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
   const r = mulberry32(seed); const g = []; for (let i = 0; i < period * period; i++) g.push(r());
@@ -3177,7 +3282,7 @@ function animateTiles(dt, tex) { animT += dt; if (animT < 0.1) return; animT = 0
   if (!HD || typeof renderer === 'undefined' || !renderer.copyTextureToTexture || !tex.__done) { if (HD) for (const k in ANIM) hdTile(TILE[k]); tex.needsUpdate = true; tex.__done = true; return; }
   for (const k in ANIM) { const i = TILE[k]; const img = hdTile(i); let st = animTex[k]; if (!st) { const c = document.createElement('canvas'); c.width = c.height = CELL; st = animTex[k] = { c, x: c.getContext('2d'), tex: new THREE.CanvasTexture(c) }; st.tex.flipY = tex.flipY; }
     st.x.putImageData(img, 0, 0); st.tex.needsUpdate = true; const px = (i % ATN) * CELL, py = Math.floor(i / ATN) * CELL;
-    renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AW - py - CELL : py), st.tex, tex); } }
+    renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AH - py - CELL : py), st.tex, tex); } }
 for (const k in ANIM) makeTile(k, ANIM[k](0));
 // (icons are built after the later texture passes, at the end of 01bb_retex.js)
 
@@ -3292,7 +3397,7 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles(); paintNewTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles(); paintNewTiles(); paintMobTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
@@ -4108,8 +4213,8 @@ const AO_LV = [0.42, 0.6, 0.8, 1.0];
 // ---- Detailed textures: every 16px tile is upscaled 4x (Scale2x twice: smooth diagonals, crisp edges), given relief shading and
 // fine grain, and stored with a gutter so mipmaps don't bleed between tiles. "Low" graphics keeps the classic 16px atlas.
 const HD = (() => { const touch = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window); try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); return (s.gfx || (touch ? 'low' : 'high')) !== 'low' && s.tex !== 'classic'; } catch (e) { return !touch; } })();
-const TS = HD ? 64 : 16, PAD = HD ? 4 : 0, CELL = TS + 2 * PAD, AW = ATN * CELL;
-const hdCanvas = HD ? document.createElement('canvas') : atlasCanvas; if (HD) { hdCanvas.width = hdCanvas.height = AW; }
+const TS = HD ? 64 : 16, PAD = HD ? 4 : 0, CELL = TS + 2 * PAD, AW = ATN * CELL, AH = HD ? ATH * CELL : atlasCanvas.height;
+const hdCanvas = HD ? document.createElement('canvas') : atlasCanvas; if (HD) { hdCanvas.width = AW; hdCanvas.height = AH; }
 const hdCtx = HD ? hdCanvas.getContext('2d') : null;
 function scale2x(src, n) { const m = n * 2, out = new Uint32Array(m * m); const at = (x, y) => src[clamp(y, 0, n - 1) * n + clamp(x, 0, n - 1)];
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const P = at(x, y), A = at(x, y - 1), Bq = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1); let e0 = P, e1 = P, e2 = P, e3 = P;
@@ -4136,9 +4241,9 @@ function hdTile(i) {
   hdCtx.putImageData(img, (i % ATN) * CELL, Math.floor(i / ATN) * CELL); return img;
 }
 if (HD) for (let i = 0; i < tileCount; i++) hdTile(i);
-function tileUV(t) { const e = HD ? 0.5 / AW : 0.0004; const col = t % ATN, row = Math.floor(t / ATN); const u0 = (col * CELL + PAD) / AW + e, u1 = (col * CELL + PAD + TS) / AW - e; const vTop = 1 - (row * CELL + PAD) / AW - e, vBot = 1 - (row * CELL + PAD + TS) / AW + e; return [u0, vBot, u1, vTop]; }
+function tileUV(t) { const e = HD ? 0.5 / AW : 0.0004, ev = HD ? 0.5 / AH : 0.0004 * AW / AH; const col = t % ATN, row = Math.floor(t / ATN); const u0 = (col * CELL + PAD) / AW + e, u1 = (col * CELL + PAD + TS) / AW - e; const vTop = 1 - (row * CELL + PAD) / AH - ev, vBot = 1 - (row * CELL + PAD + TS) / AH + ev; return [u0, vBot, u1, vTop]; }
 // u/v of a tile's top-left corner and the size of one source pixel, for sub-tile geometry such as torches
-function tileSub(t) { const col = t % ATN, row = Math.floor(t / ATN); return { u0: (col * CELL + PAD) / AW, v0: 1 - (row * CELL + PAD) / AW, px: TS / 16 / AW }; }
+function tileSub(t) { const col = t % ATN, row = Math.floor(t / ATN); return { u0: (col * CELL + PAD) / AW, v0: 1 - (row * CELL + PAD) / AH, px: TS / 16 / AW, pxv: TS / 16 / AH }; }
 const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
 
 // ---- Materials ----
@@ -4410,14 +4515,14 @@ class World {
         continue;
       }
       if (def.render === 'torch') {
-        const t = def.texIds[0]; const { u0, v0, px } = tileSub(t);
+        const t = def.texIds[0]; const { u0, v0, px, pxv } = tileSub(t);
         const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
         // a torch with nothing under it hangs on a wall: its foot against the wall, leaning out (Minecraft's wall torch)
         let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH || id === B.REDSTONE_TORCH_OFF || id === B.SOUL_TORCH) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           if (wx || wz) for (let k = 0; k < 4; k++) { const ly = (vtmp[k * 3 + 1] - y) / (10 / 16); vtmp[k * 3] += wx * (0.38 - ly * 0.24); vtmp[k * 3 + 2] += wz * (0.38 - ly * 0.24); vtmp[k * 3 + 1] += 0.22; }
-          let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * px; vb = v0 - 6 * px; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * px; vb = v0 - 6 * px; }
+          let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * pxv; vb = v0 - 6 * pxv; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * pxv; vb = v0 - 6 * pxv; }
           const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1.95, 1.95, 1.95, 1.95], false);
         }
         continue;
@@ -17380,6 +17485,538 @@ PROJ.ice_ball = { grav: 12, size: 0.24, color: 0xbfe6ff };
 // ---------- creative inventory: put the new things together ----------
 { const keys = ['sulfur', 'polished_sulfur', 'sulfur_bricks', 'chiseled_sulfur', 'potent_sulfur', 'sulfur_spike', 'cinnabar', 'polished_cinnabar', 'cinnabar_bricks', 'chiseled_cinnabar', 'icicle', 'ice_crystal', 'ice_ball', 'sulfur_cube_bucket', 'music_disc_bounce'];
   const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
+
+// ================= MOUNTS AND THEIR RIDERS (Mounts of Mayhem, Chase the Skies, Spring to Life, Tiny Takeover) =================
+// Skeleton horses (tamed, from skeleton traps in thunderstorms - see 96_weather) and zombie horses: zombie horsemen
+// (a spear-wielding zombie on a zombie horse) spawn at night in plains, savannas and forests; kill the rider, then
+// tame the horse with red mushrooms. Zombie horses burn in daylight unless they wear horse armor.
+// Camel husks: at night in deserts, ridden by a spear-wielding husk with a parched behind it; kill both and tame the
+// camel husk with a rabbit's foot. Neither undead mount can breed.
+// The parched: a desert skeleton (half the desert's skeletons) that doesn't burn and shoots arrows of Weakness.
+// Nautiluses swim in every ocean; zombie nautiluses (coral ones in warm oceans) carry a trident-wielding drowned.
+// Tame either with pufferfish, saddle it and ride it underwater (Breath of the Nautilus: no air lost); sprint to dash.
+// Nautilus armor protects it.
+// Dried ghasts (found in soul sand valleys or crafted) soak in water for 20 minutes and hatch a ghastling, which grows
+// into a happy ghast in 20 more (snowballs speed that up and heal it). Put a harness on a happy ghast and fly it:
+// it goes where you look, jump to climb.
+// Pigs, cows and chickens come in temperate, warm and cold breeds by biome; cold chickens lay blue eggs and warm
+// ones brown eggs. A golden dandelion stops a baby animal growing up (use it again to let it grow).
+// ---------- mobs riding mobs ----------
+function mountMob(rider, mount, seatY, seatZ = 0) { rider.mountOf = mount; rider.seat = [seatY, seatZ]; (mount.mobRiders || (mount.mobRiders = [])).push(rider); rider.persistent = mount.persistent; }
+function liveRiders(m) { return (m.mobRiders || []).filter(r => !r.dead && !r.gone); }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    const M = this.mountOf; if (M && (M.dead || M.gone)) { this.mountOf = null; }
+    if (this.mountOf) { const r = _u.call(this, dt); const s = Math.sin(M.yaw), c = Math.cos(M.yaw);
+      this.pos.set(M.pos.x + s * this.seat[1], M.pos.y + this.seat[0], M.pos.z + c * this.seat[1]); this.vel.set(0, 0, 0); this.onGround = true; if (this.root) this.root.position.copy(this.pos);
+      if (this.legs) for (const l of this.legs) l.rotation.x = -1.3; return r; }
+    // a mount with a hostile rider carries it at the player
+    const R = this.mobRiders && liveRiders(this); if (R && R.length && !this.tamedBy && !isClientMP()) { const P = player; const hostile = R.some(r => r.t.kind === 'hostile');
+      if (hostile && isSurv() && !P.dead && P.pos.distanceTo(this.pos) < 32) { const d = steerTo(this, P.pos, 1.6); this.goalBoost = true; if (d < 1.4 && this.onGround && Math.random() < dt) this.vel.y = 5; } }
+    return _u.call(this, dt); }; }
+// riders don't take fall damage from their mount moving; when the mount dies the riders drop off
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) { if (this.mountOf && kb) kb = 0; return _h.call(this, dmg, src, kb, na); }; }
+// ---------- skeleton horse, zombie horse, camel husk (horse-like mounts) ----------
+const UNDEAD_MOUNT = new Set(['skeleton_horse', 'zombie_horse', 'camel_husk']);
+function undeadHorsePaints(kind) { const bone = [214, 214, 206], dk = [60, 60, 60], ZH = [74, 120, 70], ZD = [40, 70, 40];
+  if (kind === 'skeleton') { const b = fur(bone, 5, { extra: (f, set, fw, fh) => { if (f === 'top' || f === 'bottom') return; for (let y = 1; y < fh - 1; y += 2) for (let x = 1; x < fw - 1; x++) if ((x + y) % 4 !== 0) set(x, y, dk); } });
+    return { body: b, leg: fur(bone, 5, { extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) set(x, fh >> 1, [150, 150, 146]); } }), head: fur(bone, 5, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') { set(f === 'left' ? 2 : fw - 3, 2, [20, 20, 20]); set(f === 'left' ? 2 : fw - 3, 3, [20, 20, 20]); } } }), muzzle: fur(bone, 4, { extra: (f, set, fw) => { if (f === 'front') { set(1, 2, dk); set(fw - 2, 2, dk); } } }), mane: fur([190, 190, 184], 6), tail: fur([190, 190, 184], 6) }; }
+  return { body: fur(ZH, 7, { speck: [[110, 150, 96], 0.15], extra: (f, set, fw, fh) => { if (f === 'left' || f === 'right') for (let y = 2; y < fh - 2; y += 2) for (let x = 2; x < fw - 2; x += 3) set(x, y, bone); } }), leg: fur(ZH, 6, { foot: [2, [30, 40, 28]] }),
+    head: fur(ZH, 6, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') { set(f === 'left' ? 2 : fw - 3, 2, [160, 30, 20]); } } }), muzzle: fur([96, 130, 86], 5, { extra: (f, set, fw) => { if (f === 'front') { set(1, 2, ZD); set(fw - 2, 2, ZD); } } }), mane: fur(ZD, 8), tail: fur(ZD, 8) }; }
+for (const [key, name, kind, egg] of [['skeleton_horse', 'Skeleton Horse', 'skeleton', [[104, 104, 80], [229, 229, 216]]], ['zombie_horse', 'Zombie Horse', 'zombie', [[49, 81, 49], [151, 194, 151]]]]) {
+  MOBS[key] = Object.assign({}, MOBS.horse, { name, hp: 15, egg, snd: 'neigh', burns: kind === 'zombie', drops: kind === 'skeleton' ? [['bone', 0, 2, 1]] : [['rotten_flesh', 2, 3, 1]], undeadMount: kind,
+    build(m, r) { const o = m.opts || (m.opts = {}); const code = kind === 'skeleton' ? 90 : 91; o.genes = Object.assign(rollHorse(), (o.rec && o.rec.h) || {}, { c: code, mk: 0, hp: 15, spd: 4.5 + Math.random() * 1.5, jmp: 0.5 + Math.random() * 0.25, tamed: kind === 'skeleton' ? 1 : 0 }); if (o.rec && o.rec.h) o.rec.h.c = code;
+      const hp0 = horsePaints; horsePaints = () => undeadHorsePaints(kind); try { MOBS.horse.build(m, r); } finally { horsePaints = hp0; } } });
+  MOB_XP[key] = [1, 3]; MOB_PITCH[key] = kind === 'skeleton' ? 1.3 : 0.8; UNDEAD.add(key); BREED_FOOD[key] = []; }
+const HUSKC = [176, 140, 96], HUSKD = [130, 98, 64];
+MOBS.camel_husk = Object.assign({}, MOBS.camel, { name: 'Camel Husk', hp: 32, egg: [[176, 140, 96], [96, 70, 46]], burns: false, undeadMount: 'husk', drops: [['rotten_flesh', 0, 2, 1]],
+  build(m, r) { const C = HUSKC, C2 = HUSKD; const o = m.opts || {}; m.hg = Object.assign(rollHorse(), o.rec && o.rec.h ? o.rec.h : {}, { hp: 32, spd: 4.2, jmp: 0.42, c: 0, mk: 0 }); if (!(o.rec && o.rec.h && o.rec.h.tamed)) m.hg.tamed = 0;
+    const ribs = (f, set, fw, fh) => { if (f === 'left' || f === 'right') for (let y = 3; y < fh - 2; y += 2) for (let x = 3; x < fw - 3; x++) if (x % 5) set(x, y, [226, 214, 186]); };
+    sbox(m, r, 0.9, 0.7, 1.6, 0, 1.65, 0, 'cmh_body', fur(C, 7, { bottom: C2, speck: [[150, 116, 80], 0.15], extra: ribs })); sbox(m, r, 0.6, 0.45, 0.7, 0, 2.2, -0.05, 'cmh_hump', fur(C2, 6, { speck: [[110, 84, 56], 0.2] }));
+    m.legs = quadLegs(m, r, 0.3, 1.3, 0.28, 0.6, 'cmh_leg', fur(C, 5, { foot: [2, [120, 90, 60]], extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) set(x, fh >> 1, [214, 200, 170]); } }));
+    const neck = pivot(r, 0, 1.75, 0.75); neck.rotation.x = 0.25; const hp = pivot(neck, 0, 0, 0); m.head = hp; m.neck = neck;
+    sbox(m, hp, 0.38, 0.95, 0.38, 0, 0.45, 0.05, 'cmh_neck', fur(C, 6)); sbox(m, hp, 0.42, 0.4, 0.75, 0, 0.98, 0.28, 'cmh_head', fur(C, 5, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') set(f === 'left' ? 3 : fw - 4, 2, [40, 20, 10]); if (f === 'front') for (let x = 1; x < fw - 1; x++) set(x, 4, [226, 214, 186]); } }));
+    for (const s of [-1, 1]) sbox(m, hp, 0.1, 0.06, 0.18, s * 0.24, 1.12, 0.08, 'cmh_ear', fur(C2, 3));
+    m.tail = pivot(r, 0, 1.85, -0.8); m.tail.rotation.x = 0.3; sbox(m, m.tail, 0.1, 0.6, 0.1, 0, -0.3, 0, 'cmh_tail', fur(C2, 4));
+    const LE = [116, 66, 34]; m.saddleParts = [sbox(m, r, 0.95, 0.12, 0.9, 0, 2.08, 0.15, 'cml_saddle', fur(LE, 5)), sbox(m, r, 0.98, 0.5, 0.12, 0, 1.9, 0.15, 'cml_girth', fur([86, 46, 22], 4))]; m.reins = []; for (const p of m.saddleParts) p.visible = false; m.armorParts = []; m.horseBody = r; } });
+MOB_XP.camel_husk = [1, 3]; UNDEAD.add('camel_husk'); BREED_FOOD.camel_husk = [];
+{ const _so = seatOnHorse; seatOnHorse = function (P, m) { _so(P, m); if (m.type === 'camel_husk') P.pos.y += 0.9; }; }
+// zombie horses burn in daylight unless armored; nobody can tame an undead mount while its rider lives
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.type === 'zombie_horse' && this.t) { const arm = this.hg && this.hg.armor >= 0; if (arm !== this.armSun) { this.armSun = arm; this.t = Object.assign({}, this.t, { burns: !arm }); } } return _u.call(this, dt); }; }
+const TAME_FOOD = { zombie_horse: 'red_mushroom', camel_husk: 'rabbit_foot', nautilus: 'pufferfish', zombie_nautilus: 'pufferfish' };
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) {
+    if (m && TAME_FOOD[m.type] && !m.dead) { const h = player.held(); const k = h && ITEMS[h.id] ? ITEMS[h.id].key : null; const tamed = m.hg ? m.hg.tamed : m.tamed;
+      if (liveRiders(m).length) { Sfx.at('hmm', m.pos, 0.6, 0.6); return true; }
+      if (!tamed) { if (k === TAME_FOOD[m.type] || (m.type.endsWith('nautilus') && k === 'pufferfish_bucket')) { if (S.mode !== 'creative') { if (k === 'pufferfish_bucket') player.inv[handSlot()] = { id: IT.water_bucket, count: 1 }; else useHeld(1); invDirty(); } S.swing = 1;
+          if (Math.random() < 1 / 3) { if (m.hg) { mset(m, { tamed: 1 }); applyHorseGenes(m); } else { m.tamed = true; m.owner = myName(); } hearts(m, 6); Sfx.at('levelup', m.pos, 0.4, 1.6); } else smoke(m, 6); m.hp = Math.min(m.maxHp || m.t.hp, m.hp + 2); return true; }
+        if (m.hg) { smoke(m, 4); Sfx.at('neigh_angry', m.pos, 0.6); return true; } }
+    }
+    return _mi.apply(this, arguments); }; }
+// ---------- the parched ----------
+const PARCH = [200, 180, 140];
+MOBS.parched = { name: 'Parched', hp: 16, w: 0.6, h: 1.99, speed: 2.1, kind: 'hostile', dmg: 3, snd: 'rattle', burns: false, ranged: true, egg: [[200, 180, 140], [110, 80, 60]],
+  drops: [['bone', 0, 2, 1], ['arrow', 0, 2, 1]],
+  shoot(m, P) { shootArrow(new V3(m.pos.x, m.pos.y + 1.5, m.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); const a = G.projectiles[G.projectiles.length - 1]; if (a) a.effect = ['weakness', 9, 0]; },
+  build(m, r) { humanoidS(m, r, 'parched', skelPaints(PARCH, [90, 64, 40]), false, 1, { aw: 0.12, lw: 0.12, bw: 0.42, bd: 0.2, lx: 0.1 });
+    sbox(m, r, 0.5, 0.6, 0.3, 0, 1.2, 0, 'parched_wrap', fur([170, 140, 100], 8, { speck: [[140, 110, 76], 0.25], extra: (f, set, fw, fh, rr) => { for (let x = 0; x < fw; x++) if (rr() < 0.4) set(x, fh - 1, [0, 0, 0, 0]); } }));
+    sbox(m, m.head, 0.56, 0.18, 0.56, 0, 0.42, 0, 'parched_hood', fur([180, 150, 106], 6)); const bow = pivot(m.arms[1], 0, -0.66, 0.1); sbox(m, bow, 0.05, 0.7, 0.05, 0, 0, 0, 'skel_bow', fur([110, 76, 42], 5)); } };
+MOB_XP.parched = [5, 5]; UNDEAD.add('parched'); MOB_PITCH.parched = 0.85;
+// ---------- spears and tridents in riders' hands ----------
+function giveSpear(m, col) { if (!m.arms || m.spearMesh) return; const g = pivot(m.arms[1], 0, -0.62, 0.08); g.rotation.x = 1.3; sbox(m, g, 0.05, 1.3, 0.05, 0, 0.2, 0, 'rider_spear_shaft', fur([110, 80, 50], 4)); sbox(m, g, 0.1, 0.24, 0.1, 0, 0.92, 0, 'rider_spear_head' + col.join('_'), fur(col, 5)); m.spearMesh = g; m.t = Object.assign({}, m.t, { dmg: (m.t.dmg || 3) + 2 }); }
+// ---------- nautilus and zombie nautilus ----------
+const NAUT_SHELL = [232, 214, 190], NAUT_STRIPE = [190, 96, 60];
+function nautilusBuild(kind) { return function (m, r) { const zombie = kind !== 'nautilus', coral = kind === 'coral' || (m.opts && m.opts.coral);
+    const shell = coral ? [214, 120, 150] : zombie ? [176, 200, 210] : NAUT_SHELL, stripe = coral ? [120, 200, 170] : zombie ? [70, 120, 80] : NAUT_STRIPE, flesh = zombie ? [70, 110, 70] : [214, 150, 120];
+    const sp = fur(shell, 5, { extra: (f, set, fw, fh) => { if (f === 'top' || f === 'bottom') return; for (let x = 0; x < fw; x += 3) for (let y = 0; y < fh; y++) set(x, y, stripe); if (zombie) for (let k = 0; k < 4; k++) set((k * 5 + 2) % fw, (k * 3 + 1) % fh, [60, 140, 70]); } });
+    m.shell = sbox(m, r, 0.9, 0.9, 0.95, 0, 0.55, -0.12, 'naut_shell' + kind + (coral ? 'c' : ''), sp);
+    sbox(m, r, 0.62, 0.5, 0.35, 0, 0.42, 0.45, 'naut_body' + kind, fur(flesh, 5, { extra: (f, set, fw) => { if (f === 'left' || f === 'right') set(f === 'left' ? fw - 2 : 1, 1, [20, 20, 20]); } }));
+    m.tent = []; for (let i = 0; i < 6; i++) { const p = pivot(r, -0.22 + (i % 3) * 0.22, 0.3 + Math.floor(i / 3) * 0.15, 0.6); sbox(m, p, 0.08, 0.08, 0.42, 0, 0, 0.2, 'naut_tent' + kind, fur(flesh, 4)); m.tent.push(p); }
+    m.nArmor = sbox(m, r, 0.98, 0.3, 1.0, 0, 1.02, -0.12, 'naut_armor_plate', fur([210, 210, 214], 4)); m.nArmor.visible = false;
+    m.saddleN = sbox(m, r, 0.6, 0.1, 0.5, 0, 1.04, -0.1, 'naut_saddle', fur([116, 66, 34], 5)); m.saddleN.visible = false; }; }
+MOBS.nautilus = { name: 'Nautilus', hp: 15, w: 0.95, h: 1.1, speed: 2.2, kind: 'neutral', dmg: 4, snd: 'squish', egg: [[232, 214, 190], [190, 96, 60]], drops: [['nautilus_shell', 0, 1, 1]], swimmer: true, build: nautilusBuild('nautilus') };
+MOBS.zombie_nautilus = { name: 'Zombie Nautilus', hp: 15, w: 0.95, h: 1.1, speed: 2.4, kind: 'neutral', dmg: 4, snd: 'squish', egg: [[176, 200, 210], [70, 120, 80]], drops: [['rotten_flesh', 0, 2, 1]], swimmer: true, build: nautilusBuild('zombie') };
+UNDEAD.add('zombie_nautilus'); MOB_XP.nautilus = [1, 3]; MOB_XP.zombie_nautilus = [1, 3];
+for (const k of ['nautilus', 'zombie_nautilus']) MOBS[k].tick = (m, dt) => { if (m.nArmor) m.nArmor.visible = !!m.nautArmor; if (m.saddleN) m.saddleN.visible = !!m.saddled;
+  // dash at whoever angered it (or at the player when its rider is hostile)
+  m.dashT = (m.dashT || 0) - dt; const angry = (m.angryAt === 'player' || liveRiders(m).some(r => r.t.kind === 'hostile')) && isSurv() && !player.dead;
+  if (angry && inWater(m, 0.5) && m.pos.distanceTo(player.pos) < 16) { const d = player.pos.clone().add(new V3(0, 0.8, 0)).sub(m.pos); const L = d.length(); m.yaw = Math.atan2(d.x, d.z);
+    if (m.dashT <= 0 && L < 9) { m.dashT = 3; d.normalize().multiplyScalar(12); m.vel.copy(d); Sfx.at('bow', m.pos, 0.4, 0.6); } else if (L > 2) { d.normalize().multiplyScalar(3); m.vel.lerp(d, Math.min(1, dt * 2)); }
+    if (L < 1.6 && (m.atkCD || 0) <= 0) { m.atkCD = 1; player.hurt(m.t.dmg, m.pos, 'a ' + m.t.name); } m.atkCD = (m.atkCD || 0) - dt; }
+  if (m.tent) m.tent.forEach((t, i) => { t.rotation.x = Math.sin((m.age || 0) * 4 + i) * 0.3; });
+  return swimTick(m, dt, { speed: m.t.speed, range: 10, agile: 1.5, dry: 30 }); };
+// nautilus armor and saddles
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) {
+    if (m && (m.type === 'nautilus' || m.type === 'zombie_nautilus') && !m.dead && m.tamed && !liveRiders(m).length) { const h = player.held(); const hd = h && ITEMS[h.id];
+      if (hd && hd.kind === 'nautilus_armor' && !m.nautArmor) { m.nautArmor = { id: h.id, def: hd.ndef }; useHeld(1); Sfx.at('armor', m.pos, 0.8); S.swing = 1; return true; }
+      if (h && h.id === IT.saddle && !m.saddled) { m.saddled = true; useHeld(1); Sfx.at('saddle', m.pos, 0.8); S.swing = 1; return true; }
+      if (h && h.id === IT.shears && m.nautArmor) { dropItem(m.nautArmor.id, 1, m.pos.x, m.pos.y + 0.6, m.pos.z); m.nautArmor = null; S.swing = 1; return true; }
+      if (m.saddled && !sneaking) { rideMob(m); m.freeRide = 'swim'; return true; } }
+    return _mi.apply(this, arguments); }; }
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) { if (this.nautArmor && dmg > 0) dmg *= 1 - Math.min(20, this.nautArmor.def) / 25; if ((this.type === 'nautilus' || this.type === 'zombie_nautilus') && src && !na && !this.tamed) this.angryAt = 'player';
+    const was = this.dead; const r = _h.call(this, dmg, src, kb, na); if (!was && this.dead) { if (this.saddled) dropItem(IT.saddle, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); if (this.nautArmor) dropItem(this.nautArmor.id, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); } return r; }; }
+// ---------- dried ghast, ghastling, happy ghast ----------
+const GH_WHITE = [244, 244, 242];
+function ghastFace(happy) { return (f, set, fw, fh) => { if (f !== 'front') return; const ey = Math.round(fh * 0.38), mx = fw >> 1; for (const ex of [Math.round(fw * 0.28), Math.round(fw * 0.72) - 1]) { set(ex, ey, [40, 40, 44]); set(ex + 1, ey, [40, 40, 44]); set(ex, ey + 1, [70, 70, 74]); set(ex + 1, ey + 1, [70, 70, 74]); }
+  if (happy) { for (let x = mx - 2; x <= mx + 1; x++) set(x, ey + 4, [80, 80, 84]); set(mx - 3, ey + 3, [80, 80, 84]); set(mx + 2, ey + 3, [80, 80, 84]); set(Math.round(fw * 0.2), ey + 2, [240, 170, 170]); set(Math.round(fw * 0.8), ey + 2, [240, 170, 170]); } }; }
+function ghostBuild(size, key) { return function (m, r) { sbox(m, r, size, size, size, 0, size * 0.65, 0, key + '_body', fur(GH_WHITE, 3, { speck: [[226, 226, 224], 0.08], extra: ghastFace(true) }), { ppb: Math.max(4, Math.round(16 / size)) });
+  m.tent = []; for (let i = 0; i < 9; i++) { const p = pivot(r, (-0.33 + (i % 3) * 0.33) * size, size * 0.15, (-0.33 + Math.floor(i / 3) * 0.33) * size); const L = size * [0.35, 0.5, 0.42][i % 3]; sbox(m, p, size * 0.07, L, size * 0.07, 0, -L / 2, 0, key + '_tent' + i % 3, fur([236, 236, 232], 3)); m.tent.push(p); }
+  if (key === 'hghast') { m.harness = pivot(r, 0, 0, 0); m.harnessCol = null; m.goggles = sbox(m, r, size * 0.84, size * 0.14, size * 0.06, 0, size * 0.92, size * 0.51, 'hghast_goggles', fur([110, 90, 70], 3, { extra: (f, set, fw) => { if (f === 'front') for (const x of [Math.round(fw * 0.28), Math.round(fw * 0.72) - 1]) { set(x, 0, [170, 220, 240]); set(x + 1, 0, [170, 220, 240]); } } })); m.goggles.visible = false; } }; }
+MOBS.ghastling = { name: 'Ghastling', hp: 20, w: 1.1, h: 1.1, speed: 1.6, kind: 'passive', fly: true, persist: true, snd: 'ghast', egg: [[244, 244, 242], [190, 190, 196]], drops: [], build: ghostBuild(1, 'ghastling') };
+MOBS.happy_ghast = { name: 'Happy Ghast', hp: 20, w: 4, h: 4, speed: 2, kind: 'passive', fly: true, persist: true, snd: 'ghast', egg: [[244, 244, 242], [120, 170, 220]], drops: [], build: ghostBuild(4, 'hghast') };
+MOB_PITCH.ghastling = 2; MOB_PITCH.happy_ghast = 1.4;
+function harnessLook(m) { if (!m.harness) return; while (m.harness.children.length) m.harness.remove(m.harness.children[0]); if (m.goggles) m.goggles.visible = !!m.harnessed; if (!m.harnessed) return; const col = ITEMS[m.harnessed] && ITEMS[m.harnessed].hcol || [200, 60, 60];
+  sbox(m, m.harness, 4.06, 0.5, 4.06, 0, 3.7, 0, 'hghast_harness' + col.join('_'), fur(col, 4, { extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) set(x, 0, shadeC(col, 0.7)); } })); sbox(m, m.harness, 1.6, 0.14, 1.6, 0, 4.66, 0, 'hghast_seat', fur([120, 76, 40], 3)); }
+const ghastFlyTick = (m, dt, o) => { m.age = (m.age || 0) + dt; m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.lightT = (m.lightT || 0) - dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, world.lightAt(m.pos.x, m.pos.y + m.h / 2, m.pos.z, G.daylight)); }
+  const P = player; const h = P.held(); const lure = h && (h.id === IT.snowball || (o.harnessLure && ITEMS[h.id] && ITEMS[h.id].kind === 'harness')) && P.pos.distanceTo(m.pos) < 16 && !P.dead;
+  let goal = null; if (lure) goal = P.pos.clone().add(new V3(0, o.size * 0.6, 0)); else if (m.harnessed && o.size > 2) goal = null; else { m.wT = (m.wT || 0) - dt; if (m.wT <= 0 || !m.wGoal) { m.wT = 4 + Math.random() * 6; m.wGoal = m.pos.clone().add(new V3((Math.random() - 0.5) * 16, (Math.random() - 0.4) * 4, (Math.random() - 0.5) * 16)); const gh = world.surfaceY(Math.floor(m.wGoal.x), Math.floor(m.wGoal.z)); if (m.wGoal.y < gh + 1) m.wGoal.y = gh + 1 + Math.random() * 6; } goal = m.wGoal; }
+  if (goal) { const d = goal.clone().sub(m.pos); const L = d.length(); if (L > (lure ? o.size + 1.5 : 1)) { d.multiplyScalar(Math.min(1, m.t.speed / L)); m.vel.lerp(d, Math.min(1, dt * 1.5)); m.yaw = Math.atan2(d.x, d.z); } else m.vel.multiplyScalar(Math.pow(0.2, dt)); }
+  else m.vel.multiplyScalar(Math.pow(0.1, dt));
+  if (m.tent) m.tent.forEach((t, i) => { t.rotation.x = Math.sin(m.age * 2 + i) * 0.25; t.rotation.z = Math.cos(m.age * 1.7 + i * 2) * 0.2; });
+  moveEntity(m, dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; if (m.colorize) m.colorize(); return true; };
+MOBS.ghastling.tick = (m, dt) => { if (!isClientMP()) { if (m.growT === undefined) m.growT = 1200; if (!m.noGrow) m.growT -= dt;
+    if (m.growT <= 0) { const g = spawnMob('happy_ghast', m.pos.x, m.pos.y, m.pos.z); if (g) g.persistent = true; m.dead = true; m.gone = true; if (m.remove) m.remove(); Sfx.at('levelup', m.pos, 0.3, 0.6); return true; } }
+  return ghastFlyTick(m, dt, { size: 1 }); };
+MOBS.happy_ghast.tick = (m, dt) => { if (m.harnessed !== m.harnessShown) { m.harnessShown = m.harnessed; harnessLook(m); } if (m.rider === 'local') return true; return ghastFlyTick(m, dt, { size: 4, harnessLure: true }); };
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) {
+    if (m && (m.type === 'ghastling' || m.type === 'happy_ghast') && !m.dead) { const h = player.held(); const hd = h && ITEMS[h.id];
+      if (h && h.id === IT.snowball) { if (m.type === 'ghastling') m.growT = (m.growT === undefined ? 1200 : m.growT) * 0.9; m.hp = Math.min(m.t.hp, m.hp + 1); useHeld(1); hearts(m, 3); S.swing = 1; Sfx.at('chirp', m.pos, 0.6, 1.4); return true; }
+      if (m.type === 'happy_ghast') {
+        if (hd && hd.kind === 'harness' && !m.harnessed) { m.harnessed = h.id; useHeld(1); Sfx.at('saddle', m.pos, 1); S.swing = 1; return true; }
+        if (h && h.id === IT.shears && m.harnessed) { dropItem(m.harnessed, 1, m.pos.x, m.pos.y + 1, m.pos.z); m.harnessed = 0; S.swing = 1; return true; }
+        if (m.harnessed && !sneaking) { rideMob(m); m.freeRide = 'fly'; return true; } }
+      if (h && IT.golden_dandelion !== undefined && h.id === IT.golden_dandelion && m.type === 'ghastling') { m.noGrow = !m.noGrow; useHeld(1); S.swing = 1; return true; } }
+    return _mi.apply(this, arguments); }; }
+// riding where you look: the happy ghast flies, the nautilus swims
+{ const _ru = rideUpdate; rideUpdate = function (P, dt) { const m = P.riding; if (!m || !m.mobRide || !m.freeRide) return _ru.apply(this, arguments);
+    if (m.dead || m.gone) { P.riding = null; m.freeRide = null; return; } if (!S.uiOpen && kd('sneak')) { m.freeRide = null; mobDismount(); return; }
+    let f = 0, s = 0; if (!S.uiOpen) { if (kd('forward') || keys.ArrowUp) f++; if (kd('back') || keys.ArrowDown) f--; if (kd('right') || keys.ArrowRight) s++; if (kd('left') || keys.ArrowLeft) s--; f += T.my; s += T.mx; }
+    const fly = m.freeRide === 'fly'; const inW = inWater(m, 0.4); const dash = !fly && (kd('sprint') || P.sprinting) && f > 0;
+    m.dashCD = Math.max(0, (m.dashCD || 0) - dt); if (dash && m.dashCD <= 0 && inW) { m.dashCD = 2.5; m.dashT = 0.6; Sfx.at('bow', m.pos, 0.5, 0.6); } m.dashT = Math.max(0, (m.dashT || 0) - dt);
+    const sp = fly ? 6 : inW ? (m.type === 'zombie_nautilus' ? 4.4 : 4) * (m.dashT > 0 ? 2.6 : 1) : 0.8;
+    const cy = Math.cos(P.pitch), dirx = -Math.sin(P.yaw) * cy, diry = Math.sin(P.pitch), dirz = -Math.cos(P.yaw) * cy; const sx = Math.cos(P.yaw), sz = -Math.sin(P.yaw);
+    const want = new V3(dirx * f + sx * s * 0.7, (fly || inW) ? diry * f : 0, dirz * f + sz * s * 0.7).multiplyScalar(sp);
+    if (!S.uiOpen && kd('jump')) want.y += fly ? 4 : inW ? 3 : 0;
+    if (fly || inW) m.vel.lerp(want, Math.min(1, dt * (fly ? 2.5 : 3))); else { m.vel.x = want.x; m.vel.z = want.z; m.vel.y = Math.max(m.vel.y - 28 * dt, -30); }
+    if (f || s) m.yaw = P.yaw + Math.PI;
+    moveEntity(m, dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; if (m.animate) m.animate(dt);
+    const seat = fly ? m.h + 0.05 : 0.95; P.pos.set(m.pos.x, m.pos.y + seat, m.pos.z); P.vel.copy(m.vel); P.onGround = true; P.peak = null; P.sprinting = false; P.sneaking = false; P.swimming = false;
+    if (!fly && player.effects) player.effects.breath_of_the_nautilus = { t: 1, amp: 0 }; }; }
+Object.assign(EFFECTS, { breath_of_the_nautilus: 'Breath of the Nautilus' });
+// air doesn't run out while Breath of the Nautilus lasts
+{ const _ua = updateAir; updateAir = function (dt, fl) { if (player.effects && player.effects.breath_of_the_nautilus) { const r = _ua.call(this, 0, fl); return r; } return _ua.apply(this, arguments); }; }
+// dried ghasts soak up water: placed in water (or right next to it) they move a stage every 5 minutes and hatch after 20
+{ const _ub = updateBoats; let scanT = 0; const prog = new Map(); updateBoats = function (dt) { const r = _ub(dt); if (!world || isClientMP()) return r; scanT -= dt; if (scanT > 0) return r; scanT = 2; const P = player.pos; const DG = [B.DRIED_GHAST, B['DRIED_GHAST#1'], B['DRIED_GHAST#2'], B['DRIED_GHAST#3']];
+    for (const c of world.chunks.values()) { const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - P.x) > 64 || Math.abs(oz + 8 - P.z) > 64) continue; if (c.dgScan === undefined || c.dgDirty) { c.dgDirty = false; c.dgScan = []; const d = c.d; for (let j = 0; j < d.length; j++) if (DG.includes(d[j])) c.dgScan.push(j); }
+      for (const j of c.dgScan) { const id = c.d[j]; const st = DG.indexOf(id); if (st < 0) continue; const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); const k = x + ',' + y + ',' + z;
+        const wet = [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, cc]) => FKIND[world.get(x + a, y + b, z + cc)] === 1) || c.wl && c.wl.has && c.wl.has(j);
+        if (!wet) { prog.delete(k); continue; } const t = (prog.get(k) || 0) + 2; prog.set(k, t); if (Math.random() < 0.05) Particles.emit(x + 0.5, y + 0.6, z + 0.5, 2, [[0.8, 0.9, 1]], 0.5, 0.4, -1, 0.3);
+        if (t >= 300) { prog.delete(k); if (st < 3) { world.set(x, y, z, DG[st + 1]); mpBlock(x, y, z, DG[st + 1]); } else { world.set(x, y, z, 0); mpBlock(x, y, z, 0); const g = spawnMob('ghastling', x + 0.5, y + 0.2, z + 0.5); if (g) g.persistent = true; Sfx.at('chirp', new V3(x, y, z), 0.8, 1.6); } } } }
+    return r; }; }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const isDG = (v) => BL[v] && BL[v].hydration !== undefined; if (isDG(id) || isDG(prev)) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.dgDirty = true; } return r; }; }
+// dried ghasts lie in soul sand valleys, near the bones of nether fossils
+{ const _gn = genNetherChunk; genNetherChunk = function (w, c) { const r = _gn.apply(this, arguments); try { const g = w.gen; if (!g || !g.biome) return r; const bx = c.cx * 16, bz = c.cz * 16; if (g.biome(bx + 8, bz + 8) !== 3 || rnd01(c.cx, c.cz, 7717, w.seed) > 0.08) return r;
+      const d = c.d; for (let t = 0; t < 30; t++) { const lx = 2 + (rnd01(c.cx, t, c.cz, w.seed + 1) * 12 | 0), lz = 2 + (rnd01(c.cx, t, c.cz, w.seed + 2) * 12 | 0); for (let y = 100; y > 20; y--) { const j = (y * 16 + lz) * 16 + lx; if (d[j] === 0 && (d[j - 256] === B.SOUL_SAND || d[j - 256] === B.SOUL_SOIL)) { d[j] = B.DRIED_GHAST; return r; } } } } catch (e) { } return r; }; }
+// ---------- farm animal breeds (Spring to Life) ----------
+const WARM_B = () => new Set([BIO.DESERT, BIO.SAVANNA, BIO.BADLANDS, BIO.JUNGLE, BIO.MANGROVE_SWAMP]), COLD_B = () => new Set([BIO.SNOWY, BIO.TAIGA]);
+function climateAt(x, z) { if (!world || world.dim !== 'overworld') return 'temperate'; const c = world.gen.column(Math.floor(x), Math.floor(z)); if (WARM_B().has(c.b) || c.v === BV.WARM_OCEAN) return 'warm'; if (COLD_B().has(c.b) || (typeof FROZEN_V === 'function' && FROZEN_V().has(c.v)) || c.v === BV.GROVE || c.v === BV.SNOWY_SLOPES) return 'cold'; return 'temperate'; }
+const FARM_V = new Set(['pig', 'cow', 'chicken']);
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) { if (FARM_V.has(type)) { opts = Object.assign({}, opts || {}); if (!opts.fv) opts.fv = (opts.rec && opts.rec.fv) || S.nextFV || climateAt(x, z); } const m = _sm(type, x, y, z, opts); if (m && FARM_V.has(type)) m.fv = opts.fv; return m; }; }
+{ const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (m.fv && m.fv !== 'temperate') r.fv = m.fv; return r; }; }
+const FV_PAL = { pig: { warm: [[178, 98, 70], [140, 72, 52]], cold: [[120, 96, 84], [86, 66, 58]] }, cow: { warm: [[170, 84, 44], [230, 210, 180]], cold: [[156, 104, 60], [214, 196, 160]] }, chicken: { warm: [[210, 130, 60], [180, 96, 40]], cold: [[110, 110, 116], [80, 80, 86]] } };
+{ const pigB = MOBS.pig.build, cowB = MOBS.cow.build, chB = MOBS.chicken.build;
+  const fvOf = (m) => (m.opts && m.opts.fv) || 'temperate';
+  MOBS.pig.build = function (m, r) { const v = fvOf(m); if (v === 'temperate') return pigB.call(this, m, r); const [C, D] = FV_PAL.pig[v];
+    sbox(m, r, 0.62, 0.55, 0.95, 0, 0.64, 0, 'pig_body_' + v, fur(C, 7, v === 'cold' ? { speck: [D, 0.35] } : { patch: [D, 0.6], speck: [shadeC(C, 1.15), 0.1] }));
+    if (v === 'cold') sbox(m, r, 0.7, 0.2, 1.0, 0, 0.92, 0, 'pig_fluff', fur(D, 9, { speck: [shadeC(D, 1.3), 0.3] }));
+    const h = pivot(r, 0, 0.78, 0.48); m.head = h; sbox(m, h, 0.5, 0.5, 0.45, 0, 0, 0.16, 'pig_head_' + v, fur(C, 6, { extra: (f, set, fw) => { if (f === 'front') { set(1, 3, WHT); set(2, 3, BLK); set(fw - 3, 3, BLK); set(fw - 2, 3, WHT); } } }));
+    sbox(m, h, 0.3, 0.2, 0.06, 0, -0.07, 0.41, 'pig_snout_' + v, fur(shadeC(C, 1.15), 4, { extra: (f, set, fw) => { if (f === 'front') { set(1, 1, [70, 40, 30]); set(fw - 2, 1, [70, 40, 30]); } } }));
+    if (v === 'warm') for (const s of [-1, 1]) sbox(m, h, 0.06, 0.12, 0.06, s * 0.2, -0.2, 0.42, 'pig_tusk', fur([236, 226, 200], 3));
+    m.legs = quadLegs(m, r, 0.22, 0.37, 0.18, 0.3, 'pig_leg_' + v, fur(C, 6, { foot: [2, shadeC(D, 0.6)] })); m.tail = pivot(r, 0, 0.8, -0.48); sbox(m, m.tail, 0.07, 0.07, 0.16, 0, 0.02, -0.07, 'pig_tail_' + v, fur(D, 4)); };
+  MOBS.cow.build = function (m, r) { const v = fvOf(m); if (v === 'temperate') return cowB.call(this, m, r); const [C, D] = FV_PAL.cow[v];
+    sbox(m, r, 0.8, 0.72, 1.15, 0, 0.97, 0, 'cow_body_' + v, fur(C, 7, v === 'cold' ? { speck: [shadeC(C, 0.8), 0.3], bottom: shadeC(C, 0.8) } : { patch: [D, 0.66], bottom: D }));
+    if (v === 'cold') { sbox(m, r, 0.9, 0.3, 1.2, 0, 0.64, 0, 'cow_shag', fur(shadeC(C, 0.85), 9, { extra: (f, set, fw, fh, rr) => { for (let x = 0; x < fw; x++) if (rr() < 0.5) set(x, fh - 1, [0, 0, 0, 0]); } })); }
+    sbox(m, r, 0.3, 0.12, 0.26, 0, 0.56, -0.25, 'cow_udder', fur([236, 170, 170], 4));
+    const h = pivot(r, 0, 1.2, 0.6); m.head = h; sbox(m, h, 0.55, 0.5, 0.4, 0, 0, 0.12, 'cow_head_' + v, fur(C, 6, { extra: (f, set, fw, fh) => { if (f !== 'front') return; set(1, 3, WHT); set(2, 3, BLK); set(fw - 3, 3, BLK); set(fw - 2, 3, WHT); if (v === 'cold') for (let x = 0; x < fw; x++) set(x, 0, shadeC(C, 0.75)); } }));
+    sbox(m, h, 0.42, 0.22, 0.08, 0, -0.13, 0.35, 'cow_muzzle_' + v, fur(v === 'warm' ? [200, 150, 120] : [190, 160, 140], 4, { extra: (f, set, fw) => { if (f === 'front') { set(1, 1, [96, 66, 60]); set(fw - 2, 1, [96, 66, 60]); } } }));
+    for (const s of [-1, 1]) { const hp = pivot(h, s * 0.27, 0.22, 0.1); if (v === 'warm') { hp.rotation.z = -s * 1.1; sbox(m, hp, 0.08, 0.34, 0.08, 0, 0.17, 0, 'cow_horn_warm', fur([236, 226, 200], 4, { topc: [120, 110, 90], topRows: [2, [150, 140, 120]] })); } else { hp.rotation.z = -s * 0.6; sbox(m, hp, 0.08, 0.16, 0.08, 0, 0.08, 0, 'cow_horn', fur([226, 220, 200], 4)); } }
+    m.legs = quadLegs(m, r, 0.24, 0.62, 0.24, 0.4, 'cow_leg_' + v, fur(C, 6, { foot: [2, [44, 36, 32]] })); m.tail = pivot(r, 0, 1.28, -0.58); sbox(m, m.tail, 0.07, 0.6, 0.07, 0, -0.3, 0, 'cow_tail_' + v, fur(C, 4, { foot: [3, [40, 30, 24]] })); };
+  MOBS.chicken.build = function (m, r) { const v = fvOf(m); if (v === 'temperate') return chB.call(this, m, r); const [C, D] = FV_PAL.chicken[v];
+    sbox(m, r, 0.38, 0.36, 0.5, 0, 0.47, 0, 'ch_body_' + v, fur(C, 5, { speck: [D, 0.2] })); sbox(m, r, 0.3, v === 'warm' ? 0.3 : 0.22, 0.1, 0, v === 'warm' ? 0.66 : 0.62, -0.27, 'ch_tail_' + v, fur(v === 'warm' ? [60, 80, 70] : D, 4));
+    const h = pivot(r, 0, 0.74, 0.22); m.head = h; sbox(m, h, 0.25, 0.32, 0.2, 0, 0, 0, 'ch_head_' + v, fur(v === 'cold' ? [130, 130, 136] : C, 4, { extra: (f, set, fw) => { if (f === 'front') { set(0, 1, BLK); set(fw - 1, 1, BLK); } if (f === 'left' || f === 'right') set(1, 1, BLK); } }));
+    sbox(m, h, 0.16, 0.08, 0.12, 0, 0, 0.15, 'ch_beak', fur([244, 176, 44], 4, { foot: [1, [214, 140, 30]] })); sbox(m, h, 0.08, 0.12, 0.06, 0, -0.1, 0.12, 'ch_wattle', fur([214, 40, 40], 4)); sbox(m, h, 0.06, 0.08, 0.16, 0, 0.2, 0.02, 'ch_comb', fur([214, 40, 40], 4));
+    m.wings = [pivot(r, -0.21, 0.58, 0), pivot(r, 0.21, 0.58, 0)]; for (const w of m.wings) sbox(m, w, 0.06, 0.26, 0.38, 0, -0.1, 0, 'ch_wing_' + v, fur(D, 4));
+    m.legs = []; for (const x of [-0.08, 0.08]) { const p = pivot(r, x, 0.29, 0); sbox(m, p, 0.05, 0.29, 0.05, 0, -0.145, 0, 'ch_leg', fur([232, 170, 40], 4)); sbox(m, p, 0.14, 0.03, 0.14, 0, -0.28, 0.04, 'ch_foot', fur([232, 170, 40], 4)); m.legs.push(p); } }; }
+// babies take a parent's breed; eggs: cold chickens lay blue eggs, warm ones brown; thrown eggs hatch that breed
+{ const _ss = spawnShared; spawnShared = function (type, x, y, z, baby) { if (FARM_V.has(type) && S.breedFV) { S.nextFV = S.breedFV; try { return _ss.apply(this, arguments); } finally { S.nextFV = null; } } return _ss.apply(this, arguments); }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (FARM_V.has(this.type) && this.loveT > 0) S.breedFV = this.fv; const r = _u.call(this, dt); S.breedFV = null; return r; }; }
+{ const _di = dropItem; dropItem = function (id, n, x, y, z, a, b) { if (id === IT.egg && S.layingFV) id = S.layingFV === 'cold' ? IT.blue_egg : S.layingFV === 'warm' ? IT.brown_egg : id; return _di.call(this, id, n, x, y, z, a, b); }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.type === 'chicken' && this.fv && this.fv !== 'temperate') { S.layingFV = this.fv; try { return _u.call(this, dt); } finally { S.layingFV = null; } } return _u.call(this, dt); }; }
+{ const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id]; if (hd && hd.kind === 'egg' && hd.eggVar) { S.thrownFV = hd.eggVar; const n0 = G.projectiles.length; const r = _ua.apply(this, arguments); for (let i = n0; i < G.projectiles.length; i++) if (G.projectiles[i].kind === 'egg') G.projectiles[i].fv = hd.eggVar; S.thrownFV = null; return r; } return _ua.apply(this, arguments); }; }
+{ const _pi = projImpact; projImpact = function (a, mob) { if (a.kind === 'egg' && a.fv) { S.nextFV = a.fv; try { return _pi(a, mob); } finally { S.nextFV = null; } } return _pi(a, mob); }; }
+// ---------- golden dandelion: a baby stops (or starts again) growing up ----------
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) { const h = player.held(); if (m && m.baby && h && IT.golden_dandelion !== undefined && h.id === IT.golden_dandelion && !m.dead) { m.ageLock = !m.ageLock; useHeld(1); S.swing = 1; Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 6, [[1, 0.85, 0.3]], 0.8, 0.6, -1, 0.4); Sfx.at('chirp', m.pos, 0.5, 1.2); return true; } return _mi.apply(this, arguments); }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.ageLock && this.baby) this.growT += dt; return _u.call(this, dt); }; }
+{ const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (m.ageLock) r.al = 1; if (m.harnessed) r.hn = m.harnessed; if (m.nautArmor) r.na = m.nautArmor; if (m.saddled && (m.type === 'nautilus' || m.type === 'zombie_nautilus')) r.sa = 1; if (m.type === 'ghastling' && m.growT !== undefined) r.gt = Math.round(m.growT); if ((m.type === 'nautilus' || m.type === 'zombie_nautilus') && m.tamed) r.tm = 1; return r; };
+  const _f = mobFromRecord; mobFromRecord = function (rec) { const m = _f.apply(this, arguments); if (m && rec) { if (rec.al) m.ageLock = true; if (rec.hn) m.harnessed = rec.hn; if (rec.na) m.nautArmor = rec.na; if (rec.gt !== undefined) m.growT = rec.gt; } return m; }; }
+// ---------- natural spawning ----------
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
+    if (!S.natSpawn || !world || world.dim !== 'overworld' || S.jockeyBusy) return _sm(type, x, y, z, opts);
+    const col = world.gen.column(Math.floor(x), Math.floor(z)); const sky = world.skyAt(Math.floor(x), Math.floor(y + 1), Math.floor(z)) >= 1;
+    if (type === 'skeleton' && col.b === BIO.DESERT && sky && Math.random() < 0.5) type = 'parched';
+    const jockey = (mountT, riderT, seatY, extra) => { S.jockeyBusy = true; try { const mt = _sm(mountT, x, y, z); if (!mt) return null; const rd = _sm(riderT, x, y + seatY, z); if (rd) { mountMob(rd, mt, seatY, extra ? 0.35 : 0); giveSpear(rd, [200, 200, 206]); rd.jockey = true; } if (extra) { const r2 = _sm(extra, x, y + seatY, z); if (r2) { mountMob(r2, mt, seatY, -0.55); r2.jockey = true; } } return rd || mt; } finally { S.jockeyBusy = false; } };
+    if (type === 'zombie' && sky && (col.b === BIO.PLAINS || col.b === BIO.SAVANNA || col.b === BIO.FOREST) && Math.random() < 0.05) return jockey('zombie_horse', 'zombie', 1.15);
+    if (type === 'husk' && sky && col.b === BIO.DESERT && Math.random() < 0.05) return jockey('camel_husk', 'husk', 1.85, 'parched');
+    return _sm(type, x, y, z, opts); }; }
+// drowned sometimes ride zombie nautiluses; nautiluses swim in every ocean
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) { const m = _sm(type, x, y, z, opts);
+    if (m && type === 'drowned' && S.natSpawn && !S.jockeyBusy && world && world.dim === 'overworld' && inWater(m, 0.5) && Math.random() < 0.12) { const col = world.gen.column(Math.floor(x), Math.floor(z)); S.jockeyBusy = true;
+      try { const n = _sm('zombie_nautilus', x, y - 0.6, z, { coral: col.v === BV.WARM_OCEAN }); if (n) { mountMob(m, n, 0.9); m.jockey = true; } } finally { S.jockeyBusy = false; } }
+    return m; }; }
+{ const _ocg = onChunkGen; onChunkGen = function (c, hints, cols, w) { _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || Math.random() > 0.035) return;
+    const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; if (col.b !== BIO.OCEAN || col.h > SEA - 6 || (typeof isRiver === 'function' && isRiver(col))) return;
+    const y = col.h + 1 + Math.random() * (SEA - col.h - 3); spawnMob('nautilus', c.cx * 16 + lx + 0.5, y, c.cz * 16 + lz + 0.5); }; world && (world.onChunkGen = onChunkGen); }
+// creative inventory order
+{ const keys = ['resin_clump', 'resin_block', 'resin_bricks', 'chiseled_resin_bricks', 'resin_brick', 'creaking_heart', 'open_eyeblossom', 'closed_eyeblossom', 'dried_ghast', ...COLORDATA().map(c => c[0] + '_harness'), 'golden_dandelion',
+    'leaf_litter', 'wildflowers', 'firefly_bush', 'bush', 'cactus_flower', 'short_dry_grass', 'tall_dry_grass', 'blue_egg', 'brown_egg', 'copper_chest', 'exposed_copper_chest', 'weathered_copper_chest', 'oxidized_copper_chest', 'waxed_copper_chest', 'copper_golem_statue',
+    'copper_nautilus_armor', 'iron_nautilus_armor', 'golden_nautilus_armor', 'diamond_nautilus_armor', 'netherite_nautilus_armor'];
+  const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
+
+// ================= CREAKING, COPPER GOLEM, WANDERING TRADER, ILLUSIONER; BUILDING GOLEMS =================
+// Creaking (The Garden Awakens): some pale oaks in pale gardens hide a creaking heart in the trunk. At night, with pale
+// oak logs above and below it, the heart wakes (its eyes glow) and makes a creaking nearby. A creaking only moves
+// when nobody is looking at it; while its heart lives, hits do nothing but make the heart grow resin clumps and
+// show you where the heart is. Break the heart and its creaking crumbles; at dawn it crumbles too. Eyeblossoms in
+// pale gardens open at night and close by day.
+// Golems: a carved pumpkin (or jack o'lantern) on two snow blocks makes a snow golem, on a T of four iron blocks an
+// iron golem (one you made never attacks you), on a copper block a copper golem - the copper block turns into a
+// copper chest. Copper golems take items out of copper chests and put them into chests that already hold the same
+// item (or empty ones) within 32 blocks. They age like copper (honeycomb waxes them, an axe scrapes them) and a fully
+// oxidized golem eventually freezes into a copper golem statue; use a statue to change its pose, scrape it with
+// an axe to bring the golem back.
+// Wandering trader: every 20 minutes there's a chance (2.5%, rising to 7.5%) that one walks up with two trader llamas
+// on leads. It sells plants, dyes, coral, shells and other odd things for emeralds, drinks an invisibility potion
+// at night and milk at dawn, and wanders off after 40 minutes.
+// Illusioner: an illager archer that blinds you and splits into decoys (spawn egg only, like Minecraft).
+// ================= CREAKING =================
+const BARK_C = [96, 86, 80];
+MOBS.creaking = { name: 'Creaking', hp: 1, w: 0.9, h: 2.7, speed: 3.4, kind: 'hostile', dmg: 3, snd: 'creak', egg: [[95, 95, 95], [252, 120, 36]], drops: [],
+  build(m, r) { const bark = fur(BARK_C, 8, { speck: [[120, 110, 104], 0.2], extra: (f, set, fw, fh) => { for (let y = 0; y < fh; y++) if ((y * 3 + fw) % 7 === 0) for (let x = 0; x < fw; x++) set(x, y, [70, 62, 58]); } });
+    m.legs = []; for (const x of [-0.16, 0.16]) { const p = pivot(r, x, 1.05, 0); sbox(m, p, 0.2, 1.05, 0.2, 0, -0.52, 0, 'crk_leg', bark); m.legs.push(p); }
+    sbox(m, r, 0.6, 0.95, 0.3, 0, 1.52, 0, 'crk_body', fur([110, 100, 92], 8, { extra: (f, set, fw, fh) => { if (f === 'front') for (let y = 1; y < fh - 1; y += 2) set(fw >> 1, y, [240, 130, 40]); } }));
+    m.arms = []; for (const x of [-0.4, 0.4]) { const p = pivot(r, x, 1.95, 0); sbox(m, p, 0.18, 1.25, 0.18, 0, -0.6, 0, 'crk_arm', bark); m.arms.push(p); }
+    const h = pivot(r, 0, 2.0, 0); m.head = h; sbox(m, h, 0.56, 0.62, 0.5, 0, 0.32, 0, 'crk_head', fur(BARK_C, 8, { extra: (f, set, fw) => { if (f !== 'front') return; set(1, 3, [255, 150, 40], true); set(fw - 2, 3, [255, 150, 40], true); set(2, 3, [255, 200, 110], true); set(fw - 3, 3, [255, 200, 110], true); } }));
+    for (const [x, y, rz] of [[-0.2, 0.68, 0.5], [0.22, 0.72, -0.4], [0, 0.78, 0]]) { const p = pivot(h, x, y, 0); p.rotation.z = rz; sbox(m, p, 0.06, 0.3, 0.06, 0, 0.15, 0, 'crk_twig', fur([80, 72, 66], 4)); } } };
+MOB_PITCH.creaking = 0.7;
+function watchedByPlayer(m) { const P = player; if (P.dead || S.mode === 'spectator') return false; const e = P.eye(); const c = new V3(m.pos.x, m.pos.y + m.h * 0.6, m.pos.z); const d = c.clone().sub(e); const L = d.length(); if (L > 48) return false; d.multiplyScalar(1 / L);
+  const look = lookDir(); if (look.dot(d) < 0.62) return false; return lineOfSight(e, c) || lineOfSight(e, new V3(m.pos.x, m.pos.y + 0.3, m.pos.z)); }
+const HEART_LINK = new Map(); // heart key -> creaking
+function crumble(m) { if (m.dead) return; m.dead = true; m.gone = true; Particles.emit(m.pos.x, m.pos.y + 1.3, m.pos.z, 30, [[0.45, 0.4, 0.36], [0.95, 0.55, 0.2]], 2, 1.2, 4, 0.9); Sfx.at('wood', m.pos, 1, 0.5); if (m.remove) m.remove(); }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    if (this.type !== 'creaking' || this.dead) return _u.call(this, dt);
+    if (this.heart) { const [x, y, z] = this.heart.split(',').map(Number); const hid = world.get(x, y, z); const hb = BL[hid];
+      if (!hb || !hb.heart || G.daylight > 0.55 || Math.hypot(this.pos.x - x, this.pos.z - z) > 34) { HEART_LINK.delete(this.heart); crumble(this); return; } }
+    const watched = isSurv() && watchedByPlayer(this); this.frozen = watched;
+    if (watched) { this.vel.x = 0; this.vel.z = 0; this.lightT = (this.lightT || 0) - dt; if (this.lightT <= 0) { this.lightT = 0.3; this.light = Math.max(G.minLight || 0, world.lightAt(this.pos.x, this.pos.y + 1, this.pos.z, G.daylight)); } if (this.colorize) this.colorize();
+      if (this.wasMoving) { this.wasMoving = false; Sfx.at('creak', this.pos, 0.6); } return; }
+    this.wasMoving = true; return _u.call(this, dt); }; }
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) {
+    if (this.type === 'creaking' && this.heart && !this.dead) { const [x, y, z] = this.heart.split(',').map(Number); this.hurtT = 0.3; Sfx.at('creak', this.pos, 1, 1.3);
+      // a trail of particles from the creaking to its heart, and the heart grows resin on the logs around it
+      const a = new V3(this.pos.x, this.pos.y + 1.4, this.pos.z), b = new V3(x + 0.5, y + 0.5, z + 0.5); for (let i = 0; i <= 12; i++) { const p = a.clone().lerp(b, i / 12); Particles.emit(p.x, p.y, p.z, 1, [[1, 0.6, 0.2]], 0.2, 0.5, 0, 0.1); }
+      if (!isClientMP()) for (let t = 0; t < 6; t++) { const dx = (Math.random() * 5 | 0) - 2, dy = (Math.random() * 5 | 0) - 2, dz = (Math.random() * 5 | 0) - 2; const X = x + dx, Y = y + dy, Z = z + dz; if (world.get(X, Y, Z)) continue;
+        for (const [n, f] of [[[0, 0, 1], 2], [[-1, 0, 0], 3], [[0, 0, -1], 4], [[1, 0, 0], 5], [[0, -1, 0], 0], [[0, 1, 0], 1]]) { const sid = world.get(X + n[0], Y + n[1], Z + n[2]); if (BL[sid] && /pale_oak_log|creaking_heart/.test(BL[sid].key || BL[sid].fam || '')) { world.set(X, Y, Z, B.RESIN_CLUMP + f); mpBlock(X, Y, Z, B.RESIN_CLUMP + f); t = 9; break; } } }
+      return; }
+    return _h.apply(this, arguments); }; }
+// hearts and eyeblossoms near you: wake / sleep with the night, make creakings
+{ const _ub = updateBoats; let scanT = 0; updateBoats = function (dt) { const r = _ub(dt); if (!world || world.dim !== 'overworld' || isClientMP()) return r; scanT -= dt; if (scanT > 0) return r; scanT = 1;
+    const P = player.pos, night = G.daylight < 0.45;
+    for (const c of world.chunks.values()) { const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - P.x) > 64 || Math.abs(oz + 8 - P.z) > 64) continue;
+      if (!c.pgScan || c.pgDirty) { c.pgDirty = false; c.pgScan = []; const d = c.d; for (let j = 0; j < d.length; j++) { const b = BL[d[j]]; if (b && (b.heart || b.eyeblossom)) c.pgScan.push(j); } }
+      for (const j of c.pgScan) { const id = c.d[j]; const b = BL[id]; if (!b) continue; const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15);
+        if (b.eyeblossom) { const want = night ? B.OPEN_EYEBLOSSOM : B.CLOSED_EYEBLOSSOM; if (id !== want && Math.random() < 0.15) { world.set(x, y, z, want); mpBlock(x, y, z, want); } continue; }
+        if (!b.heart) continue; const logOk = (yy) => { const k = BL[world.get(x, yy, z)]; return k && /pale_oak_log/.test(k.fam || k.key || '') && (!k.st || !k.st.axis || k.st.axis === 'y'); };
+        const awake = night && logOk(y - 1) && logOk(y + 1); const want = awake ? B['CREAKING_HEART#AWAKE'] : B.CREAKING_HEART; if (id !== want) { world.set(x, y, z, want); mpBlock(x, y, z, want); }
+        const k = x + ',' + y + ',' + z; const cur = HEART_LINK.get(k); if (cur && (cur.dead || cur.gone)) HEART_LINK.delete(k);
+        if (awake && !HEART_LINK.has(k) && isSurv() && Math.hypot(P.x - x, P.z - z) < 32) for (let t = 0; t < 12; t++) { const sx = x + (Math.random() * 25 | 0) - 12, sz = z + (Math.random() * 25 | 0) - 12; for (let sy = y + 6; sy > y - 8; sy--) if (SOLID[world.get(sx, sy - 1, sz)] && !world.get(sx, sy, sz) && !world.get(sx, sy + 1, sz) && !world.get(sx, sy + 2, sz)) { const m = spawnMob('creaking', sx + 0.5, sy, sz + 0.5); if (m) { m.heart = k; HEART_LINK.set(k, m); Sfx.at('creak', m.pos, 1, 0.8); } t = 99; break; } } } }
+    return r; }; }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const pb = BL[prev], nb = BL[id];
+    if ((pb && (pb.heart || pb.eyeblossom)) || (nb && (nb.heart || nb.eyeblossom))) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.pgDirty = true; }
+    if (pb && pb.heart && !(nb && nb.heart) && this === G.world) { const k = x + ',' + y + ',' + z; const m = HEART_LINK.get(k); if (m) { HEART_LINK.delete(k); crumble(m); } } return r; }; }
+// world generation: hearts in some pale oak trunks, eyeblossoms on the pale garden floor
+{ const _po = TREES.pale_oak; TREES.pale_oak = function (put, x, y, z, r) { const heart = r() < 0.2; const hy = y + 2 + (r() * 3 | 0); let placed = false;
+    return _po.call(this, (px, py, pz, id, isLog) => { if (heart && !placed && px === x && pz === z && py === hy && BL[id] && /pale_oak_log/.test(BL[id].key)) { placed = true; return put(px, py, pz, B.CREAKING_HEART, true); } return put(px, py, pz, id, isLog); }, x, y, z, r); }; }
+{ const _dec = decorate; decorate = function (world, S, cx, cz) { const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen; const bx = cx * 16, bz = cz * 16; if (g.column(bx + 8, bz + 8).b !== BIO.PALE_GARDEN) return r0;
+    const r = mulberry32(ihash(cx, cz, 6481, world.seed)); for (let k = 0; k < 2; k++) { if (r() > 0.6) continue; const x0 = bx + (r() * 16 | 0), z0 = bz + (r() * 16 | 0); for (let i = 0; i < 8; i++) { const x = x0 + (r() * 5 | 0) - 2, z = z0 + (r() * 5 | 0) - 2; const col = g.column(x, z); if (col.b !== BIO.PALE_GARDEN || col.h <= SEA) continue; S.soft.push(x, col.h, z, B.CLOSED_EYEBLOSSOM); } }
+    return r0; }; }
+// ================= BUILDING GOLEMS =================
+function isCopperBlock(id) { const k = BL[id] && BL[id].key; return !!k && /^(waxed_)?(exposed_|weathered_|oxidized_)?copper(_block)?$/.test(k); }
+function copperAgeOf(id) { const k = BL[id].key; return k.includes('oxidized') ? 3 : k.includes('weathered') ? 2 : k.includes('exposed') ? 1 : 0; }
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const d = BL[id]; const r = _pb.apply(this, arguments); if (!r || !d || !(d.fam === 'carved_pumpkin' || d.fam === 'jack_o_lantern' || d.key === 'carved_pumpkin' || d.key === 'jack_o_lantern') || isClientMP()) return r;
+    let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (!BL[world.get(x, y, z)] || !/carved_pumpkin|jack_o_lantern/.test(BL[world.get(x, y, z)].fam || BL[world.get(x, y, z)].key)) return r;
+    const g = (dx, dy, dz) => world.get(x + dx, y + dy, z + dz); const clear = (cells) => { for (const [a, b, c] of cells) { world.set(x + a, y + b, z + c, 0); mpBlock(x + a, y + b, z + c, 0); Particles.blockBreak(x + a, y + b, z + c, B.SNOW_BLOCK, 4); } };
+    if (g(0, -1, 0) === B.SNOW_BLOCK && g(0, -2, 0) === B.SNOW_BLOCK) { clear([[0, 0, 0], [0, -1, 0], [0, -2, 0]]); spawnMob('snow_golem', x + 0.5, y - 2, z + 0.5); return r; }
+    if (g(0, -1, 0) === B.IRON_BLOCK && g(0, -2, 0) === B.IRON_BLOCK) for (const [ax, az] of [[1, 0], [0, 1]]) if (g(ax, -1, az) === B.IRON_BLOCK && g(-ax, -1, -az) === B.IRON_BLOCK && !SOLID[g(ax, -2, az)] && !SOLID[g(-ax, -2, -az)]) {
+      clear([[0, 0, 0], [0, -1, 0], [0, -2, 0], [ax, -1, az], [-ax, -1, -az]]); const m = spawnMob('iron_golem', x + 0.5, y - 2, z + 0.5); if (m) { m.playerMade = true; m.persistent = true; } return r; }
+    const below = g(0, -1, 0); if (isCopperBlock(below)) { const age = copperAgeOf(below), waxed = BL[below].key.startsWith('waxed_'); world.set(x, y, z, 0); mpBlock(x, y, z, 0);
+      const ck = (waxed ? 'waxed_' : '') + cuAge(age) + 'copper_chest'; const cid = FAMILY[ck] ? FAMILY[ck].ids[(playerFacing() + 2) % 4] || FAMILY[ck].base : B.CHEST; world.set(x, y - 1, z, cid); mpBlock(x, y - 1, z, cid);
+      const m = spawnMob('copper_golem', x + 0.5, y, z + 0.5, { age, waxed }); if (m) m.persistent = true; Particles.emit(x + 0.5, y + 0.5, z + 0.5, 16, [[1, 0.6, 0.4]], 2, 0.8, -1, 0.8); Sfx.play('armor', 0.8, 1.3); return r; }
+    return r; }; }
+// a golem you built never turns on you
+{ const _ht = hostileTarget; hostileTarget = function (m, range) { if (m && m.playerMade) return null; return _ht.apply(this, arguments); }; }
+{ const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (m.playerMade) r.pm = 1; if (m.type === 'copper_golem') { r.cg = { age: m.cgAge, waxed: m.cgWaxed, t: Math.round(m.ageT || 0), hold: m.cgHold || null }; } return r; };
+  const _f = mobFromRecord; mobFromRecord = function (rec) { if (rec && rec.cg) { rec.age = rec.cg.age; } const m = _f.apply(this, arguments); if (m && rec) { if (rec.pm) m.playerMade = true; if (rec.cg) { m.cgWaxed = rec.cg.waxed; m.ageT = rec.cg.t; m.cgHold = rec.cg.hold; } } return m; }; }
+// ================= COPPER GOLEM =================
+MOBS.copper_golem = { name: 'Copper Golem', hp: 12, w: 0.5, h: 1.0, speed: 2.0, kind: 'passive', persist: true, snd: 'cg', egg: [[214, 124, 84], [90, 168, 140]], drops: [['copper_ingot', 1, 3, 1]],
+  build(m, r) { const o = m.opts || {}; const age = clamp((o.rec && o.rec.cg ? o.rec.cg.age : o.age) || 0, 0, 3); m.cgAge = age; m.cgWaxed = !!o.waxed; const C = cgCol(age); const P = fur(C, 6, { speck: [shadeC(C, 1.2), 0.12] });
+    m.legs = []; for (const x of [-0.1, 0.1]) { const p = pivot(r, x, 0.25, 0); sbox(m, p, 0.16, 0.25, 0.18, 0, -0.125, 0, 'cg_leg' + age, P); m.legs.push(p); }
+    sbox(m, r, 0.5, 0.38, 0.36, 0, 0.44, 0, 'cg_body' + age, P);
+    m.arms = []; for (const x of [-0.31, 0.31]) { const p = pivot(r, x, 0.6, 0); sbox(m, p, 0.12, 0.34, 0.12, 0, -0.15, 0, 'cg_arm' + age, P); m.arms.push(p); }
+    const h = pivot(r, 0, 0.63, 0); m.head = h; sbox(m, h, 0.46, 0.32, 0.42, 0, 0.16, 0, 'cg_head' + age, fur(C, 6, { extra: (f, set, fw, fh) => { if (f !== 'front') return; for (const x of [1, 2, fw - 3, fw - 2]) { set(x, 1, [250, 236, 180]); set(x, 2, [250, 236, 180]); } } }));
+    sbox(m, h, 0.1, 0.16, 0.1, 0, 0.12, 0.25, 'cg_nose' + age, fur(shadeC(C, 0.85), 4)); sbox(m, h, 0.05, 0.22, 0.05, 0, 0.42, 0, 'cg_rod' + age, fur(shadeC(C, 1.1), 3)); sbox(m, h, 0.1, 0.1, 0.1, 0, 0.56, 0, 'cg_rodtip' + age, fur(shadeC(C, 1.2), 3)); } };
+MOB_XP.copper_golem = [0, 0];
+const CHEST_IDS = () => { if (CHEST_IDS.s) return CHEST_IDS.s; const s = new Set(); for (const d of BL) if (d && d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) s.add(d.id); return (CHEST_IDS.s = s); };
+function nearChests(m, copper) { const out = []; const cx0 = Math.floor(m.pos.x) >> 4, cz0 = Math.floor(m.pos.z) >> 4, S2 = CHEST_IDS();
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue; if (!c.chScan || c.chDirty) { c.chDirty = false; c.chScan = []; for (let j = 0; j < c.d.length; j++) if (S2.has(c.d[j])) c.chScan.push(j); }
+    for (const j of c.chScan) { const id = c.d[j]; if (!S2.has(id)) continue; const isCu = BL[id].copperChest !== undefined; if (isCu !== copper) continue; const y = (j / 256) | 0, x = c.cx * 16 + (j & 15), z = c.cz * 16 + ((j >> 4) & 15);
+      if (Math.abs(x + 0.5 - m.pos.x) > 32 || Math.abs(z + 0.5 - m.pos.z) > 32 || Math.abs(y - m.pos.y) > 8) continue; out.push({ x, y, z, d: Math.hypot(x + 0.5 - m.pos.x, y - m.pos.y, z + 0.5 - m.pos.z) }); } }
+  return out.sort((a, b) => a.d - b.d); }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const S2 = CHEST_IDS(); if (S2.has(id) || S2.has(prev)) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.chDirty = true; } return r; }; }
+function cgShowHold(m) { if (m.holdMesh) { m.root.remove(m.holdMesh); m.holdMesh = null; } if (!m.cgHold) { if (m.arms) for (const a of m.arms) a.rotation.x = 0; return; }
+  const id = m.cgHold.id; const mesh = isCubeItem(id) ? new THREE.Mesh(blockGeo(id), handMat) : flatItemMesh(id); mesh.scale.setScalar(isCubeItem(id) ? 0.28 : 0.45); mesh.position.set(0, 0.55, 0.32); m.root.add(mesh); m.holdMesh = mesh; if (m.arms) for (const a of m.arms) a.rotation.x = -1.2; }
+MOBS.copper_golem.tick = (m, dt) => { if (isClientMP()) return false;
+  if (m.cgHold !== m.cgShown) { m.cgShown = m.cgHold; cgShowHold(m); }
+  // ageing (not while waxed): a stage every 10-15 minutes; fully oxidized for a while, it freezes into a statue
+  if (!m.cgWaxed) { m.ageT = (m.ageT || 0) + dt; if (m.ageT > 600 + (m.idHash || (m.idHash = Math.random() * 300))) { m.ageT = 0;
+      if (m.cgAge < 3) cgReplace(m, m.cgAge + 1); else { const x = Math.floor(m.pos.x), y = Math.floor(m.pos.y), z = Math.floor(m.pos.z); if (!world.get(x, y, z)) { const F = FAMILY['oxidized_copper_golem_statue']; const f = ((Math.round(-m.yaw / (Math.PI / 2)) % 4) + 6) % 4; const sid = F.ids[f + ',' + (Math.random() * 4 | 0)] || F.base; world.set(x, y, z, sid); mpBlock(x, y, z, sid); if (m.cgHold) dropItem(m.cgHold.id, m.cgHold.count, m.pos.x, m.pos.y + 0.5, m.pos.z, true, m.cgHold.extra); m.dead = true; m.gone = true; if (m.remove) m.remove(); return true; } } } }
+  // sorting: fetch from a copper chest, deliver to a chest that holds the same item (or an empty one)
+  m.cgT = (m.cgT || 0) - dt; if (m.cgWait > 0) { m.cgWait -= dt; return false; }
+  if (!m.cgGoal || m.cgT <= 0) { m.cgT = 3;
+    if (!m.cgHold) { const src = nearChests(m, true).find(p => { const ct = contAt(p.x, p.y, p.z); return ct && ct.arr.some(Boolean); }); m.cgGoal = src ? { ...src, mode: 'fetch' } : null; }
+    else { const all = nearChests(m, false).map(p => ({ p, ct: contAt(p.x, p.y, p.z) })).filter(o => o.ct); const id = m.cgHold.id; const room = (ct) => ct.arr.some(s => !s || (s.id === id && !xtra(s) && s.count < stackMax(id)));
+      let pick = all.find(o => o.ct.arr.some(s => s && s.id === id) && room(o.ct)) || all.find(o => !o.ct.arr.some(Boolean)); m.cgGoal = pick ? { ...pick.p, mode: 'deliver' } : (m.cgSrc ? { ...m.cgSrc, mode: 'return' } : null); } }
+  const G0 = m.cgGoal; if (!G0) return false; const tp = new V3(G0.x + 0.5, G0.y, G0.z + 0.5); const d = steerTo(m, tp, 1.2); m.goalBoost = true;
+  if (d < 1.6 && Math.abs(m.pos.y - G0.y) < 2.5) { const ct = contAt(G0.x, G0.y, G0.z); m.cgGoal = null; m.cgWait = 1; Sfx.at('chest', m.pos, 0.4, 1.3);
+    if (!ct) return false;
+    if (G0.mode === 'fetch' && !m.cgHold) { const i = ct.arr.findIndex(Boolean); if (i >= 0) { const s = ct.arr[i]; const n = Math.min(16, s.count); m.cgHold = { id: s.id, count: n, extra: xtra(s) }; s.count -= n; if (!s.count) ct.arr[i] = null; m.cgSrc = { x: G0.x, y: G0.y, z: G0.z }; } }
+    else if (m.cgHold) { const h = m.cgHold; for (let i = 0; i < ct.arr.length && h.count > 0; i++) { const s = ct.arr[i]; if (s && s.id === h.id && !xtra(s) && !h.extra) { const k = Math.min(stackMax(h.id) - s.count, h.count); s.count += k; h.count -= k; } }
+      for (let i = 0; i < ct.arr.length && h.count > 0; i++) if (!ct.arr[i]) { ct.arr[i] = Object.assign({ id: h.id, count: h.count }, h.extra || {}); h.count = 0; } if (h.count <= 0) m.cgHold = null; }
+    if (S.uiOpen) renderInvUI && renderInvUI(); }
+  return false; };
+function cgReplace(m, age, waxed = m.cgWaxed) { const n = spawnMob('copper_golem', m.pos.x, m.pos.y, m.pos.z, { age, waxed }); if (!n) return; n.yaw = m.yaw; n.cgHold = m.cgHold; n.persistent = true; n.cgWaxed = waxed; m.dead = true; m.gone = true; if (m.remove) m.remove(); G.mobs = G.mobs.filter(x => x !== m); return n; }
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) { if (m && m.type === 'copper_golem' && !m.dead) { const h = player.held(); const hd = h && ITEMS[h.id];
+      if (hd && hd.kind === 'tool' && hd.tool === 'axe' && (m.cgWaxed || m.cgAge > 0)) { if (m.cgWaxed) m.cgWaxed = false; else cgReplace(m, m.cgAge - 1); damageHeld(1); S.swing = 1; Particles.emit(m.pos.x, m.pos.y + 0.6, m.pos.z, 10, [[0.6, 0.9, 0.8]], 1.5, 0.6, -1, 0.5); Sfx.play('wood', 1, 1.3); return true; }
+      if (h && h.id === IT.honeycomb && !m.cgWaxed) { m.cgWaxed = true; useHeld(1); S.swing = 1; Particles.emit(m.pos.x, m.pos.y + 0.6, m.pos.z, 10, [[1, 0.85, 0.4]], 1.5, 0.6, -1, 0.5); return true; } }
+    return _mi.apply(this, arguments); }; }
+// statues: face you when placed; use one to change its pose; scrape one with an axe to wake the golem
+{ const _pb = placeBlock; placeBlock = function (hit, id) { const d = BL[id]; if (!d || d.statue === undefined || !hit) return _pb.apply(this, arguments); const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (!replaceableAt(x, y, z) || !SOLID[world.get(x, y - 1, z)]) return false;
+    const F = FAMILY[d.fam]; const sid = F.ids[((playerFacing() + 2) % 4) + ',0'] || F.base; world.set(x, y, z, sid); mpBlock(x, y, z, sid); Sfx.play('stone', 0.8, 1.2); return true; }; }
+{ const _ua = useAction; useAction = function (eye, dir) { if (target && !targetMob) { const d = BL[target.id]; if (d && d.statue !== undefined) { const h = player.held(); const hd = h && ITEMS[h.id]; const { x, y, z } = target; mouseR = false; S.swing = 1;
+      if (hd && hd.kind === 'tool' && hd.tool === 'axe') { world.set(x, y, z, 0); mpBlock(x, y, z, 0); const m = spawnMob('copper_golem', x + 0.5, y, z + 0.5, { age: Math.max(0, d.statue - 1) }); if (m) { m.persistent = true; m.yaw = (d.st.facing || 0) * Math.PI / 2; } damageHeld(1); Sfx.play('wood', 1, 1.3); return; }
+      if (!h) { const F = FAMILY[d.fam]; const nid = F.ids[d.st.facing + ',' + ((d.st.pose + 1) % 4)]; if (nid) { world.set(x, y, z, nid); mpBlock(x, y, z, nid); Sfx.play('stone', 0.6, 1.5); } return; } } }
+    return _ua.apply(this, arguments); }; }
+// copper chests age (and wax / scrape) like copper blocks
+for (let a = 0; a < 4; a++) for (const f of [0, 1, 2, 3]) { const id = FAMILY[cuAge(a) + 'copper_chest'].ids[f], wid = FAMILY['waxed_' + cuAge(a) + 'copper_chest'].ids[f];
+  if (a < 3) CU_NEXT[id] = FAMILY[cuAge(a + 1) + 'copper_chest'].ids[f]; if (a > 0) CU_PREV[id] = FAMILY[cuAge(a - 1) + 'copper_chest'].ids[f]; CU_WAX[id] = wid; CU_UNWAX[wid] = id; }
+// ================= WANDERING TRADER AND TRADER LLAMAS =================
+PROFS.wandering_trader = Object.assign({}, PROFS[Object.keys(PROFS)[0]] || {}, { name: 'Wandering Trader' });
+const WT_COMMON = ['sea_pickle*1', 'slime_ball*1', 'glowstone*2', 'nautilus_shell*1', 'fern*1', 'sugar_cane*1', 'pumpkin*1', 'kelp*1', 'cactus*1', 'dandelion*1', 'rose*1', 'allium*1', 'azure_bluet*1', 'red_tulip*1', 'orange_tulip*1', 'white_tulip*1', 'pink_tulip*1', 'oxeye_daisy*1', 'cornflower*1', 'lily_of_the_valley*1',
+  'wheat_seeds*1', 'beetroot_seeds*1', 'pumpkin_seeds*1', 'melon_seeds*1', 'oak_sapling*1', 'spruce_sapling*1', 'birch_sapling*1', 'jungle_sapling*1', 'acacia_sapling*1', 'dark_oak_sapling*1', 'cherry_sapling*1', 'mangrove_propagule*1', 'pale_oak_sapling*1',
+  'red_dye*3', 'white_dye*3', 'blue_dye*3', 'pink_dye*3', 'black_dye*3', 'green_dye*3', 'light_gray_dye*3', 'magenta_dye*3', 'yellow_dye*3', 'gray_dye*3', 'purple_dye*3', 'light_blue_dye*3', 'lime_dye*3', 'orange_dye*3', 'brown_dye*3', 'cyan_dye*3',
+  'brain_coral_block*1', 'bubble_coral_block*1', 'fire_coral_block*1', 'horn_coral_block*1', 'tube_coral_block*1', 'vine*1', 'brown_mushroom*1', 'red_mushroom*1', 'lily_pad*2', 'small_dripleaf*2', 'sand*8', 'red_sand*4', 'pointed_dripstone*2', 'rooted_dirt*2', 'moss_block*2'];
+const WT_RARE = [['tropical_fish_bucket*1', 5], ['pufferfish_bucket*1', 5], ['packed_ice*1', 3], ['blue_ice*1', 6], ['gunpowder*1', 1], ['podzol*3', 3], ['oak_log*8', 1], ['spruce_log*8', 1], ['birch_log*8', 1], ['jungle_log*8', 1], ['acacia_log*8', 1], ['dark_oak_log*8', 1], ['cherry_log*8', 1], ['mangrove_log*8', 1], ['pale_oak_log*8', 1], ['iron_pickaxe*1', 1]];
+function traderOffers() { const r = mulberry32((Math.random() * 1e9) | 0); const out = []; const pool = WT_COMMON.slice().sort(() => r() - 0.5);
+  for (const s of pool) { if (out.length >= 5) break; const price = /coral|nautilus|glowstone|pumpkin/.test(s) ? (s.startsWith('nautilus') ? 5 : 3) : /sapling|propagule/.test(s) ? 5 : /seeds/.test(s) ? 1 : 1; const o = makeOffer({ a: 'emerald*' + price, s, u: /sapling|propagule|nautilus|coral/.test(s) ? 8 : 12, x: 1, m: 0.05 }, r); if (o) out.push(o); }
+  const rare = WT_RARE[r() * WT_RARE.length | 0]; const o = makeOffer({ a: 'emerald*' + rare[1], s: rare[0], u: 6, x: 1, m: 0.05 }, r); if (o) out.push(o); return out; }
+MOBS.wandering_trader = { name: 'Wandering Trader', hp: 20, w: 0.6, h: 1.95, speed: 1.8, kind: 'passive', snd: 'hmm', egg: [[64, 98, 162], [228, 196, 70]], drops: [],
+  build(m, r) { MOBS.villager.build(m, r); m.dressed = true; sbox(m, r, 0.56, 1.05, 0.34, 0, 0.95, 0, 'wt_robe', fur([58, 92, 156], 7, { extra: (f, set, fw, fh) => { for (let x = 0; x < fw; x++) { set(x, fh - 1, [214, 180, 60]); set(x, 0, [214, 180, 60]); } if (f === 'front') for (let y = 0; y < fh; y++) set(fw >> 1, y, [214, 180, 60]); } }));
+    if (m.head) sbox(m, m.head, 0.56, 0.12, 0.56, 0, 0.5, 0, 'wt_hood', fur([50, 80, 140], 6)); } };
+MOB_PITCH.wandering_trader = 1.05;
+MOBS.trader_llama = { name: 'Trader Llama', hp: 22, w: 0.9, h: 1.87, speed: 2.0, kind: 'passive', snd: 'baa', egg: [[234, 164, 59], [64, 98, 162]], drops: [['leather', 0, 2, 1]],
+  build(m, r) { MOBS.llama.build(m, r); sbox(m, r, 0.66, 0.06, 1.0, 0, 1.25, -0.05, 'tl_blanket', fur([58, 92, 156], 5, { extra: (f, set, fw, fh) => { for (let y = 0; y < fh; y++) { set(0, y, [214, 180, 60]); set(fw - 1, y, [214, 180, 60]); } } })); sbox(m, r, 0.7, 0.36, 0.08, 0, 1.08, 0.3, 'tl_drape', fur([214, 180, 60], 5)); } };
+if (MOBS.llama.tick) MOBS.trader_llama.tick = MOBS.llama.tick;
+MOB_XP.trader_llama = [1, 3]; MOB_XP.wandering_trader = [0, 0];
+MOBS.wandering_trader.tick = (m, dt) => { if (!m.vd) m.vd = { prof: 'wandering_trader', lvl: 5, xp: 0, offers: traderOffers(), restocks: 0, rday: -1, seed: 1 };
+  m.wtAge = (m.wtAge || 0) + dt; if (m.wtAge > 2400 && !m.customName && !m.tradingWith && !isClientMP()) { for (const l of G.mobs) if (l.leashTo === m) { l.gone = true; l.dead = true; if (l.remove) l.remove(); } m.gone = true; m.dead = true; if (m.remove) m.remove(); return true; }
+  const night = G.daylight < 0.4; if (night !== m.invis) { m.invis = night; Sfx.at(night ? 'eat' : 'eat', m.pos, 0.5, 1.4); if (m.root) m.root.visible = !night; }
+  if (m.tradingWith) { m.wMove = 0; m.yaw = Math.atan2(player.pos.x - m.pos.x, player.pos.z - m.pos.z); return false; } return false; };
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) { if (m && m.type === 'wandering_trader' && !m.dead) { if (!m.vd) MOBS.wandering_trader.tick(m, 0); openTrade(m); if (S.panel) { S.panel.title = 'Wandering Trader'; if (typeof renderInvUI === 'function') renderInvUI(); } return true; } return _mi.apply(this, arguments); }; }
+// leads: trader llamas follow their trader
+MOBS.trader_llama.tick = ((prev) => (m, dt) => { const t = m.leashTo; if (t && (t.dead || t.gone)) m.leashTo = null;
+  if (m.leashTo) { const d = m.pos.distanceTo(t.pos); if (d > 4) steerTo(m, t.pos, 3); if (d > 12) { m.pos.copy(t.pos).add(new V3(1, 0, 1)); }
+    if (!m.lead) { const geo = new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]); m.lead = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x5a4028 })); G.scene.add(m.lead); }
+    const p = m.lead.geometry.attributes.position; p.setXYZ(0, m.pos.x, m.pos.y + 1.4, m.pos.z + 0.3); p.setXYZ(1, t.pos.x, t.pos.y + 1.0, t.pos.z); p.needsUpdate = true; m.lead.visible = !t.invis || true; }
+  else if (m.lead) { G.scene.remove(m.lead); m.lead = null; }
+  return prev ? prev(m, dt) : false; })(MOBS.trader_llama.tick);
+{ const _rm = Mob.prototype.remove; Mob.prototype.remove = function () { if (this.lead) { G.scene.remove(this.lead); this.lead = null; } return _rm.apply(this, arguments); }; }
+S.wtChance = 0.025; S.wtT = 1200;
+function spawnWanderingTrader(force) { const P = player.pos; for (let t = 0; t < 30; t++) { const a = Math.random() * Math.PI * 2, d = force ? 6 + Math.random() * 6 : 24 + Math.random() * 24; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d); if (!world.loaded(x, z)) continue; const y = surfaceSpawnY(x, z); if (y <= SEA || !freeAt(x, y, z, 2)) continue;
+    const m = spawnMob('wandering_trader', x + 0.5, y, z + 0.5); if (!m) return null; for (const s of [-1, 1]) { const l = spawnMob('trader_llama', x + 0.5 + s * 1.5, y, z + 1.5); if (l) l.leashTo = m; } return m; } return null; }
+{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (!world || world.dim !== 'overworld' || isClientMP() || !S.rules.doMobSpawning) return r;
+    S.wtT -= dt; if (S.wtT <= 0) { S.wtT = 1200; if (!G.mobs.some(m => m.type === 'wandering_trader' && !m.dead) && Math.random() < S.wtChance) { if (spawnWanderingTrader()) S.wtChance = 0.025; } else S.wtChance = Math.min(0.075, S.wtChance + 0.025); }
+    return r; }; }
+// ================= ILLUSIONER =================
+Object.assign(EFFECTS, { blindness: 'Blindness' });
+MOBS.illusioner = { name: 'Illusioner', hp: 32, w: 0.6, h: 1.95, speed: 2.2, kind: 'hostile', dmg: 3, snd: 'hmm', ranged: true, egg: [[19, 89, 155], [149, 155, 155]], drops: [],
+  shoot(m, P) { m.atkCD = 2 + Math.random(); shootArrow(new V3(m.pos.x, m.pos.y + 1.5, m.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 4); },
+  build(m, r) { illagerModel(m, r, 'illu', [40, 70, 140], [24, 44, 96]); const bow = pivot(m.arms[1], 0, -0.66, 0.1); sbox(m, bow, 0.05, 0.7, 0.05, 0, 0, 0, 'skel_bow', fur([110, 76, 42], 5)); } };
+MOB_XP.illusioner = [5, 5];
+MOBS.illusioner.tick = (m, dt) => { if (isClientMP() || !isSurv() || player.dead) return false; m.spellT = (m.spellT === undefined ? 4 : m.spellT) - dt; const d = m.pos.distanceTo(player.pos);
+  if (m.spellT <= 0 && d < 18) { m.spellT = 10 + Math.random() * 4; Sfx.at('vwoop', m.pos, 0.8, 0.7); Particles.emit(m.pos.x, m.pos.y + 1.2, m.pos.z, 20, [[0.3, 0.4, 1]], 2, 0.8, -1, 0.8);
+    if (Math.random() < 0.5) giveEffect('blindness', 20, 0);
+    else { m.mirrorT = 3; if (!m.mirrors) { m.mirrors = []; for (let i = 0; i < 4; i++) { const g = m.root.clone(true); G.scene.add(g); m.mirrors.push(g); } } } }
+  if (m.mirrors) { m.mirrorT -= dt; const on = m.mirrorT > 0; m.mirrors.forEach((g, i) => { g.visible = on; const a = i * Math.PI / 2 + (m.age || 0); g.position.set(m.pos.x + Math.cos(a) * 2.2, m.pos.y, m.pos.z + Math.sin(a) * 2.2); g.rotation.y = m.yaw; }); if (m.root) m.root.visible = !on || Math.random() < 0.5; if (!on) { for (const g of m.mirrors) G.scene.remove(g); m.mirrors = null; if (m.root) m.root.visible = true; } }
+  return false; };
+{ const _rm = Mob.prototype.remove; Mob.prototype.remove = function () { if (this.mirrors) { for (const g of this.mirrors) G.scene.remove(g); this.mirrors = null; } return _rm.apply(this, arguments); }; }
+function blindOverlay(k) { let el = document.getElementById('blindOv'); if (!el) { el = document.createElement('div'); el.id = 'blindOv'; el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;background:radial-gradient(circle at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.92) 22%, #000 40%)'; document.body.appendChild(el); } el.style.opacity = k.toFixed(2); }
+{ const _up = updatePlayer; let k = 0; updatePlayer = function (dt) { const r = _up.apply(this, arguments); const want = player.effects.blindness && !player.dead ? 1 : 0; k += (want - k) * Math.min(1, dt * 3); blindOverlay(k); return r; }; }
+// ---------- sounds ----------
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (!this.ctx || v < 0.02) return _pl.apply(this, arguments);
+    switch (name) { case 'creak': this.nz(0.45, 380 * (rate || 1), 0.4 * v, 'bandpass', 6); this.tone(110 * (rate || 1), 70, 0.4, 0.06 * v, 'sawtooth'); return;
+      case 'cg': this.tone(900 * (rate || 1), 1300, 0.06, 0.05 * v, 'square'); this.tone(600, 800, 0.05, 0.04 * v, 'triangle'); return; }
+    return _pl.apply(this, arguments); }; }
+for (const k of ['creaking', 'copper_golem', 'wandering_trader', 'trader_llama', 'illusioner']) { if (MOBS[k] && !MOBS[k].snd) MOBS[k].snd = 'hmm'; }
+
+// ================= WEATHER: RAIN, SNOW, THUNDERSTORMS, LIGHTNING, SKELETON TRAPS =================
+// Like Minecraft: clear spells last 10 minutes to 2.5 hours, rain 10-20 minutes, and some rain turns into a
+// thunderstorm. Rain falls as rain in warm and temperate places and as snow in cold ones (none in deserts,
+// savannas or badlands); it darkens the sky, keeps undead from burning and puts out nothing it can't reach.
+// Thunderstorms are dark enough for monsters to spawn in daytime. Lightning strikes near you, hurts and sets fire
+// around where it lands, turns pigs into zombified piglins, villagers into witches and creepers into charged
+// creepers, and is drawn to lightning rods. A strike can leave a skeleton trap: a lone skeleton horse that, when
+// you come within 10 blocks, calls down lightning and becomes four skeleton horsemen.
+// /weather clear|rain|thunder [seconds] sets it.
+S.weather = S.weather || 'clear'; S.weatherT = S.weatherT || 600 + Math.random() * 6000; S.wk = 0; S.tk = 0;
+const DRY_B = () => new Set([BIO.DESERT, BIO.SAVANNA, BIO.BADLANDS, BIO.MUSHROOM_FIELDS]);
+function precipAt(x, z) { if (!world || world.dim !== 'overworld') return null; const c = world.gen.column(Math.floor(x), Math.floor(z)); if (DRY_B().has(c.b)) return null; return (c.b === BIO.SNOWY || (c.v && FROZEN_V().has(c.v)) || c.v === BV.SNOWY_TAIGA || c.h > SEA + 90) ? 'snow' : 'rain'; }
+function weatherWet(pos) { if (S.weather === 'clear' || !world || world.dim !== 'overworld') return false; if (precipAt(pos.x, pos.z) !== 'rain') return false; return world.skyAt(Math.floor(pos.x), Math.floor(pos.y + 1.6), Math.floor(pos.z)) >= 1; }
+function setWeather(w, sec) { S.weather = w; S.weatherT = sec || (w === 'clear' ? 600 + Math.random() * 8400 : 600 + Math.random() * 600); }
+// ---------- the cycle ----------
+{ const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); if (S.rules.doWeatherCycle === false || isClientMP()) return r;
+    S.weatherT -= dt; if (S.weatherT <= 0) { if (S.weather === 'clear') setWeather(Math.random() < 0.25 ? 'thunder' : 'rain'); else setWeather('clear'); if (typeof MP !== 'undefined' && MP.active && MP.role === 'host' && MP.broadcast) try { MP.broadcast({ t: 'weather', w: S.weather }); } catch (e) { } }
+    return r; }; }
+// ---------- sky, light and fog ----------
+{ const _us = updateSky; updateSky = function (eyeFluid) { const r = _us.apply(this, arguments); const ow = world.dim === 'overworld'; const tw = ow && S.weather !== 'clear' ? 1 : 0, tt = ow && S.weather === 'thunder' ? 1 : 0;
+    S.wk += (tw - S.wk) * 0.01; S.tk += (tt - S.tk) * 0.01; if (S.wk < 0.002) return r;
+    G.daylight *= 1 - S.wk * 0.2 - S.tk * 0.18; chunkUniforms.daylight.value = G.daylight;
+    const grey = new THREE.Color(0.42, 0.45, 0.5).multiplyScalar(0.35 + G.daylight * 0.65); scene.fog.color.lerp(grey, S.wk * 0.75); chunkUniforms.fogColor.value.copy(scene.fog.color);
+    scene.fog.far *= 1 - S.wk * 0.3; scene.fog.near *= 1 - S.wk * 0.5; chunkUniforms.fogNear.value = scene.fog.near; chunkUniforms.fogFar.value = scene.fog.far;
+    if (typeof skyUniforms !== 'undefined') { for (const k of ['top', 'horizon', 'topColor', 'horizonColor', 'bottom']) if (skyUniforms[k] && skyUniforms[k].value && skyUniforms[k].value.lerp) skyUniforms[k].value.lerp(grey, S.wk * 0.8); }
+    if (S.wk > 0.6) { sunMesh.visible = false; moonMesh.visible = false; stars.visible = false; }
+    if (S.flash > 0) { chunkUniforms.daylight.value = Math.min(1.2, G.daylight + S.flash); }
+    return r; }; }
+// ---------- rain and snow around you ----------
+const RAIN = { n: 900, R: 18, pts: null, geo: null, colH: new Map(), hT: 0 };
+function rainSetup() { const geo = new THREE.BufferGeometry(); const pos = new Float32Array(RAIN.n * 6); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const mat = new THREE.LineBasicMaterial({ color: 0xaab8cc, transparent: true, opacity: 0.55, depthWrite: false });
+  RAIN.lines = new THREE.LineSegments(geo, mat); RAIN.lines.frustumCulled = false; G.scene.add(RAIN.lines); RAIN.geo = geo; RAIN.p = []; for (let i = 0; i < RAIN.n; i++) RAIN.p.push({ x: (Math.random() - 0.5) * 2 * RAIN.R, y: Math.random() * 24, z: (Math.random() - 0.5) * 2 * RAIN.R, s: 0.7 + Math.random() * 0.6 });
+  const sgeo = new THREE.BufferGeometry(); sgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RAIN.n * 3), 3)); RAIN.snow = new THREE.Points(sgeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false })); RAIN.snow.frustumCulled = false; G.scene.add(RAIN.snow); RAIN.sgeo = sgeo; }
+function colTop(x, z) { const k = x * 65536 + z; let v = RAIN.colH.get(k); if (v === undefined) { v = 0; const top = Math.min(WH - 1, Math.floor(player.pos.y) + 40); for (let y = top; y > 0; y--) { const id = world.get(x, y, z); if (id && (SOLID[id] || FKIND[id] || BL[id].leaves)) { v = y + 1; break; } } RAIN.colH.set(k, v); } return v; }
+{ const _uh = updateHand; let snd = 0; updateHand = function (dt, light) { const r = _uh.apply(this, arguments); if (!world || !G.scene) return r; if (!RAIN.lines) rainSetup();
+    const on = world.dim === 'overworld' && S.wk > 0.05; RAIN.lines.visible = on; RAIN.snow.visible = on; if (!on) return r;
+    RAIN.hT -= dt; if (RAIN.hT <= 0) { RAIN.hT = 0.5; RAIN.colH.clear(); }
+    const P = camera.position, pa = RAIN.geo.attributes.position.array, sa = RAIN.sgeo.attributes.position.array; const fall = 20 * dt, sfall = 2.2 * dt; let shown = 0, inRain = 0;
+    const kind = precipAt(P.x, P.z); const use = Math.floor(RAIN.n * S.wk);
+    for (let i = 0; i < RAIN.n; i++) { const q = RAIN.p[i]; const snow = (precipAt(P.x + q.x, P.z + q.z) === 'snow'); q.y -= snow ? sfall * q.s : fall * q.s; if (snow) { q.x += Math.sin(q.y * 1.3 + i) * dt * 0.6; }
+      const wx = Math.floor(P.x + q.x), wz = Math.floor(P.z + q.z); const top = colTop(wx, wz); const wy = P.y - 8 + q.y;
+      if (wy < top || q.y < 0) { q.y = 16 + Math.random() * 8; q.x = (Math.random() - 0.5) * 2 * RAIN.R; q.z = (Math.random() - 0.5) * 2 * RAIN.R; }
+      const dry = i >= use || DRY_B().has(world.gen.column(wx, wz).b) || wy < top; const k6 = i * 6, k3 = i * 3;
+      if (dry || snow) { pa[k6] = pa[k6 + 3] = 0; pa[k6 + 1] = pa[k6 + 4] = -999; pa[k6 + 2] = pa[k6 + 5] = 0; }
+      else { pa[k6] = P.x + q.x; pa[k6 + 1] = wy; pa[k6 + 2] = P.z + q.z; pa[k6 + 3] = P.x + q.x - 0.03; pa[k6 + 4] = wy + 0.7; pa[k6 + 5] = P.z + q.z; inRain++; }
+      if (dry || !snow) { sa[k3] = 0; sa[k3 + 1] = -999; sa[k3 + 2] = 0; } else { sa[k3] = P.x + q.x; sa[k3 + 1] = wy; sa[k3 + 2] = P.z + q.z; } }
+    RAIN.geo.attributes.position.needsUpdate = true; RAIN.sgeo.attributes.position.needsUpdate = true;
+    // rain on the ground: splashes and a soft hiss
+    snd -= dt; if (snd <= 0 && inRain > 30 && Sfx.ctx) { snd = 0.9; Sfx.play('rain', Math.min(0.5, inRain / RAIN.n) * (world.skyAt(Math.floor(P.x), Math.floor(P.y), Math.floor(P.z)) >= 1 ? 1 : 0.45)); }
+    if (S.flash > 0) S.flash = Math.max(0, S.flash - dt * 2.5);
+    return r; }; }
+// ---------- undead don't burn in the rain ----------
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.t && this.t.burns && S.weather !== 'clear' && weatherWet(this.pos)) { const t0 = this.t; this.t = Object.assign({}, t0, { burns: false }); try { return _u.call(this, dt); } finally { if (this.t.burns === false && this.t !== t0) this.t = t0; } } return _u.call(this, dt); }; }
+// ---------- lightning ----------
+const BOLTS = [];
+function lightningAt(x, y, z, o = {}) {
+  // a lightning rod within 32 blocks takes the strike
+  if (!o.noRod) { let best = null, bd = 1e9; const cx0 = x >> 4, cz0 = z >> 4; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue; if (!c.rodScan || c.rodDirty) { c.rodDirty = false; c.rodScan = []; for (let j = 0; j < c.d.length; j++) { const b = BL[c.d[j]]; if (b && (b.fam === 'lightning_rod' || b.key === 'lightning_rod')) c.rodScan.push(j); } }
+      for (const j of c.rodScan) { const yy = (j / 256) | 0, xx = c.cx * 16 + (j & 15), zz = c.cz * 16 + ((j >> 4) & 15); const d = Math.hypot(xx - x, zz - z); if (d < 32 && d < bd && world.skyAt(xx, yy + 1, zz) >= 1) { bd = d; best = [xx, yy + 1, zz]; } } }
+    if (best) { [x, y, z] = best; o.rod = true; } }
+  // the bolt
+  const pts = []; let px = x + 0.5, pz = z + 0.5; for (let yy = y + 90; yy > y; yy -= 3 + Math.random() * 4) { pts.push(new V3(px, yy, pz)); px += (Math.random() - 0.5) * 2.2; pz += (Math.random() - 0.5) * 2.2; } pts.push(new V3(x + 0.5, y, z + 0.5));
+  const segs = []; for (let i = 0; i < pts.length - 1; i++) segs.push(pts[i], pts[i + 1]);
+  const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), new THREE.LineBasicMaterial({ color: 0xeef4ff, transparent: true, opacity: 1 })); G.scene.add(line); BOLTS.push({ line, t: 0.35 });
+  S.flash = 0.6; const d = Math.hypot(player.pos.x - x, player.pos.z - z); setTimeout(() => Sfx.play('thunder', Math.max(0.15, 1 - d / 160)), Math.min(4000, d * 6)); if (d < 20) Sfx.play('boom', 0.4);
+  Particles.emit(x + 0.5, y + 0.2, z + 0.5, 20, [[1, 1, 0.8], [0.8, 0.9, 1]], 4, 0.5, -2, 0.6);
+  if (o.visual) return;
+  // fire on the ground, hurt what's close, change some mobs
+  if (!o.rod && B.FIRE !== undefined && S.rules.doFireTick !== false) { if (!world.get(x, y, z) && SOLID[world.get(x, y - 1, z)]) world.set(x, y, z, B.FIRE); }
+  if (!player.dead && isSurv() && Math.hypot(player.pos.x - x - 0.5, player.pos.z - z - 0.5) < 3 && Math.abs(player.pos.y - y) < 4) player.hurt(5, new V3(x, y, z), 'lightning');
+  for (const m of G.mobs.slice()) { if (m.dead || Math.hypot(m.pos.x - x - 0.5, m.pos.z - z - 0.5) > 3.5 || Math.abs(m.pos.y - y) > 4) continue;
+    const swap = { pig: 'zombified_piglin', villager: 'witch' }[m.type];
+    if (swap && MOBS[swap] && !isClientMP()) { const n = spawnMob(swap, m.pos.x, m.pos.y, m.pos.z); if (n) { n.yaw = m.yaw; n.persistent = m.persistent; } m.dead = true; m.gone = true; if (m.remove) m.remove(); continue; }
+    if (m.type === 'creeper') { m.charged = true; if (m.root) m.root.traverse(o2 => { if (o2.material && o2.material.emissive) o2.material.emissive.setRGB(0.15, 0.3, 0.6); }); }
+    if (m.type === 'mooshroom') m.brown = !m.brown;
+    m.hurt(5, new V3(x, y, z), 0.5); }
+}
+{ const _ub = updateBoats; let strikeT = 8; updateBoats = function (dt) { const r = _ub(dt);
+    for (const b of BOLTS) { b.t -= dt; b.line.material.opacity = Math.max(0, b.t / 0.35) * (Math.random() < 0.3 ? 0.4 : 1); if (b.t <= 0) { G.scene.remove(b.line); b.line.geometry.dispose(); b.done = true; } } for (let i = BOLTS.length - 1; i >= 0; i--) if (BOLTS[i].done) BOLTS.splice(i, 1);
+    if (!world || world.dim !== 'overworld' || isClientMP() || S.weather !== 'thunder') return r;
+    strikeT -= dt; if (strikeT <= 0) { strikeT = 5 + Math.random() * 20; const P = player.pos; for (let t = 0; t < 8; t++) { const x = Math.floor(P.x + (Math.random() - 0.5) * 128), z = Math.floor(P.z + (Math.random() - 0.5) * 128); if (!world.loaded(x, z) || precipAt(x, z) === null) continue; const y = world.surfaceY(x, z);
+        // skeleton trap: some strikes leave a skeleton horse waiting
+        if (Math.random() < 0.06 && S.difficulty !== 'peaceful' && y > SEA) { lightningAt(x, y, z, { visual: true }); const h = spawnMob('skeleton_horse', x + 0.5, y, z + 0.5); if (h) { h.trap = 900; h.persistent = true; } }
+        else lightningAt(x, y, z); break; } }
+    return r; }; }
+// the trap springs when you come close: four skeleton horsemen
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { if (this.trap && !this.dead && !isClientMP()) { this.trap -= dt; if (this.trap <= 0) { this.gone = true; this.dead = true; if (this.remove) this.remove(); return; }
+      if (isSurv() && !player.dead && this.pos.distanceTo(player.pos) < 10) { this.trap = 0; const x = this.pos.x, y = this.pos.y, z = this.pos.z; lightningAt(Math.floor(x), Math.floor(y), Math.floor(z), { visual: true, noRod: true });
+        const horses = [this]; for (let i = 0; i < 3; i++) { const h = spawnMob('skeleton_horse', x + (Math.random() - 0.5) * 3, y, z + (Math.random() - 0.5) * 3); if (h) horses.push(h); }
+        for (const h of horses) { h.persistent = false; const sk = spawnMob('skeleton', h.pos.x, h.pos.y + 1.15, h.pos.z); if (sk) { mountMob(sk, h, 1.15); sk.helmet = 'iron'; if (sk.head) sbox(sk, sk.head, 0.56, 0.3, 0.56, 0, 0.42, 0, 'trap_helm', fur([210, 210, 214], 4)); } } return; } }
+    return _u.call(this, dt); }; }
+// ---------- /weather, saving, sounds ----------
+CMDS.weather = { usage: '<clear|rain|thunder> [duration]', run(a, ctx) { const w = (a[0] || '').toLowerCase(); if (!['clear', 'rain', 'thunder'].includes(w)) throw new CmdError('Usage: /weather ' + CMDS.weather.usage); const sec = a[1] ? Math.max(1, parseFloat(a[1])) : 0; setWeather(w, sec || undefined); ok('Changing to ' + (w === 'clear' ? 'clear' : w === 'rain' ? 'rain' : 'rain and thunder')); } };
+{ const _p = packWorld; packWorld = function () { const r = _p.apply(this, arguments); try { if (r && typeof r === 'object') r.weather = [S.weather, Math.round(S.weatherT)]; } catch (e) { } return r; }; }
+{ const _u = unpackWorld; unpackWorld = function (w, d) { const r = _u.apply(this, arguments); try { if (d && d.weather) { S.weather = d.weather[0]; S.weatherT = d.weather[1]; } } catch (e) { } return r; }; }
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (!this.ctx || v < 0.02) return _pl.apply(this, arguments);
+    if (name === 'rain') { this.nz(1.1, 5200, 0.16 * v, 'highpass'); this.nz(1.1, 1400, 0.1 * v, 'bandpass', 0.6); return; }
+    if (name === 'thunder') { this.nz(2.6, 160, 1.2 * v, 'lowpass'); this.nz(1.2, 900, 0.5 * v, 'lowpass'); this.tone(48, 30, 2.2, 0.35 * v, 'sine'); return; }
+    return _pl.apply(this, arguments); }; }
+// you can sleep through a thunderstorm at any time of day
+{ const _cs = typeof canSleep === 'function' ? canSleep : null; if (_cs) canSleep = function () { if (S.weather === 'thunder') return true; return _cs.apply(this, arguments); }; }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const isRod = (v) => BL[v] && (BL[v].fam === 'lightning_rod' || BL[v].key === 'lightning_rod'); if (isRod(id) || isRod(prev)) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.rodDirty = true; } return r; }; }
 
 </script>
 </body>

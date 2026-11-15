@@ -42,7 +42,7 @@ function modPainter(spec, kind) {
 }
 const _modImgQueue = [];
 function modTile(name, spec) {
-  if (TILE[name] === undefined && tileCount >= ATN * ATN) throw new Error('No room left in the texture atlas');
+  if (TILE[name] === undefined && tileCount >= ATN * ATH) throw new Error('No room left in the texture atlas');
   if (spec && spec.image) { const i = makeTile(name, modPainter({ color: spec.color || '#888888' })); _modImgQueue.push([i, spec.image]); return name; }
   makeTile(name, modPainter(spec, 'block')); return name;
 }

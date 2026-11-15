@@ -341,8 +341,8 @@ const AO_LV = [0.42, 0.6, 0.8, 1.0];
 // ---- Detailed textures: every 16px tile is upscaled 4x (Scale2x twice: smooth diagonals, crisp edges), given relief shading and
 // fine grain, and stored with a gutter so mipmaps don't bleed between tiles. "Low" graphics keeps the classic 16px atlas.
 const HD = (() => { const touch = !!(window.matchMedia && matchMedia('(pointer:coarse)').matches && 'ontouchstart' in window); try { const s = JSON.parse(localStorage.getItem('blockwild_settings') || '{}'); return (s.gfx || (touch ? 'low' : 'high')) !== 'low' && s.tex !== 'classic'; } catch (e) { return !touch; } })();
-const TS = HD ? 64 : 16, PAD = HD ? 4 : 0, CELL = TS + 2 * PAD, AW = ATN * CELL;
-const hdCanvas = HD ? document.createElement('canvas') : atlasCanvas; if (HD) { hdCanvas.width = hdCanvas.height = AW; }
+const TS = HD ? 64 : 16, PAD = HD ? 4 : 0, CELL = TS + 2 * PAD, AW = ATN * CELL, AH = HD ? ATH * CELL : atlasCanvas.height;
+const hdCanvas = HD ? document.createElement('canvas') : atlasCanvas; if (HD) { hdCanvas.width = AW; hdCanvas.height = AH; }
 const hdCtx = HD ? hdCanvas.getContext('2d') : null;
 function scale2x(src, n) { const m = n * 2, out = new Uint32Array(m * m); const at = (x, y) => src[clamp(y, 0, n - 1) * n + clamp(x, 0, n - 1)];
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const P = at(x, y), A = at(x, y - 1), Bq = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1); let e0 = P, e1 = P, e2 = P, e3 = P;
@@ -369,9 +369,9 @@ function hdTile(i) {
   hdCtx.putImageData(img, (i % ATN) * CELL, Math.floor(i / ATN) * CELL); return img;
 }
 if (HD) for (let i = 0; i < tileCount; i++) hdTile(i);
-function tileUV(t) { const e = HD ? 0.5 / AW : 0.0004; const col = t % ATN, row = Math.floor(t / ATN); const u0 = (col * CELL + PAD) / AW + e, u1 = (col * CELL + PAD + TS) / AW - e; const vTop = 1 - (row * CELL + PAD) / AW - e, vBot = 1 - (row * CELL + PAD + TS) / AW + e; return [u0, vBot, u1, vTop]; }
+function tileUV(t) { const e = HD ? 0.5 / AW : 0.0004, ev = HD ? 0.5 / AH : 0.0004 * AW / AH; const col = t % ATN, row = Math.floor(t / ATN); const u0 = (col * CELL + PAD) / AW + e, u1 = (col * CELL + PAD + TS) / AW - e; const vTop = 1 - (row * CELL + PAD) / AH - ev, vBot = 1 - (row * CELL + PAD + TS) / AH + ev; return [u0, vBot, u1, vTop]; }
 // u/v of a tile's top-left corner and the size of one source pixel, for sub-tile geometry such as torches
-function tileSub(t) { const col = t % ATN, row = Math.floor(t / ATN); return { u0: (col * CELL + PAD) / AW, v0: 1 - (row * CELL + PAD) / AW, px: TS / 16 / AW }; }
+function tileSub(t) { const col = t % ATN, row = Math.floor(t / ATN); return { u0: (col * CELL + PAD) / AW, v0: 1 - (row * CELL + PAD) / AH, px: TS / 16 / AW, pxv: TS / 16 / AH }; }
 const TILE_UV = []; for (let i = 0; i < tileCount; i++) TILE_UV[i] = tileUV(i);
 
 // ---- Materials ----
@@ -643,14 +643,14 @@ class World {
         continue;
       }
       if (def.render === 'torch') {
-        const t = def.texIds[0]; const { u0, v0, px } = tileSub(t);
+        const t = def.texIds[0]; const { u0, v0, px, pxv } = tileSub(t);
         const s = sky(x, y, z); const mn = [x + 7 / 16, y, z + 7 / 16], mx = [x + 9 / 16, y + 10 / 16, z + 9 / 16];
         // a torch with nothing under it hangs on a wall: its foot against the wall, leaning out (Minecraft's wall torch)
         let wx = 0, wz = 0; if ((id === B.TORCH || id === B.REDSTONE_TORCH || id === B.REDSTONE_TORCH_OFF || id === B.SOUL_TORCH) && !SOLID[get(x, y - 1, z)]) { for (const [a, b] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (SOLID[get(x + a, y, z + b)]) { wx = a; wz = b; break; } }
         for (let f = 0; f < 6; f++) {
           const F = FACES[f]; for (let k = 0; k < 4; k++) { const cc = F.c[k]; vtmp[k * 3] = cc[0] ? mx[0] : mn[0]; vtmp[k * 3 + 1] = cc[1] ? mx[1] : mn[1]; vtmp[k * 3 + 2] = cc[2] ? mx[2] : mn[2]; }
           if (wx || wz) for (let k = 0; k < 4; k++) { const ly = (vtmp[k * 3 + 1] - y) / (10 / 16); vtmp[k * 3] += wx * (0.38 - ly * 0.24); vtmp[k * 3 + 2] += wz * (0.38 - ly * 0.24); vtmp[k * 3 + 1] += 0.22; }
-          let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * px; vb = v0 - 6 * px; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * px; vb = v0 - 6 * px; }
+          let ua, ub, va, vb; if (f === 2 || f === 3) { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 8 * pxv; vb = v0 - 6 * pxv; } else { ua = u0 + 7 * px; ub = u0 + 9 * px; va = v0 - 16 * pxv; vb = v0 - 6 * pxv; }
           const uu = [ua, va, ub, va, ub, vb, ua, vb]; quad(O, vtmp.slice(), uu, s, [1, 1, 1, 1], [1.95, 1.95, 1.95, 1.95], false);
         }
         continue;

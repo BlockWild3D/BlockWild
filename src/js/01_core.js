@@ -40,7 +40,8 @@ class Perlin {
 
 // ---------------- Texture atlas ----------------
 const ATN = 32; // 32 x 32 tiles of 16 px
-const atlasCanvas = document.createElement('canvas'); atlasCanvas.width = atlasCanvas.height = ATN * 16;
+const ATH = 56; // rows in use: the detailed (HD) atlas is ATH x 72 px tall, which must stay under 4096
+const atlasCanvas = document.createElement('canvas'); atlasCanvas.width = ATN * 16; atlasCanvas.height = 64 * 16; // power-of-two height for the classic atlas
 const actx = atlasCanvas.getContext('2d');
 const TILE = {}; let tileCount = 0; const TILE_AVG = [];
 const vary = (c, r, v) => { const f = (r() * 2 - 1) * v; return [c[0] + f, c[1] + f, c[2] + f]; };
@@ -533,7 +534,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineMobBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;

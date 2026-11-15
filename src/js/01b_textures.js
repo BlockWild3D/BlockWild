@@ -115,6 +115,6 @@ function animateTiles(dt, tex) { animT += dt; if (animT < 0.1) return; animT = 0
   if (!HD || typeof renderer === 'undefined' || !renderer.copyTextureToTexture || !tex.__done) { if (HD) for (const k in ANIM) hdTile(TILE[k]); tex.needsUpdate = true; tex.__done = true; return; }
   for (const k in ANIM) { const i = TILE[k]; const img = hdTile(i); let st = animTex[k]; if (!st) { const c = document.createElement('canvas'); c.width = c.height = CELL; st = animTex[k] = { c, x: c.getContext('2d'), tex: new THREE.CanvasTexture(c) }; st.tex.flipY = tex.flipY; }
     st.x.putImageData(img, 0, 0); st.tex.needsUpdate = true; const px = (i % ATN) * CELL, py = Math.floor(i / ATN) * CELL;
-    renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AW - py - CELL : py), st.tex, tex); } }
+    renderer.copyTextureToTexture(new THREE.Vector2(px, tex.flipY ? AH - py - CELL : py), st.tex, tex); } }
 for (const k in ANIM) makeTile(k, ANIM[k](0));
 // (icons are built after the later texture passes, at the end of 01bb_retex.js)
