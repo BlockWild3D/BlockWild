@@ -16669,6 +16669,15 @@ function toolRing(id) {
   const it = id && ITEMS[id]; const m = it && /^(wooden|stone|iron|golden|diamond|netherite|copper)_/.exec(it.key || ''); const k = m ? m[1] : 'iron';
   return { wooden: 0, stone: 0, copper: 0.88, iron: 1, golden: 1.18, diamond: 1.32, netherite: 0.8 }[k];
 }
+// The held item is seen from its back (HELD_ROT), which put the axe's blade on the side facing you. Turn the axe
+// half a turn about its handle so the cutting edge faces forward, like Minecraft.
+const AXE_GEO = new Map();
+function axeHeldGeo(g) {
+  let m = AXE_GEO.get(g); if (m) return m; m = g.clone(); const S = 0.5 / 16;
+  const P = m.attributes.position, N = m.attributes.normal; // handle runs along y = x - 1px: rotate pi about it
+  for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); P.setXYZ(i, y + S, x - S, -z); const nx = N.getX(i), ny = N.getY(i), nz = N.getZ(i); N.setXYZ(i, ny, nx, -nz); }
+  P.needsUpdate = N.needsUpdate = true; AXE_GEO.set(g, m); return m;
+}
 for (const k of ['sword', 'axe', 'pick', 'shovel']) { const sw = TOOL_SWINGS[k]; SWINGS[k] = (p) => toolPose(sw, p); }
 // ---------- per-tool timing and strike-moment sounds ----------
 { const _uh = updateHand; let lastP = 1, lastKind = '';
@@ -16678,6 +16687,7 @@ for (const k of ['sword', 'axe', 'pick', 'shovel']) { const sw = TOOL_SWINGS[k];
     if (sw && kind !== 'spear' && S.swing > 0 && S.swing < 1) S.swing = clamp(S.swing + dt * (1 / 0.3 - 1 / sw.dur), 0, 1);
     if (kind === 'spear' && S.jabT > 0 && S.jabT < 1) S.jabT = clamp(S.jabT + dt * (5 - 1 / sw.dur), 0, 1);
     const r = _uh.apply(this, arguments);
+    if (kind === 'axe' && handMesh && handMesh.userData.baseGeo && handMesh.geometry === handMesh.userData.baseGeo) handMesh.geometry = axeHeldGeo(handMesh.userData.baseGeo);
     if (!sw) { lastKind = ''; return r; }
     if (kind === 'spear') {
       // swap 25's plain push for the keyframed jab
