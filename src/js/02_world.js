@@ -135,7 +135,7 @@ function dungeonFits(g, x0, y0, z0) {
 // ---- Structures (deterministic per chunk; may spill into neighbours) ----
 function structuresFor(world, cx, cz) {
   const key = ckey(cx, cz); const cached = world.structCache.get(key); if (cached) return cached;
-  if (world.dim !== 'overworld') { const S2 = world.dim === 'nether' ? netherStructures(world, cx, cz) : endStructures(world, cx, cz); if (world.structCache.size > 3000) world.structCache.clear(); world.structCache.set(key, S2); return S2; }
+  if (world.dim !== 'overworld') { const S2 = world.dim === 'nether' ? netherStructures(world, cx, cz) : world.dim === 'sift' ? siftStructures(world, cx, cz) : endStructures(world, cx, cz); if (world.structCache.size > 3000) world.structCache.clear(); world.structCache.set(key, S2); return S2; }
   const g = world.gen, seed = world.seed;
   const S = { soft: [], hard: [], mobs: [], kinds: [] };
   const r = mulberry32(ihash(cx, cz, 99, seed));
@@ -448,7 +448,7 @@ for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: tru
 class World {
   constructor(seed, scene, dim = 'overworld') {
     this.seed = seed; this.dim = dim; this.scene = scene; this.yOff = dim === 'overworld' ? YOFF : 0; this.flatSky = dim !== 'overworld'; this.furnaces = new Map();
-    this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : new Gen(seed);
+    this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : dim === 'sift' ? new SiftGen(seed) : new Gen(seed);
     this.chunks = new Map(); this.edits = new Map(); this.chestInv = new Map(); this.chestLoot = new Map(); this.spawners = new Map();
     this.structCache = new Map(); this.hintsDone = new Set(); this.urgent = new Set(); this.onChunkGen = null;
     this.wanted = []; this.lastCenter = null;
@@ -495,7 +495,7 @@ class World {
   generate(cx, cz) {
     const c = new Chunk(cx, cz); const d = c.d; const g = this.gen; const bx = cx * 16, bz = cz * 16;
     let cols = null;
-    if (this.dim === 'nether') genNetherChunk(this, c); else if (this.dim === 'end') genEndChunk(this, c); else cols = this.genOverworld(c);
+    if (this.dim === 'nether') genNetherChunk(this, c); else if (this.dim === 'end') genEndChunk(this, c); else if (this.dim === 'sift') genSiftChunk(this, c); else cols = this.genOverworld(c);
     const lists = [];
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) lists.push(structuresFor(this, cx + dx, cz + dz));
     const x0 = bx, x1 = bx + 15, z0 = bz, z1 = bz + 15;

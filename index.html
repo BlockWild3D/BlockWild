@@ -948,7 +948,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineMobBlocks(); defineWildBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineMobBlocks(); defineWildBlocks(); defineSiftBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -1573,6 +1573,7 @@ function WOODDATA() { return [
   { k: 'cherry', name: 'Cherry', log: 'cherry_log', planks: 'cherry_planks', leaves: 'cherry_leaves', sap: 'cherry_sapling', bark: [56, 34, 46], top: [228, 182, 176], pl: [226, 178, 170], lf: [238, 168, 202], door: 'oak' },
   { k: 'pale_oak', name: 'Pale Oak', log: 'pale_oak_log', planks: 'pale_oak_planks', leaves: 'pale_oak_leaves', sap: 'pale_oak_sapling', bark: [96, 88, 84], top: [224, 212, 206], pl: [226, 214, 208], lf: [134, 140, 124], door: 'oak' },
   { k: 'poplar', name: 'Poplar', log: 'poplar_log', planks: 'poplar_planks', leaves: 'orange_poplar_leaves', sap: 'poplar_sapling', bark: [104, 92, 78], top: [214, 190, 150], pl: [204, 170, 120], lf: [226, 128, 40], door: 'grid' },
+  { k: 'sift', name: 'Sift', log: 'sift_log', planks: 'sift_planks', leaves: 'sift_leaves', sap: 'sift_sapling', bark: [232, 226, 236], top: [242, 232, 240], pl: [234, 210, 226], lf: [246, 180, 218], door: 'oak' },
   { k: 'crimson', name: 'Crimson', log: 'crimson_stem', planks: 'crimson_planks', bark: [118, 40, 62], top: [104, 52, 74], pl: [104, 50, 72], nether: true, door: 'grid' },
   { k: 'warped', name: 'Warped', log: 'warped_stem', planks: 'warped_planks', bark: [52, 92, 98], top: [44, 108, 102], pl: [44, 106, 100], nether: true, door: 'grid' },
   { k: 'bamboo', name: 'Bamboo', planks: 'bamboo_planks', pl: [196, 174, 82], bamboo: true, door: 'oak' },
@@ -1643,13 +1644,13 @@ function paintWoodTiles() {
     }
     // logs (new woods), stripped logs
     const darker = mixd(w.bark, 0.72), hi = mixd(w.bark, 1.22);
-    if (['mangrove', 'cherry', 'pale_oak', 'poplar'].includes(w.k)) {
+    if (['mangrove', 'cherry', 'pale_oak', 'poplar', 'sift'].includes(w.k)) {
       makeTile(w.k + '_side', (set, r) => bark3(set, r, { seed: 610 + w.k.length, base: w.bark, dark: darker, hi, groove: mixd(w.bark, 0.55), grooves: w.k === 'cherry' ? [1, 4, 6, 9, 12, 14] : [2, 6, 11], cracks: w.k === 'pale_oak' ? 6 : 2, spots: w.k === 'pale_oak' ? 10 : 0, spot: [176, 166, 160] }));
       makeTile(w.k + '_top', (set, r) => rings3(set, r, w.top, mixd(w.top, 0.86), w.bark));
     }
     makeTile('stripped_' + w.k + '_side', (set, r) => { const n = tnoise(700 + w.k.length, 8); each((x, y) => { const v = n(x * 0.6, y * 0.15); let c = mixd(w.pl, 0.92 + v * 0.14); if (x % 5 === 2 && r() < 0.5) c = mixd(w.pl, 0.8); set(x, y, vary(c, r, 3)); }); });
     makeTile('stripped_' + w.k + '_top', (set, r) => rings3(set, r, mixd(w.pl, 1.04), mixd(w.pl, 0.88), mixd(w.pl, 0.92)));
-    if (w.leaves && ['mangrove', 'cherry', 'pale_oak', 'poplar'].includes(w.k)) makeTile(w.leaves, (set, r) => leafPaint(set, r, w.lf));
+    if (w.leaves && ['mangrove', 'cherry', 'pale_oak', 'poplar', 'sift'].includes(w.k)) makeTile(w.leaves, (set, r) => leafPaint(set, r, w.lf));
     if (w.k === 'cherry') makeTile('cherry_leaves', (set, r) => { leafPaint(set, r, [236, 160, 196]); for (let k = 0; k < 10; k++) set(r() * 16 | 0, r() * 16 | 0, [255, 214, 232]); });
     if (w.sap) makeTile(w.sap, (set, r) => saplingPaint(set, r, w));
   }
@@ -1909,6 +1910,7 @@ function EXTRA_STONE_SETS() { return [
   ['polished_deepslate', 'polished_deepslate', 'Polished Deepslate', 1], ['polished_blackstone', 'polished_blackstone', 'Polished Blackstone', 1], ['polished_tuff', 'polished_tuff', 'Polished Tuff', 1],
   ['sulfur', 'sulfur', 'Sulfur', 1], ['polished_sulfur', 'polished_sulfur', 'Polished Sulfur', 1], ['sulfur_brick', 'sulfur_bricks', 'Sulfur Brick', 1],
   ['cinnabar', 'cinnabar', 'Cinnabar', 1], ['polished_cinnabar', 'polished_cinnabar', 'Polished Cinnabar', 1], ['cinnabar_brick', 'cinnabar_bricks', 'Cinnabar Brick', 1], ['resin_brick', 'resin_bricks', 'Resin Brick', 1],
+  ['siftstone', 'siftstone', 'Siftstone', 1], ['polished_siftstone', 'polished_siftstone', 'Polished Siftstone', 1], ['siftstone_brick', 'siftstone_bricks', 'Siftstone Brick', 1], ['carapace', 'carapace', 'Carapace', 1],
   ...COLORDATA().flatMap(([c, N]) => [[c + '_wool', c === 'white' ? 'wool' : c + '_wool', N + ' Wool', 0], [c + '_concrete', c + '_concrete', N + ' Concrete', 0]]),
 ]; }
 function defineStoneBlocks() {
@@ -2855,7 +2857,7 @@ function paintItemBlockTiles() { const planks = tilePixels('planks'), sand = til
   for (const [k, desc] of DISCS) M4('music_disc_' + k, 'Music Disc', { kind: 'disc', stack: 1, disc: k, desc }, discP(LABEL[k] || [200, 200, 200]));
   M4('disc_fragment_5', 'Disc Fragment', { desc: 'Music Disc - 5' }, (s) => { for (let y = 4; y <= 11; y++) for (let x = 4; x <= 11; x++) if (x + y < 18 && x - y > -5) s(x, y, (x + y) % 3 ? [40, 40, 44] : [90, 110, 120]); });
   // boats and chest boats for every wood
-  const BOATC = { oak: [164, 132, 80], spruce: [114, 84, 48], birch: [200, 184, 130], jungle: [160, 114, 80], acacia: [170, 90, 50], dark_oak: [70, 46, 22], mangrove: [118, 54, 48], cherry: [226, 176, 168], bamboo: [196, 176, 84], pale_oak: [228, 218, 206] , poplar: [204, 170, 120] };
+  const BOATC = { oak: [164, 132, 80], spruce: [114, 84, 48], birch: [200, 184, 130], jungle: [160, 114, 80], acacia: [170, 90, 50], dark_oak: [70, 46, 22], mangrove: [118, 54, 48], cherry: [226, 176, 168], bamboo: [196, 176, 84], pale_oak: [228, 218, 206] , poplar: [204, 170, 120], sift: [234, 210, 226] };
   const boatP = (P, chest) => (s, r) => { const D = dk(P, 0.62), L = mixc(P, [255, 255, 255], 0.22); pLine(s, 3, 2, 8, 8, dk(P, 0.78)); pLine(s, 2, 2, 3, 2, dk(P, 0.78)); s(2, 3, dk(P, 0.78));
     for (let x = 1; x <= 14; x++) { const bot = x < 3 || x > 12 ? 10 : 11; for (let y = 7; y <= bot; y++) s(x, y, y === 7 ? L : (y === bot || x === 1 || x === 14) ? D : y === 9 ? dk(P, 0.82) : vary(P, r, 6)); } for (let x = 3; x <= 12; x++) s(x, 12, D);
     if (chest) { box(s, 8, 3, 13, 7, (x, y) => (x === 8 || x === 13 || y === 3 || y === 7) ? [90, 60, 30] : y === 5 ? [120, 80, 40] : [160, 108, 50]); s(10, 5, [200, 200, 200]); s(11, 5, [200, 200, 200]); } };
@@ -3210,6 +3212,71 @@ function paintWildTiles() {
   L('straw_bed', 4, ['hay_block', 'hay_block', 'hay_block']); L('red_dye', 1, ['red_shrub']);
 }
 
+// ================= THE SIFT: blocks, items and recipes =================
+// Mojang revealed the Sift (Minecraft Live, September 2026) as a fourth dimension coming to Java and Bedrock in 2027:
+// a bright, soul-rich place with pink grass, white Sift trees, spirit creatures such as the Blub, reached through the
+// great portal frame in ancient cities. That is all that is public, so everything else here is BlockWild's own take:
+// Sift soil, siftstone, carapace (the shell plates of "the Carapace"), soul crystals, songblooms, wisp lilies and
+// sift sprouts. The Sift wood set (log, planks, leaves, sapling, stairs, door, boat...) comes from WOODDATA in
+// 01aa_woods.js. Rules, world generation and the Blub: 98_sift.js.
+function defineSiftBlocks() {
+  const ph = (n, c, a) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c, a === undefined ? 255 : a))); return n; };
+  defBlock('sift_grass_block', 'Sift Grass Block', { tex: { s: ph('sift_grass_side', [200, 130, 170]), t: ph('sift_grass_top', [236, 150, 196]), b: ph('sift_soil', [150, 118, 160]) }, hardness: 0.6, drop: 'sift_soil', snd: 'grass', siftSoil: true });
+  defBlock('sift_soil', 'Sift Soil', { tex: 'sift_soil', hardness: 0.5, snd: 'grass', siftSoil: true });
+  defBlock('siftstone', 'Siftstone', { tex: ph('siftstone', [196, 186, 206]), hardness: 1.5, tool: 'pick', tier: 1, snd: 'stone', mine: 'pick' });
+  defBlock('polished_siftstone', 'Polished Siftstone', { tex: ph('polished_siftstone', [206, 198, 214]), hardness: 1.5, tool: 'pick', tier: 1, snd: 'stone', mine: 'pick' });
+  defBlock('siftstone_bricks', 'Siftstone Bricks', { tex: ph('siftstone_bricks', [200, 190, 210]), hardness: 1.5, tool: 'pick', tier: 1, snd: 'stone', mine: 'pick' });
+  defBlock('carapace', 'Carapace', { tex: ph('carapace', [196, 226, 222]), hardness: 2.5, tool: 'pick', tier: 1, snd: 'stone', mine: 'pick' });
+  defBlock('soul_crystal_block', 'Soul Crystal Block', { tex: ph('soul_crystal_block', [120, 220, 240]), hardness: 1.2, tool: 'pick', tier: 1, snd: 'glass', mine: 'pick', light: 0.8 });
+  defBlock('soul_crystal', 'Soul Crystal', { tex: ph('soul_crystal', [120, 220, 240], 0), render: 'cross', solid: false, opaque: false, hardness: 0.6, snd: 'glass', mine: 'pick', light: 0.55, drop: (r) => ['soul_shard', 1 + Math.floor(r * 2)] });
+  defBlock('songbloom', 'Songbloom', { tex: ph('songbloom', [240, 120, 200], 0), solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, light: 0.35, flower: true });
+  defBlock('wisp_lily', 'Wisp Lily', { tex: ph('wisp_lily', [130, 200, 255], 0), solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, light: 0.35, flower: true });
+  defBlock('sift_sprouts', 'Sift Sprouts', { tex: ph('sift_sprouts', [236, 160, 200], 0), solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true, drop: null });
+  // the rift: what fills an ancient city's portal frame once it is woken, and the gates that lead back
+  defBlock('sift_portal', 'Sift Rift', { tex: ph('sift_portal', [60, 200, 220]), solid: false, opaque: false, render: 'portal', axis: 'x', hardness: -1, drop: null, light: 0.75, noTarget: true });
+  defBlock('sift_portal_z', 'Sift Rift', { tex: 'sift_portal', solid: false, opaque: false, render: 'portal', axis: 'z', hardness: -1, drop: null, light: 0.75, noTarget: true, hidden: true });
+}
+function paintSiftTiles() {
+  const mixd = (c, k) => c.map(v => clamp(Math.round(v * k), 0, 255));
+  const PINK = [230, 146, 194], PINK_HI = [242, 170, 212], PINK_LO = [214, 126, 178];
+  const SOIL = [146, 112, 156], SOIL_LO = [118, 88, 130], SOIL_HI = [172, 140, 180];
+  makeTile('sift_grass_top', (set, r) => { const n = tnoise(9101, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.62 ? PINK_HI : v < 0.32 ? PINK_LO : PINK, r, 7)); }); for (let k = 0; k < 4; k++) set(r() * 16 | 0, r() * 16 | 0, [250, 200, 228]); });
+  makeTile('sift_soil', (set, r) => { const n = tnoise(9102, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.66 ? SOIL_HI : v < 0.3 ? SOIL_LO : SOIL, r, 6)); }); for (let k = 0; k < 5; k++) { const x = r() * 15 | 0, y = r() * 15 | 0; set(x, y, [196, 176, 206]); set(x + 1, y, [160, 140, 172]); } });
+  makeTile('sift_grass_side', (set, r) => { const n = tnoise(9102, 4); each((x, y) => { const v = n(x, y); set(x, y, vary(v > 0.66 ? SOIL_HI : v < 0.3 ? SOIL_LO : SOIL, r, 6)); });
+    for (let x = 0; x < 16; x++) { const d = 3 + ((x * 7 + 3) % 5 === 0 ? 2 : (x * 3) % 4 === 0 ? 1 : 0); for (let y = 0; y < d; y++) set(x, y, vary(y === d - 1 ? PINK_LO : y === 0 ? PINK_HI : PINK, r, 6)); } });
+  // siftstone: pale lilac stone with soft wavy strata
+  const stoneC = (x, y, r, base) => { const w = Math.sin(x * 0.55 + y * 0.2) * 1.2 + y; const band = Math.floor(w / 4) % 3; return vary(band === 0 ? mixd(base, 1.05) : band === 1 ? base : mixd(base, 0.9), r, 6); };
+  makeTile('siftstone', (set, r) => { each((x, y) => set(x, y, stoneC(x, y, r, [194, 184, 206]))); for (let k = 0; k < 4; k++) { const x = r() * 14 | 0, y = r() * 14 | 0; set(x, y, [168, 156, 184]); set(x + 1, y + 1, [168, 156, 184]); } });
+  makeTile('polished_siftstone', (set, r) => each((x, y) => { const e = x === 0 || y === 0 || x === 15 || y === 15; const e2 = x === 15 || y === 15; set(x, y, vary(e2 ? [170, 160, 186] : e ? [226, 218, 234] : [206, 198, 216], r, 3)); }));
+  makeTile('siftstone_bricks', (set, r) => each((x, y) => { const row = y >> 2; const off = row & 1 ? 4 : 0; const mortar = y % 4 === 3 || (x + off) % 8 === 7; const top = y % 4 === 0; set(x, y, vary(mortar ? [150, 140, 166] : top ? [218, 210, 228] : [198, 188, 210], r, 5)); }));
+  // carapace: overlapping shell plates, pale teal with darker seams and a pearly shine
+  makeTile('carapace', (set, r) => each((x, y) => { const row = y >> 2; const sx = (x + (row & 1) * 4) % 8; const cy = y % 4; const seam = cy === 3 || (cy >= 2 && (sx === 0 || sx === 7)); const d = Math.hypot(sx - 3.5, cy - 0.5) / 4.2;
+    let c = seam ? [86, 146, 158] : mixd([160, 216, 208], 1.06 - d * 0.2); if (!seam && cy === 0 && sx > 1 && sx < 6) c = [214, 246, 238]; set(x, y, vary(c, r, 4)); }));
+  makeTile('soul_crystal_block', (set, r) => each((x, y) => { const f = ((x * 3 + y * 5) % 11) / 11; const edge = (x + y) % 8 === 0 || (x - y + 16) % 8 === 0; set(x, y, vary(edge ? [220, 252, 255] : f > 0.6 ? [130, 226, 246] : f > 0.3 ? [92, 196, 230] : [70, 160, 214], r, 5)); }));
+  makeTile('soul_crystal', (set, r) => { clear(set); const shard = (x0, h, w, tilt) => { for (let y = 0; y < h; y++) { const yy = 15 - y; const ww = Math.max(1, Math.round(w * (1 - y / h))); const xc = Math.round(x0 + tilt * y); for (let x = xc - (ww >> 1); x < xc - (ww >> 1) + ww; x++) set(clamp(x, 0, 15), yy, x === xc ? [226, 252, 255] : y > h * 0.6 ? [150, 236, 250] : [86, 190, 230]); } };
+    shard(7, 13, 4, 0); shard(3, 8, 3, -0.15); shard(12, 9, 3, 0.15); });
+  // flowers: songbloom (a pink bell with a glowing heart) and wisp lily (blue, curled petals)
+  makeTile('songbloom', (set, r) => { clear(set); for (let y = 7; y < 16; y++) set(7 + (y > 12 ? 1 : 0), y, [70, 150, 120]); set(6, 12, [80, 170, 130]); set(5, 11, [80, 170, 130]); set(9, 10, [80, 170, 130]); set(10, 9, [80, 170, 130]);
+    for (let y = 1; y < 8; y++) for (let x = 3; x < 13; x++) { const d = Math.hypot((x - 7.5) / (2.2 + y * 0.42), (y - 4.5) / 3.4); if (d < 1) set(x, y, d < 0.35 ? [255, 244, 252] : d < 0.6 ? [255, 176, 226] : y > 5 ? [200, 70, 160] : [236, 112, 196]); }
+    set(5, 8, [220, 90, 180]); set(10, 8, [220, 90, 180]); });
+  makeTile('wisp_lily', (set, r) => { clear(set); for (let y = 6; y < 16; y++) set(8 - (y > 11 ? 1 : 0), y, [60, 140, 130]); set(9, 13, [70, 160, 140]); set(10, 12, [70, 160, 140]); set(6, 11, [70, 160, 140]);
+    for (const [px, py, dx] of [[4, 4, -1], [12, 4, 1], [8, 1, 0]]) for (let k = 0; k < 4; k++) { const x = px + (dx * k >> 1), y = py + (dx === 0 ? k : k >> 1); set(clamp(x, 0, 15), y, k === 0 ? [220, 246, 255] : [120, 190, 250]); set(clamp(x + (dx || 1), 0, 15), y, [80, 150, 230]); }
+    set(8, 5, [255, 255, 236]); set(7, 5, [190, 236, 255]); set(8, 4, [190, 236, 255]); });
+  makeTile('sift_sprouts', (set, r) => { clear(set); for (let k = 0; k < 9; k++) { const x0 = 1 + r() * 14 | 0, h = 4 + r() * 8 | 0, lean = (r() - 0.5) * 0.5; for (let y = 0; y < h; y++) set(clamp(Math.round(x0 + lean * y), 0, 15), 15 - y, y > h - 3 ? PINK_HI : y > h / 2 ? PINK : PINK_LO); } });
+  makeTile('sift_leaves', (set, r) => { leafPaint(set, r, [244, 178, 216]); for (let k = 0; k < 10; k++) set(r() * 16 | 0, r() * 16 | 0, [255, 234, 246]); for (let k = 0; k < 3; k++) set(r() * 16 | 0, r() * 16 | 0, [176, 232, 255]); });
+  // the rift: deep blue swirled with soul-cyan and Sift pink
+  makeTile('sift_portal', (set, r) => each((x, y) => { const v = Math.sin(x * 0.8 + y * 0.35) + Math.sin(y * 0.6 - x * 0.4) * 0.9 + r() * 0.7; set(x, y, v > 1.15 ? [250, 170, 230] : v > 0.45 ? [70, 220, 236] : v > -0.4 ? [40, 110, 190] : [20, 34, 92]); }));
+}
+{ const MI = (key, name, o, icon) => { if (IT[key] !== undefined) { if (icon) ICONP[key] = icon; Object.assign(ITEMS[IT[key]], o || {}); return IT[key]; } const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };
+  MI('soul_shard', 'Soul Shard', {}, (s) => { const P = [[7, 2], [8, 2], [6, 3], [9, 3], [5, 4], [10, 4], [5, 5], [10, 5], [5, 6], [10, 6], [6, 7], [9, 7], [6, 8], [9, 8], [7, 9], [8, 9], [7, 10], [8, 10], [7, 11]];
+    for (let y = 3; y <= 10; y++) for (let x = 6; x <= 9; x++) s(x, y, (x + y) % 3 ? [100, 206, 238] : [150, 236, 250]); for (const [x, y] of P) s(x, y, [60, 150, 210]); s(7, 4, [230, 254, 255]); s(7, 5, [230, 254, 255]); s(8, 6, [200, 246, 255]); });
+  const R = (o, n, shp, k) => RECIPES.push(RSH(o, n, shp, k)), L = (o, n, items) => RECIPES.push(RSL(o, n, items));
+  R('polished_siftstone', 4, ['SS', 'SS'], { S: 'siftstone' }); R('siftstone_bricks', 4, ['SS', 'SS'], { S: 'polished_siftstone' });
+  R('soul_crystal_block', 1, ['SS', 'SS'], { S: 'soul_shard' }); L('soul_shard', 4, ['soul_crystal_block']);
+  L('pink_dye', 2, ['songbloom']); L('light_blue_dye', 2, ['wisp_lily']);
+  R('soul_lantern', 1, ['NNN', 'NSN', 'NNN'], { N: 'iron_nugget', S: 'soul_shard' });
+}
+
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
   const r = mulberry32(seed); const g = []; for (let i = 0; i < period * period; i++) g.push(r());
@@ -3442,7 +3509,7 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles(); paintNewTiles(); paintMobTiles(); paintWildTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles(); paintNewTiles(); paintMobTiles(); paintWildTiles(); paintSiftTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
@@ -4052,7 +4119,7 @@ function dungeonFits(g, x0, y0, z0) {
 // ---- Structures (deterministic per chunk; may spill into neighbours) ----
 function structuresFor(world, cx, cz) {
   const key = ckey(cx, cz); const cached = world.structCache.get(key); if (cached) return cached;
-  if (world.dim !== 'overworld') { const S2 = world.dim === 'nether' ? netherStructures(world, cx, cz) : endStructures(world, cx, cz); if (world.structCache.size > 3000) world.structCache.clear(); world.structCache.set(key, S2); return S2; }
+  if (world.dim !== 'overworld') { const S2 = world.dim === 'nether' ? netherStructures(world, cx, cz) : world.dim === 'sift' ? siftStructures(world, cx, cz) : endStructures(world, cx, cz); if (world.structCache.size > 3000) world.structCache.clear(); world.structCache.set(key, S2); return S2; }
   const g = world.gen, seed = world.seed;
   const S = { soft: [], hard: [], mobs: [], kinds: [] };
   const r = mulberry32(ihash(cx, cz, 99, seed));
@@ -4365,7 +4432,7 @@ for (const m of [chunkMat, waterMat, glowMat]) m.extensions = { derivatives: tru
 class World {
   constructor(seed, scene, dim = 'overworld') {
     this.seed = seed; this.dim = dim; this.scene = scene; this.yOff = dim === 'overworld' ? YOFF : 0; this.flatSky = dim !== 'overworld'; this.furnaces = new Map();
-    this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : new Gen(seed);
+    this.gen = dim === 'nether' ? new NetherGen(seed) : dim === 'end' ? new EndGen(seed) : dim === 'sift' ? new SiftGen(seed) : new Gen(seed);
     this.chunks = new Map(); this.edits = new Map(); this.chestInv = new Map(); this.chestLoot = new Map(); this.spawners = new Map();
     this.structCache = new Map(); this.hintsDone = new Set(); this.urgent = new Set(); this.onChunkGen = null;
     this.wanted = []; this.lastCenter = null;
@@ -4412,7 +4479,7 @@ class World {
   generate(cx, cz) {
     const c = new Chunk(cx, cz); const d = c.d; const g = this.gen; const bx = cx * 16, bz = cz * 16;
     let cols = null;
-    if (this.dim === 'nether') genNetherChunk(this, c); else if (this.dim === 'end') genEndChunk(this, c); else cols = this.genOverworld(c);
+    if (this.dim === 'nether') genNetherChunk(this, c); else if (this.dim === 'end') genEndChunk(this, c); else if (this.dim === 'sift') genSiftChunk(this, c); else cols = this.genOverworld(c);
     const lists = [];
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) lists.push(structuresFor(this, cx + dx, cz + dz));
     const x0 = bx, x1 = bx + 15, z0 = bz, z1 = bz + 15;
@@ -7030,7 +7097,7 @@ function tick(dt) {
     hudT = 0.25;
     const hrs = (S.time * 24 + 6) % 24; const hh = Math.floor(hrs), mm = Math.floor((hrs - hh) * 60 / 10) * 10;
     const bname = world.gen.biomeName(Math.floor(P.pos.x), Math.floor(P.pos.z), Math.floor(P.pos.y + 0.5));
-    $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
+    $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : world.dim === 'sift' ? 'The Sift' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
   renderFrame(); updateModHuds(dt);
@@ -7058,7 +7125,7 @@ function travelTo(dim, arrival) {
   if (arrival.type === 'end-spawn') player.pos.set(100.5, 100, 0.5);
   player.vel.set(0, 0, 0); player.peak = null; player.flying = false;
   S.loading = true; show('loading', true); $('loadBar').style.width = '0%';
-  $('loadTxt').textContent = dim === 'nether' ? 'Entering the Nether...' : dim === 'end' ? 'Entering the End...' : 'Returning to the Overworld...';
+  $('loadTxt').textContent = dim === 'nether' ? 'Entering the Nether...' : dim === 'end' ? 'Entering the End...' : dim === 'sift' ? 'Entering the Sift...' : 'Returning to the Overworld...';
   S.portalT = 0; S.portalLock = true; $('portalfx').style.opacity = 0; show('lavafx', false);
   Sfx.play('portal', 1);
 }
@@ -18235,6 +18302,188 @@ if (ITEMS[IT.straw_bed]) ITEMS[IT.straw_bed].stack = 16;
 // creative inventory
 { const keys = ['poplar_log', 'poplar_wood', 'stripped_poplar_log', 'stripped_poplar_wood', 'poplar_planks', 'orange_poplar_leaves', 'red_poplar_leaves', 'yellow_poplar_leaves', 'poplar_sapling', 'shelf_mushroom', 'red_shrub', 'straw_bed', ...COLORDATA().map(c => c[0] + '_cushion'), 'buried_treasure_map'];
   const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
+
+// ================= THE SIFT: the fourth dimension =================
+// What Mojang has shown (Minecraft Live, September 2026): a bright, soul-rich dimension with pink grass and white Sift
+// trees, home to spirit creatures such as the Blub, reached through the great portal frame at the heart of an ancient
+// city. Everything else is BlockWild's own interpretation until the real thing ships in 2027:
+//  - Wake an ancient city's portal by using an Echo Shard on its reinforced deepslate frame. The frame fills with a
+//    rift; stand in it to cross over. You arrive beside a small return rift.
+//  - Singer's Meadow: rolling pink grassland, groves of white Sift trees, songblooms, wisp lilies, glowing pools.
+//  - The Carapace: great ridges of shell plates arching over hollows, soul crystals growing on top.
+//  - Drifting Isles float above the meadow. Rare rift gates stand in the meadow and lead back to the same spot in
+//    the Overworld.
+//  - The Blub: a little floating soul. It follows anyone holding a songbloom; feed it one and it sings, and now and
+//    then leaves a soul shard behind.
+// Blocks and items: 01aq_sift.js. The World picks SiftGen for dimension 'sift' (02_world.js).
+const SIFT_SEA = 58;
+class SiftGen {
+  constructor(seed) { this.seed = seed; this.n = new Perlin(seed + 401); this.n2 = new Perlin(seed + 402); this.nb = new Perlin(seed + 403); this.nr = new Perlin(seed + 404); this.ni = new Perlin(seed + 405); this.nh = new Perlin(seed + 406); }
+  column(x, z) {
+    const car = smoothstep(0.08, 0.32, this.nb.n2(x / 260 + 11.3, z / 260 - 7.1));
+    const base = 66 + this.n.n2(x / 110, z / 110) * 10 + this.n2.n2(x / 34, z / 34) * 3.2 + this.n2.n2(x / 9 + 40, z / 9) * 0.7;
+    const ridge = 1 - Math.abs(this.nr.n2(x / 52, z / 52)); const plate = car * (Math.pow(ridge, 5) * 30 + ridge * 4);
+    const isle = car < 0.3 ? this.ni.n2(x / 38, z / 38) - 0.52 : -1;
+    return { h: Math.round(base + plate), base: Math.round(base), plate, car, b: car > 0.5 ? 1 : 0, v: 0, isle };
+  }
+  hollow(x, y, z) { return this.nh.n3(x / 14, y / 9, z / 14) > 0.22; }
+  biome(x, z) { return this.column(x, z).b; }
+  biomeName(x, z, y) { const c = this.column(Math.floor(x), Math.floor(z)); if (y != null && c.isle > 0 && y > 100) return 'Drifting Isles'; return c.b ? 'The Carapace' : "Singer's Meadow"; }
+}
+function genSiftChunk(world, c) {
+  const g = world.gen, d = c.d, bx = c.cx * 16, bz = c.cz * 16, seed = world.seed; const I = (x, y, z) => (y * 16 + z) * 16 + x;
+  const flowers = (X, Z) => g.n2.n2(X / 22 + 100, Z / 22) > 0.25;
+  for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+    const X = bx + x, Z = bz + z; const col = g.column(X, Z); const h = col.h; const shell = col.plate > 3;
+    d[I(x, 0, z)] = B.BEDROCK;
+    for (let y = 1; y < h; y++) {
+      let id = y === h - 1 ? (shell ? B.CARAPACE : h - 1 < SIFT_SEA ? B.SIFT_SOIL : B.SIFT_GRASS_BLOCK) : y >= h - 4 ? (shell ? B.CARAPACE : B.SIFT_SOIL) : B.SIFTSTONE;
+      if (col.plate > 9 && y > col.base + 1 && y < h - 3 && g.hollow(X, y, Z)) id = 0; // arches under the shell ridges
+      d[I(x, y, z)] = id;
+    }
+    for (let y = h; y < SIFT_SEA; y++) d[I(x, y, z)] = B.WATER;
+    const q = rnd01(X, 7, Z, seed);
+    if (h < SIFT_SEA) { if (q < 0.1) d[I(x, h - 1, z)] = B.SOUL_CRYSTAL_BLOCK; }
+    else if (shell) { if (q < 0.012 && h < WH - 2) d[I(x, h, z)] = B.SOUL_CRYSTAL; }
+    else if (h < WH - 2) { const fl = flowers(X, Z); if (fl && q < 0.09) d[I(x, h, z)] = q < 0.06 ? B.SONGBLOOM : B.WISP_LILY; else if (q < 0.25) d[I(x, h, z)] = B.SIFT_SPROUTS; else if (q < 0.253) d[I(x, h, z)] = B.SONGBLOOM; }
+    // drifting isles: lens-shaped islands of siftstone with a grassy top
+    if (col.isle > 0) { const top = 112 + Math.round(g.n.n2(X / 20, Z / 20) * 3); const th = Math.min(16, Math.round(col.isle * 60)); if (th > 0) {
+      for (let y = top - th; y <= top; y++) d[I(x, y, z)] = y === top ? B.SIFT_GRASS_BLOCK : y >= top - 2 ? B.SIFT_SOIL : B.SIFTSTONE;
+      const q2 = rnd01(X, 9, Z, seed); if (q2 < 0.2) d[I(x, top + 1, z)] = q2 < 0.03 ? B.SONGBLOOM : B.SIFT_SPROUTS; else if (th > 3 && q2 > 0.985) d[I(x, top - th, z)] = B.SOUL_CRYSTAL_BLOCK; } }
+  }
+  // soul crystal pockets in the siftstone
+  const r = mulberry32(ihash(c.cx, c.cz, 8807, seed));
+  for (let t = 0; t < 5; t++) { const x = 1 + (r() * 14 | 0), z = 1 + (r() * 14 | 0), y = 6 + (r() * 50 | 0); if (d[I(x, y, z)] !== B.SIFTSTONE) continue;
+    for (let k = 0; k < 6; k++) { const a = x + (r() * 3 | 0) - 1, b = y + (r() * 3 | 0) - 1, e = z + (r() * 3 | 0) - 1; if (d[I(a, b, e)] === B.SIFTSTONE) d[I(a, b, e)] = B.SOUL_CRYSTAL_BLOCK; } }
+}
+// white Sift trees: a slim trunk that kinks once, a wide soft canopy and strands hanging from its rim
+TREES.sift = function (put, x, y, z, r) {
+  const H = 5 + (r() * 4 | 0); const log = B.SIFT_LOG, lv = B.SIFT_LEAVES; let tx = x, tz = z; const lean = r() < 0.5 ? [r() < 0.5 ? 1 : -1, 0] : [0, r() < 0.5 ? 1 : -1];
+  for (let i = 0; i < H; i++) { if (i === H - 3 && r() < 0.6) { tx += lean[0]; tz += lean[1]; } put(tx, y + i, tz, log, true); }
+  const top = y + H, R = 3 + (r() < 0.4 ? 1 : 0);
+  for (let dy = -2; dy <= 1; dy++) { const rad = dy === 1 ? R - 2 : dy === 0 ? R - 1 : dy === -1 ? R : R - 1; for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) { const dd = dx * dx + dz * dz; if (dd > rad * rad + 1) continue; if (dd >= rad * rad - 1 && r() < 0.4) continue; put(tx + dx, top + dy, tz + dz, lv); } }
+  for (let k = 0; k < 6; k++) { const a = r() * Math.PI * 2; const hx = tx + Math.round(Math.cos(a) * R), hz = tz + Math.round(Math.sin(a) * R); const L = 1 + (r() * 3 | 0); for (let i = 1; i <= L; i++) put(hx, top - 2 - i, hz, lv); }
+};
+function siftStructures(world, cx, cz) {
+  const g = world.gen, seed = world.seed; const S = { soft: [], hard: [], mobs: [], kinds: [] }; const r = mulberry32(ihash(cx, cz, 7711, seed));
+  const bx = cx * 16, bz = cz * 16; const hard = (x, y, z, id) => S.hard.push(x, y, z, id); const soft = (x, y, z, id) => S.soft.push(x, y, z, id);
+  // a rift gate back to the Overworld, rarely
+  let gate = null;
+  if (ihash(cx, cz, 9917, seed) % 1000 < 7) { const X = bx + 8, Z = bz + 8; const col = g.column(X, Z); if (!col.b && col.h > SIFT_SEA + 1) { gate = [X, col.h, Z]; riftShape(hard, X, col.h, Z, true); S.kinds.push(['rift', X, Z, col.h]); } }
+  // trees: groves here and there, open meadow between
+  const grove = g.n2.n2(bx / 70 + 3, bz / 70 - 5); const n = grove > 0.15 ? 3 + (r() * 3 | 0) : r() < 0.35 ? 1 : 0;
+  for (let i = 0; i < n; i++) { const X = bx + (r() * 16 | 0), Z = bz + (r() * 16 | 0); const col = g.column(X, Z); if (col.plate > 3 || col.h <= SIFT_SEA || (gate && Math.abs(X - gate[0]) < 5 && Math.abs(Z - gate[2]) < 5)) continue;
+    TREES.sift((x, y, z, id, isLog) => (isLog ? hard : soft)(x, y, z, id), X, col.h, Z, r); }
+  if (r() < 0.06) { const X = bx + 4 + (r() * 8 | 0), Z = bz + 4 + (r() * 8 | 0); const col = g.column(X, Z); if (col.h >= SIFT_SEA) for (let k = 0; k < 1 + (r() * 3 | 0); k++) S.mobs.push(['blub', X + 0.5 + k * 0.7, col.h + 1.2, Z + 0.5]); }
+  return S;
+}
+// a rift: a 4x5 frame of siftstone bricks (carapace corners) around a 2x3 rift, facing along z, with a pad in front
+function riftShape(set, x, y, z, pad) {
+  if (pad) for (let dx = -2; dx <= 3; dx++) for (let dz = -2; dz <= 3; dz++) { set(x + dx, y - 1, z + dz, B.SIFTSTONE_BRICKS); if (dz) for (let dy = 0; dy <= 3; dy++) set(x + dx, y + dy, z + dz, 0); }
+  for (let dx = -1; dx <= 2; dx++) for (let dy = -1; dy <= 3; dy++) { const fx = dx === -1 || dx === 2, fy = dy === -1 || dy === 3; set(x + dx, y + dy, z, fx && fy ? B.CARAPACE : fx || fy ? B.SIFTSTONE_BRICKS : B.SIFT_PORTAL); }
+}
+const isSPortal = (id) => id === B.SIFT_PORTAL || id === B.SIFT_PORTAL_Z;
+// ---- waking an ancient city's portal ----
+function cityAt(x, z, wide) { const sts = bigStartsNear(world, 'ancient_city', x >> 4, z >> 4, 5); let best = null, bd = 1e18;
+  for (const st of sts) { const L = acLayout(world, st); const dd = (L.ox - x) ** 2 + (L.oz - z) ** 2; if ((wide || (Math.abs(x - L.ox) <= 11 && Math.abs(z - L.oz) <= 2)) && dd < bd) { bd = dd; best = L; } } return best; }
+function wakeCityPortal(x, y, z) {
+  const L = cityAt(x, z, false); if (!L || y < L.y0 || y > L.y0 + 19) return false; let n = 0, open = 0;
+  for (let dx = -8; dx <= 8; dx++) for (let h = 1; h <= 10; h++) { const X = L.ox + dx, Y = L.y0 + 2 + h, Z = L.oz; const id = world.get(X, Y, Z); if (isSPortal(id)) open++; else if (id === 0 || PLANT[id] || (BL[id] && BL[id].fluid)) { world.set(X, Y, Z, B.SIFT_PORTAL); n++; } }
+  if (!n) { if (open) toast('The rift is already open', 2); return open > 0; }
+  for (let i = 0; i < 4; i++) Particles.emit(L.ox + 0.5 + (i - 1.5) * 4, L.y0 + 8, L.oz + 0.5, 30, [[0.3, 0.9, 1], [1, 0.6, 0.9], [0.8, 1, 1]], 3, 1.6, -1, 3);
+  Sfx.play('portal', 1); Sfx.play('levelup', 0.6, 0.6); toast('The ancient portal wakes. A rift to the Sift is open.', 5); return true;
+}
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const h = player.held(); const hd = h && ITEMS[h.id];
+    if (hd && hd.key === 'echo_shard' && target && !targetMob && !isSpec() && world.dim === 'overworld' && target.id === B.REINFORCED_DEEPSLATE && wakeCityPortal(target.x, target.y, target.z)) { useHeld(1); S.swing = 1; mouseR = false; return; }
+    return _ua.apply(this, arguments); }; }
+// ---- crossing ----
+{ const _cp = checkPortals; checkPortals = function (dt) {
+    const P = player; const fx = Math.floor(P.pos.x), fz = Math.floor(P.pos.z);
+    const inSP = isSPortal(world.get(fx, Math.floor(P.pos.y + 0.1), fz)) || isSPortal(world.get(fx, Math.floor(P.pos.y + 1.2), fz));
+    if (!inSP) return _cp.apply(this, arguments);
+    if (S.portalLock) return;
+    const need = S.mode === 'creative' ? 0.8 : 2.5;
+    if (S.portalT === 0) Sfx.play('portal', 0.6, 1.3);
+    S.portalT += dt; $('portalfx').style.opacity = Math.min(1, S.portalT / need) * 0.9;
+    if (Math.random() < dt * 30) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 1, [[0.3, 0.9, 1], [1, 0.65, 0.9]], 1, 1, -1, 0.8);
+    if (S.portalT >= need) travelTo(world.dim === 'sift' ? 'overworld' : 'sift', { type: 'rift', x: fx, z: fz });
+  }; }
+function findRiftNear(x, z, R) { let best = null, bd = 1e9;
+  for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { if (!world.loaded(x + dx, z + dz)) continue; for (let y = 30; y < 160; y++) { if (isSPortal(world.get(x + dx, y, z + dz)) && !isSPortal(world.get(x + dx, y - 1, z + dz))) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = [x + dx, y, z + dz]; } } } }
+  if (best) { while (isSPortal(world.get(best[0] - 1, best[1], best[2]))) best[0]--; } return best; }
+{ const _ha = handleArrival; handleArrival = function () {
+    const a = S.arrival; if (!a || a.type !== 'rift') return _ha.apply(this, arguments); S.arrival = null; const P = player;
+    if (world.dim === 'sift') {
+      let p = findRiftNear(a.x, a.z, 24);
+      if (!p) { let y = world.surfaceY(a.x, a.z); if (y <= SIFT_SEA) y = SIFT_SEA + 1; riftShape((x, yy, z, id) => world.set(x, yy, z, id), a.x, y, a.z, true); p = [a.x, y, a.z]; }
+      P.pos.set(p[0] + 1, p[1] + 0.01, p[2] + 2.5); P.yaw = 0; P.pitch = 0.05;
+      if (!S.siftSeen) { S.siftSeen = true; toast('The Sift', 4); }
+    } else {
+      const L = cityAt(a.x, a.z, true);
+      if (L && Math.abs(L.ox - a.x) < 40 && Math.abs(L.oz - a.z) < 40) { P.pos.set(L.ox + 0.5, L.y0 + 2.01, L.oz + 4.5); P.yaw = 0; }
+      else { const y = world.surfaceY(a.x, a.z); P.pos.set(a.x + 0.5, y + 0.01, a.z + 0.5); }
+    }
+    P.vel.set(0, 0, 0); P.peak = null; S.portalLock = true; return true; }; }
+// ---- the sky: a pink-violet dome, soft rose fog, pale clouds and a scatter of soul-lights ----
+{ const _us = updateSky; updateSky = function (eyeFluid) { const r = _us.apply(this, arguments); if (!world || world.dim !== 'sift') return r;
+    G.daylight = 0.86; chunkUniforms.daylight.value = G.daylight; chunkUniforms.skyTint.value.setRGB(1.0, 0.94, 0.98);
+    skyUniforms.zenith.value.setRGB(0.42, 0.3, 0.68); skyUniforms.horizon.value.setRGB(0.88, 0.66, 0.82); skyUniforms.sunsetK.value = 0; skyUniforms.haloK.value = 0;
+    if (!eyeFluid) { scene.fog.color.copy(skyUniforms.horizon.value); chunkUniforms.fogColor.value.copy(skyUniforms.horizon.value); }
+    starMat.opacity = 0.4; stars.visible = !eyeFluid; clouds.visible = !eyeFluid; cloudMat.uniforms.color.value.setRGB(1, 0.88, 0.95);
+    itemBlockMat.color.setScalar(1); return r; }; }
+// ---- planting on Sift soil ----
+{ const _pb = placeBlock; placeBlock = function (hit, id) {
+    const d = BL[id]; if (d && d.plant && d.crop === undefined && hit) { let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (PLANT[hit.id]) { x = hit.x; y = hit.y; z = hit.z; } const bd = BL[world.get(x, y - 1, z)];
+      if (bd && bd.siftSoil && replaceableAt(x, y, z)) { world.set(x, y, z, id); Sfx.play('grass', 1, 0.8); return true; } }
+    return _pb.apply(this, arguments); }; }
+// bone meal on Sift grass grows sprouts and flowers around it
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const h = player.held(); const hd = h && ITEMS[h.id];
+    if (hd && hd.key === 'bone_meal' && target && !targetMob && target.id === B.SIFT_GRASS_BLOCK && !world.get(target.x, target.y + 1, target.z)) {
+      for (let k = 0; k < 24; k++) { const x = target.x + Math.round((Math.random() - 0.5) * 6), z = target.z + Math.round((Math.random() - 0.5) * 6); for (let dy = 2; dy >= -2; dy--) { const y = target.y + dy; if (world.get(x, y, z) === B.SIFT_GRASS_BLOCK && !world.get(x, y + 1, z)) { const q = Math.random(); world.set(x, y + 1, z, q < 0.1 ? B.SONGBLOOM : q < 0.16 ? B.WISP_LILY : B.SIFT_SPROUTS); break; } } }
+      Particles.emit(target.x + 0.5, target.y + 1.2, target.z + 0.5, 14, [[0.5, 0.9, 0.5], [1, 0.7, 0.9]], 1, 0.8, -1, 2); useHeld(1); S.swing = 1; mouseR = false; Sfx.play('grass', 0.8, 1.2); return; }
+    return _ua.apply(this, arguments); }; }
+// ---- the Blub ----
+const BLUB_C = [150, 214, 250];
+MOBS.blub = { name: 'Blub', hp: 8, w: 0.5, h: 0.5, speed: 2, kind: 'passive', snd: 'chirp', egg: [[150, 214, 250], [246, 170, 218]], drops: [],
+  build(m, r) {
+    const b = pivot(r, 0, 0.32, 0); m.head = b; m.bodyP = b;
+    sbox(m, b, 0.5, 0.44, 0.5, 0, 0, 0, 'blub_body', fur(BLUB_C, 4, { bottom: [206, 236, 255], extra: (f, set, fw, fh) => { if (f !== 'front') return;
+      set(1, 3, [24, 34, 80]); set(1, 2, [24, 34, 80]); set(fw - 2, 3, [24, 34, 80]); set(fw - 2, 2, [24, 34, 80]); set(1, 2, [240, 250, 255]); set(fw - 2, 2, [240, 250, 255]);
+      set(0, 4, [250, 160, 210]); set(fw - 1, 4, [250, 160, 210]); set(fw >> 1, 5, [60, 80, 140]); set((fw >> 1) - 1, 5, [60, 80, 140]); } }));
+    sbox(m, b, 0.14, 0.16, 0.14, 0.06, 0.28, -0.04, 'blub_tuft', fur([214, 240, 255], 3));
+    sbox(m, b, 0.16, 0.12, 0.2, 0, -0.06, -0.3, 'blub_tail', fur([180, 226, 252], 3));
+    m.wings = []; for (const s of [-1, 1]) { const p = pivot(b, s * 0.25, 0, 0); sbox(m, p, 0.16, 0.04, 0.2, s * 0.08, 0, 0, 'blub_fin', fur([206, 236, 255], 3)); m.wings.push(p); }
+    for (const mt of m.mats) { mt[0].transparent = true; mt[0].opacity = 0.84; } } };
+const blubTempted = (m) => { const h = player.held(); return !!(h && h.id === IT.songbloom && !player.dead && m.pos.distanceTo(player.pos) < 10); };
+MOBS.blub.tick = (m, dt) => {
+  const r = flyTick(m, dt, { range: 8, up: 1.5, speed: m.hurtT > 0 ? 4 : 2.2, flap: 5, follow: () => blubTempted(m) ? player.pos : null });
+  if (m.bodyP) { const s = Math.sin(m.age * 3.2); m.bodyP.scale.set(1 + s * 0.05, 1 - s * 0.07, 1 + s * 0.05); m.bodyP.position.y = 0.32 + Math.sin(m.age * 1.7) * 0.06; }
+  if (Math.random() < dt * 0.9) Particles.emit(m.pos.x, m.pos.y + 0.25, m.pos.z, 1, [[0.62, 0.9, 1], [1, 0.76, 0.92]], 0.3, 1.2, -1, 0.25);
+  if (m.giftT > 0) m.giftT -= dt; return r; };
+{ const _mi = mobInteract; mobInteract = function (m, sneaking) {
+    if (m.type === 'blub') { const h = player.held(); if (h && h.id === IT.songbloom) { useHeld(1); hearts(m, 4); Sfx.mob(m, null, 0.8); S.swing = 1;
+        if (!(m.giftT > 0) && !isClientMP()) { m.giftT = 300; setTimeout(() => { if (!m.dead) { dropItem(IT.soul_shard, 1, m.pos.x, m.pos.y + 0.2, m.pos.z); Particles.emit(m.pos.x, m.pos.y + 0.3, m.pos.z, 10, [[0.5, 0.9, 1]], 1.2, 0.8, -1, 0.4); } }, 1200); } return true; } }
+    return _mi(m, sneaking); }; }
+MOB_VOICE.blub = [(d, p) => { V.bubble(d, p * 1.5); V.chime(d, p * 0.8, [660, 880, 990]); }, (d, p) => V.squeak(d, p * 0.7, 0, 0.12), (d, p) => V.chime(d, p * 0.7, [990, 880, 660, 440])];
+// ---- life in the Sift: blubs drift in, soul-lights rise around you ----
+const SIFT = { spawnT: 1 };
+function siftTick(dt) {
+  const P = player.pos;
+  if (Math.random() < dt * 12) { const a = Math.random() * 6.28, d = 2 + Math.random() * 14; Particles.emit(P.x + Math.cos(a) * d, P.y - 1 + Math.random() * 5, P.z + Math.sin(a) * d, 1, [[0.62, 0.9, 1], [1, 0.72, 0.9], [1, 1, 1]], 0.15, 3, -0.4, 0.1); }
+  if (isClientMP() || !S.rules.doMobSpawning) return; SIFT.spawnT -= dt; if (SIFT.spawnT > 0) return; SIFT.spawnT = 2;
+  if (G.mobs.filter(m => m.type === 'blub').length >= 10) return;
+  for (let t = 0; t < 4; t++) { const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 20; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d); if (!world.loaded(x, z)) continue;
+    const y = world.surfaceY(x, z); if (world.get(x, y - 1, z) !== B.SIFT_GRASS_BLOCK) continue; const k = 1 + (Math.random() * 3 | 0); for (let i = 0; i < k; i++) spawnMob('blub', x + 0.5 + i * 0.6, y + 1, z + 0.5); break; }
+}
+{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (world && world.dim === 'sift' && !S.loading && !S.paused) siftTick(dt); return r; }; }
+// ---- spawn eggs for every mob added after 90_spawneggs.js (sulfur cube, creaking, copper golem, happy ghast, blub...) ----
+{ let added = 0; for (const k of Object.keys(MOBS)) { const key = k + '_spawn_egg'; if (IT[key] !== undefined || MOBS[k].noEgg) continue;
+    const id = nid++; const nm = (MOBS[k].name || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) + ' Spawn Egg';
+    defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
+    const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); added++; }
+  if (added) CREATIVE_LIST = null; }
 
 </script>
 </body>

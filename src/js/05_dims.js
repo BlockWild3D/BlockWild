@@ -14,7 +14,7 @@ function travelTo(dim, arrival) {
   if (arrival.type === 'end-spawn') player.pos.set(100.5, 100, 0.5);
   player.vel.set(0, 0, 0); player.peak = null; player.flying = false;
   S.loading = true; show('loading', true); $('loadBar').style.width = '0%';
-  $('loadTxt').textContent = dim === 'nether' ? 'Entering the Nether...' : dim === 'end' ? 'Entering the End...' : 'Returning to the Overworld...';
+  $('loadTxt').textContent = dim === 'nether' ? 'Entering the Nether...' : dim === 'end' ? 'Entering the End...' : dim === 'sift' ? 'Entering the Sift...' : 'Returning to the Overworld...';
   S.portalT = 0; S.portalLock = true; $('portalfx').style.opacity = 0; show('lavafx', false);
   Sfx.play('portal', 1);
 }
