@@ -148,7 +148,7 @@ function structuresFor(world, cx, cz) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
-    const p = col.b === BIO.FOREST ? 0.85 : col.b === BIO.PLAINS ? 0.006 : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
+    const p = col.v === BV.ICE_SPIKES ? 0 : col.b === BIO.FOREST ? (col.v === BV.FLOWER_FOREST ? 0.35 : 0.85) : col.b === BIO.PLAINS ? (col.v === BV.MEADOW ? 0 : 0.006) : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
     if (q >= p) continue;
     if (g.cave(wx, col.h - 1, wz)) continue;
     const y0 = col.h;
@@ -159,8 +159,8 @@ function structuresFor(world, cx, cz) {
       for (let y = H; y >= 2; y--) { const rr = rad; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) + Math.abs(dz) > rr + (rr > 1 ? 1 : 0)) continue; if (dx || dz || y >= H) soft(wx + dx, y0 + y, wz + dz, B.SPRUCE_LEAVES); } rad = rad >= 2 ? 1 : rad + 1; }
       soft(wx, y0 + H, wz, B.SPRUCE_LEAVES); soft(wx, y0 + H + 1, wz, B.SPRUCE_LEAVES);
     } else {
-      const birch = col.b === BIO.FOREST && t < 0.3; const log = birch ? B.BIRCH_LOG : B.LOG, lv = birch ? B.BIRCH_LEAVES : B.LEAVES;
-      const H = 4 + (hh * 3 | 0) + (birch ? 1 : 0);
+      const birch = col.b === BIO.FOREST && (t < 0.3 || col.v === BV.BIRCH_FOREST || col.v === BV.OLD_BIRCH); const log = birch ? B.BIRCH_LOG : B.LOG, lv = birch ? B.BIRCH_LEAVES : B.LEAVES;
+      const H = 4 + (hh * 3 | 0) + (birch ? 1 : 0) + (col.v === BV.OLD_BIRCH ? 5 + (hh * 6 | 0) : 0);
       for (let y = H - 3; y <= H; y++) { const rr = y >= H - 1 ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) === rr && Math.abs(dz) === rr && (rr === 1 ? y === H : rnd01(wx + dx, y, wz + dz, seed) < 0.5)) continue; soft(wx + dx, y0 + y, wz + dz, lv); } }
       for (let y = 0; y < H; y++) hard(wx, y0 + y, wz, log);
     }

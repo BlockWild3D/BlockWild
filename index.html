@@ -947,7 +947,7 @@ for (const [k, n, top] of [['anvil', 'Anvil', 'anvil_top'], ['chipped_anvil', 'C
 defBlock('ancient_debris', 'Ancient Debris', { tex: { s: 'debris_side', t: 'debris_top' }, hardness: 30, tool: 'pick', tier: 4, snd: 'stone' });
 defBlock('netherite_block', 'Block of Netherite', { tex: 'netherite_block', hardness: 50, tool: 'pick', tier: 4 });
 defBlock('smithing_table', 'Smithing Table', { tex: { s: 'smith_side', t: 'smith_top', b: 'smith_bottom', pz: 'smith_front', nz: 'smith_front' }, hardness: 2.5, snd: 'wood', use: 'smith' });
-const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
+const FAMILY = {}, SHAPE_SETS = []; defineWoodBlocks(); defineStoneBlocks(); defineColorBlocks(); defineCopperBlocks(); defineNatureBlocks(); defineOceanBlocks(); defineCaveBlocks(); defineRedstoneBlocks(); defineDecoBlocks(); defineSignBlocks(); defineItemBlocks(); defineMoreBlocks(); defineNewBlocks(); defineShapeBlocks(); // stairs, slabs, doors, ... (01ab_shapes.js)
 BL[B.WATER].fluid = true; BL[B.WATER].noTarget = true;
 BL[B.GRAVEL].drop = (r) => r < 0.12 ? ['flint', 1] : 'gravel';
 const NBLOCKS = BL.length;
@@ -1905,6 +1905,8 @@ function EXTRA_STONE_SETS() { return [
   ['red_sandstone', 'red_sandstone', 'Red Sandstone', 1], ['smooth_red_sandstone', 'smooth_red_sandstone', 'Smooth Red Sandstone', 0], ['cut_red_sandstone', 'cut_red_sandstone', 'Cut Red Sandstone', 0, 1],
   ['smooth_quartz', 'smooth_quartz', 'Smooth Quartz', 0], ['mud_brick', 'mud_bricks', 'Mud Brick', 1], ['red_nether_brick', 'red_nether_bricks', 'Red Nether Brick', 1],
   ['polished_deepslate', 'polished_deepslate', 'Polished Deepslate', 1], ['polished_blackstone', 'polished_blackstone', 'Polished Blackstone', 1], ['polished_tuff', 'polished_tuff', 'Polished Tuff', 1],
+  ['sulfur', 'sulfur', 'Sulfur', 1], ['polished_sulfur', 'polished_sulfur', 'Polished Sulfur', 1], ['sulfur_brick', 'sulfur_bricks', 'Sulfur Brick', 1],
+  ['cinnabar', 'cinnabar', 'Cinnabar', 1], ['polished_cinnabar', 'polished_cinnabar', 'Polished Cinnabar', 1], ['cinnabar_brick', 'cinnabar_bricks', 'Cinnabar Brick', 1],
 ]; }
 function defineStoneBlocks() {
   const ph = (n, c) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c))); return n; };
@@ -2995,6 +2997,69 @@ function BANNER_GLYPH(k) { return {
   guster: ['......', '#.##.#', '.#..#.', '#....#', '.####.', '..##..', '.#..#.', '......'] }[k] || []; }
 if (B.TRIPWIRE_HOOK !== undefined) BL[B.TRIPWIRE_HOOK].iconPaint = true;
 
+// ================= NEWER MINECRAFT BLOCKS AND ITEMS (2025-2026 drops) =================
+// Chaos Cubed: sulfur and cinnabar block sets (plain, polished, bricks, chiseled; stairs / slabs / walls are made
+// in 01ab_shapes.js), potent sulfur, sulfur spikes, the Bounce music disc, buckets of sulfur cube.
+// Ice caves drop: icicles, ice crystals (they glow), ice balls, and the Freezing potion (45_potions / 93_caves2).
+// Rules: 93_caves2.js. All textures are original procedural pixel art.
+function NEW_STONES() { return [
+  // key, name, painter, options
+  ['sulfur', 'Sulfur', 'sulfur', { hardness: 1.5 }], ['polished_sulfur', 'Polished Sulfur', 'polished:sulfur'], ['sulfur_bricks', 'Sulfur Bricks', 'bricks:sulfur'], ['chiseled_sulfur', 'Chiseled Sulfur', 'chiseled:sulfur'],
+  ['potent_sulfur', 'Potent Sulfur', 'potent_sulfur', { hardness: 1.5, potent: true }],
+  ['cinnabar', 'Cinnabar', 'cinnabar', { hardness: 1.5 }], ['polished_cinnabar', 'Polished Cinnabar', 'polished:cinnabar'], ['cinnabar_bricks', 'Cinnabar Bricks', 'bricks:cinnabar'], ['chiseled_cinnabar', 'Chiseled Cinnabar', 'chiseled:cinnabar'],
+]; }
+const NEW_PAL = { sulfur: [[196, 168, 46], [216, 190, 62], [232, 208, 84], [244, 226, 120]], cinnabar: [[112, 28, 30], [132, 38, 36], [150, 50, 42], [170, 66, 52]] };
+function defineNewBlocks() {
+  const ph = (n, c, a) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c, a === undefined ? 255 : a))); return n; };
+  for (const [key, name, , o] of NEW_STONES()) { if (B[key.toUpperCase()] !== undefined) continue; const op = Object.assign({}, o || {});
+    defBlock(key, name, Object.assign({ tex: ph(key, [200, 170, 60]), hardness: 1.5, tool: 'pick', tier: 1, snd: 'stone', mine: 'pick' }, op)); }
+  // sulfur spikes: standing on the floor or hanging from the ceiling; they hurt to land on
+  ph('sulfur_spike', [220, 200, 70], 0); ph('sulfur_spike_hang', [220, 200, 70], 0);
+  defBlock('sulfur_spike', 'Sulfur Spike', { tex: 'sulfur_spike', render: 'cross', solid: false, opaque: false, hardness: 1.5, tool: 'pick', tier: 0, mine: 'pick', snd: 'stone', spike: 'up', drop: 'sulfur_spike' });
+  defBlock('sulfur_spike#hang', 'Sulfur Spike', { tex: 'sulfur_spike_hang', render: 'cross', solid: false, opaque: false, hardness: 1.5, tool: 'pick', tier: 0, mine: 'pick', snd: 'stone', spike: 'down', hidden: true, drop: 'sulfur_spike' });
+  // icicles hang from ice-cave ceilings; ice crystals grow from the floor (or ceiling) and glow softly
+  ph('icicle', [200, 230, 250], 0); ph('ice_crystal', [150, 220, 250], 0);
+  defBlock('icicle', 'Icicle', { tex: 'icicle', render: 'cross', solid: false, opaque: false, hardness: 0.5, snd: 'glass', mine: 'pick', icicle: true, drop: null });
+  defBlock('ice_crystal', 'Ice Crystal', { tex: 'ice_crystal', render: 'cross', solid: false, opaque: false, hardness: 0.5, snd: 'glass', mine: 'pick', light: 0.45, iceCrystal: true, drop: 'ice_crystal' });
+}
+function paintNewTiles() {
+  const sh = (c, f) => [c[0] * f, c[1] * f, c[2] * f];
+  const crystal = (pal, edge, seed) => (set, r) => { const m = voronoi(r, 9); const tones = []; for (let i = 0; i < 9; i++) tones.push(pal[r() * pal.length | 0]);
+    each((x, y) => { const k = y * 16 + x; if (m.d2[k] - m.d1[k] < 0.75) { set(x, y, vary(edge, r, 4)); return; } const me = m.id[k]; let c = tones[me];
+      if (cid(m, x, y - 1) !== me || cid(m, x - 1, y) !== me) c = sh(c, 1.16); else if (cid(m, x, y + 1) !== me || cid(m, x + 1, y) !== me) c = sh(c, 0.82); set(x, y, vary(c, r, 3)); }); };
+  makeTile('sulfur', crystal(NEW_PAL.sulfur, [150, 128, 34]));
+  makeTile('cinnabar', (set, r) => { const a = tnoise(1401, 4), b = tnoise(1402, 8); const pal = NEW_PAL.cinnabar;
+    each((x, y) => set(x, y, vary(RX.tone(pal, a(x, y) * 0.55 + b(x, y) * 0.45), r, 3))); RX.blobs(set, r, 14, [84, 20, 22], 2); RX.blobs(set, r, 10, [196, 92, 74], 1); RX.blobs(set, r, 4, [214, 196, 186], 1); });
+  for (const m of ['sulfur', 'cinnabar']) { const P = NEW_PAL[m]; const base = P[1], hi = P[3], lo = sh(P[0], 0.8);
+    makeTile('polished_' + m, (set, r) => { const n = tnoise(1411 + m.length, 4); each((x, y) => { let c = sh(base, 1 + (n(x, y) - 0.5) * 0.08); if (x === 0 || y === 0) c = sh(base, 1.2); else if (x === 15 || y === 15) c = lo; else if (x === 1 || y === 1) c = sh(base, 1.07); set(x, y, vary(c, r, 1.5)); }); });
+    makeTile(m + '_bricks', (set, r) => brickWall(set, r, { bw: 8, bh: 4, base, mortar: sh(P[0], 0.6), hv: 5 }));
+    makeTile('chiseled_' + m, (set, r) => { each((x, y) => { let c = base; if (x === 0 || y === 0) c = sh(base, 1.2); else if (x === 15 || y === 15) c = lo; else if (x === 2 || y === 2 || x === 13 || y === 13) c = sh(base, x === 13 || y === 13 ? 0.78 : 1.14);
+      const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5); if (x > 3 && x < 12 && y > 3 && y < 12) { const d = dx + dy; c = d < 1.5 ? hi : d < 2.6 ? sh(base, 0.7) : d < 3.6 ? sh(base, 1.12) : base; } set(x, y, vary(c, r, 2)); }); }); }
+  makeTile('potent_sulfur', (set, r) => { crystal([[150, 150, 40], [170, 168, 50], [188, 184, 64]], [96, 92, 26])(set, r); for (let k = 0; k < 9; k++) { const x = 1 + r() * 14 | 0, y = 1 + r() * 14 | 0; set(x, y, [214, 240, 110]); set(x + 1, y, [180, 214, 80]); } });
+  const spike = (hang) => (set, r) => { clear(set); for (let y = 0; y < 16; y++) { const t = hang ? y : 15 - y; const w = Math.max(0, Math.round((t / 15) * 3.4)); for (let x = 7 - w; x <= 8 + w; x++) { const edge = x === 7 - w || x === 8 + w; set(x, y, vary(edge ? NEW_PAL.sulfur[0] : t < 4 ? NEW_PAL.sulfur[3] : NEW_PAL.sulfur[2], r, 6)); } } };
+  makeTile('sulfur_spike', spike(false)); makeTile('sulfur_spike_hang', spike(true));
+  makeTile('icicle', (set, r) => { clear(set); for (let y = 0; y < 16; y++) { const w = Math.max(0, Math.round((1 - y / 15) * 2.6)); for (let x = 7 - w; x <= 8 + w; x++) set(x, y, vary(x === 7 - w ? [236, 248, 255] : [176, 214, 240], r, 5), 215); }
+    for (const x0 of [3, 12]) for (let y = 0; y < 7; y++) { const w = y < 4 ? 1 : 0; for (let x = x0 - w; x <= x0; x++) set(x, y, vary([190, 224, 246], r, 5), 205); } });
+  makeTile('ice_crystal', (set, r) => { clear(set); for (const [cx, h, w] of [[8, 14, 2], [4, 9, 1], [12, 10, 1]]) for (let y = 15; y > 15 - h; y--) { const t = (15 - y) / h; const ww = Math.round(w * (1 - t * 0.8)); for (let x = cx - ww - 1; x <= cx + ww; x++) set(x, y, vary(x === cx - ww - 1 ? [230, 250, 255] : t > 0.75 ? [210, 246, 255] : [110, 200, 240], r, 6), 225); } });
+}
+// ---- items ----
+{ const MI = (key, name, o, icon) => { if (IT[key] !== undefined) { if (icon) ICONP[key] = icon; return IT[key]; } const id = nid++; defItem(id, key, name, o || {}); ITEM_IDS.push(id); if (icon) ICONP[key] = icon; return id; };
+  MI('ice_ball', 'Ice Ball', { kind: 'ice_ball', stack: 16 }, (s, r) => { for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 5.6) continue; const facet = ((x * 3 + y * 5) % 7 === 0); s(x, y, d > 4.7 ? [70, 140, 190] : facet ? [236, 250, 255] : (x + y < 13 ? [176, 224, 248] : [120, 186, 228])); } });
+  MI('music_disc_bounce', 'Music Disc', { kind: 'disc', stack: 1, disc: 'bounce', desc: 'Bounce' }, (s) => { for (let y = 1; y <= 14; y++) for (let x = 1; x <= 14; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d > 6.8) continue; s(x, y, d < 1 ? [10, 10, 10] : d < 3 ? [232, 206, 70] : d > 6 ? [20, 20, 22] : ((x + y) % 4 === 0 ? [56, 56, 60] : [34, 34, 38])); } });
+  MI('sulfur_cube_bucket', 'Bucket of Sulfur Cube', { kind: 'cubebucket', stack: 1 }, (s) => { for (let y = 4; y <= 14; y++) { const w = 4 + (y > 6 ? 0 : 0); for (let x = 3; x <= 12; x++) { const edge = x === 3 || x === 12 || y === 14; s(x, y, edge ? [110, 110, 116] : y < 7 ? [222, 200, 70] : [190, 190, 196]); } } for (let x = 5; x <= 10; x++) for (let y = 6; y <= 9; y++) s(x, y, (x + y) & 1 ? [236, 214, 96] : [204, 180, 54]); for (let x = 4; x <= 11; x++) s(x, 3, [140, 140, 146]); });
+  // block items get their own icons in the inventory: spikes, icicles and crystals show their shape
+  ICONP.sulfur_spike = (s, r) => { for (let y = 1; y < 15; y++) { const w = Math.round((y / 14) * 3); for (let x = 7 - w; x <= 8 + w; x++) s(x, y, x === 7 - w ? NEW_PAL.sulfur[0] : y < 4 ? NEW_PAL.sulfur[3] : NEW_PAL.sulfur[2]); } };
+  ICONP.icicle = (s) => { for (let y = 1; y < 15; y++) { const w = Math.round((1 - y / 14) * 3); for (let x = 7 - w; x <= 8 + w; x++) s(x, y, x === 7 - w ? [236, 248, 255] : [160, 206, 238]); } };
+  ICONP.ice_crystal = (s) => { for (const [cx, h, w] of [[8, 13, 2], [4, 8, 1], [12, 9, 1]]) for (let y = 14; y > 14 - h; y--) { const t = (14 - y) / h; const ww = Math.round(w * (1 - t * 0.8)); for (let x = cx - ww - 1; x <= cx + ww; x++) s(x, y, x === cx - ww - 1 ? [230, 250, 255] : t > 0.75 ? [210, 246, 255] : [100, 196, 240]); } };
+  // recipes: polished from the raw block, bricks from polished, chiseled from two slabs, potent sulfur from nine sulfur
+  const R = (o, n, shp, k) => RECIPES.push(RSH(o, n, shp, k)), L = (o, n, items) => RECIPES.push(RSL(o, n, items));
+  for (const m of ['sulfur', 'cinnabar']) { R('polished_' + m, 4, ['MM', 'MM'], { M: m }); R(m + '_bricks', 4, ['MM', 'MM'], { M: 'polished_' + m }); R('chiseled_' + m, 1, ['S', 'S'], { S: m + '_brick_slab' });
+  }
+  L('potent_sulfur', 1, Array(9).fill('sulfur'));
+  // ice balls: from snowballs packed around ice (Mojang hasn't published the recipe; this one is a stand-in)
+  R('ice_ball', 4, [' S ', 'SIS', ' S '], { S: 'snowball', I: 'ice' });
+}
+
 // ================= TEXTURES v2: hand-tuned procedural block art + animated tiles =================
 function tnoise(seed, period) {
   const r = mulberry32(seed); const g = []; for (let i = 0; i < period * period; i++) g.push(r());
@@ -3227,7 +3292,7 @@ const WOODS = {
 };
 for (const k in WOODS) { const w = WOODS[k], side = k === 'log' ? 'log_side' : k + '_side', top = k === 'log' ? 'log_top' : k + '_top'; makeTile(side, (set, r) => bark3(set, r, w.side)); makeTile(top, (set, r) => rings3(set, r, w.top[0], w.top[1], w.side.base)); }
 makeTile('birch_top', (set, r) => rings3(set, r, [216, 200, 142], [192, 174, 118], [222, 220, 210]));
-paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles();
+paintWoodTiles(); paintStoneTiles(); paintColorTiles(); paintCopperTiles(); paintNatureTiles(); paintOceanTiles(); paintCaveTiles(); paintRedstoneTiles(); paintDecoTiles(); paintSignTiles(); paintItemBlockTiles(); paintMoreTiles(); paintNewTiles();
 
 // ---- icons for blocks built from boxes (dragon egg, anvils, cauldron, ...): draw the real shape, not a full cube ----
 { const _bic = blockIconCanvas; blockIconCanvas = function (id) {
@@ -3850,7 +3915,7 @@ function structuresFor(world, cx, cz) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
-    const p = col.b === BIO.FOREST ? 0.85 : col.b === BIO.PLAINS ? 0.006 : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
+    const p = col.v === BV.ICE_SPIKES ? 0 : col.b === BIO.FOREST ? (col.v === BV.FLOWER_FOREST ? 0.35 : 0.85) : col.b === BIO.PLAINS ? (col.v === BV.MEADOW ? 0 : 0.006) : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
     if (q >= p) continue;
     if (g.cave(wx, col.h - 1, wz)) continue;
     const y0 = col.h;
@@ -3861,8 +3926,8 @@ function structuresFor(world, cx, cz) {
       for (let y = H; y >= 2; y--) { const rr = rad; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) + Math.abs(dz) > rr + (rr > 1 ? 1 : 0)) continue; if (dx || dz || y >= H) soft(wx + dx, y0 + y, wz + dz, B.SPRUCE_LEAVES); } rad = rad >= 2 ? 1 : rad + 1; }
       soft(wx, y0 + H, wz, B.SPRUCE_LEAVES); soft(wx, y0 + H + 1, wz, B.SPRUCE_LEAVES);
     } else {
-      const birch = col.b === BIO.FOREST && t < 0.3; const log = birch ? B.BIRCH_LOG : B.LOG, lv = birch ? B.BIRCH_LEAVES : B.LEAVES;
-      const H = 4 + (hh * 3 | 0) + (birch ? 1 : 0);
+      const birch = col.b === BIO.FOREST && (t < 0.3 || col.v === BV.BIRCH_FOREST || col.v === BV.OLD_BIRCH); const log = birch ? B.BIRCH_LOG : B.LOG, lv = birch ? B.BIRCH_LEAVES : B.LEAVES;
+      const H = 4 + (hh * 3 | 0) + (birch ? 1 : 0) + (col.v === BV.OLD_BIRCH ? 5 + (hh * 6 | 0) : 0);
       for (let y = H - 3; y <= H; y++) { const rr = y >= H - 1 ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (Math.abs(dx) === rr && Math.abs(dz) === rr && (rr === 1 ? y === H : rnd01(wx + dx, y, wz + dz, seed) < 0.5)) continue; soft(wx + dx, y0 + y, wz + dz, lv); } }
       for (let y = 0; y < H; y++) hard(wx, y0 + y, wz, log);
     }
@@ -5865,7 +5930,7 @@ class Player {
     if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
     const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Ender Dragon's breath": "You were consumed by the Ender Dragon's breath", 'the Ender Dragon': 'You were slain by the Ender Dragon', 'a magma block': 'You discovered the floor was lava' };
-    $('deathMsg').textContent = msgs[cause] || ('You were slain by ' + (cause || 'something'));
+    $('deathMsg').textContent = msgs[cause] || (typeof DEATH_YOU !== 'undefined' && DEATH_YOU[cause]) || ('You were slain by ' + (cause || 'something'));
     if (S.uiOpen) closeInv(true);
     show('death', true); releaseLock();
   }
@@ -6814,7 +6879,7 @@ function tick(dt) {
   if (hudT <= 0) {
     hudT = 0.25;
     const hrs = (S.time * 24 + 6) % 24; const hh = Math.floor(hrs), mm = Math.floor((hrs - hh) * 60 / 10) * 10;
-    const bname = world.gen.biomeName(Math.floor(P.pos.x), Math.floor(P.pos.z));
+    const bname = world.gen.biomeName(Math.floor(P.pos.x), Math.floor(P.pos.z), Math.floor(P.pos.y + 0.5));
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
@@ -11513,7 +11578,7 @@ function decorate(world, S, cx, cz) {
   const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 4711, seed)); const bx = cx * 16, bz = cz * 16;
   const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }, soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
   if (startNear(world, 'village', cx, cz, 2)) return;
-  const b0 = g.column(bx + 8, bz + 8).b; const tries = { [BIO.JUNGLE]: 14, [BIO.DARK_FOREST]: 10, [BIO.TAIGA]: 7, [BIO.SAVANNA]: 2, [BIO.SWAMP]: 3 }[b0] || 0;
+  const c08 = g.column(bx + 8, bz + 8), b0 = c08.b; const tries = c08.v === BV.SPARSE_JUNGLE ? 3 : c08.v === BV.BAMBOO_JUNGLE ? 6 : { [BIO.JUNGLE]: 14, [BIO.DARK_FOREST]: 10, [BIO.TAIGA]: 7, [BIO.SAVANNA]: 2, [BIO.SWAMP]: 3 }[b0] || 0;
   for (let a = 0; a < tries; a++) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0; const x = bx + lx, z = bz + lz; const col = g.column(x, z); const y0 = col.h; const q = r(), hh = r();
     if (col.h <= SEA || col.h > WH - 34 || g.cave(x, y0 - 1, z)) continue;
@@ -15250,7 +15315,7 @@ function oceanTick(x, y, z, id) { const d = BL[id];
     const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 8831, seed)); const bx = cx * 16, bz = cz * 16;
     const c0 = g.column(bx + 8, bz + 8); if (c0.b !== BIO.OCEAN || c0.h > SEA - 3) return r0;
     const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); }, hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
-    const warm = g.nT.f2((bx + 8) / 560, (bz + 8) / 560, 2) > 0.12 && c0.h > SEA - 22;
+    const warm = c0.v === BV.WARM_OCEAN && c0.h > SEA - 22; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
     const water = (x, y, z) => y <= SEA; const corals = CORALDATA().map(c => c[0]);
     for (let i = 0; i < (warm ? 10 : 24); i++) { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); if (col.h > SEA - 2) continue; const y = col.h;
       if (warm && i < 6) { // a coral patch: blocks, with corals, fans and pickles on top
@@ -15258,7 +15323,7 @@ function oceanTick(x, y, z, id) { const d = BL[id];
           for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top >= SEA) continue; const q = r();
           if (q < 0.35) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral').toUpperCase()]); else if (q < 0.65) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral_fan').toUpperCase()]); else if (q < 0.75) soft(xx, top, zz, B[('sea_pickle' + (r() < 0.5 ? '' : '#' + (2 + (r() * 3 | 0)))).toUpperCase()]); }
         continue; }
-      if (!warm && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
+      if (!warm && !noKelp && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
       else soft(x, y, z, B.SEAGRASS); }
     return r0; }; }
 
@@ -16836,6 +16901,485 @@ function eggSpawn(type, x, y, z, baby) {
     if (typeof SPAWN_EGG_IDS !== 'undefined') for (const id of SPAWN_EGG_IDS) if (!list.some(e => e.id === id)) list.push({ id, ex: null, name: ITEMS[id].name });
     return list; };
   CREATIVE_LIST = null; buildPalette(($('creativeSearch') || {}).value || ''); }
+
+// ================= THE REST OF MINECRAFT'S OVERWORLD BIOMES =================
+// Each column keeps its broad biome (c.b: what trees, spawns and structures key off) and may carry a sub-biome (c.v)
+// with its own name, ground, plants and animals, the way Minecraft splits e.g. Forest into Birch / Flower Forest:
+//   Ocean      -> Warm / Lukewarm / Cold / Frozen Ocean (deep versions, but no Deep Warm Ocean); River, Frozen River
+//   Plains     -> Sunflower Plains, Meadow (high grassy flower meadows with bee nests)
+//   Forest     -> Flower Forest, Birch Forest, Old Growth Birch Forest
+//   Snowy      -> Snowy Plains, Ice Spikes
+//   Taiga      -> Snowy Taiga, Old Growth Pine Taiga, Old Growth Spruce Taiga (2x2 spruces, podzol, mossy boulders)
+//   Jungle     -> Bamboo Jungle, Sparse Jungle;  Savanna -> Savanna Plateau, Windswept Savanna
+//   Badlands   -> Wooded Badlands, Eroded Badlands (terracotta hoodoos)
+//   Mountains  -> Jagged / Frozen / Stony Peaks, Snowy Slopes, Grove, Windswept Hills / Forest / Gravelly Hills
+//   Beach      -> Snowy Beach, Stony Shore
+// and a new broad biome, Mushroom Fields: rare mycelium islands far out in the ocean with huge mushrooms and
+// mooshrooms, where no monsters spawn.
+Object.assign(BIO, { MUSHROOM_FIELDS: BIO_NAME.length }); BIO_NAME.push('Mushroom Fields');
+BIO_NAME[BIO.SNOWY] = 'Snowy Plains';
+const BV = {}; const VAR_NAME = [''];
+for (const [k, n] of [['WARM_OCEAN', 'Warm Ocean'], ['LUKEWARM_OCEAN', 'Lukewarm Ocean'], ['COLD_OCEAN', 'Cold Ocean'], ['FROZEN_OCEAN', 'Frozen Ocean'],
+  ['RIVER', 'River'], ['FROZEN_RIVER', 'Frozen River'], ['SUNFLOWER_PLAINS', 'Sunflower Plains'], ['MEADOW', 'Meadow'],
+  ['FLOWER_FOREST', 'Flower Forest'], ['BIRCH_FOREST', 'Birch Forest'], ['OLD_BIRCH', 'Old Growth Birch Forest'], ['ICE_SPIKES', 'Ice Spikes'],
+  ['SNOWY_TAIGA', 'Snowy Taiga'], ['OLD_PINE', 'Old Growth Pine Taiga'], ['OLD_SPRUCE', 'Old Growth Spruce Taiga'],
+  ['BAMBOO_JUNGLE', 'Bamboo Jungle'], ['SPARSE_JUNGLE', 'Sparse Jungle'], ['SAVANNA_PLATEAU', 'Savanna Plateau'], ['WINDSWEPT_SAVANNA', 'Windswept Savanna'],
+  ['WOODED_BADLANDS', 'Wooded Badlands'], ['ERODED_BADLANDS', 'Eroded Badlands'],
+  ['JAGGED_PEAKS', 'Jagged Peaks'], ['FROZEN_PEAKS', 'Frozen Peaks'], ['STONY_PEAKS', 'Stony Peaks'], ['SNOWY_SLOPES', 'Snowy Slopes'], ['GROVE', 'Grove'],
+  ['WINDSWEPT_HILLS', 'Windswept Hills'], ['WINDSWEPT_FOREST', 'Windswept Forest'], ['WINDSWEPT_GRAVELLY', 'Windswept Gravelly Hills'],
+  ['SNOWY_BEACH', 'Snowy Beach'], ['STONY_SHORE', 'Stony Shore']]) { BV[k] = VAR_NAME.length; VAR_NAME.push(n); }
+// the names also go on the biome list (for /locate suggestions); broad biome ids all come before them
+const BIO_REAL = BIO_NAME.length; BIO_NAME.push(...VAR_NAME.slice(1));
+const isRiver = (c) => c.v === BV.RIVER || c.v === BV.FROZEN_RIVER;
+const FROZEN_V = () => new Set([BV.FROZEN_OCEAN, BV.FROZEN_RIVER, BV.ICE_SPIKES, BV.SNOWY_SLOPES, BV.FROZEN_PEAKS, BV.JAGGED_PEAKS, BV.GROVE, BV.SNOWY_BEACH, BV.SNOWY_TAIGA]);
+Gen.prototype.biome = function (x, z) { return this.column(x, z).b; }; // (the monster swaps in 34 looked for this)
+Gen.prototype.biomeName = function (x, z) {
+  const c = this.column(x, z); if (c.b === BIO.OCEAN && !isRiver(c)) {
+    const deep = c.h < SEA - 28; const v = c.v === BV.WARM_OCEAN && deep ? BV.LUKEWARM_OCEAN : c.v; // there is no deep warm ocean
+    return (deep ? 'Deep ' : '') + (v ? VAR_NAME[v] : 'Ocean'); }
+  return c.v ? VAR_NAME[c.v] : BIO_NAME[c.b];
+};
+{ const _col = Gen.prototype.column; Gen.prototype.column = function (x, z) {
+    const c = _col.call(this, x, z); if (c.v2) return c; c.v2 = 1; c.v = 0;
+    if (!this.nV1) { this.nV1 = new Perlin(this.seed + 1301); this.nV2 = new Perlin(this.seed + 1302); this.nRv = new Perlin(this.seed + 1303); this.nMu = new Perlin(this.seed + 1304); this.nSp = new Perlin(this.seed + 1305); }
+    const temp = this.nT.f2(x / 560, z / 560, 2); const vn = this.nV1.f2(x / 340, z / 340, 2), vn2 = this.nV2.f2(x / 220 + 9, z / 220 - 4, 2);
+    // ---- oceans: mushroom islands far from land, then water temperature ----
+    if (c.b === BIO.OCEAN) {
+      const cont = this.nC.f2(x / 420, z / 420, 4); const mu = this.nMu.f2(x / 260, z / 260, 2) - Math.max(0, cont + 0.3) * 3;
+      if (mu > 0.34) { const s = smoothstep(0.34, 0.44, mu); c.h = Math.round(c.h + (SEA - 3 - c.h) * s); }
+      if (mu > 0.44) { c.h = SEA + 1 + Math.min(7, Math.round((mu - 0.44) * 70)); c.b = BIO.MUSHROOM_FIELDS; return c; }
+      c.v = temp > 0.12 ? BV.WARM_OCEAN : temp > 0.04 ? BV.LUKEWARM_OCEAN : temp < -0.2 ? BV.FROZEN_OCEAN : temp < -0.1 ? BV.COLD_OCEAN : 0;
+      return c;
+    }
+    // ---- rivers cut through the lowlands (not mountains) ----
+    const W = 0.03 * smoothstep(SEA + 36, SEA + 16, c.h) * (c.b === BIO.MOUNTAINS ? 0 : 1);
+    if (W > 0.004) { const rv = Math.abs(this.nRv.f2(x / 420, z / 420, 3));
+      if (rv < W) { const t = rv / W;
+        if (t < 0.55) { const depth = Math.round((1 - t / 0.55) * 4); c.h = Math.min(c.h, SEA - 1 - depth); c.b = BIO.OCEAN; c.v = temp < -0.2 ? BV.FROZEN_RIVER : BV.RIVER; return c; }
+        const k = (t - 0.55) / 0.45; c.h = Math.min(c.h, Math.max(SEA, SEA + Math.round(k * k * (c.h - SEA)))); } }
+    // ---- coasts ----
+    const m = this.nM.f2(x / 260 + 50, z / 260 + 50, 3) - 0.08;
+    if (c.h <= SEA + 2 && m >= 0.04 && c.b !== BIO.BEACH) { c.b = BIO.BEACH; c.v = BV.STONY_SHORE; return c; }
+    if (c.b === BIO.SNOWY && c.h <= SEA + 1) { c.b = BIO.BEACH; c.v = BV.SNOWY_BEACH; return c; }
+    switch (c.b) {
+      case BIO.PLAINS: case BIO.FOREST:
+        if (c.h >= SEA + 24) { c.b = BIO.PLAINS; c.v = BV.MEADOW; break; }
+        if (c.b === BIO.PLAINS) { if (vn > 0.3) c.v = BV.SUNFLOWER_PLAINS; break; }
+        if (vn > 0.32) c.v = BV.FLOWER_FOREST; else if (vn2 > 0.36) c.v = BV.OLD_BIRCH; else if (vn2 > 0.2) c.v = BV.BIRCH_FOREST; break;
+      case BIO.SNOWY: if (vn > 0.3) c.v = BV.ICE_SPIKES; break;
+      case BIO.TAIGA: if (temp < -0.2) c.v = BV.SNOWY_TAIGA; else if (vn > 0.28) c.v = temp < -0.12 ? BV.OLD_SPRUCE : BV.OLD_PINE; break;
+      case BIO.JUNGLE: if (vn > 0.28) c.v = BV.BAMBOO_JUNGLE; else if (vn < -0.3) c.v = BV.SPARSE_JUNGLE; break;
+      case BIO.SAVANNA:
+        if (vn > 0.24) { c.h += Math.round(smoothstep(0.24, 0.32, vn) * 16); if (vn > 0.28) c.v = BV.SAVANNA_PLATEAU; }
+        else if (vn < -0.3) { const s = smoothstep(-0.3, -0.4, vn); c.h += Math.round(Math.abs(this.nSp.f2(x / 26, z / 26, 2)) * 34 * s); if (vn < -0.33) c.v = BV.WINDSWEPT_SAVANNA; }
+        break;
+      case BIO.BADLANDS:
+        if (vn > 0.2) c.v = BV.WOODED_BADLANDS;
+        else if (vn < -0.25) { const s = this.nSp.f2(x / 7, z / 7, 1), f = smoothstep(-0.25, -0.33, vn); if (s > 0.3) c.h += Math.min(30, Math.round((s - 0.3) * 130 * f)); if (vn < -0.28) c.v = BV.ERODED_BADLANDS; }
+        break;
+      case BIO.MOUNTAINS:
+        if (c.h >= SEA + 72) c.v = temp < -0.1 ? BV.FROZEN_PEAKS : temp > 0.12 ? BV.STONY_PEAKS : BV.JAGGED_PEAKS;
+        else if (c.h >= SEA + 50) c.v = temp < 0 ? BV.SNOWY_SLOPES : vn2 < -0.25 ? BV.WINDSWEPT_GRAVELLY : BV.WINDSWEPT_HILLS;
+        else c.v = temp < 0 ? BV.GROVE : vn2 > 0.2 ? BV.WINDSWEPT_FOREST : vn2 < -0.25 ? BV.WINDSWEPT_GRAVELLY : BV.WINDSWEPT_HILLS;
+        break;
+    }
+    return c; }; }
+// villages also stand in meadows, savannas and taigas (Minecraft); never on a river
+PLACE.village.biomes.push(BIO.SAVANNA, BIO.TAIGA);
+{ const _vm = villageMats; villageMats = function (b, vh) {
+    if (b === BIO.SAVANNA) return { wall: B.ACACIA_PLANKS, corner: B.ACACIA_LOG, floor: B.ACACIA_PLANKS, roof: B.ACACIA_PLANKS, found: B.COBBLESTONE, post: B.ACACIA_LOG, ground: B.GRASS, road: B.DIRT_PATH, log: B.ACACIA_LOG };
+    if (b === BIO.TAIGA) return { wall: B.SPRUCE_PLANKS, corner: B.SPRUCE_LOG, floor: B.SPRUCE_PLANKS, roof: B.SPRUCE_PLANKS, found: B.COBBLESTONE, post: B.SPRUCE_LOG, ground: B.GRASS, road: B.DIRT_PATH, log: B.SPRUCE_LOG };
+    return _vm.apply(this, arguments); }; }
+{ const _rs = regionStart; regionStart = function (world, kind, rx, rz) {
+    const s = _rs.apply(this, arguments); if (s && s.col && isRiver(s.col) && kind !== 'ocean_monument') { world.startCache.set(kind + ':' + rx + ',' + rz, null); return null; }
+    return s; }; }
+// ---------- ground, plants and features ----------
+function vTree(kind, put, x, y, z, r) { if (TREES[kind]) TREES[kind](put, x, y, z, r); }
+function iceSpike(hard, x, y, z, r) {
+  const big = r() < 0.06; const H = big ? 30 + (r() * 20 | 0) : 7 + (r() * 12 | 0); const R0 = big ? 3.2 : 1.6 + r();
+  for (let k = -3; k < H; k++) { const rr = Math.max(0.3, R0 * (1 - Math.max(0, k) / H)); const ir = Math.ceil(rr);
+    for (let dx = -ir; dx <= ir; dx++) for (let dz = -ir; dz <= ir; dz++) if (dx * dx + dz * dz <= rr * rr + 0.3) hard(x + dx, y + k, z + dz, B.PACKED_ICE); }
+}
+function iceberg(hard, soft, x, z, r) {
+  const R = 4 + (r() * 5 | 0), H = 4 + (r() * 10 | 0), D = 4 + (r() * 6 | 0); const blue = r() < 0.5;
+  for (let y = -D; y <= H; y++) { const f = y >= 0 ? 1 - y / (H + 1) : 1 - (-y) / (D + 1) * 0.6; const rr = R * Math.sqrt(Math.max(0, f)); const ir = Math.ceil(rr);
+    for (let dx = -ir; dx <= ir; dx++) for (let dz = -ir; dz <= ir; dz++) { const q = rnd01(x + dx, y, z + dz, 4343); if (dx * dx + dz * dz > rr * rr + q * 2) continue;
+      hard(x + dx, SEA + y, z + dz, blue && Math.abs(dx - dz) <= 1 && q < 0.7 ? B.BLUE_ICE : B.PACKED_ICE); } }
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (dx * dx + dz * dz <= 4) soft(x + dx, SEA + H + 1, z + dz, B.SNOW);
+}
+function bigMushroom(put, x, y, z, red, r) {
+  const H = 4 + (r() * 3 | 0) + (r() < 0.08 ? 4 : 0); for (let i = 0; i < H; i++) put(x, y + i, z, B.MUSHROOM_STEM);
+  if (red) { for (let yy = y + H - 3; yy <= y + H; yy++) { const top = yy === y + H, rr = top ? 1 : 2; for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) { if (!top && Math.abs(dx) < rr && Math.abs(dz) < rr) continue; if (top || !(Math.abs(dx) === rr && Math.abs(dz) === rr)) put(x + dx, yy, z + dz, B.RED_MUSHROOM_BLOCK); } } }
+  else for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { if (Math.abs(dx) === 3 && Math.abs(dz) === 3) continue; put(x + dx, y + H, z + dz, B.BROWN_MUSHROOM_BLOCK); }
+}
+function boulder(hard, x, y, z, r) { const R = 1 + r() * 1.3; const ir = Math.ceil(R); for (let dx = -ir; dx <= ir; dx++) for (let dy = -1; dy <= ir; dy++) for (let dz = -ir; dz <= ir; dz++) if (dx * dx + dy * dy + dz * dz <= R * R + 0.4) hard(x + dx, y + dy, z + dz, B.MOSSY_COBBLESTONE); }
+const TALLF = (k) => { const id = B[k.toUpperCase()]; return id !== undefined && BL[id].tallOther !== undefined ? [id, BL[id].tallOther] : null; };
+{ const _dec = decorate; decorate = function (world, S, cx, cz) {
+    const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 5303, seed)); const bx = cx * 16, bz = cz * 16;
+    const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }, soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
+    const putH = (x, y, z, id) => hard(x, y, z, id), putT = (x, y, z, id, isLog) => (isLog ? hard : soft)(x, y, z, id);
+    const vill = startNear(world, 'village', cx, cz, 2);
+    // ground: one pass over the chunk's columns
+    const seen = new Set();
+    for (let lx = 0; lx < 16; lx++) for (let lz = 0; lz < 16; lz++) {
+      const x = bx + lx, z = bz + lz; const col = g.column(x, z); const v = col.v, h = col.h, top = h - 1; seen.add(col.b * 100 + v);
+      if (g.cave(x, top, z)) continue; const q = rnd01(x, 5, z, seed + 909);
+      if (col.b === BIO.OCEAN) {
+        if (isRiver(col)) { if (q < 0.05) hard(x, top, z, B.CLAY); if (v === BV.FROZEN_RIVER) hard(x, SEA - 1, z, B.ICE); }
+        else if (v === BV.WARM_OCEAN || v === BV.LUKEWARM_OCEAN) hard(x, top, z, B.SAND);
+        else if (v === BV.COLD_OCEAN || v === BV.FROZEN_OCEAN) { hard(x, top, z, q < 0.7 ? B.GRAVEL : B.SAND); if (v === BV.FROZEN_OCEAN && h < SEA - 1 && g.nSp.f2(x / 40, z / 40, 2) > -0.12) hard(x, SEA - 1, z, B.ICE); }
+        continue;
+      }
+      if (h <= SEA && col.b !== BIO.BEACH) continue;
+      // tall badlands (hoodoos, mesas) keep their terracotta bands all the way down, not just the top 14 blocks
+      if (col.b === BIO.BADLANDS && h > SEA + 16) { const shift = (ihash(0, 0, 515, seed) >>> 0) % 16, jit = (rnd01(x >> 3, 0, z >> 3, seed) * 2) | 0; for (let y = top - 14; y > Math.max(SEA - 2, top - 50); y--) if (!g.cave(x, y, z)) hard(x, y, z, B[BADLAND_BANDS[(y + shift + jit) % 16].toUpperCase()]); }
+      switch (col.b === BIO.MUSHROOM_FIELDS ? -1 : v) {
+        case -1: hard(x, top, z, B.MYCELIUM); hard(x, top + 1, z, 0); if (q < 0.012) soft(x, h, z, q < 0.006 ? B.RED_MUSHROOM : B.BROWN_MUSHROOM); break;
+        case BV.ICE_SPIKES: hard(x, top, z, B.SNOW_BLOCK); hard(x, top + 1, z, 0); break;
+        case BV.SNOWY_BEACH: soft(x, h, z, B.SNOW); break;
+        case BV.STONY_SHORE: for (let k = 0; k < 4; k++) hard(x, top - k, z, q < 0.15 && k === 0 ? B.GRAVEL : B.STONE); hard(x, top + 1, z, 0); break;
+        case BV.OLD_PINE: case BV.OLD_SPRUCE: { const p = g.nSp.f2(x / 9, z / 9, 2); if (p > 0.12) hard(x, top, z, B.PODZOL); else if (p < -0.25) hard(x, top, z, B.COARSE_DIRT); break; }
+        case BV.BAMBOO_JUNGLE: if (g.nSp.f2(x / 8, z / 8, 2) > 0.05) hard(x, top, z, B.PODZOL); break;
+        case BV.WOODED_BADLANDS: if (h > SEA + 18) { hard(x, top, z, q < 0.6 ? B.COARSE_DIRT : B.GRASS); hard(x, top - 1, z, B.DIRT); hard(x, top + 1, z, 0); } break;
+        case BV.WINDSWEPT_SAVANNA: { const steep = Math.abs(g.column(x + 1, z).h - h) + Math.abs(g.column(x, z + 1).h - h) > 3; if (steep) hard(x, top, z, B.STONE); else if (q < 0.4) hard(x, top, z, B.COARSE_DIRT); break; }
+        case BV.STONY_PEAKS: { const band = (top + (q * 3 | 0)) % 9; hard(x, top, z, band < 2 ? B.CALCITE : q < 0.08 ? B.GRAVEL : B.STONE); hard(x, top + 1, z, 0); break; }
+        case BV.FROZEN_PEAKS: { const p = g.nSp.f2(x / 14, z / 14, 2); hard(x, top, z, p > 0.15 ? B.PACKED_ICE : p < -0.3 ? B.ICE : B.SNOW_BLOCK); break; }
+        case BV.SNOWY_SLOPES: hard(x, top, z, B.SNOW_BLOCK); if (g.nSp.f2(x / 6, z / 6, 1) > 0.42) { hard(x, top, z, B.POWDER_SNOW); hard(x, top - 1, z, B.POWDER_SNOW); } break;
+        case BV.GROVE: hard(x, top, z, B.SNOWY_GRASS); hard(x, top - 1, z, B.DIRT); if (q < 0.9) soft(x, h, z, B.SNOW); break;
+        case BV.WINDSWEPT_GRAVELLY: if (g.nSp.f2(x / 10, z / 10, 2) > -0.1) { hard(x, top, z, B.GRAVEL); hard(x, top - 1, z, B.GRAVEL); hard(x, top + 1, z, 0); } break;
+        case BV.WINDSWEPT_FOREST: case BV.WINDSWEPT_HILLS: if (h >= SEA + 44 && h < SEA + 72 && g.nSp.f2(x / 12, z / 12, 2) > 0.05) { hard(x, top, z, B.GRASS); hard(x, top - 1, z, B.DIRT); } break;
+      }
+    }
+    if (vill) return r0;
+    const has = (b, v) => seen.has(b * 100 + v); const at = () => { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); return { x, z, col, y: col.h }; };
+    const okLand = (p, v, b) => p.col.h > SEA && (v === undefined || p.col.v === v) && (b === undefined || p.col.b === b) && !g.cave(p.x, p.col.h - 1, p.z) && p.col.h < WH - 40;
+    // icebergs and frozen oceans
+    if (has(BIO.OCEAN, BV.FROZEN_OCEAN) && r() < 0.06) { const p = at(); if (p.col.v === BV.FROZEN_OCEAN && p.col.h < SEA - 8) iceberg(hard, soft, p.x, p.z, r); }
+    // mushroom fields: huge mushrooms
+    if (has(BIO.MUSHROOM_FIELDS, 0)) for (let i = 0; i < 2; i++) { const p = at(); if (p.col.b === BIO.MUSHROOM_FIELDS && r() < 0.5) bigMushroom(putH, p.x, p.y, p.z, r() < 0.5, r); }
+    // ice spikes and packed-ice patches
+    if (has(BIO.SNOWY, BV.ICE_SPIKES)) { for (let i = 0; i < 2; i++) { const p = at(); if (okLand(p, BV.ICE_SPIKES) && r() < 0.6) iceSpike(hard, p.x, p.y, p.z, r); }
+      if (r() < 0.3) { const p = at(); if (okLand(p, BV.ICE_SPIKES)) { const R = 2 + (r() * 3 | 0); for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) if (dx * dx + dz * dz <= R * R) hard(p.x + dx, g.column(p.x + dx, p.z + dz).h - 1, p.z + dz, B.PACKED_ICE); } } }
+    // flowers: sunflower plains, flower forests and meadows
+    const flowerPatch = (v, list, n, tall) => { for (let k = 0; k < n; k++) { const p = at(); if (!okLand(p, v)) continue; for (let i = 0; i < 9; i++) { const x = p.x + ((r() * 5 | 0) - 2), z = p.z + ((r() * 5 | 0) - 2); const c2 = g.column(x, z); if (c2.v !== v || c2.h <= SEA) continue; const t = tall ? TALLF(list[r() * list.length | 0]) : null; if (t) { soft(x, c2.h, z, t[0]); soft(x, c2.h + 1, z, t[1]); } else { const id = B[list[r() * list.length | 0].toUpperCase()]; if (id !== undefined) soft(x, c2.h, z, id); } } } };
+    if (has(BIO.PLAINS, BV.SUNFLOWER_PLAINS)) flowerPatch(BV.SUNFLOWER_PLAINS, ['sunflower'], 3, true);
+    if (has(BIO.FOREST, BV.FLOWER_FOREST)) { flowerPatch(BV.FLOWER_FOREST, ['dandelion', 'rose', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip', 'white_tulip', 'pink_tulip', 'oxeye_daisy', 'cornflower', 'lily_of_the_valley'], 6, false); flowerPatch(BV.FLOWER_FOREST, ['lilac', 'rose_bush', 'peony'], 1, true); }
+    if (has(BIO.PLAINS, BV.MEADOW)) { flowerPatch(BV.MEADOW, ['dandelion', 'allium', 'azure_bluet', 'cornflower', 'oxeye_daisy', 'rose'], 3, false); for (let i = 0; i < 24; i++) { const p = at(); if (okLand(p, BV.MEADOW)) { const t = TALLF('double_tall_grass'); if (t && r() < 0.3) { soft(p.x, p.y, p.z, t[0]); soft(p.x, p.y + 1, p.z, t[1]); } else soft(p.x, p.y, p.z, B.TALL_GRASS); } }
+      if (r() < 0.12) { const p = at(); if (okLand(p, BV.MEADOW)) { const birch = r() < 0.5; vTree(birch ? 'birch' : 'oak', putT, p.x, p.y, p.z, r); const ny = p.y + 3; hard(p.x + 1, ny, p.z, B.BEE_NEST); S.mobs.push(['bee', p.x + 1.5, ny + 1, p.z + 0.5], ['bee', p.x + 1.5, ny + 1, p.z + 1.5]); } } }
+    // trees for the sub-biomes that need them
+    const treeTries = (v, n, kinds, b) => { for (let i = 0; i < n; i++) { const p = at(); if (okLand(p, v, b)) vTree(kinds[r() * kinds.length | 0], putT, p.x, p.y, p.z, r); } };
+    if (has(BIO.MOUNTAINS, BV.GROVE)) treeTries(BV.GROVE, 6, ['spruce', 'spruce', 'spruce']);
+    if (has(BIO.MOUNTAINS, BV.WINDSWEPT_FOREST)) treeTries(BV.WINDSWEPT_FOREST, 5, ['spruce', 'oak', 'oak']);
+    if (has(BIO.MOUNTAINS, BV.WINDSWEPT_HILLS) && r() < 0.5) treeTries(BV.WINDSWEPT_HILLS, 1, ['spruce', 'oak']);
+    if (has(BIO.SAVANNA, BV.WINDSWEPT_SAVANNA)) treeTries(BV.WINDSWEPT_SAVANNA, 1, ['acacia']);
+    if (has(BIO.SAVANNA, BV.SAVANNA_PLATEAU)) treeTries(BV.SAVANNA_PLATEAU, 2, ['acacia', 'oak']);
+    if (has(BIO.BADLANDS, BV.WOODED_BADLANDS)) for (let i = 0; i < 4; i++) { const p = at(); if (okLand(p, BV.WOODED_BADLANDS) && p.y > SEA + 18) vTree('oak', putT, p.x, p.y, p.z, r); }
+    for (const v of [BV.OLD_PINE, BV.OLD_SPRUCE]) if (has(BIO.TAIGA, v)) { for (let i = 0; i < 3; i++) { const p = at(); if (okLand(p, v)) vTree('mega_spruce', putT, p.x, p.y, p.z, r); }
+      if (r() < 0.25) { const p = at(); if (okLand(p, v)) boulder(hard, p.x, p.y, p.z, r); } }
+    if (has(BIO.JUNGLE, BV.BAMBOO_JUNGLE)) for (let i = 0; i < 40; i++) { const p = at(); if (!okLand(p, BV.BAMBOO_JUNGLE)) continue; const H = 6 + (r() * 10 | 0); for (let k = 0; k < H; k++) soft(p.x, p.y + k, p.z, B.BAMBOO); }
+    return r0; }; }
+// ---------- animals by sub-biome (added with the chunk, like Minecraft) ----------
+{ const _ocg = onChunkGen; onChunkGen = function (c, hints, cols, w) {
+    _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
+    const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = w.gen.column(c.cx * 16 + lx, c.cz * 16 + lz); let tab = null, n = 3;
+    if (col.b === BIO.MUSHROOM_FIELDS) { if (Math.random() < 0.3) { tab = { mooshroom: 1 }; n = 4 + (Math.random() * 4 | 0); } }
+    else if (Math.random() > 0.08) return;
+    else switch (col.v) {
+      case BV.ICE_SPIKES: tab = { rabbit: 2, polar_bear: 1 }; break;
+      case BV.FROZEN_OCEAN: tab = { polar_bear: 1 }; n = 2; break;
+      case BV.MEADOW: tab = { rabbit: 2, sheep: 2, donkey: 1 }; break;
+      case BV.GROVE: tab = { wolf: 1, fox: 2, rabbit: 2 }; break;
+      case BV.SNOWY_SLOPES: case BV.JAGGED_PEAKS: case BV.FROZEN_PEAKS: tab = { goat: 1, rabbit: col.v === BV.SNOWY_SLOPES ? 1 : 0 }; break;
+      case BV.SNOWY_TAIGA: tab = { wolf: 1, fox: 2, rabbit: 2 }; break;
+      case BV.OLD_PINE: case BV.OLD_SPRUCE: tab = { wolf: 1, rabbit: 2, fox: 2 }; break;
+      case BV.BAMBOO_JUNGLE: tab = { panda: 2, parrot: 1, ocelot: 1 }; n = 2; break;
+      case BV.WINDSWEPT_HILLS: case BV.WINDSWEPT_GRAVELLY: case BV.WINDSWEPT_FOREST: tab = { llama: 1, sheep: 2, cow: 1 }; break;
+      case BV.SAVANNA_PLATEAU: case BV.WINDSWEPT_SAVANNA: tab = { horse: 1, llama: 1, armadillo: 1 }; break;
+      case BV.FLOWER_FOREST: case BV.BIRCH_FOREST: case BV.OLD_BIRCH: tab = { rabbit: 1, sheep: 2, pig: 1 }; break;
+    }
+    if (!tab) return; const type = pickWeighted(tab); if (!MOBS[type]) return;
+    for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = type === 'polar_bear' && col.v === BV.FROZEN_OCEAN ? SEA : surfaceSpawnY(x, z); if (y >= SEA && freeAt(x, y, z, 2)) spawnMob(type, x + 0.5, y, z + 0.5); }
+  }; world && (world.onChunkGen = onChunkGen); }
+// ---------- monsters: none in mushroom fields; strays in the frozen sub-biomes ----------
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
+    if (S.natSpawn && world && world.dim === 'overworld' && MOBS[type]) {
+      const col = world.gen.column(Math.floor(x), Math.floor(z));
+      if (col.b === BIO.MUSHROOM_FIELDS && MOBS[type].kind !== 'passive') return null;
+      if (type === 'skeleton' && FROZEN_V().has(col.v) && world.skyAt(Math.floor(x), Math.floor(y + 1), Math.floor(z)) >= 1 && Math.random() < 0.8) type = 'stray';
+    }
+    return _sm(type, x, y, z, opts); }; }
+
+// ================= CAVE BIOMES: SULFUR CAVES (Chaos Cubed), ICE CAVES, DEEP DARK; FREEZING AND NAUSEA =================
+// Cave biomes now have names (Lush Caves, Dripstone Caves, Deep Dark, Sulfur Caves, Ice Caves) shown when you're in them.
+// Sulfur caves: sulfur and cinnabar floors and ceilings, sulfur spikes, green sulfur pools whose potent-sulfur fumes
+// give Nausea, geysers (potent sulfur over magma or lava throws you upward every so often), glow lichen, and the
+// sulfur cube: a passive cube that swallows a full block you give it (or one lying near it) and takes on its
+// physics - wood bounces like a rubber ball, stone is a slow heavy bouncer, moss / coral / pumpkins slide flat, wool
+// floats down slowly, ice skids, honey sticks, magma burns, and TNT turns it into a walking bomb you can light.
+// While it holds a block, hits only knock it about (golf!); sneak and use an empty hand to take the block back.
+// Large cubes split into two small ones; small ones grow up (slime balls speed that up) and fit in a bucket.
+// On the surface above sulfur caves: sulfur springs (a pond ringed with sulfur, cinnabar, tuff and granite, with a geyser).
+// Ice caves under cold biomes: ice, packed ice, calcite, icicles hanging from the ceiling (they fall if lit up too
+// brightly) and glowing ice crystals. The Frostbite, a frozen zombie, lives there: its hits freeze you and some throw
+// ice balls. Freezing (also from powder snow, and the new Potion of Freezing brewed from ice balls) slows you and
+// hurts over time; leather armor keeps powder-snow cold out.
+// ---------- stonecutting ----------
+for (const m of ['sulfur', 'cinnabar']) STONECUT.push([m, 'polished_' + m, 1], [m, m + '_bricks', 1], [m, 'chiseled_' + m, 1], ['polished_' + m, m + '_bricks', 1], ['polished_' + m, 'chiseled_' + m, 1], [m + '_bricks', 'chiseled_' + m, 1]);
+// ---------- which cave biome is where ----------
+function caveFlags(g, bx, bz) {
+  if (!g.nCv1) { g.nCv1 = new Perlin(g.seed + 1401); g.nCv2 = new Perlin(g.seed + 1402); g.nCv3 = new Perlin(g.seed + 1403); }
+  const lush = g.nW.f2(bx / 900 + 13, bz / 900 - 9, 2) > 0.2, drip = !lush && g.nT.f2(bx / 900 - 21, bz / 900 + 5, 2) > 0.22;
+  const sulfur = !lush && !drip && g.nCv1.f2(bx / 700, bz / 700, 2) > 0.26;
+  const ice = !lush && !drip && !sulfur && g.nT.f2(bx / 560, bz / 560, 2) < -0.12 && g.nCv2.f2(bx / 500, bz / 500, 2) > 0.05;
+  const dark = g.nCv3.f2(bx / 600, bz / 600, 2) > 0.16;
+  return { lush, drip, sulfur, ice, dark };
+}
+function caveBiomeName(g, x, y, z) {
+  const col = g.column(x, z); if (y >= col.h - 6 || !g.cave) return null; const f = caveFlags(g, (x >> 4) * 16, (z >> 4) * 16);
+  if (f.dark && y < YOFF - 14) return 'Deep Dark';
+  if (f.sulfur && y > YOFF - 40 && y < YOFF + 40) return 'Sulfur Caves';
+  if (f.ice && y > YOFF - 20) return 'Ice Caves';
+  if (f.lush) return 'Lush Caves'; if (f.drip) return 'Dripstone Caves'; return null;
+}
+{ const _bn = Gen.prototype.biomeName; Gen.prototype.biomeName = function (x, z, y) {
+    if (y !== undefined) { const c = this.column(x, z); if (y < c.h - 6 && this.cave(x, y, z) || y < c.h - 12) { const n = caveBiomeName(this, x, y, z); if (n) return n; } }
+    return _bn.call(this, x, z); }; }
+// ---------- world generation ----------
+{ const _dec = decorate; decorate = function (world, S, cx, cz) {
+    const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 9311, seed)); const bx = cx * 16, bz = cz * 16;
+    const hard = (x, y, z, id) => { if (y > 1 && y < WH) S.hard.push(x, y, z, id); }, soft = (x, y, z, id) => { if (y > 1 && y < WH) S.soft.push(x, y, z, id); };
+    const f = caveFlags(g, bx, bz); const cv = (x, y, z) => g.cave(x, y, z);
+    const sample = (yLo, yHi) => { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); const hi = Math.min(yHi, col.h - 7); if (hi <= yLo) return null; const y = yLo + (r() * (hi - yLo) | 0); if (!cv(x, y, z)) return null; return { x, y, z, floor: !cv(x, y - 1, z), ceil: !cv(x, y + 1, z) }; };
+    // --- sulfur caves ---
+    if (f.sulfur) {
+      // sulfur pools: water ringed with sulfur and cinnabar, potent sulfur at the bottom (fumes); some sit on magma (geysers)
+      for (let k = 0; k < 2; k++) { if (r() > 0.45) continue; let p = null; for (let t = 0; t < 30 && !(p && p.floor); t++) p = sample(YOFF - 36, YOFF + 34); if (!p || !p.floor) continue;
+        const R = 2 + (r() * 2.5); const y = p.y - 1; const geyser = r() < 0.3;
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) { const d = Math.hypot(dx, dz); const x = p.x + dx, z = p.z + dz; if (d > R + 1.2) continue; if (cv(x, y, z) && !cv(x, y - 1, z)) continue;
+          if (d <= R) { hard(x, y, z, B.WATER); hard(x, y + 1, z, cv(x, y + 1, z) ? 0 : B.WATER); if (cv(x, y + 1, z)) hard(x, y + 1, z, 0); hard(x, y - 1, z, d < 1.2 ? B.POTENT_SULFUR : r() < 0.6 ? B.SULFUR : B.CINNABAR); if (geyser && d < 1.2) hard(x, y - 2, z, B.MAGMA_BLOCK); }
+          else hard(x, y, z, r() < 0.65 ? B.SULFUR : B.CINNABAR); }
+      }
+    }
+    // sulfur springs on the surface above sulfur caves
+    if (f.sulfur && r() < 1 / 24 && !startNear(world, 'village', cx, cz, 2)) { const x0 = bx + 4 + (r() * 8 | 0), z0 = bz + 4 + (r() * 8 | 0); const col = g.column(x0, z0);
+      if (col.h > SEA + 1 && col.h < WH - 30 && col.b !== BIO.OCEAN && col.b !== BIO.BEACH) { const y = col.h - 1; const R = 2.6 + r();
+        for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) { const d = Math.hypot(dx, dz); const x = x0 + dx, z = z0 + dz; if (d > R + 2) continue; const h2 = g.column(x, z).h;
+          for (let yy = y + 1; yy < Math.max(h2, y + 1) + 2; yy++) hard(x, yy, z, 0);
+          if (d <= R) { hard(x, y, z, B.WATER); hard(x, y - 1, z, d < 1 ? B.POTENT_SULFUR : B.SULFUR); if (d < 1) hard(x, y - 2, z, B.MAGMA_BLOCK); hard(x, y - 2 - (d < 1 ? 1 : 0), z, B.TUFF); }
+          else { const v = r(); hard(x, y, z, v < 0.45 ? B.SULFUR : v < 0.7 ? B.CINNABAR : v < 0.85 ? B.TUFF : B.GRANITE); hard(x, y - 1, z, B.TUFF); if (r() < 0.2 && d > R + 0.6) soft(x, y + 1, z, B.SULFUR_SPIKE); } }
+        S.kinds.push(['sulfur_spring', x0, z0]); } }
+    return r0; }; }
+// cave biomes are laid onto the chunk right after its caves are carved: every cave wall, floor and ceiling inside the
+// biome's region gets its rock, and floors / ceilings get their spikes, icicles, crystals and sculk
+const CAVE_ROCK = new Set(); for (const k of ['stone', 'deepslate', 'tuff', 'granite', 'diorite', 'andesite', 'dirt', 'gravel', 'cobbled_deepslate']) if (B[k.toUpperCase()] !== undefined) CAVE_ROCK.add(B[k.toUpperCase()]);
+{ const _go = World.prototype.genOverworld; World.prototype.genOverworld = function (c) {
+    const cols = _go.apply(this, arguments); const g = this.gen; const bx = c.cx * 16, bz = c.cz * 16; const f = caveFlags(g, bx, bz); if (!f.sulfur && !f.ice && !f.dark) return cols;
+    const d = c.d, seed = this.seed; const I = (x, y, z) => (y * 16 + z) * 16 + x;
+    const lay = (yLo, yHi, kind) => { for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { const col = cols ? cols[z * 16 + x] : g.column(bx + x, bz + z); const top = Math.min(yHi, col.h - 7);
+        for (let y = Math.max(2, yLo); y < top; y++) { const j = I(x, y, z); if (d[j] !== 0) continue; const wx = bx + x, wz = bz + z;
+          const q = rnd01(wx, y, wz, seed + 6151); const rk = (xx, yy, zz) => { if (xx < 0 || xx > 15 || zz < 0 || zz > 15) return; const k = I(xx, yy, zz); if (!CAVE_ROCK.has(d[k])) return; const X = bx + xx, Z = bz + zz; const nv = kind.rock(Math.min(0.999, rnd01(X >> 2, yy >> 2, Z >> 2, seed + 6152) * 0.8 + rnd01(X, yy, Z, seed + 6153) * 0.2)); if (nv) d[k] = nv; };
+          const floor = y > 1 && d[I(x, y - 1, z)] !== 0 && SOLID[d[I(x, y - 1, z)]], ceil = y < WH - 1 && SOLID[d[I(x, y + 1, z)]];
+          rk(x, y - 1, z); rk(x, y + 1, z); rk(x - 1, y, z); rk(x + 1, y, z); rk(x, y, z - 1); rk(x, y, z + 1);
+          if (floor && kind.floor) { const id = kind.floor(q); if (id) d[j] = id; } else if (ceil && kind.ceil) { const id = kind.ceil(q); if (id) d[j] = id; } } } };
+    if (f.sulfur) lay(YOFF - 40, YOFF + 40, { rock: (v) => v < 0.55 ? B.SULFUR : v < 0.85 ? B.CINNABAR : v < 0.93 ? B.TUFF : B.GRANITE,
+      floor: (q) => q < 0.07 ? B.SULFUR_SPIKE : q < 0.09 ? B.GLOW_LICHEN : 0, ceil: (q) => q < 0.07 ? B['SULFUR_SPIKE#HANG'] : q < 0.13 ? B['GLOW_LICHEN#1'] : 0 });
+    if (f.ice) lay(YOFF - 20, SEA - 4, { rock: (v) => v < 0.4 ? B.PACKED_ICE : v < 0.7 ? B.ICE : v < 0.88 ? B.CALCITE : B.SNOW_BLOCK,
+      floor: (q) => q < 0.035 ? B.ICE_CRYSTAL : q < 0.06 ? B.SNOW : 0, ceil: (q) => q < 0.12 ? B.ICICLE : q < 0.13 ? B.ICE_CRYSTAL : 0 });
+    if (f.dark) lay(YOFF - 60, YOFF - 15, { rock: (v) => v < 0.75 ? B.SCULK : 0, floor: (q) => q < 0.006 ? B.SCULK_SENSOR : q < 0.008 && B.SCULK_SHRIEKER !== undefined ? B.SCULK_SHRIEKER : q < 0.05 && B.SCULK_VEIN !== undefined ? B.SCULK_VEIN : 0, ceil: null });
+    return cols; }; }
+// ---------- placing: spikes stand or hang, icicles hang, crystals stand or hang; they break without support ----------
+{ const _pb = placeBlock; placeBlock = function (hit, id) {
+    const d = BL[id]; if (!d || !hit || !(d.spike || d.icicle || d.iceCrystal)) return _pb.apply(this, arguments);
+    const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; if (!replaceableAt(x, y, z)) return false;
+    const below = SOLID[world.get(x, y - 1, z)], above = SOLID[world.get(x, y + 1, z)]; let put = null;
+    if (d.spike) put = hit.ny < 0 && above ? B['SULFUR_SPIKE#HANG'] : below ? B.SULFUR_SPIKE : above ? B['SULFUR_SPIKE#HANG'] : null;
+    else if (d.icicle) put = above ? B.ICICLE : null; else put = below || above ? B.ICE_CRYSTAL : null;
+    if (put == null) return false; world.set(x, y, z, put); mpBlock(x, y, z, put); Sfx.play(d.snd === 'glass' ? 'glass' : 'stone', 0.8, 1.2); return true; }; }
+function supportNeed(id) { const d = BL[id]; if (!d) return null; if (d.spike === 'up') return 'below'; if (d.spike === 'down' || d.icicle) return 'above'; if (d.iceCrystal) return 'either'; return null; }
+{ const _set = World.prototype.set; let busy = false; World.prototype.set = function (x, y, z, id) {
+    const r = _set.apply(this, arguments); if (r === false || busy || this !== G.world || SOLID[id]) return r; busy = true;
+    try { for (const dy of [1, -1]) { const yy = y + dy, nid = this.get(x, yy, z), need = supportNeed(nid); if (!need) continue;
+        const below = SOLID[this.get(x, yy - 1, z)], above = SOLID[this.get(x, yy + 1, z)];
+        if (need === 'below' ? below : need === 'above' ? above : (below || above)) continue;
+        _set.call(this, x, yy, z, 0); mpBlock(x, yy, z, 0); Particles.blockBreak(x, yy, z, nid, 6); Sfx.at('glass', new V3(x, yy, z), 0.5, 1.3);
+        if (isSurv() && BL[nid].drop) dropItem(IT[BL[nid].drop] !== undefined ? IT[BL[nid].drop] : nid, 1, x + 0.5, yy + 0.4, z + 0.5); } }
+    finally { busy = false; } return r; }; }
+// ---------- falling icicles (when light melts their hold) and sulfur spikes underfoot ----------
+G.fallers = [];
+function dropIcicle(x, y, z) {
+  world.set(x, y, z, 0); mpBlock(x, y, z, 0); const geo = new THREE.BoxGeometry(0.18, 0.7, 0.18); const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xcfeafa, transparent: true, opacity: 0.85 }));
+  mesh.position.set(x + 0.5, y + 0.5, z + 0.5); G.scene.add(mesh); G.fallers.push({ pos: new V3(x + 0.5, y + 0.4, z + 0.5), vy: 0, mesh, fallen: 0 }); Sfx.at('glass', new V3(x, y, z), 0.4, 1.6);
+}
+{ const _up = updatePlayer; let vy0 = 0; updatePlayer = function (dt) { const r = _up.apply(this, arguments); const P = player;
+    for (const f of G.fallers) { if (f.done) continue; f.vy = Math.max(-30, f.vy - 28 * dt); f.pos.y += f.vy * dt; f.fallen -= f.vy * dt; f.mesh.position.copy(f.pos);
+      const hitP = !P.dead && Math.abs(P.pos.x - f.pos.x) < 0.5 && Math.abs(P.pos.z - f.pos.z) < 0.5 && f.pos.y > P.pos.y && f.pos.y < P.pos.y + 1.9;
+      const hitM = G.mobs.find(m => !m.dead && Math.abs(m.pos.x - f.pos.x) < m.hw + 0.2 && Math.abs(m.pos.z - f.pos.z) < m.hw + 0.2 && f.pos.y > m.pos.y && f.pos.y < m.pos.y + m.h);
+      const dmg = Math.min(20, Math.ceil(2 + f.fallen * 0.8)); const blk = world.solid(Math.floor(f.pos.x), Math.floor(f.pos.y - 0.35), Math.floor(f.pos.z));
+      if (hitP || hitM || blk || f.pos.y < 0) { f.done = true; G.scene.remove(f.mesh); f.mesh.geometry.dispose(); Particles.emit(f.pos.x, f.pos.y, f.pos.z, 12, [[0.85, 0.95, 1], [0.7, 0.85, 0.95]], 2, 0.4, 8, 0.3); Sfx.at('glass_break', f.pos, 0.7, 1.3);
+        if (hitP && isSurv()) P.hurt(dmg, null, 'a falling icicle'); if (hitM) hitM.hurt(dmg, null, 0); } }
+    G.fallers = G.fallers.filter(f => !f.done);
+    // landing on a standing sulfur spike hurts (twice the fall damage, like pointed dripstone)
+    if (P.onGround && vy0 < -7 && !P.flying) { const id = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y), Math.floor(P.pos.z)); if (BL[id] && BL[id].spike === 'up' && isSurv()) P.hurt(Math.max(2, Math.round((-vy0 - 7) * 1.2)), null, 'a sulfur spike'); }
+    vy0 = P.vel.y; return r; }; }
+// ---------- freezing (powder snow, the Freezing effect) and nausea ----------
+Object.assign(EFFECTS, { freezing: 'Freezing', nausea: 'Nausea' });
+POT_EFF.freezing = ['freezing', 45]; POT_LONG.freezing = 90; POT_STRONG.freezing = ['freezing', 21.6, 1]; POT_NAMES.freezing = 'Freezing'; POT_COLOR.freezing = [170, 222, 250];
+for (const k of ['freezing', 'long_freezing', 'strong_freezing']) POTIONS[k] = { base: 'freezing', long: k.startsWith('long'), strong: k.startsWith('strong'), effect: k.startsWith('strong') ? POT_STRONG.freezing : POT_EFF.freezing };
+AWKWARD_TO.ice_ball = 'freezing'; BREW_ING.ice_ball = 1;
+// freezing counts as one more level of slowness than its own
+{ const _el = effLevel; effLevel = function (name) { const v = _el(name); if (name === 'slowness') { const f = _el('freezing'); return Math.max(v, f ? f + 1 : 0, S.frozenT >= 7 ? 1 : 0); } return v; }; }
+S.frozenT = 0;
+function frostOverlay(k) { let el = document.getElementById('frostOv'); if (!el) { el = document.createElement('div'); el.id = 'frostOv'; el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;background:radial-gradient(ellipse at center, rgba(200,235,255,0) 45%, rgba(214,240,255,0.55) 78%, rgba(236,248,255,0.9) 100%)'; document.body.appendChild(el); } el.style.opacity = k.toFixed(2); }
+{ const _up = updatePlayer; let dmgT = 0, gasT = 0; updatePlayer = function (dt) { const r = _up.apply(this, arguments); const P = player; if (P.dead) { frostOverlay(0); return r; }
+    const feet = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 0.1), Math.floor(P.pos.z)), eye = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.5), Math.floor(P.pos.z));
+    const inPowder = BL[feet] && BL[feet].powder || BL[eye] && BL[eye].powder; const leather = player.inv.slice(36, 40).some(s => s && ITEMS[s.id] && /^leather_/.test(ITEMS[s.id].key));
+    if (inPowder && !leather && isSurv()) S.frozenT = Math.min(7, S.frozenT + dt); else S.frozenT = Math.max(0, S.frozenT - dt * 2);
+    const fz = effLevel('freezing') ? 1 : S.frozenT / 7; frostOverlay(fz * (effLevel('freezing') ? 0.85 : 1));
+    if ((S.frozenT >= 7 || player.effects.freezing) && isSurv()) { dmgT += dt; const iv = player.effects.freezing ? 2 / (player.effects.freezing.amp + 1) : 2; if (dmgT >= iv) { dmgT = 0; P.hurt(1, null, 'freezing', 0); } } else dmgT = 0;
+    // sulfur pool fumes: in water above potent sulfur
+    gasT -= dt; if (gasT <= 0) { gasT = 0.5; if (FKIND[feet] === 1 || FKIND[eye] === 1) { const x = Math.floor(P.pos.x), z = Math.floor(P.pos.z); for (let dy = 0; dy <= 4; dy++) if (world.get(x, Math.floor(P.pos.y) - dy, z) === B.POTENT_SULFUR) { if (isSurv()) giveEffect('nausea', 10, 0); break; } } }
+    return r; }; }
+{ const _ma = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    const E = this.effects; if (E && E.freezing && !this.dead) { E.slowness = { t: E.freezing.t, amp: Math.max(E.slowness && E.slowness.t > E.freezing.t ? E.slowness.amp : 0, E.freezing.amp + 1) }; E.freezing.acc = (E.freezing.acc || 0) + dt; if (E.freezing.acc >= 2 / (E.freezing.amp + 1)) { E.freezing.acc = 0; this.hurt(this.type === 'stray' || this.type === 'frostbite' || this.type === 'polar_bear' ? 0 : 1, null, 0, true); } }
+    return _ma.call(this, dt); }; }
+// nausea: the view sways and rolls
+{ const _uh = updateHand; updateHand = function (dt, light) { const r = _uh.apply(this, arguments); const e = player.effects.nausea;
+    S.nausea = (S.nausea || 0) + ((e ? 1 : 0) - (S.nausea || 0)) * Math.min(1, dt * (e ? 0.8 : 2)); if (S.nausea > 0.01) { const t = performance.now() / 1000; camera.rotation.z += Math.sin(t * 1.7) * 0.09 * S.nausea; camera.rotation.x += Math.sin(t * 1.1) * 0.03 * S.nausea; }
+    return r; }; }
+// ---------- geysers: potent sulfur over magma (or lava) throws things upward every so often ----------
+const GEYSER = new Map();
+{ const _ub = updateBoats; let scanT = 0; updateBoats = function (dt) { const r = _ub(dt); if (!world || world.dim !== 'overworld') return r;
+    scanT -= dt; const P = player.pos;
+    if (scanT <= 0) { scanT = 1; const px = Math.floor(P.x), pz = Math.floor(P.z); const seen = new Set();
+      for (const c of world.chunks.values()) { const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - px) > 40 || Math.abs(oz + 8 - pz) > 40) continue;
+        if (!c.spec || c.specDirty) { c.specDirty = false; c.spec = { potent: [], icicle: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const v = d[j]; if (v === B.POTENT_SULFUR) c.spec.potent.push(j); else if (v === B.ICICLE) c.spec.icicle.push(j); } }
+        for (const j of c.spec.potent) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); const k = x + ',' + y + ',' + z; seen.add(k); const below = world.get(x, y - 1, z);
+          if (below !== B.MAGMA_BLOCK && FKIND[below] !== 2) { GEYSER.delete(k); continue; } if (!GEYSER.has(k)) GEYSER.set(k, { x, y, z, t: 3 + Math.random() * 10, on: 0 }); }
+        // icicles melt loose and fall when the light around them is bright (torches, glowstone...)
+        if (!isClientMP()) for (const j of c.spec.icicle) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); if (c.d[j] === B.ICICLE && world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) >= 0.73 && Math.random() < 0.3) dropIcicle(x, y, z); } }
+      for (const k of GEYSER.keys()) if (!seen.has(k)) GEYSER.delete(k); }
+    for (const gz of GEYSER.values()) { if (world.get(gz.x, gz.y, gz.z) !== B.POTENT_SULFUR) continue; const near = Math.hypot(gz.x - P.x, gz.z - P.z) < 48;
+      if (gz.on > 0) { gz.on -= dt; let top = gz.y + 1; while (top < gz.y + 14 && !SOLID[world.get(gz.x, top, gz.z)]) top++;
+        if (near && Math.random() < dt * 30) Particles.emit(gz.x + 0.5, gz.y + 1 + Math.random() * (top - gz.y - 1), gz.z + 0.5, 3, [[0.92, 0.96, 0.9], [0.8, 0.88, 0.7]], 2.5, 0.8, -6, 0.4);
+        const inCol = (e, hw) => Math.abs(e.pos.x - gz.x - 0.5) < 0.6 + hw && Math.abs(e.pos.z - gz.z - 0.5) < 0.6 + hw && e.pos.y >= gz.y + 0.5 && e.pos.y < top + 1;
+        if (!player.dead && !player.flying && inCol(player, 0.3)) { player.vel.y = Math.max(player.vel.y, 16); player.peak = null; }
+        for (const m of G.mobs) if (!m.dead && inCol(m, m.hw)) m.vel.y = Math.max(m.vel.y, 14);
+        for (const it of G.items) if (!it.gone && inCol(it, 0.2)) it.vel.y = Math.max(it.vel.y, 12); }
+      else { gz.t -= dt; if (gz.t <= 0) { gz.on = 2.5; gz.t = 8 + Math.random() * 16; if (near) Sfx.at('geyser', new V3(gz.x, gz.y, gz.z), 1); } } }
+    return r; }; }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); if (id === B.POTENT_SULFUR || id === B.ICICLE || prev === B.POTENT_SULFUR || prev === B.ICICLE) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.specDirty = true; } return r; }; }
+// ---------- death messages ----------
+{ const DM = { freezing: 'froze to death', 'a falling icicle': 'was impaled by a falling icicle', 'a sulfur spike': 'was impaled on a sulfur spike', 'a sulfur cube': 'was blown up by a Sulfur Cube' };
+  const _dm = deathMessage; deathMessage = function (cause) { return DM[cause] ? myName() + ' ' + DM[cause] : _dm.apply(this, arguments); };
+}
+const DEATH_YOU = { freezing: 'You froze to death', 'a falling icicle': 'You were impaled by a falling icicle', 'a sulfur spike': 'You were impaled on a sulfur spike', 'a sulfur cube': 'You were blown up by a Sulfur Cube' };
+// ---------- sounds ----------
+{ const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) { if (!this.ctx || v < 0.02) return _pl.apply(this, arguments);
+    switch (name) {
+      case 'geyser': this.nz(1.6, 500, 0.6 * v, 'lowpass'); this.nz(1.2, 2200, 0.25 * v, 'bandpass', 0.8); this.tone(70, 45, 1.2, 0.12 * v, 'sine'); return;
+      case 'cube_absorb': this.tone(180, 520, 0.18, 0.12 * v, 'sine'); this.nz(0.15, 600, 0.3 * v, 'lowpass'); return;
+      case 'cube_bounce': this.tone(260 * (rate || 1), 120 * (rate || 1), 0.12, 0.12 * v, 'sine'); this.nz(0.06, 900, 0.2 * v, 'lowpass'); return;
+      case 'ice_throw': this.nz(0.14, 3000, 0.25 * v, 'bandpass', 2); return;
+    }
+    return _pl.apply(this, arguments); }; }
+// ================= SULFUR CUBE =================
+const CUBE_ARCH = { // bounce, ground friction, air drag, floats, knock multiplier
+  bouncy: [0.9, 0.3, 0.01, true, 1.7], slow_bouncy: [0.6, 0.3, 0.05, false, 0.7], fast_flat: [0.22, 0.12, 0.02, true, 1.2], floaty: [0.95, 0.6, 1.8, true, 1],
+  sticky: [0, 2, 0.1, false, 0.6], slippery: [0.3, 0.02, 0.02, false, 1.2], explosive: [0.5, 0.5, 0.3, false, 1], hot: [0.5, 0.4, 0.05, false, 0.9] };
+function cubeArch(id) { const k = (BL[id] && BL[id].key) || '';
+  if (k === 'tnt') return 'explosive'; if (k === 'magma_block') return 'hot'; if (/^(ice|packed_ice|blue_ice)$/.test(k)) return 'slippery'; if (/honey|honeycomb/.test(k)) return 'sticky'; if (/_wool$/.test(k) || k === 'wool') return 'floaty';
+  if (/(log|_wood|planks|stem|hyphae|bamboo_block|bamboo_mosaic)/.test(k)) return 'bouncy';
+  if (/(coral_block|sponge|dried_kelp|moss_block|pumpkin|melon|hay|froglight|slime_block|sculk$|resin|jack_o)/.test(k)) return 'fast_flat'; return 'slow_bouncy'; }
+const SULFY = [226, 204, 74];
+MOBS.sulfur_cube = { name: 'Sulfur Cube', hp: 8, w: 1.02, h: 1.02, speed: 1.6, kind: 'passive', ai: 'magma', snd: 'squish', egg: [[214, 190, 60], [150, 120, 30]], drops: [],
+  build(m, r) { m.cubeRoot = r; sbox(m, r, 1, 1, 1, 0, 0.5, 0, 'scube_body', (f, set, fw, fh, rr) => { for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const e = x === 0 || y === 0 || x === fw - 1 || y === fh - 1; set(x, y, e ? [196, 170, 50] : vary(SULFY, rr, 7)); } if (f === 'front') { dots(set, [[2, 3], [5, 3]], [70, 54, 20]); dots(set, [[3, 5], [4, 5]], [150, 120, 40]); } }, { ppb: 8 });
+    for (const mt of m.mats) { mt[0].transparent = true; mt[0].opacity = 0.62; mt[0].depthWrite = false; } } };
+MOB_XP.sulfur_cube = [1, 2]; MOB_PITCH.sulfur_cube = 0.75;
+function cubeShowBlock(m) { if (m.blockMesh) { m.cubeRoot.remove(m.blockMesh); m.blockMesh = null; } if (!m.absorbed || !m.cubeRoot) return;
+  const mesh = new THREE.Mesh(blockGeo(m.absorbed), handMat); mesh.scale.setScalar(0.52); mesh.position.set(0, 0.5, 0); m.cubeRoot.add(mesh); m.blockMesh = mesh; }
+function cubeAbsorb(m, id) { if (m.size < 2 || m.absorbed || !isCubeItem(id)) return false; m.absorbed = id; m.arch = cubeArch(id); cubeShowBlock(m); Sfx.at('cube_absorb', m.pos, 1); m.persistent = true; return true; }
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) { if (type === 'sulfur_cube') { opts = Object.assign({}, opts || {}); if (!opts.size) opts.size = Math.random() < 0.5 ? 1 : 2; if (opts.size > 2) opts.size = 2; }
+    const m = _sm(type, x, y, z, opts); if (m && type === 'sulfur_cube') { m.growT = m.size === 1 ? 1200 : 0; } return m; }; }
+// a large cube splits into two small ones (Minecraft's sulfur cube), dropping what it held
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) {
+    if (this.type !== 'sulfur_cube' || this.dead) return _h.apply(this, arguments);
+    if (this.absorbed) { // holding a block it can't be hurt; a hit knocks it like a ball
+      const A = CUBE_ARCH[this.arch] || CUBE_ARCH.slow_bouncy; const from = src && src.x !== undefined ? src : player.pos; const d = new V3(this.pos.x - from.x, 0, this.pos.z - from.z); if (d.lengthSq() < 1e-4) d.set(0, 0, 1); d.normalize();
+      const k = (kb === undefined ? 1 : Math.max(0.4, kb)) * A[4]; this.vel.x += d.x * 9 * k; this.vel.z += d.z * 9 * k; this.vel.y = Math.max(this.vel.y, 4.5 * Math.min(1.4, k)); this.hurtT = 0.2; Sfx.at('cube_bounce', this.pos, 0.8, 1); return; }
+    const wasAlive = !this.dead; const r = _h.apply(this, arguments);
+    return r; }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    if (this.type !== 'sulfur_cube' || this.dead) return _u.call(this, dt);
+    // small cubes grow up after 20 minutes (slime balls speed it up, a golden dandelion stops it)
+    if (this.size === 1 && this.growT > 0 && !this.noGrow) { this.growT -= dt; if (this.growT <= 0 && !isClientMP()) { const m = spawnMob('sulfur_cube', this.pos.x, this.pos.y, this.pos.z, { size: 2 }); if (m) m.persistent = this.persistent; this.gone = true; this.dead = true; if (this.remove) this.remove(); return; } }
+    if (!this.absorbed) { // swallow a full block lying nearby
+      if (this.size >= 2 && !isClientMP()) { this.scanT = (this.scanT || 0) - dt; if (this.scanT <= 0) { this.scanT = 0.5; const it = G.items.find(i => !i.gone && i.age > 0.8 && isCubeItem(i.id) && i.pos.distanceTo(this.pos) < 1.6); if (it && cubeAbsorb(this, it.id)) { it.count--; if (it.count <= 0) { it.gone = true; it.remove(); } } } }
+      return _u.call(this, dt); }
+    // holding a block: no hopping of its own; the block's physics take over
+    const A = CUBE_ARCH[this.arch] || CUBE_ARCH.slow_bouncy; const vy0 = this.vel.y; this.jumpT = 9;
+    const water = inWater(this, 0.3); if (water && A[3]) this.vel.y = Math.min(this.vel.y + 30 * dt, 2.5);
+    if (!this.onGround) { const f = Math.exp(-A[2] * dt * 4); this.vel.x *= f; this.vel.z *= f; if (A[2] > 1 && this.vel.y < -2.5) this.vel.y = -2.5; }
+    else { const f = Math.exp(-A[1] * dt * 9); this.vel.x *= f; this.vel.z *= f; }
+    const r = _u.call(this, dt); this.jumpT = 9;
+    if (this.onGround && vy0 < -2.2 && A[0] > 0.05) { this.vel.y = -vy0 * A[0]; if (-vy0 > 4) Sfx.at('cube_bounce', this.pos, 0.5, 0.9 + A[0] * 0.3); }
+    if (this.arch === 'hot' && !player.dead && isSurv() && player.pos.distanceTo(this.pos) < this.hw + 0.7) { this.burnHit = (this.burnHit || 0) - dt; if (this.burnHit <= 0) { this.burnHit = 0.5; player.hurt(1, this.pos, 'a magma block', 0.2); } }
+    if (this.fuse > 0) { this.fuse -= dt; if (Math.random() < dt * 10) Particles.emit(this.pos.x, this.pos.y + 1.1, this.pos.z, 1, [[0.6, 0.6, 0.6]], 0.5, 0.6, -1, 0.1); if (this.root) this.root.visible = Math.floor(this.fuse * 6) % 2 === 0 || this.fuse > 3;
+      if (this.fuse <= 0) { const p = this.pos.clone(); this.dead = true; this.gone = true; if (this.remove) this.remove(); explode(p.x, p.y + 0.5, p.z, 4, null, { cause: 'a sulfur cube' }); } }
+    return r; }; }
+// a large cube splits into exactly two small ones
+{ const _dl = Mob.prototype.dropLoot; Mob.prototype.dropLoot = function () { if (this.type !== 'sulfur_cube' || this.size < 2) return _dl.apply(this, arguments);
+    for (let i = 0; i < 2; i++) { const m = spawnMob('sulfur_cube', this.pos.x + (i - 0.5) * 0.6, this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5) * 0.6, { size: 1 }); if (m) m.vel.set((i - 0.5) * 4, 4, (Math.random() - 0.5) * 3); }
+    const s0 = this.size; this.size = 1; try { return _dl.apply(this, arguments); } finally { this.size = s0; } }; }
+// on death: the held block drops; small cubes drop nothing
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function () { const was = this.dead; const r = _h.apply(this, arguments); if (this.type === 'sulfur_cube' && !was && this.dead && this.absorbed) { dropItem(this.absorbed, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); this.absorbed = 0; } return r; }; }
+// feeding, lighting, taking the block back, bucketing
+{ const _ua = useAction; useAction = function (eye, dir) {
+    const m = targetMob; const h = player.held(); const hd = h && ITEMS[h.id];
+    if (m && m.type === 'sulfur_cube' && !m.dead) {
+      const done = () => { mouseR = false; S.swing = 1; S.useCD = 0.25; };
+      if (!h && kd('sneak') && m.absorbed) { const id = m.absorbed; m.absorbed = 0; m.arch = null; m.fuse = 0; cubeShowBlock(m); giveOrDrop(id, 1); Sfx.at('cube_absorb', m.pos, 0.8); done(); return; }
+      if (h && m.arch === 'explosive' && (h.id === IT.flint_and_steel || h.id === IT.fire_charge) && !(m.fuse > 0)) { m.fuse = 6; Sfx.at('hiss', m.pos, 1); if (h.id === IT.flint_and_steel) damageHeld(1); else useHeld(1); done(); return; }
+      if (h && hd && hd.kind === 'block' && isCubeItem(h.id) && m.size >= 2 && !m.absorbed) { if (cubeAbsorb(m, h.id)) { if (S.mode !== 'creative') useHeld(1); done(); return; } }
+      if (h && h.id === IT.slime_ball && m.size === 1) { m.growT *= 0.9; useHeld(1); Particles.emit(m.pos.x, m.pos.y + 0.6, m.pos.z, 6, [[0.5, 0.9, 0.4]], 1, 0.6, -1, 0.3); done(); return; }
+      if (h && IT.golden_dandelion !== undefined && h.id === IT.golden_dandelion && m.size === 1) { m.noGrow = !m.noGrow; useHeld(1); done(); return; }
+      if (h && h.id === IT.bucket && m.size === 1) { m.dead = true; m.gone = true; if (m.remove) m.remove(); G.mobs = G.mobs.filter(x => x !== m); if (S.mode !== 'creative') { if (h.count > 1) { h.count--; giveOrDrop(IT.sulfur_cube_bucket, 1); } else player.inv[handSlot()] = { id: IT.sulfur_cube_bucket, count: 1 }; invDirty(); } else giveOrDrop(IT.sulfur_cube_bucket, 1); Sfx.play('squish', 0.8); done(); return; }
+    }
+    if (hd && hd.kind === 'cubebucket' && target && !targetMob) { const x = target.x + target.nx, y = target.y + target.ny, z = target.z + target.nz; if (replaceableAt(x, y, z)) { const c = spawnMob('sulfur_cube', x + 0.5, y + 0.05, z + 0.5, { size: 1 }); if (c) c.persistent = true; if (S.mode !== 'creative') player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); Sfx.play('squish', 0.8); mouseR = false; S.swing = 1; } return; }
+    if (hd && hd.kind === 'ice_ball' && !(target && !kd('sneak') && BL[target.id].use)) { mouseR = false; useHeld(1); const v = dir.clone().multiplyScalar(26); v.x += player.vel.x; v.z += player.vel.z; spawnProj('ice_ball', eye.clone().addScaledVector(dir, 0.5), v, 'player', 2); Sfx.play('ice_throw', 0.6, 1.2); S.useCD = 0.4; S.swing = 1; return; }
+    return _ua.apply(this, arguments); }; }
+// sulfur cubes spawn in the dark of sulfur caves, like monsters (but they're harmless)
+{ const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || isClientMP() || Math.random() > 0.08) return;
+    if (G.mobs.filter(m => m.type === 'sulfur_cube').length >= 6) return; const P = player.pos;
+    for (let t = 0; t < 4; t++) { const a = Math.random() * Math.PI * 2, d = 18 + Math.random() * 26; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d); if (!world.loaded(x, z)) continue;
+      const y0 = clamp(Math.floor(P.y) + (Math.random() * 24 | 0) - 12, 3, WH - 4); if (caveBiomeName(world.gen, x, y0, z) !== 'Sulfur Caves') continue;
+      for (let y = y0; y > y0 - 12; y--) if (!world.get(x, y, z) && !world.get(x, y + 1, z) && SOLID[world.get(x, y - 1, z)] && world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) < 0.1) { spawnMob('sulfur_cube', x + 0.5, y, z + 0.5); return; } } }; }
+// ================= FROSTBITE (frozen zombie) AND ICE BALLS =================
+const FROSTY = [150, 196, 214];
+MOBS.frostbite = { name: 'Frostbite', hp: 20, w: 0.6, h: 1.95, speed: 2.2, kind: 'hostile', dmg: 3, snd: 'groan', burns: true, egg: [[120, 170, 196], [226, 244, 252]],
+  drops: [['rotten_flesh', 0, 2, 1], ['ice_ball', 0, 2, 1]], onHit(m, P) { giveEffect('freezing', 4, 0); },
+  build(m, r) { humanoidS(m, r, 'frostbite', { head: fur(FROSTY, 7, { speck: [[230, 248, 255], 0.16], extra: (f, set, fw) => { if (f !== 'front') return; dots(set, [[1, 4], [2, 4], [fw - 3, 4], [fw - 2, 4]], [20, 50, 80]); for (let x = 1; x < fw - 1; x++) set(x, 0, [240, 250, 255]); } }),
+    body: fur([70, 100, 128], 7, { speck: [[200, 230, 245], 0.18] }), arm: fur(FROSTY, 7, { topRows: [3, [70, 100, 128]], speck: [[236, 248, 255], 0.12] }), leg: fur([60, 84, 108], 6, { foot: [2, FROSTY] }) }, true); } };
+MOB_XP.frostbite = [5, 5]; UNDEAD.add('frostbite'); MOB_PITCH.frostbite = 0.95;
+PROJ.ice_ball = { grav: 12, size: 0.24, color: 0xbfe6ff };
+{ const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
+    if (S.natSpawn && world && world.dim === 'overworld' && type === 'zombie' && caveBiomeName(world.gen, Math.floor(x), Math.floor(y), Math.floor(z)) === 'Ice Caves' && Math.random() < 0.8) type = 'frostbite';
+    const m = _sm(type, x, y, z, opts); if (m && type === 'frostbite') m.thrower = Math.random() < 0.5; return m; }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.call(this, dt);
+    if (this.type === 'frostbite' && this.thrower && !this.dead && !isClientMP() && isSurv() && !player.dead) { this.throwT = (this.throwT || 2) - dt; const d = this.pos.distanceTo(player.pos);
+      if (this.throwT <= 0 && d > 3.5 && d < 14 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.6, this.pos.z), player.eye())) { this.throwT = 3 + Math.random() * 2; const from = new V3(this.pos.x, this.pos.y + 1.5, this.pos.z); const to = player.eye().add(new V3(0, -0.4 + d * 0.06, 0)); fireAt('ice_ball', from, to, 22, 'mob', 3, this); Sfx.at('ice_throw', from, 0.8); this.armSwing = 0.3; } }
+    return r; }; }
+{ const _pi = projImpact; projImpact = function (a, mob) {
+    if (a.kind !== 'ice_ball') return _pi(a, mob); a.done = true; Particles.emit(a.pos.x, a.pos.y, a.pos.z, 10, [[0.85, 0.95, 1], [0.6, 0.8, 0.95]], 1.8, 0.4, 8, 0.3); Sfx.at('glass', a.pos, 0.5, 1.6); vibrate(a.pos, a.src || 'player');
+    if (mob && !mob.dead) mob.hurt(mob.type === 'blaze' ? 5 : 2, a.pos.clone().addScaledVector(a.vel, -0.2), 0.8, a.owner !== 'player'); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) { const P = player;
+    for (const a of G.projectiles) { if (a.kind !== 'ice_ball' || a.done) continue; a.vel.multiplyScalar(Math.pow(0.99, dt * 20));
+      if (a.owner === 'player') { for (const m of G.mobs) { if (m.dead || m.isBoss) continue; if (hitsMob(m, a.pos, 0.2)) { projImpact(a, m); break; } } }
+      else if (!P.dead && Math.abs(a.pos.x - P.pos.x) < 0.45 && Math.abs(a.pos.z - P.pos.z) < 0.45 && a.pos.y > P.pos.y && a.pos.y < P.pos.y + 1.85) { a.done = true; Particles.emit(a.pos.x, a.pos.y, a.pos.z, 10, [[0.85, 0.95, 1]], 1.8, 0.4, 8, 0.3); Sfx.at('glass', a.pos, 0.6, 1.6);
+        if (isSurv() && !(P.blocking)) { P.hurt(a.dmg || 3, a.src ? a.src.pos : a.pos, 'a Frostbite'); const k = a.vel.clone().setY(0).normalize(); P.vel.x += k.x * 5; P.vel.z += k.z * 5; P.vel.y = Math.max(P.vel.y, 3); } else if (P.blocking) Sfx.play('shield', 0.8); } }
+    return _up.apply(this, arguments); }; }
+// ---------- creative inventory: put the new things together ----------
+{ const keys = ['sulfur', 'polished_sulfur', 'sulfur_bricks', 'chiseled_sulfur', 'potent_sulfur', 'sulfur_spike', 'cinnabar', 'polished_cinnabar', 'cinnabar_bricks', 'chiseled_cinnabar', 'icicle', 'ice_crystal', 'ice_ball', 'sulfur_cube_bucket', 'music_disc_bounce'];
+  const ids = keys.map(k => IT[k]).filter(v => v !== undefined); const set = new Set(ids); const rest = ITEM_IDS.filter(i => !set.has(i)); rest.push(...ids); ITEM_IDS.length = 0; ITEM_IDS.push(...rest); }
 
 </script>
 </body>

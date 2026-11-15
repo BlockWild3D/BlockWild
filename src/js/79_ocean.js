@@ -24,7 +24,7 @@ function oceanTick(x, y, z, id) { const d = BL[id];
     const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 8831, seed)); const bx = cx * 16, bz = cz * 16;
     const c0 = g.column(bx + 8, bz + 8); if (c0.b !== BIO.OCEAN || c0.h > SEA - 3) return r0;
     const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); }, hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
-    const warm = g.nT.f2((bx + 8) / 560, (bz + 8) / 560, 2) > 0.12 && c0.h > SEA - 22;
+    const warm = c0.v === BV.WARM_OCEAN && c0.h > SEA - 22; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
     const water = (x, y, z) => y <= SEA; const corals = CORALDATA().map(c => c[0]);
     for (let i = 0; i < (warm ? 10 : 24); i++) { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); if (col.h > SEA - 2) continue; const y = col.h;
       if (warm && i < 6) { // a coral patch: blocks, with corals, fans and pickles on top
@@ -32,6 +32,6 @@ function oceanTick(x, y, z, id) { const d = BL[id];
           for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top >= SEA) continue; const q = r();
           if (q < 0.35) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral').toUpperCase()]); else if (q < 0.65) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral_fan').toUpperCase()]); else if (q < 0.75) soft(xx, top, zz, B[('sea_pickle' + (r() < 0.5 ? '' : '#' + (2 + (r() * 3 | 0)))).toUpperCase()]); }
         continue; }
-      if (!warm && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
+      if (!warm && !noKelp && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
       else soft(x, y, z, B.SEAGRASS); }
     return r0; }; }

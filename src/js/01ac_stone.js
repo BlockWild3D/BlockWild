@@ -30,6 +30,8 @@ function EXTRA_STONE_SETS() { return [
   ['red_sandstone', 'red_sandstone', 'Red Sandstone', 1], ['smooth_red_sandstone', 'smooth_red_sandstone', 'Smooth Red Sandstone', 0], ['cut_red_sandstone', 'cut_red_sandstone', 'Cut Red Sandstone', 0, 1],
   ['smooth_quartz', 'smooth_quartz', 'Smooth Quartz', 0], ['mud_brick', 'mud_bricks', 'Mud Brick', 1], ['red_nether_brick', 'red_nether_bricks', 'Red Nether Brick', 1],
   ['polished_deepslate', 'polished_deepslate', 'Polished Deepslate', 1], ['polished_blackstone', 'polished_blackstone', 'Polished Blackstone', 1], ['polished_tuff', 'polished_tuff', 'Polished Tuff', 1],
+  ['sulfur', 'sulfur', 'Sulfur', 1], ['polished_sulfur', 'polished_sulfur', 'Polished Sulfur', 1], ['sulfur_brick', 'sulfur_bricks', 'Sulfur Brick', 1],
+  ['cinnabar', 'cinnabar', 'Cinnabar', 1], ['polished_cinnabar', 'polished_cinnabar', 'Polished Cinnabar', 1], ['cinnabar_brick', 'cinnabar_bricks', 'Cinnabar Brick', 1],
 ]; }
 function defineStoneBlocks() {
   const ph = (n, c) => { if (TILE[n] === undefined) makeTile(n, (set) => each((x, y) => set(x, y, c))); return n; };

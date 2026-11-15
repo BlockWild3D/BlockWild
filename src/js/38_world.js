@@ -24,7 +24,7 @@ function decorate(world, S, cx, cz) {
   const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 4711, seed)); const bx = cx * 16, bz = cz * 16;
   const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }, soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); };
   if (startNear(world, 'village', cx, cz, 2)) return;
-  const b0 = g.column(bx + 8, bz + 8).b; const tries = { [BIO.JUNGLE]: 14, [BIO.DARK_FOREST]: 10, [BIO.TAIGA]: 7, [BIO.SAVANNA]: 2, [BIO.SWAMP]: 3 }[b0] || 0;
+  const c08 = g.column(bx + 8, bz + 8), b0 = c08.b; const tries = c08.v === BV.SPARSE_JUNGLE ? 3 : c08.v === BV.BAMBOO_JUNGLE ? 6 : { [BIO.JUNGLE]: 14, [BIO.DARK_FOREST]: 10, [BIO.TAIGA]: 7, [BIO.SAVANNA]: 2, [BIO.SWAMP]: 3 }[b0] || 0;
   for (let a = 0; a < tries; a++) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0; const x = bx + lx, z = bz + lz; const col = g.column(x, z); const y0 = col.h; const q = r(), hh = r();
     if (col.h <= SEA || col.h > WH - 34 || g.cave(x, y0 - 1, z)) continue;
