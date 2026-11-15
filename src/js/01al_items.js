@@ -37,7 +37,7 @@ function paintItemBlockTiles() { const planks = tilePixels('planks'), sand = til
   for (const [k, desc] of DISCS) M4('music_disc_' + k, 'Music Disc', { kind: 'disc', stack: 1, disc: k, desc }, discP(LABEL[k] || [200, 200, 200]));
   M4('disc_fragment_5', 'Disc Fragment', { desc: 'Music Disc - 5' }, (s) => { for (let y = 4; y <= 11; y++) for (let x = 4; x <= 11; x++) if (x + y < 18 && x - y > -5) s(x, y, (x + y) % 3 ? [40, 40, 44] : [90, 110, 120]); });
   // boats and chest boats for every wood
-  const BOATC = { oak: [164, 132, 80], spruce: [114, 84, 48], birch: [200, 184, 130], jungle: [160, 114, 80], acacia: [170, 90, 50], dark_oak: [70, 46, 22], mangrove: [118, 54, 48], cherry: [226, 176, 168], bamboo: [196, 176, 84], pale_oak: [228, 218, 206] };
+  const BOATC = { oak: [164, 132, 80], spruce: [114, 84, 48], birch: [200, 184, 130], jungle: [160, 114, 80], acacia: [170, 90, 50], dark_oak: [70, 46, 22], mangrove: [118, 54, 48], cherry: [226, 176, 168], bamboo: [196, 176, 84], pale_oak: [228, 218, 206] , poplar: [204, 170, 120] };
   const boatP = (P, chest) => (s, r) => { const D = dk(P, 0.62), L = mixc(P, [255, 255, 255], 0.22); pLine(s, 3, 2, 8, 8, dk(P, 0.78)); pLine(s, 2, 2, 3, 2, dk(P, 0.78)); s(2, 3, dk(P, 0.78));
     for (let x = 1; x <= 14; x++) { const bot = x < 3 || x > 12 ? 10 : 11; for (let y = 7; y <= bot; y++) s(x, y, y === 7 ? L : (y === bot || x === 1 || x === 14) ? D : y === 9 ? dk(P, 0.82) : vary(P, r, 6)); } for (let x = 3; x <= 12; x++) s(x, 12, D);
     if (chest) { box(s, 8, 3, 13, 7, (x, y) => (x === 8 || x === 13 || y === 3 || y === 7) ? [90, 60, 30] : y === 5 ? [120, 80, 40] : [160, 108, 50]); s(10, 5, [200, 200, 200]); s(11, 5, [200, 200, 200]); } };

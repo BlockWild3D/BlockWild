@@ -14,7 +14,7 @@ function useBed(x, y, z) {
   if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
   const head = (BL[world.get(x, y, z)] || {}).bedPart === 'head' ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
   S.bed = head; toast('Respawn point set', 2); chatPrint('Respawn point set', '#ccc');
-  const ticks = timeTicks(); const night = ticks >= 12542 && ticks <= 23459;
+  const ticks = timeTicks(); const night = (ticks >= 12542 && ticks <= 23459) || S.weather === 'thunder';
   if (!night) { toast('You can sleep only at night', 2); return; }
   const foot = bedPartner(head[0], head[1], head[2]) || head; if (Math.min(player.pos.distanceTo(new V3(head[0] + 0.5, head[1], head[2] + 0.5)), player.pos.distanceTo(new V3(foot[0] + 0.5, foot[1], foot[2] + 0.5))) > 3.2) { toast('You may not rest now; the bed is too far away', 2); return; }
   const near = G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8 && Math.abs(m.pos.y - player.pos.y) < 5);

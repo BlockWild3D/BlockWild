@@ -8,7 +8,7 @@
 // you come within 10 blocks, calls down lightning and becomes four skeleton horsemen.
 // /weather clear|rain|thunder [seconds] sets it.
 S.weather = S.weather || 'clear'; S.weatherT = S.weatherT || 600 + Math.random() * 6000; S.wk = 0; S.tk = 0;
-const DRY_B = () => new Set([BIO.DESERT, BIO.SAVANNA, BIO.BADLANDS, BIO.MUSHROOM_FIELDS]);
+const DRY_B = (() => { let s = null; return () => s || (s = new Set([BIO.DESERT, BIO.SAVANNA, BIO.BADLANDS, BIO.MUSHROOM_FIELDS])); })();
 function precipAt(x, z) { if (!world || world.dim !== 'overworld') return null; const c = world.gen.column(Math.floor(x), Math.floor(z)); if (DRY_B().has(c.b)) return null; return (c.b === BIO.SNOWY || (c.v && FROZEN_V().has(c.v)) || c.v === BV.SNOWY_TAIGA || c.h > SEA + 90) ? 'snow' : 'rain'; }
 function weatherWet(pos) { if (S.weather === 'clear' || !world || world.dim !== 'overworld') return false; if (precipAt(pos.x, pos.z) !== 'rain') return false; return world.skyAt(Math.floor(pos.x), Math.floor(pos.y + 1.6), Math.floor(pos.z)) >= 1; }
 function setWeather(w, sec) { S.weather = w; S.weatherT = sec || (w === 'clear' ? 600 + Math.random() * 8400 : 600 + Math.random() * 600); }
@@ -55,8 +55,8 @@ function colTop(x, z) { const k = x * 65536 + z; let v = RAIN.colH.get(k); if (v
 const BOLTS = [];
 function lightningAt(x, y, z, o = {}) {
   // a lightning rod within 32 blocks takes the strike
-  if (!o.noRod) { let best = null, bd = 1e9; const cx0 = x >> 4, cz0 = z >> 4; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue; if (!c.rodScan || c.rodDirty) { c.rodDirty = false; c.rodScan = []; for (let j = 0; j < c.d.length; j++) { const b = BL[c.d[j]]; if (b && (b.fam === 'lightning_rod' || b.key === 'lightning_rod')) c.rodScan.push(j); } }
-      for (const j of c.rodScan) { const yy = (j / 256) | 0, xx = c.cx * 16 + (j & 15), zz = c.cz * 16 + ((j >> 4) & 15); const d = Math.hypot(xx - x, zz - z); if (d < 32 && d < bd && world.skyAt(xx, yy + 1, zz) >= 1) { bd = d; best = [xx, yy + 1, zz]; } } }
+  if (!o.noRod) { let best = null, bd = 1e9; const cx0 = x >> 4, cz0 = z >> 4; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue;
+      for (const j of chunkIdx(c).rod) { const yy = (j / 256) | 0, xx = c.cx * 16 + (j & 15), zz = c.cz * 16 + ((j >> 4) & 15); const d = Math.hypot(xx - x, zz - z); if (d < 32 && d < bd && world.skyAt(xx, yy + 1, zz) >= 1) { bd = d; best = [xx, yy + 1, zz]; } } }
     if (best) { [x, y, z] = best; o.rod = true; } }
   // the bolt
   const pts = []; let px = x + 0.5, pz = z + 0.5; for (let yy = y + 90; yy > y; yy -= 3 + Math.random() * 4) { pts.push(new V3(px, yy, pz)); px += (Math.random() - 0.5) * 2.2; pz += (Math.random() - 0.5) * 2.2; } pts.push(new V3(x + 0.5, y, z + 0.5));
@@ -99,4 +99,3 @@ CMDS.weather = { usage: '<clear|rain|thunder> [duration]', run(a, ctx) { const w
     return _pl.apply(this, arguments); }; }
 // you can sleep through a thunderstorm at any time of day
 { const _cs = typeof canSleep === 'function' ? canSleep : null; if (_cs) canSleep = function () { if (S.weather === 'thunder') return true; return _cs.apply(this, arguments); }; }
-{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const isRod = (v) => BL[v] && (BL[v].fam === 'lightning_rod' || BL[v].key === 'lightning_rod'); if (isRod(id) || isRod(prev)) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.rodDirty = true; } return r; }; }

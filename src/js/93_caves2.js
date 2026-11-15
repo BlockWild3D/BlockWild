@@ -12,6 +12,13 @@
 // brightly) and glowing ice crystals. The Frostbite, a frozen zombie, lives there: its hits freeze you and some throw
 // ice balls. Freezing (also from powder snow, and the new Potion of Freezing brewed from ice balls) slows you and
 // hurts over time; leather armor keeps powder-snow cold out.
+// ---------- one shared index per chunk of the blocks the run-time rules here and in 94-96 look after ----------
+const CIDX_NAMES = [null, 'potent', 'icicle', 'pg', 'dg', 'chest', 'rod']; let CIDX_TAB = null;
+function cidxTab() { if (CIDX_TAB) return CIDX_TAB; const t = new Uint8Array(BL.length + 1); for (const d of BL) { if (!d) continue; let k = 0;
+    if (d.potent) k = 1; else if (d.icicle) k = 2; else if (d.heart || d.eyeblossom) k = 3; else if (d.hydration !== undefined) k = 4; else if (d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) k = 5; else if (d.fam === 'lightning_rod' || d.key === 'lightning_rod') k = 6; t[d.id] = k; }
+  return (CIDX_TAB = t); }
+function chunkIdx(c) { if (c.cidx && !c.cidxDirty) return c.cidx; const T = cidxTab(); const o = { potent: [], icicle: [], pg: [], dg: [], chest: [], rod: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const k = T[d[j]]; if (k) o[CIDX_NAMES[k]].push(j); } c.cidx = o; c.cidxDirty = false; return o; }
+{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const T = cidxTab(); if (T[id] || T[prev]) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.cidxDirty = true; } return r; }; }
 // ---------- stonecutting ----------
 for (const m of ['sulfur', 'cinnabar']) STONECUT.push([m, 'polished_' + m, 1], [m, m + '_bricks', 1], [m, 'chiseled_' + m, 1], ['polished_' + m, m + '_bricks', 1], ['polished_' + m, 'chiseled_' + m, 1], [m + '_bricks', 'chiseled_' + m, 1]);
 // ---------- which cave biome is where ----------
@@ -141,11 +148,11 @@ const GEYSER = new Map();
     scanT -= dt; const P = player.pos;
     if (scanT <= 0) { scanT = 1; const px = Math.floor(P.x), pz = Math.floor(P.z); const seen = new Set();
       for (const c of world.chunks.values()) { const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - px) > 40 || Math.abs(oz + 8 - pz) > 40) continue;
-        if (!c.spec || c.specDirty) { c.specDirty = false; c.spec = { potent: [], icicle: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const v = d[j]; if (v === B.POTENT_SULFUR) c.spec.potent.push(j); else if (v === B.ICICLE) c.spec.icicle.push(j); } }
-        for (const j of c.spec.potent) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); const k = x + ',' + y + ',' + z; seen.add(k); const below = world.get(x, y - 1, z);
+        const ci = chunkIdx(c);
+        for (const j of ci.potent) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); const k = x + ',' + y + ',' + z; seen.add(k); const below = world.get(x, y - 1, z);
           if (below !== B.MAGMA_BLOCK && FKIND[below] !== 2) { GEYSER.delete(k); continue; } if (!GEYSER.has(k)) GEYSER.set(k, { x, y, z, t: 3 + Math.random() * 10, on: 0 }); }
         // icicles melt loose and fall when the light around them is bright (torches, glowstone...)
-        if (!isClientMP()) for (const j of c.spec.icicle) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); if (c.d[j] === B.ICICLE && world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) >= 0.73 && Math.random() < 0.3) dropIcicle(x, y, z); } }
+        if (!isClientMP()) for (const j of ci.icicle) { const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15); if (c.d[j] === B.ICICLE && world.blockLightAt(x + 0.5, y + 0.5, z + 0.5) >= 0.73 && Math.random() < 0.3) dropIcicle(x, y, z); } }
       for (const k of GEYSER.keys()) if (!seen.has(k)) GEYSER.delete(k); }
     for (const gz of GEYSER.values()) { if (world.get(gz.x, gz.y, gz.z) !== B.POTENT_SULFUR) continue; const near = Math.hypot(gz.x - P.x, gz.z - P.z) < 48;
       if (gz.on > 0) { gz.on -= dt; let top = gz.y + 1; while (top < gz.y + 14 && !SOLID[world.get(gz.x, top, gz.z)]) top++;
@@ -156,7 +163,6 @@ const GEYSER = new Map();
         for (const it of G.items) if (!it.gone && inCol(it, 0.2)) it.vel.y = Math.max(it.vel.y, 12); }
       else { gz.t -= dt; if (gz.t <= 0) { gz.on = 2.5; gz.t = 8 + Math.random() * 16; if (near) Sfx.at('geyser', new V3(gz.x, gz.y, gz.z), 1); } } }
     return r; }; }
-{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); if (id === B.POTENT_SULFUR || id === B.ICICLE || prev === B.POTENT_SULFUR || prev === B.ICICLE) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.specDirty = true; } return r; }; }
 // ---------- death messages ----------
 { const DM = { freezing: 'froze to death', 'a falling icicle': 'was impaled by a falling icicle', 'a sulfur spike': 'was impaled on a sulfur spike', 'a sulfur cube': 'was blown up by a Sulfur Cube' };
   const _dm = deathMessage; deathMessage = function (cause) { return DM[cause] ? myName() + ' ' + DM[cause] : _dm.apply(this, arguments); };

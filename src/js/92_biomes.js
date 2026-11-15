@@ -27,7 +27,7 @@ for (const [k, n] of [['WARM_OCEAN', 'Warm Ocean'], ['LUKEWARM_OCEAN', 'Lukewarm
 // the names also go on the biome list (for /locate suggestions); broad biome ids all come before them
 const BIO_REAL = BIO_NAME.length; BIO_NAME.push(...VAR_NAME.slice(1));
 const isRiver = (c) => c.v === BV.RIVER || c.v === BV.FROZEN_RIVER;
-const FROZEN_V = () => new Set([BV.FROZEN_OCEAN, BV.FROZEN_RIVER, BV.ICE_SPIKES, BV.SNOWY_SLOPES, BV.FROZEN_PEAKS, BV.JAGGED_PEAKS, BV.GROVE, BV.SNOWY_BEACH, BV.SNOWY_TAIGA]);
+const FROZEN_V = (() => { let s = null; return () => s || (s = new Set([BV.FROZEN_OCEAN, BV.FROZEN_RIVER, BV.ICE_SPIKES, BV.SNOWY_SLOPES, BV.FROZEN_PEAKS, BV.JAGGED_PEAKS, BV.GROVE, BV.SNOWY_BEACH, BV.SNOWY_TAIGA])); })();
 Gen.prototype.biome = function (x, z) { return this.column(x, z).b; }; // (the monster swaps in 34 looked for this)
 Gen.prototype.biomeName = function (x, z) {
   const c = this.column(x, z); if (c.b === BIO.OCEAN && !isRiver(c)) {

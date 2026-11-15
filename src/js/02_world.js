@@ -148,7 +148,7 @@ function structuresFor(world, cx, cz) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
-    const p = col.v === BV.ICE_SPIKES ? 0 : col.b === BIO.FOREST ? (col.v === BV.FLOWER_FOREST ? 0.35 : 0.85) : col.b === BIO.PLAINS ? (col.v === BV.MEADOW ? 0 : 0.006) : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
+    const p = col.v === BV.ICE_SPIKES || col.v === BV.DAPPLED_FOREST ? 0 : col.b === BIO.FOREST ? (col.v === BV.FLOWER_FOREST ? 0.35 : 0.85) : col.b === BIO.PLAINS ? (col.v === BV.MEADOW ? 0 : 0.006) : col.b === BIO.SNOWY ? 0.012 : (col.b === BIO.MOUNTAINS && col.h < SEA + 26) ? 0.06 : 0;
     if (q >= p) continue;
     if (g.cave(wx, col.h - 1, wz)) continue;
     const y0 = col.h;

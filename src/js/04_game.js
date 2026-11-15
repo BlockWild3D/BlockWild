@@ -633,7 +633,7 @@ function updateSpawning(dt) {
         for (let yy = y0; yy > 32; yy--) if (freeAt(x, yy, z, 3) && SOLID[world.get(x, yy - 1, z)]) { y = yy; break; }
         if (y < 0 || !hostileLightOk(x, y, z)) continue; const b = world.gen.biome(x, z);
         let type = c && c.fortress && Math.random() < 0.6 ? pickWeighted({ wither_skeleton: 45, blaze: 35, magma_cube: 20 }) :
-          b === 1 ? pickWeighted({ piglin: 45, hoglin: 35, zombified_piglin: 20 }) : b === 2 ? pickWeighted({ enderman: 85, strider: 0, zombified_piglin: 15 }) : b === 3 ? pickWeighted({ skeleton: 50, ghast: 35, enderman: 15 }) : pickWeighted({ zombified_piglin: 45, magma_cube: 22, ghast: 15, piglin: 10, enderman: 8 });
+          b === 1 ? pickWeighted({ piglin: 45, hoglin: 35, zombified_piglin: 20 }) : b === 2 ? pickWeighted({ enderman: 85, strider: 0, zombified_piglin: 15 }) : b === 3 ? pickWeighted({ skeleton: 50, ghast: 35, enderman: 15 }) : b === 4 ? pickWeighted({ magma_cube: 70, ghast: 30 }) : pickWeighted({ zombified_piglin: 45, magma_cube: 22, ghast: 15, piglin: 10, enderman: 8 });
         if (type === 'ghast') { if (!(freeAt(x, y + 4, z, 6) && freeAt(x + 2, y + 5, z, 3) && freeAt(x - 2, y + 5, z, 3))) continue; spawnMob('ghast', x + 0.5, y + 4, z + 0.5); break; }
         if (type === 'zombified_piglin' || type === 'piglin') { const n = 1 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) spawnMob(type, x + 0.5 + i * 0.7, y, z + 0.5); break; }
         spawnMob(type, x + 0.5, y, z + 0.5, type === 'magma_cube' ? { size: [1, 2, 4][Math.random() * 3 | 0] } : undefined); break;

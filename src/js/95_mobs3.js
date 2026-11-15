@@ -48,8 +48,7 @@ function crumble(m) { if (m.dead) return; m.dead = true; m.gone = true; Particle
 { const _ub = updateBoats; let scanT = 0; updateBoats = function (dt) { const r = _ub(dt); if (!world || world.dim !== 'overworld' || isClientMP()) return r; scanT -= dt; if (scanT > 0) return r; scanT = 1;
     const P = player.pos, night = G.daylight < 0.45;
     for (const c of world.chunks.values()) { const ox = c.cx * 16, oz = c.cz * 16; if (Math.abs(ox + 8 - P.x) > 64 || Math.abs(oz + 8 - P.z) > 64) continue;
-      if (!c.pgScan || c.pgDirty) { c.pgDirty = false; c.pgScan = []; const d = c.d; for (let j = 0; j < d.length; j++) { const b = BL[d[j]]; if (b && (b.heart || b.eyeblossom)) c.pgScan.push(j); } }
-      for (const j of c.pgScan) { const id = c.d[j]; const b = BL[id]; if (!b) continue; const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15);
+      for (const j of chunkIdx(c).pg) { const id = c.d[j]; const b = BL[id]; if (!b) continue; const y = (j / 256) | 0, x = ox + (j & 15), z = oz + ((j >> 4) & 15);
         if (b.eyeblossom) { const want = night ? B.OPEN_EYEBLOSSOM : B.CLOSED_EYEBLOSSOM; if (id !== want && Math.random() < 0.15) { world.set(x, y, z, want); mpBlock(x, y, z, want); } continue; }
         if (!b.heart) continue; const logOk = (yy) => { const k = BL[world.get(x, yy, z)]; return k && /pale_oak_log/.test(k.fam || k.key || '') && (!k.st || !k.st.axis || k.st.axis === 'y'); };
         const awake = night && logOk(y - 1) && logOk(y + 1); const want = awake ? B['CREAKING_HEART#AWAKE'] : B.CREAKING_HEART; if (id !== want) { world.set(x, y, z, want); mpBlock(x, y, z, want); }
@@ -57,7 +56,6 @@ function crumble(m) { if (m.dead) return; m.dead = true; m.gone = true; Particle
         if (awake && !HEART_LINK.has(k) && isSurv() && Math.hypot(P.x - x, P.z - z) < 32) for (let t = 0; t < 12; t++) { const sx = x + (Math.random() * 25 | 0) - 12, sz = z + (Math.random() * 25 | 0) - 12; for (let sy = y + 6; sy > y - 8; sy--) if (SOLID[world.get(sx, sy - 1, sz)] && !world.get(sx, sy, sz) && !world.get(sx, sy + 1, sz) && !world.get(sx, sy + 2, sz)) { const m = spawnMob('creaking', sx + 0.5, sy, sz + 0.5); if (m) { m.heart = k; HEART_LINK.set(k, m); Sfx.at('creak', m.pos, 1, 0.8); } t = 99; break; } } } }
     return r; }; }
 { const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const pb = BL[prev], nb = BL[id];
-    if ((pb && (pb.heart || pb.eyeblossom)) || (nb && (nb.heart || nb.eyeblossom))) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.pgDirty = true; }
     if (pb && pb.heart && !(nb && nb.heart) && this === G.world) { const k = x + ',' + y + ',' + z; const m = HEART_LINK.get(k); if (m) { HEART_LINK.delete(k); crumble(m); } } return r; }; }
 // world generation: hearts in some pale oak trunks, eyeblossoms on the pale garden floor
 { const _po = TREES.pale_oak; TREES.pale_oak = function (put, x, y, z, r) { const heart = r() < 0.2; const hy = y + 2 + (r() * 3 | 0); let placed = false;
@@ -93,11 +91,10 @@ MOBS.copper_golem = { name: 'Copper Golem', hp: 12, w: 0.5, h: 1.0, speed: 2.0, 
 MOB_XP.copper_golem = [0, 0];
 const CHEST_IDS = () => { if (CHEST_IDS.s) return CHEST_IDS.s; const s = new Set(); for (const d of BL) if (d && d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) s.add(d.id); return (CHEST_IDS.s = s); };
 function nearChests(m, copper) { const out = []; const cx0 = Math.floor(m.pos.x) >> 4, cz0 = Math.floor(m.pos.z) >> 4, S2 = CHEST_IDS();
-  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue; if (!c.chScan || c.chDirty) { c.chDirty = false; c.chScan = []; for (let j = 0; j < c.d.length; j++) if (S2.has(c.d[j])) c.chScan.push(j); }
-    for (const j of c.chScan) { const id = c.d[j]; if (!S2.has(id)) continue; const isCu = BL[id].copperChest !== undefined; if (isCu !== copper) continue; const y = (j / 256) | 0, x = c.cx * 16 + (j & 15), z = c.cz * 16 + ((j >> 4) & 15);
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c) continue;
+    for (const j of chunkIdx(c).chest) { const id = c.d[j]; if (!S2.has(id)) continue; const isCu = BL[id].copperChest !== undefined; if (isCu !== copper) continue; const y = (j / 256) | 0, x = c.cx * 16 + (j & 15), z = c.cz * 16 + ((j >> 4) & 15);
       if (Math.abs(x + 0.5 - m.pos.x) > 32 || Math.abs(z + 0.5 - m.pos.z) > 32 || Math.abs(y - m.pos.y) > 8) continue; out.push({ x, y, z, d: Math.hypot(x + 0.5 - m.pos.x, y - m.pos.y, z + 0.5 - m.pos.z) }); } }
   return out.sort((a, b) => a.d - b.d); }
-{ const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const S2 = CHEST_IDS(); if (S2.has(id) || S2.has(prev)) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.chDirty = true; } return r; }; }
 function cgShowHold(m) { if (m.holdMesh) { m.root.remove(m.holdMesh); m.holdMesh = null; } if (!m.cgHold) { if (m.arms) for (const a of m.arms) a.rotation.x = 0; return; }
   const id = m.cgHold.id; const mesh = isCubeItem(id) ? new THREE.Mesh(blockGeo(id), handMat) : flatItemMesh(id); mesh.scale.setScalar(isCubeItem(id) ? 0.28 : 0.45); mesh.position.set(0, 0.55, 0.32); m.root.add(mesh); m.holdMesh = mesh; if (m.arms) for (const a of m.arms) a.rotation.x = -1.2; }
 MOBS.copper_golem.tick = (m, dt) => { if (isClientMP()) return false;

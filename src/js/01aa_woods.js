@@ -15,6 +15,7 @@ function WOODDATA() { return [
   { k: 'mangrove', name: 'Mangrove', log: 'mangrove_log', planks: 'mangrove_planks', leaves: 'mangrove_leaves', sap: 'mangrove_propagule', bark: [86, 68, 42], top: [128, 60, 52], pl: [118, 54, 48], lf: [80, 150, 40], door: 'grid' },
   { k: 'cherry', name: 'Cherry', log: 'cherry_log', planks: 'cherry_planks', leaves: 'cherry_leaves', sap: 'cherry_sapling', bark: [56, 34, 46], top: [228, 182, 176], pl: [226, 178, 170], lf: [238, 168, 202], door: 'oak' },
   { k: 'pale_oak', name: 'Pale Oak', log: 'pale_oak_log', planks: 'pale_oak_planks', leaves: 'pale_oak_leaves', sap: 'pale_oak_sapling', bark: [96, 88, 84], top: [224, 212, 206], pl: [226, 214, 208], lf: [134, 140, 124], door: 'oak' },
+  { k: 'poplar', name: 'Poplar', log: 'poplar_log', planks: 'poplar_planks', leaves: 'orange_poplar_leaves', sap: 'poplar_sapling', bark: [104, 92, 78], top: [214, 190, 150], pl: [204, 170, 120], lf: [226, 128, 40], door: 'grid' },
   { k: 'crimson', name: 'Crimson', log: 'crimson_stem', planks: 'crimson_planks', bark: [118, 40, 62], top: [104, 52, 74], pl: [104, 50, 72], nether: true, door: 'grid' },
   { k: 'warped', name: 'Warped', log: 'warped_stem', planks: 'warped_planks', bark: [52, 92, 98], top: [44, 108, 102], pl: [44, 106, 100], nether: true, door: 'grid' },
   { k: 'bamboo', name: 'Bamboo', planks: 'bamboo_planks', pl: [196, 174, 82], bamboo: true, door: 'oak' },
@@ -85,13 +86,13 @@ function paintWoodTiles() {
     }
     // logs (new woods), stripped logs
     const darker = mixd(w.bark, 0.72), hi = mixd(w.bark, 1.22);
-    if (['mangrove', 'cherry', 'pale_oak'].includes(w.k)) {
+    if (['mangrove', 'cherry', 'pale_oak', 'poplar'].includes(w.k)) {
       makeTile(w.k + '_side', (set, r) => bark3(set, r, { seed: 610 + w.k.length, base: w.bark, dark: darker, hi, groove: mixd(w.bark, 0.55), grooves: w.k === 'cherry' ? [1, 4, 6, 9, 12, 14] : [2, 6, 11], cracks: w.k === 'pale_oak' ? 6 : 2, spots: w.k === 'pale_oak' ? 10 : 0, spot: [176, 166, 160] }));
       makeTile(w.k + '_top', (set, r) => rings3(set, r, w.top, mixd(w.top, 0.86), w.bark));
     }
     makeTile('stripped_' + w.k + '_side', (set, r) => { const n = tnoise(700 + w.k.length, 8); each((x, y) => { const v = n(x * 0.6, y * 0.15); let c = mixd(w.pl, 0.92 + v * 0.14); if (x % 5 === 2 && r() < 0.5) c = mixd(w.pl, 0.8); set(x, y, vary(c, r, 3)); }); });
     makeTile('stripped_' + w.k + '_top', (set, r) => rings3(set, r, mixd(w.pl, 1.04), mixd(w.pl, 0.88), mixd(w.pl, 0.92)));
-    if (w.leaves && ['mangrove', 'cherry', 'pale_oak'].includes(w.k)) makeTile(w.leaves, (set, r) => leafPaint(set, r, w.lf));
+    if (w.leaves && ['mangrove', 'cherry', 'pale_oak', 'poplar'].includes(w.k)) makeTile(w.leaves, (set, r) => leafPaint(set, r, w.lf));
     if (w.k === 'cherry') makeTile('cherry_leaves', (set, r) => { leafPaint(set, r, [236, 160, 196]); for (let k = 0; k < 10; k++) set(r() * 16 | 0, r() * 16 | 0, [255, 214, 232]); });
     if (w.sap) makeTile(w.sap, (set, r) => saplingPaint(set, r, w));
   }
