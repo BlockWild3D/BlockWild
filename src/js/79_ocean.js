@@ -24,14 +24,17 @@ function oceanTick(x, y, z, id) { const d = BL[id];
     const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 8831, seed)); const bx = cx * 16, bz = cz * 16;
     const c0 = g.column(bx + 8, bz + 8); if (c0.b !== BIO.OCEAN || c0.h > SEA - 3) return r0;
     const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); }, hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
-    const warm = c0.v === BV.WARM_OCEAN && c0.h > SEA - 22; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
+    // only real oceans get reefs and kelp forests; a lake or a pond that dips below sea level inland gets seagrass
+    let open = 0; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; const cc = g.column(bx + 8 + Math.round(Math.cos(a) * 48), bz + 8 + Math.round(Math.sin(a) * 48)); if (cc.b === BIO.OCEAN && cc.h < SEA - 2) open++; }
+    const ocean = open >= 7;
+    const warm = ocean && c0.v === BV.WARM_OCEAN && c0.h > SEA - 22 && c0.h <= SEA - 5; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
     const water = (x, y, z) => y <= SEA; const corals = CORALDATA().map(c => c[0]);
     for (let i = 0; i < (warm ? 10 : 24); i++) { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); if (col.h > SEA - 2) continue; const y = col.h;
       if (warm && i < 6) { // a coral patch: blocks, with corals, fans and pickles on top
-        const k = corals[r() * 5 | 0]; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if (r() < 0.3) continue; const xx = x + a, zz = z + b; const cc = g.column(xx, zz); if (cc.h > SEA - 2) continue; const h = 1 + (r() * 3 | 0);
-          for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top >= SEA) continue; const q = r();
+        const k = corals[r() * 5 | 0]; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if (r() < 0.3) continue; const xx = x + a, zz = z + b; const cc = g.column(xx, zz); if (cc.h > SEA - 5) continue; const h = Math.min(1 + (r() * 3 | 0), SEA - 4 - cc.h); if (h < 1) continue; // reefs stay underwater: at least two blocks of water over the top
+          for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top > SEA - 3) continue; const q = r();
           if (q < 0.35) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral').toUpperCase()]); else if (q < 0.65) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral_fan').toUpperCase()]); else if (q < 0.75) soft(xx, top, zz, B[('sea_pickle' + (r() < 0.5 ? '' : '#' + (2 + (r() * 3 | 0)))).toUpperCase()]); }
         continue; }
-      if (!warm && !noKelp && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
+      if (!warm && !noKelp && ocean && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
       else soft(x, y, z, B.SEAGRASS); }
     return r0; }; }

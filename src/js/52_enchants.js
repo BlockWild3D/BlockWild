@@ -49,7 +49,7 @@ function soulSandMul() { const s = enchOf(player.inv[40], 'soul_speed'); if (!s)
       while (n > 0 && slots.length) { const i = slots[(Math.random() * slots.length) | 0]; const s = player.inv[i]; const fix = Math.min(s.dmg, n * 2); s.dmg -= fix; n -= Math.ceil(fix / 2); if (!s.dmg) { delete s.dmg; slots.splice(slots.indexOf(i), 1); } invDirty(); } }
     if (n > 0) return _ax(n); }; }
 // Curse of Vanishing: gone when you die; Curse of Binding: worn armour can't be taken off (except in creative)
-{ const _d = Player.prototype.die; Player.prototype.die = function (cause) { if (this === player && isSurv() && !S.rules.keepInventory) for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s && enchOf(s, 'curse_of_vanishing')) this.inv[i] = null; } return _d.apply(this, arguments); }; }
+{ const _d = Player.prototype.die; Player.prototype.die = function (cause) { if (this === player && isSurv() && !keepInv()) for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s && enchOf(s, 'curse_of_vanishing')) this.inv[i] = null; } return _d.apply(this, arguments); }; }
 { const _sc = slotClick; slotClick = function (cont, i, button, shift) { if (cont === 'inv' && i >= 37 && i <= 40 && S.mode !== 'creative') { const s = player.inv[i]; if (s && enchOf(s, 'curse_of_binding')) { toast('Curse of Binding: this armour can\'t be removed', 1.5); return; } } return _sc(cont, i, button, shift); }; }
 // ---------- crossbows ----------
 // Hold use to load (1.25 s, 0.25 s less per Quick Charge level), then use to fire: 3.15 blocks per tick. Multishot

@@ -61,7 +61,7 @@ function hugeMushroom(x, y, z, red, put) {
         if (id === B.MOSS_BLOCK) { for (let k = 0; k < 30; k++) { const a = x + Math.round((Math.random() - 0.5) * 6), c = z + Math.round((Math.random() - 0.5) * 6); for (let dy = 1; dy >= -2; dy--) { const yy = y + dy; const g = world.get(a, yy, c); if ([B.STONE, B.DIRT, B.GRASS, B.DEEPSLATE, B.TUFF, B.GRANITE, B.DIORITE, B.ANDESITE].includes(g) && !world.get(a, yy + 1, c)) { world.set(a, yy, c, B.MOSS_BLOCK); if (Math.random() < 0.3) world.set(a, yy + 1, c, Math.random() < 0.5 ? B.MOSS_CARPET : B.TALL_GRASS); break; } } } fx(); return true; }
       }
       // shears carve a pumpkin: it faces you and drops 4 seeds
-      if ((hd.kind === 'tool' && hd.tool === 'shears') || h.id === IT.shears) { if (id === B.PUMPKIN) { const pf = playerFacing(); world.set(x, y, z, famId('carved_pumpkin', { facing: (pf + 2) % 4 })); dropItem(IT.pumpkin_seeds, 4, x + 0.5, y + 1, z + 0.5); Sfx.play('shear', 1); damageHeld(1); S.swing = 1; S.useCD = 0.3; return true; } }
+      if ((hd.kind === 'tool' && hd.tool === 'shears') || h.id === IT.shears) { if (id === B.PUMPKIN) { const pf = playerFacing(); world.set(x, y, z, carvedId('carved_pumpkin', (pf + 2) % 4)); dropItem(IT.pumpkin_seeds, 4, x + 0.5, y + 1, z + 0.5); Sfx.play('shear', 1); damageHeld(1); S.swing = 1; S.useCD = 0.3; return true; } }
     }
     return _fu.apply(this, arguments); }; }
 

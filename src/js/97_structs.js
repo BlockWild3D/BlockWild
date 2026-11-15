@@ -43,6 +43,7 @@ Object.assign(PLACE, {
 Object.assign(STRUCT_NAMES, { abandoned_camp: 'abandoned_camp', camp: 'abandoned_camp', trail_ruins: 'trail_ruins', ocean_ruin: 'ocean_ruin', ocean_ruins: 'ocean_ruin', buried_treasure: 'buried_treasure' });
 // loot
 addLoot('camp', [L('bread', 1, 4, 0.6), L('apple', 1, 3, 0.5), L('cooked_beef', 1, 3, 0.3), L('baked_potato', 1, 4, 0.4), L('torch', 2, 8, 0.6), L('string', 1, 5, 0.5), L('stick', 2, 6, 0.5), L('leather', 1, 3, 0.4), L('straw_bed', 1, 2, 0.35), L('white_cushion', 1, 1, 0.2), L('brown_cushion', 1, 1, 0.2), L('bundle', 1, 1, 0.15), L('compass', 1, 1, 0.2), L('lantern', 1, 1, 0.25), L('buried_treasure_map', 1, 1, 0.1)]);
+addLoot('camp_copper', [L('iron_ingot', 2, 6, 0.75), L('gold_ingot', 1, 4, 0.5), L('copper_ingot', 3, 9, 0.7), L('emerald', 1, 5, 0.6), L('diamond', 1, 2, 0.3), L('lapis_lazuli', 2, 8, 0.4), L('enchanted_book', 1, 1, 0.4), L('golden_apple', 1, 1, 0.2), L('iron_pickaxe', 1, 1, 0.25), L('saddle', 1, 1, 0.2), L('name_tag', 1, 1, 0.2), L('arrow', 4, 12, 0.4), L('cooked_beef', 2, 5, 0.5), L('bread', 2, 5, 0.5), L('copper_horse_armor', 1, 1, 0.1)]);
 addLoot('camp_rare', [L('emerald', 2, 6, 0.8), L('diamond', 1, 2, 0.35), L('enchanted_book', 1, 1, 0.5), L('golden_apple', 1, 1, 0.4), L('iron_axe', 1, 1, 0.3), L('copper_ingot', 4, 12, 0.6), L('music_disc_bounce', 1, 1, 0.05), L('name_tag', 1, 1, 0.3)]);
 addLoot('ocean_ruin', [L('coal', 1, 4, 0.6), L('wheat', 2, 3, 0.5), L('gold_nugget', 1, 3, 0.5), L('rotten_flesh', 1, 4, 0.4), L('emerald', 1, 1, 0.35), L('fishing_rod', 1, 1, 0.15), L('leather_chestplate', 1, 1, 0.15), L('enchanted_book', 1, 1, 0.2), L('golden_apple', 1, 1, 0.1), L('buried_treasure_map', 1, 1, 0.8), L('iron_nautilus_armor', 1, 1, 0.05)]);
 addLoot('buried_treasure', [L('heart_of_the_sea', 1, 1, 1), L('iron_ingot', 1, 4, 0.8), L('gold_ingot', 1, 4, 0.7), L('tnt', 1, 2, 0.4), L('emerald', 4, 8, 0.5), L('diamond', 1, 2, 0.35), L('prismarine_crystals', 1, 5, 0.4), L('cooked_cod', 2, 4, 0.5), L('leather_chestplate', 1, 1, 0.3), L('iron_sword', 1, 1, 0.3), L('golden_nautilus_armor', 1, 1, 0.1), L('diamond_nautilus_armor', 1, 1, 0.04)]);
@@ -76,7 +77,7 @@ function buildCamp(world, S, x0, z0, r) { const g = world.gen; const col = g.col
   const ax2 = famId(strippedK, { axis: 'x' }) || ax; for (let dx = -1; dx <= 1; dx++) hard(x0 + dx, y, z0 - 3, ax2);
   hard(x0 - 2, y, z0 + 2, B[[wc, 'red', 'brown'][r() * 3 | 0].toUpperCase() + '_CUSHION'] || B.WHITE_CUSHION);
   // supplies
-  hard(x0 + 2, y, z0 + 3, B.BARREL); S.kinds.push(['chest:camp', x0 + 2, z0 + 3, y]); hard(x0 - 3, y, z0 + 3, FAMILY.chest ? FAMILY.chest.ids[(r() * 4) | 0] : B.CHEST); S.kinds.push(['chest:camp', x0 - 3, z0 + 3, y]);
+  hard(x0 + 2, y, z0 + 3, B.BARREL); S.kinds.push(['chest:camp', x0 + 2, z0 + 3, y]); { const ck = ['copper_chest', 'exposed_copper_chest', 'weathered_copper_chest'][(r() * 3) | 0]; hard(x0 - 3, y, z0 + 3, FAMILY[ck] ? FAMILY[ck].ids[(r() * 4) | 0] : B.CHEST); S.kinds.push(['chest:camp_copper', x0 - 3, z0 + 3, y]); } // the camper's copper chest: the good stuff
   hard(x0 + 2, y, z0 - 3, B[logK.toUpperCase()]); hard(x0 + 2, y + 1, z0 - 3, B.LANTERN);
   if (col.v === BV.DAPPLED_FOREST) { TREES.fallen_poplar((x, yy, z, id) => hard(x, yy, z, id), x0 - 5, y, z0 - 1, r); }
   S.kinds.push(['abandoned_camp', x0, z0]); }

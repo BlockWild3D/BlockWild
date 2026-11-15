@@ -15,7 +15,7 @@ const Saves = {
     this._open = new Promise(res => { try { const r = indexedDB.open('blockwild', 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta'); if (!d.objectStoreNames.contains('data')) d.createObjectStore('data'); }; r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null); setTimeout(() => res(null), 4000); } catch (e) { res(null); } });
     return this._open;
   },
-  async tx(stores, mode, fn) { const d = await this.open(); if (!d) throw new Error('no idb'); return new Promise((res, rej) => { const t = d.transaction(stores, mode); let out; Promise.resolve(fn(t)).then(v => out = v); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted')); }); },
+  async tx(stores, mode, fn) { const d = await this.open(); if (!d) throw new Error('no idb'); return new Promise((res, rej) => { setTimeout(() => rej(new Error('browser storage timed out')), 15000); const t = d.transaction(stores, mode); let out; Promise.resolve(fn(t)).then(v => out = v); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted')); }); },
   req: (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
   async localPut(meta, json) {
     try { await this.tx(['meta', 'data'], 'readwrite', (t) => { t.objectStore('meta').put(meta, meta.id); t.objectStore('data').put(json, meta.id); }); return true; }
@@ -80,7 +80,7 @@ const Saves = {
     const m = this.metas.get(id); if (!m) return null; let json = null;
     const cloudFirst = this.cloud && m.cloud && (m.cloud || 0) > (m.local || 0);
     if (!cloudFirst) json = await this.localGet(id);
-    if (!json && this.cloud && m.cloud) try { json = await this.cloudGet(id); } catch (e) { console.warn(e); }
+    if (!json && this.cloud && m.cloud) try { json = await Promise.race([this.cloudGet(id), new Promise((_, rej) => setTimeout(() => rej(new Error('cloud read timed out')), 20000))]); } catch (e) { console.warn(e); }
     if (!json && cloudFirst) json = await this.localGet(id);
     return json ? JSON.parse(json) : null;
   },

@@ -118,6 +118,7 @@ api.on('blockBreak', (e) => { e.x; e.y; e.z; e.block; return false; /* cancels t
 api.on('blockPlace', (e) => { e.x; e.y; e.z; e.block; });
 api.on('useItem', (e) => { e.item; e.block; e.mob; return false; /* cancels the normal right-click */ });
 api.on('mobDeath', (e) => { e.type; e.x; e.y; e.z; });
+api.on('playerDeath', (e) => { e.cause; e.x; e.y; e.z; });   // before your items drop
 api.on('chunkGenerate', (c) => {
   // c.dimension, c.cx, c.cz, c.x, c.z (block position of the chunk corner), c.random()
   // c.get(lx, y, lz) and c.set(lx, y, lz, 'block_key'): local x/z from 0 to 15
@@ -143,6 +144,8 @@ These work once a world is running:
 - `api.message(text, seconds)`
 - `api.spawnMob(type, x, y, z)`: types are `pig`, `cow`, `sheep`, `chicken`, `villager`, `zombie`, `skeleton`, `spider`, `creeper`, `enderman`, `ghast`, `blaze`, `magma_cube`, `piglin`, `zombified_piglin`, `hoglin`, `wither_skeleton` and `strider`
 - `api.explode(x, y, z, power)`
+- `api.keepInventory = true`: you keep your items and XP when you die, in every world (the world's own `keepInventory` game rule still works too)
+- `api.rules`: the world's game rules, such as `api.rules.keepInventory` or `api.rules.doMobSpawning`
 - `api.physics`: change `gravity` (28), `jump` (8.6), `speed` (1) or `fallDamage` (1)
 - `api.blockId(key)` and `api.itemId(key)`: the numeric ids
 
@@ -153,6 +156,7 @@ The **Example mods** button installs these:
 - Rubies
 - Moon Jump
 - Starter Kit
+- Keep Inventory
 - Boom Staff
 - Sky Islands
 - Endless Day

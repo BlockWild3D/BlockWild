@@ -36,6 +36,15 @@ api.on('worldStart', (e) => {
   api.message('Starter kit added to your inventory');
 });
 `,
+`// @name Keep Inventory
+// @description Keep your items, armor and XP when you die, in every world, without changing that world's game rules.
+// @author BlockWild
+// @version 1.0
+api.keepInventory = true;
+api.on('playerDeath', () => {
+  if (api.mode === 'survival') api.message('Keep Inventory: your items and XP are safe', 3);
+});
+`,
 `// @name Boom Staff
 // @description Craft a Boom Staff (TNT on two blaze rods) and right-click to blow up the block you are looking at, up to 48 blocks away.
 // @author BlockWild

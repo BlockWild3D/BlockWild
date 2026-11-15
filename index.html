@@ -1397,6 +1397,7 @@ const UI_ICON = {
 // before textures, icons, the atlas and the creative palette are built, so anything a mod registers behaves like base content.
 // Each mod's code runs as `function (api) { ... }`. See MODDING.md for the full API.
 const MODS = { list: [], loaded: [], errors: {}, hooks: {}, ores: [], physics: { gravity: 28, jump: 8.6, speed: 1, fallDamage: 1 }, graphics: { minLight: 0 }, huds: [] };
+function keepInv() { return !!(S.rules.keepInventory || MODS.keepInventory); }
 function modsLoad() { try { return JSON.parse(localStorage.getItem('blockwild_mods') || '[]'); } catch (e) { return []; } }
 function modsSave(list) { try { localStorage.setItem('blockwild_mods', JSON.stringify(list)); return true; } catch (e) { return false; } }
 function modMeta(code, fallback) {
@@ -1504,6 +1505,8 @@ function makeModApi(mod) {
     on(event, fn) { (MODS.hooks[event] = MODS.hooks[event] || []).push({ fn, mod: mod.name }); },
     // ---- game access (valid once a world is running) ----
     get physics() { return MODS.physics; },
+    get rules() { return S.rules; },
+    get keepInventory() { return !!MODS.keepInventory; }, set keepInventory(v) { MODS.keepInventory = !!v; },
     get graphics() { return MODS.graphics; },
     // a canvas drawn on top of the game; draw(ctx, canvas, dt) runs every frame while playing
     addHud(o = {}) { const h = { mod: mod.name, w: o.width || 160, h: o.height || 160, corner: o.corner || 'top-right', draw: o.draw, every: o.every || 0, t: 0, el: null }; MODS.huds.push(h); return h; },
@@ -4175,6 +4178,9 @@ function structuresFor(world, cx, cz) {
   return S;
 }
 function groundFill(g, x, z, fy, hard, id) { const gh = g.column(x, z).h; for (let y = Math.max(1, gh - 1); y < fy; y++) hard(x, y, z, id); }
+function houseBedCells(x0, z0, w, d, doorSide) { const cx = x0 + (w >> 1), cz = z0 + (d >> 1);
+  return [[[x0 + 1, cz], [x0 + 2, cz]], [[x0 + w - 2, cz], [x0 + w - 3, cz]], [[cx, z0 + 1], [cx, z0 + 2]], [[cx, z0 + d - 2], [cx, z0 + d - 3]]][doorSide]; }
+const HOUSE_BED_COLORS = ['red', 'red', 'white', 'yellow', 'light_blue', 'lime', 'orange', 'cyan', 'pink', 'brown', 'green', 'magenta'];
 function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   const fy = g.column(x0 + (w >> 1), z0 + (d >> 1)).h - 1;
   let mn = 999, mx = -999; for (const [x, z] of [[x0, z0], [x0 + w - 1, z0], [x0, z0 + d - 1], [x0 + w - 1, z0 + d - 1]]) { const h = g.column(x, z).h; mn = Math.min(mn, h); mx = Math.max(mx, h); }
@@ -4210,6 +4216,8 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   if (ins[0]) hard(ins[0][0], fy + 1, ins[0][1], B.CRAFTING_TABLE);
   if (ins[1]) { hard(ins[1][0], fy + 1, ins[1][1], B.CHEST); world.chestLoot.set(ins[1][0] + ',' + (fy + 1) + ',' + ins[1][1], 'house'); }
   if (ins[2] && r() < 0.85) hard(ins[2][0], fy + 1, ins[2][1], [B.FLETCHING_TABLE, B.CARTOGRAPHY_TABLE, B.BARREL, B.SMOKER, B.STONECUTTER, B.CAULDRON, B.LOOM, B.COMPOSTER, B.BOOKSHELF][r() * 9 | 0]); // a job site for whoever lives here
+  { const [h, f] = houseBedCells(x0, z0, w, d, doorSide); const col = HOUSE_BED_COLORS[ihash(x0, z0, 5150, world.seed) % HOUSE_BED_COLORS.length]; const U = col === 'red' ? '' : '_' + col.toUpperCase();
+    hard(h[0], fy + 1, h[1], B['BED_HEAD' + U]); hard(f[0], fy + 1, f[1], B['BED_FOOT' + U]); }
   S.mobs.push(['villager', doorX + 0.5, fy + 1, doorZ + 0.5]);
 }
 function buildWell(S, g, x0, z0, hard, M) {
@@ -5149,6 +5157,7 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
     if (kind === 'library') { // bookshelves along the back wall, lectern-ish table
       const back = [[x0 + 1, z0 + 1, 1, 0, w - 2], [x0 + 1, z0 + d - 2, 1, 0, w - 2], [x0 + w - 2, z0 + 1, 0, 1, d - 2], [x0 + 1, z0 + 1, 0, 1, d - 2]][[3, 2, 1, 0][doorSide]];
       if (back) for (let i = 0; i < back[4]; i++) for (let y = 1; y <= 2; y++) hard(back[0] + back[2] * i, fy + y, back[1] + back[3] * i, B.BOOKSHELF);
+      for (const [bx, bz] of houseBedCells(x0, z0, w, d, doorSide)) hard(bx, fy + 1, bz, 0); // the library is all books and a lectern: no bed
       hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.LECTERN);
     }
     if (kind === 'farmhouse') hard(x0 + 1, fy + 1, z0 + d - 2, B.HAY_BLOCK);
@@ -6143,8 +6152,8 @@ class Player {
     if (this.health <= 0) this.die(cause);
   }
   die(cause) {
-    if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
-    if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
+    if (this.dead) return; this.health = 0; this.dead = true; updateHearts(); if (MODS.hooks.playerDeath) modFire('playerDeath', { cause: cause || null, x: this.pos.x, y: this.pos.y, z: this.pos.z });
+    if (isSurv() && !keepInv()) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
     const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Ender Dragon's breath": "You were consumed by the Ender Dragon's breath", 'the Ender Dragon': 'You were slain by the Ender Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || (typeof DEATH_YOU !== 'undefined' && DEATH_YOU[cause]) || ('You were slain by ' + (cause || 'something'));
@@ -6195,8 +6204,8 @@ function newSlotEl(parent, extraCls) { const d = document.createElement('div'); 
 function makeSlot(cont, idx, parent) {
   const d = newSlotEl(parent);
   d.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); slotClick(cont, idx, e.button, e.shiftKey); });
-  d.addEventListener('pointerenter', () => { const a = contArr(cont); const s = a && a[idx]; showTip(s ? itemTooltip(s) : null); });
-  d.addEventListener('pointerleave', () => showTip(null));
+  d.addEventListener('pointerenter', () => { S.hoverSlot = [cont, idx]; const a = contArr(cont); const s = a && a[idx]; showTip(s ? itemTooltip(s) : null); });
+  d.addEventListener('pointerleave', () => { S.hoverSlot = null; showTip(null); });
   slotEls[cont][idx] = d; return d;
 }
 for (let i = 9; i < 36; i++) makeSlot('inv', i, $('mainGrid'));
@@ -6490,8 +6499,9 @@ function breakBlock(x, y, z) {
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
   if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
-  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
+  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (!STACK_PLANT.test(BL[a].key || '')) break; } else break; }
 }
+const STACK_PLANT = /^(sugar_cane|cactus|bamboo(#\d+)?)$/; // plants that stand on each other: break the bottom and the whole column goes
 const PLANT_SOIL = { nether: [B.CRIMSON_NYLIUM, B.WARPED_NYLIUM, B.NETHERRACK, B.SOUL_SAND] };
 function placeBlock(hit, id) {
   let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
@@ -7044,7 +7054,7 @@ let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0, hudT = 0, errShown 
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  try { tick(dt); } catch (e) { console.error(e); if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
+  try { tick(dt); } catch (e) { console.error(e); if (S.loading) $('loadTxt').textContent = 'Something went wrong while loading: ' + e.message; if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
 }
 // the Nether's thick fog hides everything past ~5 chunks, so don't load or draw further there
 function effRD() { return world && world.dim === 'nether' ? Math.min(S.renderDist, 5) : S.renderDist; }
@@ -7552,6 +7562,15 @@ api.on('worldStart', (e) => {
   api.give('stone_pickaxe'); api.give('stone_sword');
   api.give('torch', 16); api.give('cooked_pork', 8); api.give('crafting_table');
   api.message('Starter kit added to your inventory');
+});
+`,
+`// @name Keep Inventory
+// @description Keep your items, armor and XP when you die, in every world, without changing that world's game rules.
+// @author BlockWild
+// @version 1.0
+api.keepInventory = true;
+api.on('playerDeath', () => {
+  if (api.mode === 'survival') api.message('Keep Inventory: your items and XP are safe', 3);
 });
 `,
 `// @name Boom Staff
@@ -13609,7 +13628,7 @@ function soulSandMul() { const s = enchOf(player.inv[40], 'soul_speed'); if (!s)
       while (n > 0 && slots.length) { const i = slots[(Math.random() * slots.length) | 0]; const s = player.inv[i]; const fix = Math.min(s.dmg, n * 2); s.dmg -= fix; n -= Math.ceil(fix / 2); if (!s.dmg) { delete s.dmg; slots.splice(slots.indexOf(i), 1); } invDirty(); } }
     if (n > 0) return _ax(n); }; }
 // Curse of Vanishing: gone when you die; Curse of Binding: worn armour can't be taken off (except in creative)
-{ const _d = Player.prototype.die; Player.prototype.die = function (cause) { if (this === player && isSurv() && !S.rules.keepInventory) for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s && enchOf(s, 'curse_of_vanishing')) this.inv[i] = null; } return _d.apply(this, arguments); }; }
+{ const _d = Player.prototype.die; Player.prototype.die = function (cause) { if (this === player && isSurv() && !keepInv()) for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s && enchOf(s, 'curse_of_vanishing')) this.inv[i] = null; } return _d.apply(this, arguments); }; }
 { const _sc = slotClick; slotClick = function (cont, i, button, shift) { if (cont === 'inv' && i >= 37 && i <= 40 && S.mode !== 'creative') { const s = player.inv[i]; if (s && enchOf(s, 'curse_of_binding')) { toast('Curse of Binding: this armour can\'t be removed', 1.5); return; } } return _sc(cont, i, button, shift); }; }
 // ---------- crossbows ----------
 // Hold use to load (1.25 s, 0.25 s less per Quick Charge level), then use to fire: 3.15 blocks per tick. Multishot
@@ -14163,7 +14182,7 @@ const Saves = {
     this._open = new Promise(res => { try { const r = indexedDB.open('blockwild', 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta'); if (!d.objectStoreNames.contains('data')) d.createObjectStore('data'); }; r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null); setTimeout(() => res(null), 4000); } catch (e) { res(null); } });
     return this._open;
   },
-  async tx(stores, mode, fn) { const d = await this.open(); if (!d) throw new Error('no idb'); return new Promise((res, rej) => { const t = d.transaction(stores, mode); let out; Promise.resolve(fn(t)).then(v => out = v); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted')); }); },
+  async tx(stores, mode, fn) { const d = await this.open(); if (!d) throw new Error('no idb'); return new Promise((res, rej) => { setTimeout(() => rej(new Error('browser storage timed out')), 15000); const t = d.transaction(stores, mode); let out; Promise.resolve(fn(t)).then(v => out = v); t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted')); }); },
   req: (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
   async localPut(meta, json) {
     try { await this.tx(['meta', 'data'], 'readwrite', (t) => { t.objectStore('meta').put(meta, meta.id); t.objectStore('data').put(json, meta.id); }); return true; }
@@ -14228,7 +14247,7 @@ const Saves = {
     const m = this.metas.get(id); if (!m) return null; let json = null;
     const cloudFirst = this.cloud && m.cloud && (m.cloud || 0) > (m.local || 0);
     if (!cloudFirst) json = await this.localGet(id);
-    if (!json && this.cloud && m.cloud) try { json = await this.cloudGet(id); } catch (e) { console.warn(e); }
+    if (!json && this.cloud && m.cloud) try { json = await Promise.race([this.cloudGet(id), new Promise((_, rej) => setTimeout(() => rej(new Error('cloud read timed out')), 20000))]); } catch (e) { console.warn(e); }
     if (!json && cloudFirst) json = await this.localGet(id);
     return json ? JSON.parse(json) : null;
   },
@@ -15481,7 +15500,7 @@ function hugeMushroom(x, y, z, red, put) {
         if (id === B.MOSS_BLOCK) { for (let k = 0; k < 30; k++) { const a = x + Math.round((Math.random() - 0.5) * 6), c = z + Math.round((Math.random() - 0.5) * 6); for (let dy = 1; dy >= -2; dy--) { const yy = y + dy; const g = world.get(a, yy, c); if ([B.STONE, B.DIRT, B.GRASS, B.DEEPSLATE, B.TUFF, B.GRANITE, B.DIORITE, B.ANDESITE].includes(g) && !world.get(a, yy + 1, c)) { world.set(a, yy, c, B.MOSS_BLOCK); if (Math.random() < 0.3) world.set(a, yy + 1, c, Math.random() < 0.5 ? B.MOSS_CARPET : B.TALL_GRASS); break; } } } fx(); return true; }
       }
       // shears carve a pumpkin: it faces you and drops 4 seeds
-      if ((hd.kind === 'tool' && hd.tool === 'shears') || h.id === IT.shears) { if (id === B.PUMPKIN) { const pf = playerFacing(); world.set(x, y, z, famId('carved_pumpkin', { facing: (pf + 2) % 4 })); dropItem(IT.pumpkin_seeds, 4, x + 0.5, y + 1, z + 0.5); Sfx.play('shear', 1); damageHeld(1); S.swing = 1; S.useCD = 0.3; return true; } }
+      if ((hd.kind === 'tool' && hd.tool === 'shears') || h.id === IT.shears) { if (id === B.PUMPKIN) { const pf = playerFacing(); world.set(x, y, z, carvedId('carved_pumpkin', (pf + 2) % 4)); dropItem(IT.pumpkin_seeds, 4, x + 0.5, y + 1, z + 0.5); Sfx.play('shear', 1); damageHeld(1); S.swing = 1; S.useCD = 0.3; return true; } }
     }
     return _fu.apply(this, arguments); }; }
 
@@ -15532,15 +15551,18 @@ function oceanTick(x, y, z, id) { const d = BL[id];
     const r0 = _dec.apply(this, arguments); if (world.dim !== 'overworld') return r0; const g = world.gen, seed = world.seed; const r = mulberry32(ihash(cx, cz, 8831, seed)); const bx = cx * 16, bz = cz * 16;
     const c0 = g.column(bx + 8, bz + 8); if (c0.b !== BIO.OCEAN || c0.h > SEA - 3) return r0;
     const soft = (x, y, z, id) => { if (y > 0 && y < WH) S.soft.push(x, y, z, id); }, hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
-    const warm = c0.v === BV.WARM_OCEAN && c0.h > SEA - 22; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
+    // only real oceans get reefs and kelp forests; a lake or a pond that dips below sea level inland gets seagrass
+    let open = 0; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; const cc = g.column(bx + 8 + Math.round(Math.cos(a) * 48), bz + 8 + Math.round(Math.sin(a) * 48)); if (cc.b === BIO.OCEAN && cc.h < SEA - 2) open++; }
+    const ocean = open >= 7;
+    const warm = ocean && c0.v === BV.WARM_OCEAN && c0.h > SEA - 22 && c0.h <= SEA - 5; const noKelp = c0.v === BV.FROZEN_OCEAN || c0.v === BV.WARM_OCEAN || c0.v === BV.RIVER || c0.v === BV.FROZEN_RIVER;
     const water = (x, y, z) => y <= SEA; const corals = CORALDATA().map(c => c[0]);
     for (let i = 0; i < (warm ? 10 : 24); i++) { const x = bx + (r() * 16 | 0), z = bz + (r() * 16 | 0); const col = g.column(x, z); if (col.h > SEA - 2) continue; const y = col.h;
       if (warm && i < 6) { // a coral patch: blocks, with corals, fans and pickles on top
-        const k = corals[r() * 5 | 0]; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if (r() < 0.3) continue; const xx = x + a, zz = z + b; const cc = g.column(xx, zz); if (cc.h > SEA - 2) continue; const h = 1 + (r() * 3 | 0);
-          for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top >= SEA) continue; const q = r();
+        const k = corals[r() * 5 | 0]; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if (r() < 0.3) continue; const xx = x + a, zz = z + b; const cc = g.column(xx, zz); if (cc.h > SEA - 5) continue; const h = Math.min(1 + (r() * 3 | 0), SEA - 4 - cc.h); if (h < 1) continue; // reefs stay underwater: at least two blocks of water over the top
+          for (let j = 0; j < h; j++) hard(xx, cc.h + j, zz, B[(k + '_coral_block').toUpperCase()]); const top = cc.h + h; if (top > SEA - 3) continue; const q = r();
           if (q < 0.35) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral').toUpperCase()]); else if (q < 0.65) soft(xx, top, zz, B[(corals[r() * 5 | 0] + '_coral_fan').toUpperCase()]); else if (q < 0.75) soft(xx, top, zz, B[('sea_pickle' + (r() < 0.5 ? '' : '#' + (2 + (r() * 3 | 0)))).toUpperCase()]); }
         continue; }
-      if (!warm && !noKelp && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
+      if (!warm && !noKelp && ocean && r() < 0.45) { const H = 3 + (r() * Math.min(20, SEA - y - 2) | 0); for (let j = 0; j < H && y + j < SEA - 1; j++) soft(x, y + j, z, j === H - 1 || y + j === SEA - 2 ? B.KELP : B.KELP_PLANT); }
       else soft(x, y, z, B.SEAGRASS); }
     return r0; }; }
 
@@ -15883,6 +15905,7 @@ function dispenseFrom(x, y, z, d) { const c = contAt(x, y, z); if (!c) return; c
   if (key === 'fire_charge' && PROJ.smallfire) { proj('smallfire', 14, 5); Sfx.at('fireball', pos, 0.7); return; }
   if (key === 'water_bucket' || key === 'lava_bucket') { if (replaceableAt(fx, fy, fz) && !(key === 'water_bucket' && world.dim === 'nether')) { const fl = key === 'water_bucket' ? B.WATER : B.LAVA; if (typeof placeFluid === 'function') placeFluid(fx, fy, fz, fl); else rsSet(fx, fy, fz, fl); c.arr[s] = { id: IT.bucket, count: 1 }; contChanged(c); Sfx.at('splash', pos, 0.6); return; } throwItem(); return; }
   if (key === 'bucket') { const t = rget(fx, fy, fz); if (BL[t] && BL[t].fluid && FLEVEL[t] === 0) { rsSet(fx, fy, fz, 0); const full2 = { id: t === B.WATER ? IT.water_bucket : IT.lava_bucket, count: 1 }; take(); if (!contInsert(c, full2, 0)) dropItem(full2.id, 1, out.x, out.y, out.z, false); Sfx.at('splash', pos, 0.6); return; } throwItem(); return; }
+  if (BL[it.id] && /^(carved_pumpkin|jack_o_lantern)$/.test(BL[it.id].fam || BL[it.id].key)) { if (replaceableAt(fx, fy, fz)) { const fam = BL[it.id].fam || BL[it.id].key; const fc = v[2] < 0 ? 0 : v[0] > 0 ? 1 : v[0] < 0 ? 3 : 2; rsSet(fx, fy, fz, carvedId(fam, fc) || it.id); take(); Sfx.at('dispense', pos, 0.8); } else Sfx.at('dispense_fail', pos, 0.7); return; }
   if (it.id === B.TNT) { if (replaceableAt(fx, fy, fz)) { primeTNT(fx, fy, fz, 4); take(); return; } }
   if (key === 'bone_meal') { if (dispenserBoneMeal(fx, fy, fz)) { take(); Sfx.at('dispense', pos, 0.8); } else Sfx.at('dispense_fail', pos, 0.7); return; }
   if (key === 'flint_and_steel') { if (replaceableAt(fx, fy, fz) && B.FIRE && SOLID[rget(fx, fy - 1, fz)]) { rsSet(fx, fy, fz, B.FIRE); Sfx.at('ignite', pos, 0.8); } else if (rget(fx, fy, fz) === B.TNT) { rsSet(fx, fy, fz, 0); primeTNT(fx, fy, fz, 4); } return; }
@@ -17341,11 +17364,11 @@ const TALLF = (k) => { const id = B[k.toUpperCase()]; return id !== undefined &&
 // ice balls. Freezing (also from powder snow, and the new Potion of Freezing brewed from ice balls) slows you and
 // hurts over time; leather armor keeps powder-snow cold out.
 // ---------- one shared index per chunk of the blocks the run-time rules here and in 94-96 look after ----------
-const CIDX_NAMES = [null, 'potent', 'icicle', 'pg', 'dg', 'chest', 'rod']; let CIDX_TAB = null;
+const CIDX_NAMES = [null, 'potent', 'icicle', 'pg', 'dg', 'chest', 'rod', 'bed']; let CIDX_TAB = null;
 function cidxTab() { if (CIDX_TAB) return CIDX_TAB; const t = new Uint8Array(BL.length + 1); for (const d of BL) { if (!d) continue; let k = 0;
-    if (d.potent) k = 1; else if (d.icicle) k = 2; else if (d.heart || d.eyeblossom) k = 3; else if (d.hydration !== undefined) k = 4; else if (d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) k = 5; else if (d.fam === 'lightning_rod' || d.key === 'lightning_rod') k = 6; t[d.id] = k; }
+    if (d.potent) k = 1; else if (d.icicle) k = 2; else if (d.heart || d.eyeblossom) k = 3; else if (d.hydration !== undefined) k = 4; else if (d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) k = 5; else if (d.fam === 'lightning_rod' || d.key === 'lightning_rod') k = 6; else if (d.bedPart === 'head') k = 7; t[d.id] = k; }
   return (CIDX_TAB = t); }
-function chunkIdx(c) { if (c.cidx && !c.cidxDirty) return c.cidx; const T = cidxTab(); const o = { potent: [], icicle: [], pg: [], dg: [], chest: [], rod: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const k = T[d[j]]; if (k) o[CIDX_NAMES[k]].push(j); } c.cidx = o; c.cidxDirty = false; return o; }
+function chunkIdx(c) { if (c.cidx && !c.cidxDirty) return c.cidx; const T = cidxTab(); const o = { potent: [], icicle: [], pg: [], dg: [], chest: [], rod: [], bed: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const k = T[d[j]]; if (k) o[CIDX_NAMES[k]].push(j); } c.cidx = o; c.cidxDirty = false; return o; }
 { const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const T = cidxTab(); if (T[id] || T[prev]) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.cidxDirty = true; } return r; }; }
 // ---------- stonecutting ----------
 for (const m of ['sulfur', 'cinnabar']) STONECUT.push([m, 'polished_' + m, 1], [m, m + '_bricks', 1], [m, 'chiseled_' + m, 1], ['polished_' + m, m + '_bricks', 1], ['polished_' + m, 'chiseled_' + m, 1], [m + '_bricks', 'chiseled_' + m, 1]);
@@ -18176,6 +18199,7 @@ Object.assign(PLACE, {
 Object.assign(STRUCT_NAMES, { abandoned_camp: 'abandoned_camp', camp: 'abandoned_camp', trail_ruins: 'trail_ruins', ocean_ruin: 'ocean_ruin', ocean_ruins: 'ocean_ruin', buried_treasure: 'buried_treasure' });
 // loot
 addLoot('camp', [L('bread', 1, 4, 0.6), L('apple', 1, 3, 0.5), L('cooked_beef', 1, 3, 0.3), L('baked_potato', 1, 4, 0.4), L('torch', 2, 8, 0.6), L('string', 1, 5, 0.5), L('stick', 2, 6, 0.5), L('leather', 1, 3, 0.4), L('straw_bed', 1, 2, 0.35), L('white_cushion', 1, 1, 0.2), L('brown_cushion', 1, 1, 0.2), L('bundle', 1, 1, 0.15), L('compass', 1, 1, 0.2), L('lantern', 1, 1, 0.25), L('buried_treasure_map', 1, 1, 0.1)]);
+addLoot('camp_copper', [L('iron_ingot', 2, 6, 0.75), L('gold_ingot', 1, 4, 0.5), L('copper_ingot', 3, 9, 0.7), L('emerald', 1, 5, 0.6), L('diamond', 1, 2, 0.3), L('lapis_lazuli', 2, 8, 0.4), L('enchanted_book', 1, 1, 0.4), L('golden_apple', 1, 1, 0.2), L('iron_pickaxe', 1, 1, 0.25), L('saddle', 1, 1, 0.2), L('name_tag', 1, 1, 0.2), L('arrow', 4, 12, 0.4), L('cooked_beef', 2, 5, 0.5), L('bread', 2, 5, 0.5), L('copper_horse_armor', 1, 1, 0.1)]);
 addLoot('camp_rare', [L('emerald', 2, 6, 0.8), L('diamond', 1, 2, 0.35), L('enchanted_book', 1, 1, 0.5), L('golden_apple', 1, 1, 0.4), L('iron_axe', 1, 1, 0.3), L('copper_ingot', 4, 12, 0.6), L('music_disc_bounce', 1, 1, 0.05), L('name_tag', 1, 1, 0.3)]);
 addLoot('ocean_ruin', [L('coal', 1, 4, 0.6), L('wheat', 2, 3, 0.5), L('gold_nugget', 1, 3, 0.5), L('rotten_flesh', 1, 4, 0.4), L('emerald', 1, 1, 0.35), L('fishing_rod', 1, 1, 0.15), L('leather_chestplate', 1, 1, 0.15), L('enchanted_book', 1, 1, 0.2), L('golden_apple', 1, 1, 0.1), L('buried_treasure_map', 1, 1, 0.8), L('iron_nautilus_armor', 1, 1, 0.05)]);
 addLoot('buried_treasure', [L('heart_of_the_sea', 1, 1, 1), L('iron_ingot', 1, 4, 0.8), L('gold_ingot', 1, 4, 0.7), L('tnt', 1, 2, 0.4), L('emerald', 4, 8, 0.5), L('diamond', 1, 2, 0.35), L('prismarine_crystals', 1, 5, 0.4), L('cooked_cod', 2, 4, 0.5), L('leather_chestplate', 1, 1, 0.3), L('iron_sword', 1, 1, 0.3), L('golden_nautilus_armor', 1, 1, 0.1), L('diamond_nautilus_armor', 1, 1, 0.04)]);
@@ -18209,7 +18233,7 @@ function buildCamp(world, S, x0, z0, r) { const g = world.gen; const col = g.col
   const ax2 = famId(strippedK, { axis: 'x' }) || ax; for (let dx = -1; dx <= 1; dx++) hard(x0 + dx, y, z0 - 3, ax2);
   hard(x0 - 2, y, z0 + 2, B[[wc, 'red', 'brown'][r() * 3 | 0].toUpperCase() + '_CUSHION'] || B.WHITE_CUSHION);
   // supplies
-  hard(x0 + 2, y, z0 + 3, B.BARREL); S.kinds.push(['chest:camp', x0 + 2, z0 + 3, y]); hard(x0 - 3, y, z0 + 3, FAMILY.chest ? FAMILY.chest.ids[(r() * 4) | 0] : B.CHEST); S.kinds.push(['chest:camp', x0 - 3, z0 + 3, y]);
+  hard(x0 + 2, y, z0 + 3, B.BARREL); S.kinds.push(['chest:camp', x0 + 2, z0 + 3, y]); { const ck = ['copper_chest', 'exposed_copper_chest', 'weathered_copper_chest'][(r() * 3) | 0]; hard(x0 - 3, y, z0 + 3, FAMILY[ck] ? FAMILY[ck].ids[(r() * 4) | 0] : B.CHEST); S.kinds.push(['chest:camp_copper', x0 - 3, z0 + 3, y]); } // the camper's copper chest: the good stuff
   hard(x0 + 2, y, z0 - 3, B[logK.toUpperCase()]); hard(x0 + 2, y + 1, z0 - 3, B.LANTERN);
   if (col.v === BV.DAPPLED_FOREST) { TREES.fallen_poplar((x, yy, z, id) => hard(x, yy, z, id), x0 - 5, y, z0 - 1, r); }
   S.kinds.push(['abandoned_camp', x0, z0]); }
@@ -18484,6 +18508,199 @@ function siftTick(dt) {
     defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
     const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); added++; }
   if (added) CREATIVE_LIST = null; }
+
+// ================= VILLAGE LIFE: villagers sleep in beds, Java Edition iron golem summoning =================
+// Villagers claim a bed (like a job site), walk home at dusk (12000 ticks), lie down and sleep until morning. A villager
+// wakes if hurt or if its bed is broken. Every village house now has a bed (02_world.js buildHouse).
+// Iron golems follow Java Edition rules:
+//  - Panic: a villager that sees a zombie or illager nearby tries every 5 seconds; it needs 3 villagers (itself
+//    included) that slept in the last 24000 ticks, all within a 10x10x10 box.
+//  - Gossip: 5 villagers with jobs that slept and worked in the last 24000 ticks, within the same box, now and then
+//    talk themselves into a golem; slower than panic.
+//  - A villager that has seen an iron golem within 16 blocks in the last 30 seconds will not help, and after a summon
+//    every villager within 10 blocks waits 30 seconds.
+//  - The golem appears in a 16x13x16 volume around the summoner, on a block with a solid top (full block, top slab or
+//    upside-down stairs; never glass or a bottom slab), with a clear 2x3x2 space above it.
+//  - Built golems: a carved pumpkin or jack o'lantern placed last on a T of iron blocks, whether you place it, a
+//    dispenser places it, or you shear a plain pumpkin that is already on top.
+const DAY_T = 24000;
+const absTicks = () => S.day * DAY_T + timeTicks();
+const bedTime = () => { const t = timeTicks(); return t >= 12000 && t < 23850; };
+const bedKey = (x, y, z) => x + ',' + y + ',' + z;
+function bedClaims() { return world.bedClaims || (world.bedClaims = new Map()); }
+function findVillagerBed(m) {
+  const cx0 = Math.floor(m.pos.x) >> 4, cz0 = Math.floor(m.pos.z) >> 4; const C = bedClaims(); let best = null, bd = 48 * 48;
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const c = world.getChunk(cx0 + dx, cz0 + dz); if (!c || !c.d) continue; const ix = chunkIdx(c).bed; if (!ix.length) continue;
+    for (const j of ix) { const x = (cx0 + dx) * 16 + (j & 15), z = (cz0 + dz) * 16 + ((j >> 4) & 15), y = j >> 8; if (Math.abs(y - m.pos.y) > 10) continue; const k = bedKey(x, y, z);
+      const o = C.get(k); if (o && o !== m && !o.dead && !o.gone) continue; if (m.badBeds && m.badBeds.has(k)) continue; if (!bedPartner(x, y, z)) continue; const d = (x + 0.5 - m.pos.x) ** 2 + (z + 0.5 - m.pos.z) ** 2; if (d < bd) { bd = d; best = [x, y, z]; } } }
+  return best;
+}
+// a small breadth-first path search over walkable cells (step up 1, drop up to 3), enough to get around walls and in at
+// a door; ends next to the goal cell
+function standable(x, y, z) { return !world.solid(x, y, z) && !world.solid(x, y + 1, z) && (world.solid(x, y - 1, z) || (BL[world.get(x, y - 1, z)] || {}).bedPart) && !(BL[world.get(x, y, z)] || {}).fluid; }
+function villagerPath(sx, sy, sz, gx, gy, gz, maxN) { // A* with a bucket queue (all steps cost 1)
+  const key = (x, y, z) => ((x - sx + 512) * 1024 + (z - sz + 512)) * 512 + (y & 511); const prev = new Map(); const gs = new Map(); const bk = [];
+  const hh = (x, y, z) => Math.abs(x - gx) + Math.abs(z - gz) + Math.abs(y - gy); const push = (c, g) => { const f = g + hh(c[0], c[1], c[2]); (bk[f] || (bk[f] = [])).push(c); };
+  prev.set(key(sx, sy, sz), null); gs.set(key(sx, sy, sz), 0); push([sx, sy, sz], 0); let n = 0, fi = 0;
+  while (n++ < maxN) { while (fi < bk.length && !(bk[fi] && bk[fi].length)) fi++; if (fi >= bk.length) break; const c = bk[fi].pop(); const [x, y, z] = c; const g = gs.get(key(x, y, z));
+    if (Math.abs(x - gx) + Math.abs(z - gz) <= 1 && Math.abs(y - gy) <= 1) { const out = []; let k = c; while (k) { out.push(k); k = prev.get(key(k[0], k[1], k[2])); } return out.reverse(); }
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (Math.abs(nx - sx) > 64 || Math.abs(nz - sz) > 64) continue;
+      for (const dy of [0, 1, -1, -2, -3]) { const ny = y + dy; if (dy === 1 && world.solid(x, y + 2, z)) continue; if (dy < 0) { let open = true; for (let k = 0; k > dy; k--) if (world.solid(nx, y + k, nz) || world.solid(nx, y + k + 1, nz)) open = false; if (!open) continue; }
+        if (!standable(nx, ny, nz)) continue; const k = key(nx, ny, nz); if (!gs.has(k) || gs.get(k) > g + 1) { gs.set(k, g + 1); prev.set(k, c); push([nx, ny, nz], g + 1); if (fi > g + 1 + hh(nx, ny, nz)) fi = g + 1 + hh(nx, ny, nz); } break; } } }
+  return null; }
+function followPath(m, dt) { const p = m.vPath; if (!p || !p.length) return false; const w = p[0]; const dx = w[0] + 0.5 - m.pos.x, dz = w[2] + 0.5 - m.pos.z;
+  if (dx * dx + dz * dz < (p.length > 1 ? 0.5 : 0.2) && Math.abs(m.pos.y - w[1]) < 1.2) { p.shift(); return p.length > 0; }
+  m.wYaw = Math.atan2(dx, dz); m.wMove = 1; m.wT = 0.4; return true; }
+function lieDown(m, head, foot) { const D = [head[0] - foot[0], head[2] - foot[2]];
+  m.vSleep = { head, hid: world.get(head[0], head[1], head[2]), px: foot[0] + 0.5 - D[0] * 0.45, py: foot[1] + 0.5625, pz: foot[2] + 0.5 - D[1] * 0.45, yaw: Math.atan2(-D[0], -D[1]) };
+  m.vel.set(0, 0, 0); m.wMove = 0; }
+function wakeUp(m) { const s = m.vSleep; m.vSleep = null; if (m.root) { m.root.rotation.x = 0; } if (!s) return;
+  const foot = bedPartner(s.head[0], s.head[1], s.head[2]) || s.head; m.pos.set(foot[0] + 0.5, foot[1] + 0.6, foot[2] + 0.5); }
+function villagerNight(m, dt) {
+  const v = vData(m);
+  if (m.vSleep) { const s = m.vSleep; if (!bedTime() || m.hurtT > 0 || world.get(s.head[0], s.head[1], s.head[2]) !== s.hid || m.tradingWith) { wakeUp(m); return false; }
+    m.pos.set(s.px, s.py, s.pz); m.vel.set(0, 0, 0); m.yaw = s.yaw; m.wMove = 0; v.slept = absTicks(); return true; }
+  if (!bedTime() || m.tradingWith || villagerPanicking(m)) return false;
+  v.bt = (v.bt || 0) - dt;
+  if (v.bed) { const [x, y, z] = v.bed.split(',').map(Number); if (world.loaded(x, z) && (!BL[world.get(x, y, z)] || BL[world.get(x, y, z)].bedPart !== 'head')) { bedClaims().delete(v.bed); v.bed = null; m.vPath = null; } }
+  if (!v.bed && v.bt <= 0) { v.bt = 5; const b = findVillagerBed(m); if (b) { v.bed = bedKey(b[0], b[1], b[2]); bedClaims().set(v.bed, m); m.vPath = null; } }
+  if (!v.bed) return false;
+  const head = v.bed.split(',').map(Number); if (!world.loaded(head[0], head[2])) return false; bedClaims().set(v.bed, m);
+  const foot = bedPartner(head[0], head[1], head[2]); if (!foot) return false;
+  const fc = new V3(foot[0] + 0.5, foot[1], foot[2] + 0.5); const d = Math.hypot(fc.x - m.pos.x, fc.z - m.pos.z);
+  if (d < 1.6 && Math.abs(m.pos.y - foot[1]) < 1.3) { m.vPath = null; lieDown(m, head, foot); return true; }
+  if (d > 80) return false;
+  // walk home along a path; look for a new one now and then, or when stuck
+  m.pathT = (m.pathT || 0) - dt; m.stuckT = (m.stuckT || 0) + dt; let stuck = false; if (m.stuckT > 2) { stuck = !!m.lastPP && m.pos.distanceTo(m.lastPP) < 0.3; m.stuckT = 0; m.lastPP = m.pos.clone(); }
+  if (!m.vPath || m.pathT <= 0 || stuck) { m.pathT = 8; const sx = Math.floor(m.pos.x), sy = Math.floor(m.pos.y + 0.2), sz = Math.floor(m.pos.z); m.vPath = villagerPath(sx, sy, sz, foot[0], foot[1], foot[2], 6000) || null; if (m.vPath) { m.vPath.shift(); m.noPathN = 0; }
+    else if (++m.noPathN >= 2) { (m.badBeds || (m.badBeds = new Set())).add(v.bed); bedClaims().delete(v.bed); v.bed = null; m.noPathN = 0; v.bt = 0; return false; } }
+  if (!followPath(m, dt)) { steerTo(m, fc, 0.2); m.wT = 0.5; }
+  return false;
+}
+{ const prev = MOBS.villager.tick; MOBS.villager.tick = function (m, dt) { if (!isClientMP() && villagerNight(m, dt)) return true; return prev ? prev(m, dt) : false; }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.apply(this, arguments); if (this.root && this.type === 'villager') {
+    if (this.vSleep && !this.dead) { this.root.rotation.order = 'YXZ'; this.root.rotation.set(-Math.PI / 2, this.vSleep.yaw, 0); this.root.position.set(this.vSleep.px, this.vSleep.py, this.vSleep.pz); if (this.head) this.head.rotation.set(0, 0, 0); }
+    else if (this.root.rotation.x) this.root.rotation.x = 0; } return r; }; }
+// sleeping villagers stay sleeping through a save
+{ const _mr = mobRecord; mobRecord = function (m) { const r = _mr(m); if (m.vSleep) r.vs = m.vSleep.head; return r; };
+  const _mf = mobFromRecord; mobFromRecord = function (rec) { const m = _mf(rec); if (m && rec.vs && m.type === 'villager') m.pendingBed = rec.vs; return m; }; }
+// ---------- iron golem summoning (Java Edition) ----------
+const PANIC_R = { zombie: 8, husk: 8, drowned: 8, zombie_villager: 8, zombified_piglin: 0, vindicator: 10, evoker: 12, illusioner: 12, pillager: 15, ravager: 12, vex: 8, zoglin: 10 };
+function villagerPanicking(m) {
+  if (m.hurtT > 0 || (m.panicT || 0) > G.simT) return true;
+  for (const o of G.mobs) { const r = PANIC_R[o.type]; if (!r || o.dead) continue; const dx = o.pos.x - m.pos.x, dz = o.pos.z - m.pos.z, dy = o.pos.y - m.pos.y; if (dx * dx + dy * dy + dz * dz < r * r) { m.panicT = G.simT + 4; m.panicFrom = o; return true; } }
+  return false;
+}
+const sleptRecently = (v) => v.slept != null && absTicks() - v.slept <= DAY_T;
+const workedRecently = (v) => v.worked != null && absTicks() - v.worked <= DAY_T;
+function sawGolem(m) { const now = G.simT; if (G.mobs.some(g => g.type === 'iron_golem' && !g.dead && g.pos.distanceTo(m.pos) < 16)) m.gSeen = now; return m.gSeen != null && now - m.gSeen < 30; }
+const coolingDown = (m) => (m.gCool || 0) > G.simT;
+// a spawn block needs a solid top face: a full opaque cube, a top or double slab, or upside-down stairs
+function golemFloor(id) { const d = BL[id]; if (!d || !id) return false; if (d.shape === 'slab') return d.st.type !== 'bottom'; if (d.shape === 'stairs') return d.st.half === 'top'; if (d.shape) return false;
+  return !!SOLID[id] && d.opaque !== false && !d.leaves && !d.fluid && !(d.h && d.h < 1) && !/glass|ice$/.test(d.key || ''); }
+// room for the golem: nothing in the 2x3x2 above may be a full block (air, water, carpets, plants are fine)
+function golemFits(x, y, z) { for (let a = 0; a <= 1; a++) for (let b = 0; b <= 2; b++) for (let c = 0; c <= 1; c++) { const id = world.get(x + a, y + b, z + c); const d = BL[id]; if (!id) continue;
+    if (d.fluid && id !== B.WATER) return false; if (SOLID[id] && !d.shape && !(d.h && d.h < 0.25)) return false; if (d.shape && d.shape !== 'carpet' && SOLID[id]) return false; } return true; }
+function summonGolem(m) {
+  const bx = Math.floor(m.pos.x), by = Math.floor(m.pos.y), bz = Math.floor(m.pos.z);
+  for (let t = 0; t < 10; t++) { const x = bx + (Math.random() * 16 | 0) - 8, z = bz + (Math.random() * 16 | 0) - 8;
+    for (let y = by + 6; y >= by - 6; y--) { if (!golemFloor(world.get(x, y - 1, z)) || !golemFits(x, y, z)) continue;
+      const g = spawnShared('iron_golem', x + 1, y, z + 1); if (g) { g.vhome = [m.pos.x, m.pos.z]; Particles.emit(x + 1, y + 1, z + 1, 12, [[0.8, 0.8, 0.8]], 1.5, 0.8, -1, 0.8); } return g; } }
+  return null;
+}
+golemCheck = function (m) {
+  if (!S.rules.doMobSpawning || m.baby || m.vSleep || isClientMP()) return; const v = vData(m);
+  if (sawGolem(m) || coolingDown(m) || !sleptRecently(v)) return;
+  const panic = villagerPanicking(m); const now = G.simT;
+  if (panic) { if (now - (m.gTry || -99) < 5) return; m.gTry = now; }
+  else { if (!v.ws || !workedRecently(v)) return; if (now - (m.gGossip || -99) < 15) return; m.gGossip = now; if (Math.random() > 0.35) return; }
+  const need = panic ? 3 : 5;
+  const ok = (o) => o.type === 'villager' && !o.dead && !o.baby && Math.abs(o.pos.x - m.pos.x) <= 5 && Math.abs(o.pos.y - m.pos.y) <= 5 && Math.abs(o.pos.z - m.pos.z) <= 5 && sleptRecently(vData(o)) && !sawGolem(o) && !coolingDown(o) && (panic || (vData(o).ws && workedRecently(vData(o))));
+  let n = 0; for (const o of G.mobs) if (ok(o) && ++n >= need) break; if (n < need) return;
+  if (!summonGolem(m)) return;
+  for (const o of G.mobs) if (o.type === 'villager' && !o.dead && o.pos.distanceTo(m.pos) <= 10) o.gCool = now + 30;
+};
+// remember work: a villager standing at its job site during work hours has worked today
+{ const prev = MOBS.villager.tick; MOBS.villager.tick = function (m, dt) { const r = prev(m, dt); const v = vData(m);
+    if (m.pendingBed) { const h = m.pendingBed; m.pendingBed = null; const f = world.loaded(h[0], h[2]) && bedPartner(h[0], h[1], h[2]); if (f && bedTime()) { v.bed = bedKey(h[0], h[1], h[2]); bedClaims().set(v.bed, m); lieDown(m, h, f); } }
+    if (v.ws && isWorkTime() && !m.vSleep) { m.wkT = (m.wkT || 0) - dt; if (m.wkT <= 0) { m.wkT = 2; const [x, y, z] = v.ws.split(',').map(Number); if (Math.hypot(m.pos.x - x - 0.5, m.pos.z - z - 0.5) < 2.6) v.worked = absTicks(); } }
+    // panicking villagers run from what scared them
+    if (!m.vSleep && m.panicFrom && (m.panicT || 0) > G.simT && !m.tradingWith) { const o = m.panicFrom; if (!o.dead) { const a = new V3(m.pos.x * 2 - o.pos.x, m.pos.y, m.pos.z * 2 - o.pos.z); steerTo(m, a, 0); m.wT = 0.4; } }
+    return r; }; }
+// ---------- built golems: the pumpkin goes on last, however it gets there ----------
+function carvedId(fam, f) { const k = f === 2 ? fam : fam + '#' + f; const d = BL.find(q => q && q.key === k); return d ? d.id : B[fam.toUpperCase()]; }
+function checkBuiltGolem(x, y, z) {
+  const id = world.get(x, y, z); const d = BL[id]; if (!d || !/^(carved_pumpkin|jack_o_lantern)$/.test(d.fam || d.key)) return;
+  const g = (dx, dy, dz) => world.get(x + dx, y + dy, z + dz);
+  const clear = (cells) => { for (const [a, b, c] of cells) { world.set(x + a, y + b, z + c, 0); mpBlock(x + a, y + b, z + c, 0); Particles.blockBreak(x + a, y + b, z + c, B.IRON_BLOCK, 4); } };
+  if (g(0, -1, 0) === B.SNOW_BLOCK && g(0, -2, 0) === B.SNOW_BLOCK) { clear([[0, 0, 0], [0, -1, 0], [0, -2, 0]]); spawnMob('snow_golem', x + 0.5, y - 2, z + 0.5); return; }
+  if (g(0, -1, 0) === B.IRON_BLOCK && g(0, -2, 0) === B.IRON_BLOCK) for (const [ax, az] of [[1, 0], [0, 1]]) if (g(ax, -1, az) === B.IRON_BLOCK && g(-ax, -1, -az) === B.IRON_BLOCK && !SOLID[g(ax, -2, az)] && !SOLID[g(-ax, -2, -az)]) {
+    clear([[0, 0, 0], [0, -1, 0], [0, -2, 0], [ax, -1, az], [-ax, -1, -az]]); const m = spawnMob('iron_golem', x + 0.5, y - 2, z + 0.5); if (m) { m.playerMade = true; m.persistent = true; } return; }
+}
+{ const PUMPKINS = new Set(); for (const d of BL) if (d && /^(carved_pumpkin|jack_o_lantern)$/.test(d.fam || d.key)) PUMPKINS.add(d.id);
+  const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const r = _set.apply(this, arguments);
+    if (PUMPKINS.has(id) && this === G.world && S.started && !S.loading && !isClientMP()) queueMicrotask(() => { if (world === this) checkBuiltGolem(x, y, z); }); return r; }; }
+
+// ================= THROWING ITEMS AWAY FROM THE INVENTORY =================
+// Like Minecraft: with an item on the cursor, click outside the inventory window to throw it (left click throws the
+// whole stack, right click throws one). With the mouse over a slot, the drop key (Q) throws one item from that slot
+// and Ctrl+Q throws the whole stack.
+function tossStack(stack, n) { const d = lookDir(); const e = player.eye(); const it = dropItem(stack.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false, xtra(stack));
+  if (it && it.vel) { it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; } Sfx.play('pop', 0.4, 0.8); }
+$('inv').addEventListener('pointerdown', (e) => {
+  if (e.target !== $('inv') || !S.uiOpen || !S.cursor || player.dead) return; e.preventDefault(); e.stopPropagation();
+  const c = S.cursor; const n = e.button === 2 ? 1 : c.count; tossStack(c, n); c.count -= n; if (c.count <= 0) S.cursor = null; invDirty(); renderInvUI(); });
+$('inv').addEventListener('contextmenu', (e) => { if (e.target === $('inv')) e.preventDefault(); });
+addEventListener('keydown', (e) => {
+  if (!S.uiOpen || !S.hoverSlot || player.dead || (e.target && e.target.tagName === 'INPUT') || !isKey(e.code, 'drop') || S.cursor) return;
+  const [cont, idx] = S.hoverSlot; if (cont === 'out' || cont === 'trade') return; const arr = contArr(cont); const s = arr && arr[idx]; if (!s) return;
+  e.preventDefault(); const n = e.ctrlKey || e.metaKey ? s.count : 1; tossStack(s, n); s.count -= n; if (s.count <= 0) arr[idx] = null;
+  if (cont === 'chest' && typeof contChanged === 'function' && S.openCont) contChanged(S.openCont); invDirty(); renderInvUI(); }, true);
+// ================= THIN BLOCKS NEED SOMETHING UNDER THEM =================
+// Snow layers, carpets, moss carpets, leaf litter, wildflowers and pink petals pop off (and drop) when the block under
+// them goes, like in Minecraft. They rest on any block that is not air, liquid or a plant.
+for (const d of BL) if (d && !d.support && (!d.shape || d.shape === 'layer') && /^(snow(#\d+)?|\w+_carpet(#\w+)?|leaf_litter(#\w+)?|wildflowers(#\w+)?|pink_petals(#\w+)?)$/.test(d.key || '')) d.support = 'rest';
+{ const _ss = shapeSupported; shapeSupported = function (x, y, z, id) { const d = BL[id];
+    if (d && d.support === 'rest') { const b = world.get(x, y - 1, z); const bd = BL[b]; return !!(b && bd && !bd.fluid && !PLANT[b] && bd.render !== 'cross'); }
+    return _ss.apply(this, arguments); }; }
+// ================= GETTING INTO BOATS AND MINECARTS =================
+// Right-click a boat or minecart to get in, whatever you are holding: this runs before every other right-click action,
+// so a held block, food or tool no longer gets used on the ground behind it instead. The click boxes are a bit bigger
+// than the models so they are easy to hit. Sneak + right-click still uses your item.
+{ const _br = boatRay; boatRay = function (eye, dir, best) { let hit = null; for (const b of G.boats) { if (b.dim !== world.dim || b === player.riding) continue;
+      const t = rayAABB(eye, dir, new V3(b.pos.x - b.hw - 0.15, b.pos.y - 0.1, b.pos.z - b.hw - 0.15), new V3(b.pos.x + b.hw + 0.15, b.pos.y + 0.9, b.pos.z + b.hw + 0.15));
+      if (t >= 0 && t < best && (!target || t < target.dist + 0.3)) { best = t; hit = b; } } return hit; }; }
+{ const _cr = cartRay; cartRay = function (eye, dir, maxT) { let best = null, bt = maxT; for (const c of G.carts) { if (c.dim !== world.dim || c === player.riding) continue;
+      const t = rayAABB(eye, dir, new V3(c.pos.x - 0.62, c.pos.y - 0.05, c.pos.z - 0.62), new V3(c.pos.x + 0.62, c.pos.y + 0.95, c.pos.z + 0.62)); if (t >= 0 && t < bt) { bt = t; best = c; } } return best ? { c: best, t: bt } : null; }; }
+{ const _ua = useAction; useAction = function (eye, dir) {
+    if (!player.riding && !player.dead && !isSpec() && !kd('sneak')) {
+      if (typeof targetBoat !== 'undefined' && targetBoat) { mouseR = false; mountBoat(targetBoat); return; }
+      if (typeof targetCart !== 'undefined' && targetCart && !targetCart.kind) { mouseR = false; const c = targetCart; if (c.chest) openCartChest(c); else mountCart(c); return; } }
+    return _ua.apply(this, arguments); }; }
+// ================= ENTITY PUSHING AND CRAMMING =================
+// Mobs push each other (and you) apart instead of standing inside one another. If more than maxEntityCramming (24)
+// mobs are squeezed into each other, they take 6 damage every half second, like Minecraft's entity cramming.
+const CRAM = { t: 0 };
+function crowdTick(dt) {
+  if (!('maxEntityCramming' in S.rules)) S.rules.maxEntityCramming = 24;
+  const ms = G.mobs.filter(m => !m.dead && !m.gone && !m.vSleep && !m.mountOf && !(m.mobRiders && m.mobRiders.length) && m !== player.riding && !m.noPush && m.t && !m.t.noPush && !m.t.fly); if (!ms.length) return;
+  const grid = new Map(); const k = (x, z) => (x + 4096) * 8192 + (z + 4096);
+  for (const m of ms) { const key = k(Math.floor(m.pos.x), Math.floor(m.pos.z)); let a = grid.get(key); if (!a) grid.set(key, a = []); a.push(m); }
+  const cram = (CRAM.t += dt) >= 0.5; if (cram) CRAM.t = 0; const lim = S.rules.maxEntityCramming;
+  for (const m of ms) { const cx = Math.floor(m.pos.x), cz = Math.floor(m.pos.z); const hw = m.hw || 0.3; let touching = 0;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const a = grid.get(k(cx + dx, cz + dz)); if (!a) continue;
+      for (const o of a) { if (o === m) continue; const ow = o.hw || 0.3; const ox = m.pos.x - o.pos.x, oz = m.pos.z - o.pos.z; const reach = hw + ow;
+        if (Math.abs(ox) >= reach || Math.abs(oz) >= reach || m.pos.y >= o.pos.y + (o.h || 1) || o.pos.y >= m.pos.y + (m.h || 1)) continue; touching++;
+        const d = Math.hypot(ox, oz) || 0.01; const push = Math.min(1, (reach - d) / reach) * 6 * dt; m.vel.x += ox / d * push; m.vel.z += oz / d * push; } }
+    if (cram && lim > 0 && touching >= lim && isSurvMobDamage()) m.hurt(6, 'cramming', 0); }
+  // mobs nudge you, and you nudge them
+  const P = player; if (!P.dead && !P.riding && !isSpec() && !P.flying) for (const m of ms) { const ox = P.pos.x - m.pos.x, oz = P.pos.z - m.pos.z; const reach = P.hw + (m.hw || 0.3);
+    if (Math.abs(ox) >= reach || Math.abs(oz) >= reach || P.pos.y >= m.pos.y + (m.h || 1) || m.pos.y >= P.pos.y + 1.8) continue; const d = Math.hypot(ox, oz) || 0.01; const push = Math.min(1, (reach - d) / reach) * 4 * dt;
+    P.vel.x += ox / d * push * 0.6; P.vel.z += oz / d * push * 0.6; m.vel.x -= ox / d * push; m.vel.z -= oz / d * push; }
+}
+const isSurvMobDamage = () => !isClientMP();
+{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (world && !S.loading) crowdTick(dt); return r; }; }
+DEATH_YOU.cramming = 'You were squished too much';
 
 </script>
 </body>

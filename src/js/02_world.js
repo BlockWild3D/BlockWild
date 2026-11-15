@@ -191,6 +191,9 @@ function structuresFor(world, cx, cz) {
   return S;
 }
 function groundFill(g, x, z, fy, hard, id) { const gh = g.column(x, z).h; for (let y = Math.max(1, gh - 1); y < fy; y++) hard(x, y, z, id); }
+function houseBedCells(x0, z0, w, d, doorSide) { const cx = x0 + (w >> 1), cz = z0 + (d >> 1);
+  return [[[x0 + 1, cz], [x0 + 2, cz]], [[x0 + w - 2, cz], [x0 + w - 3, cz]], [[cx, z0 + 1], [cx, z0 + 2]], [[cx, z0 + d - 2], [cx, z0 + d - 3]]][doorSide]; }
+const HOUSE_BED_COLORS = ['red', 'red', 'white', 'yellow', 'light_blue', 'lime', 'orange', 'cyan', 'pink', 'brown', 'green', 'magenta'];
 function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   const fy = g.column(x0 + (w >> 1), z0 + (d >> 1)).h - 1;
   let mn = 999, mx = -999; for (const [x, z] of [[x0, z0], [x0 + w - 1, z0], [x0, z0 + d - 1], [x0 + w - 1, z0 + d - 1]]) { const h = g.column(x, z).h; mn = Math.min(mn, h); mx = Math.max(mx, h); }
@@ -226,6 +229,8 @@ function buildHouse(S, g, x0, z0, w, d, hard, M, doorSide, r, world) {
   if (ins[0]) hard(ins[0][0], fy + 1, ins[0][1], B.CRAFTING_TABLE);
   if (ins[1]) { hard(ins[1][0], fy + 1, ins[1][1], B.CHEST); world.chestLoot.set(ins[1][0] + ',' + (fy + 1) + ',' + ins[1][1], 'house'); }
   if (ins[2] && r() < 0.85) hard(ins[2][0], fy + 1, ins[2][1], [B.FLETCHING_TABLE, B.CARTOGRAPHY_TABLE, B.BARREL, B.SMOKER, B.STONECUTTER, B.CAULDRON, B.LOOM, B.COMPOSTER, B.BOOKSHELF][r() * 9 | 0]); // a job site for whoever lives here
+  { const [h, f] = houseBedCells(x0, z0, w, d, doorSide); const col = HOUSE_BED_COLORS[ihash(x0, z0, 5150, world.seed) % HOUSE_BED_COLORS.length]; const U = col === 'red' ? '' : '_' + col.toUpperCase();
+    hard(h[0], fy + 1, h[1], B['BED_HEAD' + U]); hard(f[0], fy + 1, f[1], B['BED_FOOT' + U]); }
   S.mobs.push(['villager', doorX + 0.5, fy + 1, doorZ + 0.5]);
 }
 function buildWell(S, g, x0, z0, hard, M) {

@@ -75,8 +75,8 @@ class Player {
     if (this.health <= 0) this.die(cause);
   }
   die(cause) {
-    if (this.dead) return; this.health = 0; this.dead = true; updateHearts();
-    if (isSurv() && !S.rules.keepInventory) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
+    if (this.dead) return; this.health = 0; this.dead = true; updateHearts(); if (MODS.hooks.playerDeath) modFire('playerDeath', { cause: cause || null, x: this.pos.x, y: this.pos.y, z: this.pos.z });
+    if (isSurv() && !keepInv()) { for (let i = 0; i < this.inv.length; i++) { const s = this.inv[i]; if (s) { dropItem(s.id, s.count, this.pos.x, this.pos.y + 1, this.pos.z, true, xtra(s)); this.inv[i] = null; } } invDirty(); const xpd = Math.min(100, XP.level * 7); setLevel(0, 0); if (xpd) spawnOrb(this.pos.x, this.pos.y + 1, this.pos.z, xpd); }
     this.effects = {}; if (typeof CHAT !== 'undefined') { const m = deathMessage(cause); chatPrint(m, '#ccc'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: m }); }
     const msgs = { 'fall damage': 'You hit the ground too hard', 'an explosion': 'You were blown up', 'a creeper': 'You were blown up by a Creeper', 'an arrow': 'You were shot by a Skeleton', 'the void': 'You fell out of the world', starvation: 'You starved to death', 'lava': 'You tried to swim in lava', 'a Ghast fireball': 'You were fireballed by a Ghast', 'a Blaze': 'You were burned by a Blaze', "the Ender Dragon's breath": "You were consumed by the Ender Dragon's breath", 'the Ender Dragon': 'You were slain by the Ender Dragon', 'a magma block': 'You discovered the floor was lava' };
     $('deathMsg').textContent = msgs[cause] || (typeof DEATH_YOU !== 'undefined' && DEATH_YOU[cause]) || ('You were slain by ' + (cause || 'something'));
@@ -127,8 +127,8 @@ function newSlotEl(parent, extraCls) { const d = document.createElement('div'); 
 function makeSlot(cont, idx, parent) {
   const d = newSlotEl(parent);
   d.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); slotClick(cont, idx, e.button, e.shiftKey); });
-  d.addEventListener('pointerenter', () => { const a = contArr(cont); const s = a && a[idx]; showTip(s ? itemTooltip(s) : null); });
-  d.addEventListener('pointerleave', () => showTip(null));
+  d.addEventListener('pointerenter', () => { S.hoverSlot = [cont, idx]; const a = contArr(cont); const s = a && a[idx]; showTip(s ? itemTooltip(s) : null); });
+  d.addEventListener('pointerleave', () => { S.hoverSlot = null; showTip(null); });
   slotEls[cont][idx] = d; return d;
 }
 for (let i = 9; i < 36; i++) makeSlot('inv', i, $('mainGrid'));
@@ -422,8 +422,9 @@ function breakBlock(x, y, z) {
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
   Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
   if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
-  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (a !== B.CACTUS) break; } else break; }
+  for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (!STACK_PLANT.test(BL[a].key || '')) break; } else break; }
 }
+const STACK_PLANT = /^(sugar_cane|cactus|bamboo(#\d+)?)$/; // plants that stand on each other: break the bottom and the whole column goes
 const PLANT_SOIL = { nether: [B.CRIMSON_NYLIUM, B.WARPED_NYLIUM, B.NETHERRACK, B.SOUL_SAND] };
 function placeBlock(hit, id) {
   let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
@@ -976,7 +977,7 @@ let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0, hudT = 0, errShown 
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  try { tick(dt); } catch (e) { console.error(e); if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
+  try { tick(dt); } catch (e) { console.error(e); if (S.loading) $('loadTxt').textContent = 'Something went wrong while loading: ' + e.message; if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
 }
 // the Nether's thick fog hides everything past ~5 chunks, so don't load or draw further there
 function effRD() { return world && world.dim === 'nether' ? Math.min(S.renderDist, 5) : S.renderDist; }

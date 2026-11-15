@@ -22,6 +22,7 @@ function villageBuilding(S, g, kind, x0, z0, w, d, doorSide, hard, M, r, world) 
     if (kind === 'library') { // bookshelves along the back wall, lectern-ish table
       const back = [[x0 + 1, z0 + 1, 1, 0, w - 2], [x0 + 1, z0 + d - 2, 1, 0, w - 2], [x0 + w - 2, z0 + 1, 0, 1, d - 2], [x0 + 1, z0 + 1, 0, 1, d - 2]][[3, 2, 1, 0][doorSide]];
       if (back) for (let i = 0; i < back[4]; i++) for (let y = 1; y <= 2; y++) hard(back[0] + back[2] * i, fy + y, back[1] + back[3] * i, B.BOOKSHELF);
+      for (const [bx, bz] of houseBedCells(x0, z0, w, d, doorSide)) hard(bx, fy + 1, bz, 0); // the library is all books and a lectern: no bed
       hard(x0 + (w >> 1), fy + 1, z0 + (d >> 1), B.LECTERN);
     }
     if (kind === 'farmhouse') hard(x0 + 1, fy + 1, z0 + d - 2, B.HAY_BLOCK);

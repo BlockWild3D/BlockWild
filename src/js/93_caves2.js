@@ -13,11 +13,11 @@
 // ice balls. Freezing (also from powder snow, and the new Potion of Freezing brewed from ice balls) slows you and
 // hurts over time; leather armor keeps powder-snow cold out.
 // ---------- one shared index per chunk of the blocks the run-time rules here and in 94-96 look after ----------
-const CIDX_NAMES = [null, 'potent', 'icicle', 'pg', 'dg', 'chest', 'rod']; let CIDX_TAB = null;
+const CIDX_NAMES = [null, 'potent', 'icicle', 'pg', 'dg', 'chest', 'rod', 'bed']; let CIDX_TAB = null;
 function cidxTab() { if (CIDX_TAB) return CIDX_TAB; const t = new Uint8Array(BL.length + 1); for (const d of BL) { if (!d) continue; let k = 0;
-    if (d.potent) k = 1; else if (d.icicle) k = 2; else if (d.heart || d.eyeblossom) k = 3; else if (d.hydration !== undefined) k = 4; else if (d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) k = 5; else if (d.fam === 'lightning_rod' || d.key === 'lightning_rod') k = 6; t[d.id] = k; }
+    if (d.potent) k = 1; else if (d.icicle) k = 2; else if (d.heart || d.eyeblossom) k = 3; else if (d.hydration !== undefined) k = 4; else if (d.use === 'chest' && !d.ender && !(d.slots && d.slots !== 27)) k = 5; else if (d.fam === 'lightning_rod' || d.key === 'lightning_rod') k = 6; else if (d.bedPart === 'head') k = 7; t[d.id] = k; }
   return (CIDX_TAB = t); }
-function chunkIdx(c) { if (c.cidx && !c.cidxDirty) return c.cidx; const T = cidxTab(); const o = { potent: [], icicle: [], pg: [], dg: [], chest: [], rod: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const k = T[d[j]]; if (k) o[CIDX_NAMES[k]].push(j); } c.cidx = o; c.cidxDirty = false; return o; }
+function chunkIdx(c) { if (c.cidx && !c.cidxDirty) return c.cidx; const T = cidxTab(); const o = { potent: [], icicle: [], pg: [], dg: [], chest: [], rod: [], bed: [] }; const d = c.d; for (let j = 0; j < d.length; j++) { const k = T[d[j]]; if (k) o[CIDX_NAMES[k]].push(j); } c.cidx = o; c.cidxDirty = false; return o; }
 { const _set = World.prototype.set; World.prototype.set = function (x, y, z, id) { const prev = this.get(x, y, z); const r = _set.apply(this, arguments); const T = cidxTab(); if (T[id] || T[prev]) { const c = this.getChunk(x >> 4, z >> 4); if (c) c.cidxDirty = true; } return r; }; }
 // ---------- stonecutting ----------
 for (const m of ['sulfur', 'cinnabar']) STONECUT.push([m, 'polished_' + m, 1], [m, m + '_bricks', 1], [m, 'chiseled_' + m, 1], ['polished_' + m, m + '_bricks', 1], ['polished_' + m, 'chiseled_' + m, 1], [m + '_bricks', 'chiseled_' + m, 1]);

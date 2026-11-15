@@ -3,6 +3,7 @@
 // before textures, icons, the atlas and the creative palette are built, so anything a mod registers behaves like base content.
 // Each mod's code runs as `function (api) { ... }`. See MODDING.md for the full API.
 const MODS = { list: [], loaded: [], errors: {}, hooks: {}, ores: [], physics: { gravity: 28, jump: 8.6, speed: 1, fallDamage: 1 }, graphics: { minLight: 0 }, huds: [] };
+function keepInv() { return !!(S.rules.keepInventory || MODS.keepInventory); }
 function modsLoad() { try { return JSON.parse(localStorage.getItem('blockwild_mods') || '[]'); } catch (e) { return []; } }
 function modsSave(list) { try { localStorage.setItem('blockwild_mods', JSON.stringify(list)); return true; } catch (e) { return false; } }
 function modMeta(code, fallback) {
@@ -110,6 +111,8 @@ function makeModApi(mod) {
     on(event, fn) { (MODS.hooks[event] = MODS.hooks[event] || []).push({ fn, mod: mod.name }); },
     // ---- game access (valid once a world is running) ----
     get physics() { return MODS.physics; },
+    get rules() { return S.rules; },
+    get keepInventory() { return !!MODS.keepInventory; }, set keepInventory(v) { MODS.keepInventory = !!v; },
     get graphics() { return MODS.graphics; },
     // a canvas drawn on top of the game; draw(ctx, canvas, dt) runs every frame while playing
     addHud(o = {}) { const h = { mod: mod.name, w: o.width || 160, h: o.height || 160, corner: o.corner || 'top-right', draw: o.draw, every: o.every || 0, t: 0, el: null }; MODS.huds.push(h); return h; },
