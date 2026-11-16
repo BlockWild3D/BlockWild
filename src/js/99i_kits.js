@@ -106,3 +106,8 @@ function kitSaveNow() {
 addEventListener('keydown', (e) => { if (e.code === 'KeyK' && AR.editing && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '') && S.rules.arena && !player.dead && (!S.uiOpen || S.uiOpen === 'inv')) { e.preventDefault(); e.stopImmediatePropagation(); kitSaveDialog(); } }, true);
 { const _at = arenaTick; arenaTick = function (dt) { const r = _at.apply(this, arguments); if (AR.editing && S.arena && S.arena.phase === 'cage' && S.uiOpen !== 'kitsave') { player.flying = false; arenaMsg('Kit editor: E for items, K when the kit is ready', 0, true); } return r; }; }
 rebuildKits();
+
+// ================= MULTIPLAYER KEEPS RUNNING WHEN THE TAB IS HIDDEN =================
+// A browser stops drawing a tab you switch away from (to paste the invite code somewhere, say), and the game loop stops
+// with it, so friends saw the host freeze. While the tab is hidden the network part now runs on a timer instead.
+setInterval(() => { try { if (document.hidden && typeof MP !== 'undefined' && MP.active && S.started && !S.loading) mpTick(0.5); } catch (e) { } }, 500);

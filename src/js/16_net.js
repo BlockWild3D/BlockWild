@@ -63,15 +63,22 @@ const TOPIC = (code) => 'blockwild/v1/' + code.toUpperCase();
 // a connection to one other player: reliable channel 'r' (world, chat, blocks) and fast channel 'u' (positions, mobs)
 class PeerLink {
   constructor(pc, onMsg, onClose) { this.pc = pc; this.onMsg = onMsg; this.onClose = onClose; this.parts = {}; this.closed = false; this.ready = new Promise(r => this._ready = r);
-    pc.addEventListener('connectionstatechange', () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) this.close(); }); }
+    // 'disconnected' is WebRTC's word for a hiccup (a few lost packets, a Wi-Fi blip) and it usually recovers on its
+    // own within seconds, so only give up after 25 s of it; 'failed' and 'closed' are final
+    this.heard = performance.now();
+    pc.addEventListener('connectionstatechange', () => { const st = pc.connectionState; clearTimeout(this.graceT);
+      if (st === 'failed' || st === 'closed') return this.close();
+      if (st === 'disconnected') { this.shaky = true; if (this.onShaky) this.onShaky(true); this.graceT = setTimeout(() => { if (pc.connectionState !== 'connected') this.close(); }, 25000); }
+      else if (st === 'connected' && this.shaky) { this.shaky = false; if (this.onShaky) this.onShaky(false); } });
+    this.ka = setInterval(() => { if (this.closed) return clearInterval(this.ka); if (this.rc && this.rc.readyState === 'open') try { this.rc.send('{"t":"ka"}'); } catch (e) { } }, 3000); }
   attach(ch) { ch.binaryType = 'arraybuffer'; if (ch.label === 'r') { this.rc = ch; ch.onopen = () => this._ready(); if (ch.readyState === 'open') this._ready(); } else this.uc = ch;
-    ch.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'part') { const P = this.parts[m.id] = this.parts[m.id] || []; P[m.i] = m.d; if (P.filter(x => x !== undefined).length === m.n) { delete this.parts[m.id]; try { this.onMsg(JSON.parse(P.join(''))); } catch (x) { console.error(x); } } return; } try { this.onMsg(m); } catch (x) { console.error(x); } };
-    ch.onclose = () => this.close(); }
+    ch.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } this.heard = performance.now(); if (m.t === 'ka') return; if (m.t === 'part') { const P = this.parts[m.id] = this.parts[m.id] || []; P[m.i] = m.d; if (P.filter(x => x !== undefined).length === m.n) { delete this.parts[m.id]; try { this.onMsg(JSON.parse(P.join(''))); } catch (x) { console.error(x); } } return; } try { this.onMsg(m); } catch (x) { console.error(x); } };
+    ch.onclose = () => { if (ch === this.uc) { this.uc = null; return; } this.close(); }; } // losing the fast channel only means positions go over the reliable one
   send(m, fast) {
     const ch = fast && this.uc && this.uc.readyState === 'open' ? this.uc : this.rc; if (!ch || ch.readyState !== 'open') return;
     const s = JSON.stringify(m);
     if (s.length < 15000 || ch === this.uc) { if (ch === this.uc && s.length > 60000) return; try { ch.send(s); } catch (e) { } return; }
     const id = Math.random().toString(36).slice(2, 9), n = Math.ceil(s.length / 15000); for (let i = 0; i < n; i++) try { ch.send(JSON.stringify({ t: 'part', id, i, n, d: s.slice(i * 15000, (i + 1) * 15000) })); } catch (e) { }
   }
-  close() { if (this.closed) return; this.closed = true; try { this.pc.close(); } catch (e) { } if (this.onClose) this.onClose(); }
+  close() { if (this.closed) return; this.closed = true; clearTimeout(this.graceT); clearInterval(this.ka); try { this.pc.close(); } catch (e) { } if (this.onClose) this.onClose(); }
 }

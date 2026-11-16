@@ -246,7 +246,7 @@ function updateProxyMode() {
 // ---------- joining ----------
 async function joinWorld(code) {
   code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 6) { mpStatus('Codes are 6 letters and numbers.'); return; }
-  if (MP.joining) return; MP.joining = true; setTimeout(() => MP.joining = false, 16000);
+  if (MP.joining) return; MP.joining = true; setTimeout(() => MP.joining = false, 16000); MP.lastCode = code;
   mpStatus('Looking for the world ' + code + '...'); Sfx.init();
   const myId = 'p' + Math.random().toString(36).slice(2, 10); let sig = null, brokers = [];
   if (SERVER()) {
@@ -256,7 +256,10 @@ async function joinWorld(code) {
   } else { brokers = await connectBrokers(true); if (!brokers.length) { mpStatus('Could not reach any matchmaking server. Set up your Cloudflare Worker (SERVER_SETUP.md).'); MP.joining = false; return; } }
   const ice = await getIceServers();
   const pc = new RTCPeerConnection({ iceServers: ice }); const peer = { id: 'host', name: 'Host', joined: true };
-  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host', 4); setTimeout(() => { mpShutdown(); quitToTitle(); }, 1500); } });
+  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host. Trying to rejoin...', 4);
+      // rejoin by ourselves (up to 3 times in a row); the host kept your place
+      setTimeout(() => { const again = (MP.retries || 0) < 3 && MP.lastCode; mpShutdown(); quitToTitle(); if (again) { MP.retries = (MP.retries || 0) + 1; show('mpScreen', true); mpStatus('Lost connection. Rejoining ' + MP.lastCode + ' (try ' + MP.retries + ' of 3)...'); MP.joining = false; joinWorld(MP.lastCode); } }, 1500); } });
+  peer.link.onShaky = (bad) => { if (MP.active) toast(bad ? 'Connection unstable, holding on...' : 'Connection is back', bad ? 6 : 2); };
   peer.link.attach(pc.createDataChannel('r', { ordered: true })); peer.link.attach(pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 }));
   pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && !MP.active) mpStatus('Found the world, but your networks blocked a direct connection. Adding a Cloudflare TURN key to the Worker fixes this (SERVER_SETUP.md).'); });
   await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
@@ -269,7 +272,8 @@ async function joinWorld(code) {
   peer.link.ready.then(() => { clearTimeout(timer); MP.joining = false; if (sig) sig.close(); for (const b of brokers) b.close(); MP.peers.set('host', peer); MP.myId = myId; mpStatus('Joining...'); peer.link.send({ t: 'hello', name: myName(), skin: mySkinData(), mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name) }); });
 }
 function clientWelcome(m) {
-  MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
+  MP.active = true; MP.role = 'client'; clearTimeout(MP.retryReset); MP.retryReset = setTimeout(() => { MP.retries = 0; }, 60000); // a minute of play counts as a good connection again
+  MP.hostRD = m.hostRD || 6;
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
   const data = { v: 4, seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }

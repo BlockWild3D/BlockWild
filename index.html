@@ -8742,17 +8742,24 @@ const TOPIC = (code) => 'blockwild/v1/' + code.toUpperCase();
 // a connection to one other player: reliable channel 'r' (world, chat, blocks) and fast channel 'u' (positions, mobs)
 class PeerLink {
   constructor(pc, onMsg, onClose) { this.pc = pc; this.onMsg = onMsg; this.onClose = onClose; this.parts = {}; this.closed = false; this.ready = new Promise(r => this._ready = r);
-    pc.addEventListener('connectionstatechange', () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) this.close(); }); }
+    // 'disconnected' is WebRTC's word for a hiccup (a few lost packets, a Wi-Fi blip) and it usually recovers on its
+    // own within seconds, so only give up after 25 s of it; 'failed' and 'closed' are final
+    this.heard = performance.now();
+    pc.addEventListener('connectionstatechange', () => { const st = pc.connectionState; clearTimeout(this.graceT);
+      if (st === 'failed' || st === 'closed') return this.close();
+      if (st === 'disconnected') { this.shaky = true; if (this.onShaky) this.onShaky(true); this.graceT = setTimeout(() => { if (pc.connectionState !== 'connected') this.close(); }, 25000); }
+      else if (st === 'connected' && this.shaky) { this.shaky = false; if (this.onShaky) this.onShaky(false); } });
+    this.ka = setInterval(() => { if (this.closed) return clearInterval(this.ka); if (this.rc && this.rc.readyState === 'open') try { this.rc.send('{"t":"ka"}'); } catch (e) { } }, 3000); }
   attach(ch) { ch.binaryType = 'arraybuffer'; if (ch.label === 'r') { this.rc = ch; ch.onopen = () => this._ready(); if (ch.readyState === 'open') this._ready(); } else this.uc = ch;
-    ch.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'part') { const P = this.parts[m.id] = this.parts[m.id] || []; P[m.i] = m.d; if (P.filter(x => x !== undefined).length === m.n) { delete this.parts[m.id]; try { this.onMsg(JSON.parse(P.join(''))); } catch (x) { console.error(x); } } return; } try { this.onMsg(m); } catch (x) { console.error(x); } };
-    ch.onclose = () => this.close(); }
+    ch.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } this.heard = performance.now(); if (m.t === 'ka') return; if (m.t === 'part') { const P = this.parts[m.id] = this.parts[m.id] || []; P[m.i] = m.d; if (P.filter(x => x !== undefined).length === m.n) { delete this.parts[m.id]; try { this.onMsg(JSON.parse(P.join(''))); } catch (x) { console.error(x); } } return; } try { this.onMsg(m); } catch (x) { console.error(x); } };
+    ch.onclose = () => { if (ch === this.uc) { this.uc = null; return; } this.close(); }; } // losing the fast channel only means positions go over the reliable one
   send(m, fast) {
     const ch = fast && this.uc && this.uc.readyState === 'open' ? this.uc : this.rc; if (!ch || ch.readyState !== 'open') return;
     const s = JSON.stringify(m);
     if (s.length < 15000 || ch === this.uc) { if (ch === this.uc && s.length > 60000) return; try { ch.send(s); } catch (e) { } return; }
     const id = Math.random().toString(36).slice(2, 9), n = Math.ceil(s.length / 15000); for (let i = 0; i < n; i++) try { ch.send(JSON.stringify({ t: 'part', id, i, n, d: s.slice(i * 15000, (i + 1) * 15000) })); } catch (e) { }
   }
-  close() { if (this.closed) return; this.closed = true; try { this.pc.close(); } catch (e) { } if (this.onClose) this.onClose(); }
+  close() { if (this.closed) return; this.closed = true; clearTimeout(this.graceT); clearInterval(this.ka); try { this.pc.close(); } catch (e) { } if (this.onClose) this.onClose(); }
 }
 
 // ================= MULTIPLAYER: "Open to Friends" hosting, joining with a code, world + player sync =================
@@ -9003,7 +9010,7 @@ function updateProxyMode() {
 // ---------- joining ----------
 async function joinWorld(code) {
   code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (code.length !== 6) { mpStatus('Codes are 6 letters and numbers.'); return; }
-  if (MP.joining) return; MP.joining = true; setTimeout(() => MP.joining = false, 16000);
+  if (MP.joining) return; MP.joining = true; setTimeout(() => MP.joining = false, 16000); MP.lastCode = code;
   mpStatus('Looking for the world ' + code + '...'); Sfx.init();
   const myId = 'p' + Math.random().toString(36).slice(2, 10); let sig = null, brokers = [];
   if (SERVER()) {
@@ -9013,7 +9020,10 @@ async function joinWorld(code) {
   } else { brokers = await connectBrokers(true); if (!brokers.length) { mpStatus('Could not reach any matchmaking server. Set up your Cloudflare Worker (SERVER_SETUP.md).'); MP.joining = false; return; } }
   const ice = await getIceServers();
   const pc = new RTCPeerConnection({ iceServers: ice }); const peer = { id: 'host', name: 'Host', joined: true };
-  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host', 4); setTimeout(() => { mpShutdown(); quitToTitle(); }, 1500); } });
+  peer.link = new PeerLink(pc, (x) => onPeerMsg(peer, x), () => { if (MP.role === 'client' && MP.active) { chatPrint('Lost connection to the host', '#f66'); toast('Lost connection to the host. Trying to rejoin...', 4);
+      // rejoin by ourselves (up to 3 times in a row); the host kept your place
+      setTimeout(() => { const again = (MP.retries || 0) < 3 && MP.lastCode; mpShutdown(); quitToTitle(); if (again) { MP.retries = (MP.retries || 0) + 1; show('mpScreen', true); mpStatus('Lost connection. Rejoining ' + MP.lastCode + ' (try ' + MP.retries + ' of 3)...'); MP.joining = false; joinWorld(MP.lastCode); } }, 1500); } });
+  peer.link.onShaky = (bad) => { if (MP.active) toast(bad ? 'Connection unstable, holding on...' : 'Connection is back', bad ? 6 : 2); };
   peer.link.attach(pc.createDataChannel('r', { ordered: true })); peer.link.attach(pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 }));
   pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' && !MP.active) mpStatus('Found the world, but your networks blocked a direct connection. Adding a Cloudflare TURN key to the Worker fixes this (SERVER_SETUP.md).'); });
   await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
@@ -9026,7 +9036,8 @@ async function joinWorld(code) {
   peer.link.ready.then(() => { clearTimeout(timer); MP.joining = false; if (sig) sig.close(); for (const b of brokers) b.close(); MP.peers.set('host', peer); MP.myId = myId; mpStatus('Joining...'); peer.link.send({ t: 'hello', name: myName(), skin: mySkinData(), mods: MODS.loaded.map(id => (MODS.list.find(x => x.id === id) || {}).name) }); });
 }
 function clientWelcome(m) {
-  MP.active = true; MP.role = 'client'; MP.hostRD = m.hostRD || 6;
+  MP.active = true; MP.role = 'client'; clearTimeout(MP.retryReset); MP.retryReset = setTimeout(() => { MP.retries = 0; }, 60000); // a minute of play counts as a good connection again
+  MP.hostRD = m.hostRD || 6;
   if (m.name !== myName()) chatPrint('Your name in this world is ' + m.name, '#ff5');
   const data = { v: 4, seed: m.seed, mode: m.mode, cheats: m.cheats, time: m.time, day: m.day, rules: m.rules, difficulty: m.difficulty, keys: m.keys, dragonDead: m.dragonDead, crystalsGone: m.crystalsGone, boats: m.boats || [], worlds: {} };
   for (const d in m.worlds) { const w = m.worlds[d]; data.worlds[d] = { edits: w.edits, furn: {}, chests: {} }; }
@@ -19624,6 +19635,11 @@ function kitSaveNow() {
 addEventListener('keydown', (e) => { if (e.code === 'KeyK' && AR.editing && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '') && S.rules.arena && !player.dead && (!S.uiOpen || S.uiOpen === 'inv')) { e.preventDefault(); e.stopImmediatePropagation(); kitSaveDialog(); } }, true);
 { const _at = arenaTick; arenaTick = function (dt) { const r = _at.apply(this, arguments); if (AR.editing && S.arena && S.arena.phase === 'cage' && S.uiOpen !== 'kitsave') { player.flying = false; arenaMsg('Kit editor: E for items, K when the kit is ready', 0, true); } return r; }; }
 rebuildKits();
+
+// ================= MULTIPLAYER KEEPS RUNNING WHEN THE TAB IS HIDDEN =================
+// A browser stops drawing a tab you switch away from (to paste the invite code somewhere, say), and the game loop stops
+// with it, so friends saw the host freeze. While the tab is hidden the network part now runs on a timer instead.
+setInterval(() => { try { if (document.hidden && typeof MP !== 'undefined' && MP.active && S.started && !S.loading) mpTick(0.5); } catch (e) { } }, 500);
 
 </script>
 </body>
