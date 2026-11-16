@@ -44,7 +44,7 @@ function pvpReceive(m) {
     const hit = avatarRay(eye, dir, blk ? blk.dist : reach); if (!hit) return _ui.apply(this, arguments);
     let mobT = Infinity; for (const mb of G.mobs) { if (mb.dead || mb === player.riding) continue; const t = mobRay(mb, eye, dir); if (t >= 0 && t < mobT) mobT = t; }
     if (mobT < hit.dist) return _ui.apply(this, arguments);
-    if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } } }
+    if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } if (typeof spearLunge === 'function') spearLunge(dir); } } // a jab at a player lunges too
     else if (meleeReady()) {
       const tool = player.heldDef(); const h = meleeHit(tool, null); pvpHit(hit.av, h.dmg, h.kb);
       if (h.crit) Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);

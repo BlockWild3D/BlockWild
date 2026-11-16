@@ -37,13 +37,21 @@ function spearJab(sp, eye, dir) {
     m.hurt(dmg, player.pos, 0.7 * eb.kb); damageHeld(1); if (typeof exhaust === 'function') exhaust(0.1);
     Particles.emit(m.pos.x, m.pos.y + Math.min(m.h, 2) * 0.6, m.pos.z, 4, [[0.85, 0.85, 0.85]], 1.5, 0.3, 6, 0.3);
   }
-  // Lunge
+  spearLunge(dir);
+}
+// Lunge (Minecraft Wiki): a jab adds 0.458 blocks per tick (9.16 blocks a second) per level along where you face,
+// level with the ground, and lifts you about a quarter of a block; it costs 1 / 2 / 3 hunger (saturation first) and 1
+// durability, needs at least 6 hunger, and doesn't work in water, while riding or while gliding. Its cooldown is the
+// spear's own jab cooldown.
+function spearLunge(dir) {
   const lv = heldEnch('lunge'), P = player;
-  if (lv && !P.riding && !inWater(P, 0.4) && !P.flying && (!isSurv() || P.food >= 6)) {
-    const h = new V3(dir.x, 0, dir.z); if (h.lengthSq() > 1e-4) { h.normalize(); const v = 9.16 * lv; const along = P.vel.x * h.x + P.vel.z * h.z; if (along < v) { P.vel.x += h.x * (v - along); P.vel.z += h.z * (v - along); } if (P.onGround) P.vel.y = Math.max(P.vel.y, 2.5); P.peak = null; }
-    if (isSurv() && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
-    damageHeld(1); Sfx.play('vwoop', 0.25, 1.6);
-  }
+  if (!lv || P.riding || inWater(P, 0.4) || P.flying || P.gliding || (isSurv() && P.food < 6)) return false;
+  const h = new V3(dir.x, 0, dir.z); if (h.lengthSq() < 1e-4) return false; h.normalize(); const v = 9.16 * lv; const along = P.vel.x * h.x + P.vel.z * h.z;
+  if (along < v) { P.vel.x += h.x * (v - along); P.vel.z += h.z * (v - along); }
+  if (P.onGround) P.vel.y = Math.max(P.vel.y, Math.sqrt(2 * MODS.physics.gravity * 0.25)); // about a quarter of a block up
+  P.peak = null;
+  if (isSurv() && S.difficulty !== 'peaceful') { let cost = lv; const fromSat = Math.min(P.sat, cost); P.sat -= fromSat; cost -= fromSat; P.food = Math.max(0, P.food - cost); renderFood(); }
+  damageHeld(1); Sfx.play('vwoop', 0.25, 1.6); return true;
 }
 function spearCharge(sp, eye, dir, dt) {
   const C = S.charge; C.t += dt; const st = spearStage(sp, C.t); C.stage = st;

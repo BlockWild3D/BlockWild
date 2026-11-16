@@ -9,7 +9,7 @@
 Object.assign(ENCH.wind_burst, { treasure: true, noTrade: true, vaultOnly: true });
 function windBurstLaunch(P, lv, mob) {
   const resist = typeof blastKbResist === 'function' ? blastKbResist(P) : 0;
-  const h = 7 * lv * (1 - resist); const g = MODS.physics.gravity;
+  const h = 8 * lv * (1 - resist); /* Minecraft Wiki: about 8, 16 and 24 blocks for levels I, II and III */ const g = MODS.physics.gravity;
   P.vel.y = Math.sqrt(2 * g * h); P.peak = null; P.windSafeT = 1.5; P.windFloorY = P.pos.y; P.windT = performance.now();
   if (mob && typeof windBurst === 'function') { const p = mob.pos.clone(); p.y += 0.2; const _pl = P.vel.clone(); windBurst(p, 1.1, null); P.vel.copy(_pl); } // knock nearby mobs, not you twice
   Sfx.play('vwoop', 0.8, 0.8);
