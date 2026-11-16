@@ -407,8 +407,11 @@ vec3 lightFor(vec3 n){
  float ndl=dot(n,sunDir); float lit= ndl>0.0 ? smoothstep(0.0,0.25,ndl) : 0.0;
  if(shadowOn>0.5 && vLight.x>0.3 && sunK>0.0 && lit>0.0) lit*=shadowAt(vWorld,n);
  float out_=sunK*smoothstep(0.35,0.9,vLight.x);
- vec3 amb=skyTint*sky*mix(vec3(1.0),vec3(0.66,0.71,0.82),out_);
- vec3 sun=sunCol*lit*out_*daylight*(0.32+0.2*max(ndl,0.0));
+ // in the open the sky's own light is cool and dimmer, and the sun adds a strong warm light on top: sunlit faces are
+ // clearly brighter than shaded ones, as outdoors. A little of the sun bounces back up into shaded and down-facing faces.
+ vec3 amb=skyTint*sky*mix(vec3(1.0),vec3(0.61,0.67,0.79),out_);
+ vec3 sun=sunCol*lit*out_*daylight*(0.40+0.28*max(ndl,0.0));
+ amb+=sunCol*out_*daylight*0.09*(1.0-lit)*(0.6-0.4*n.y);
  float fl=0.92+0.08*sin(time*7.0+vWorld.x*1.3+vWorld.z*0.7)*sin(time*11.3+vWorld.y*2.1);
  vec3 l=max(amb+sun, vec3(1.0,0.82,0.58)*vLight.y*fl); return max(l,vec3(max(0.07,minLight))); }`;
 const FS = FS_COMMON + `

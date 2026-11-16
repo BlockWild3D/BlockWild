@@ -108,6 +108,7 @@ const ANIM = {
   lava: (() => { const n = tnoise(171, 4), m = tnoise(172, 8); return (t) => (set, r) => each((x, y) => { const v = n(x + Math.sin(t * 0.7 + y * 0.3) * 1.5, y + t * 1.6) * 0.6 + m(x - t * 0.8, y + t * 2.4) * 0.4; let c = v < 0.35 ? mixc([140, 36, 8], [206, 74, 14], v / 0.35) : v < 0.7 ? mixc([214, 86, 16], [248, 150, 34], (v - 0.35) / 0.35) : mixc([250, 160, 40], [255, 226, 120], (v - 0.7) / 0.3); set(x, y, c); }); })(),
   portal: (t) => (set, r) => each((x, y) => { const dx = x - 7.5, dy = y - 7.5; const d = Math.hypot(dx, dy); const a = Math.atan2(dy, dx); const v = Math.sin(a * 3 + d * 0.9 - t * 3) * 0.5 + Math.sin(d * 1.3 - t * 2) * 0.3 + Math.sin((x + y) * 0.7 + t) * 0.2; set(x, y, v > 0.45 ? [200, 130, 255] : v > 0 ? [138, 56, 226] : v > -0.4 ? [100, 30, 186] : [70, 12, 140]); }),
 };
+ANIM.fire = (t) => firePaint(t);
 let animT = 0;
 // animated tiles: repaint, then (detailed mode) upscale just those tiles and copy them into the GPU texture in place
 const animTex = {};

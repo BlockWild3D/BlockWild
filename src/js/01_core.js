@@ -441,6 +441,11 @@ defBlock('deepslate_bricks', 'Deepslate Bricks', { tex: 'deepslate_bricks', hard
 defBlock('sculk', 'Sculk', { tex: 'sculk', hardness: 0.2, snd: 'grass', drop: null }); defBlock('sculk_sensor', 'Sculk Sensor', { tex: { s: 'sculk_sensor', t: 'sculk_sensor', b: 'sculk' }, hardness: 1.5, snd: 'grass', light: 0.1, drop: null });
 defBlock('sculk_shrieker', 'Sculk Shrieker', { tex: { s: 'sculk', t: 'sculk_shrieker', b: 'sculk' }, hardness: 3, snd: 'grass', drop: null }); defBlock('reinforced_deepslate', 'Reinforced Deepslate', { tex: { s: 'reinforced_deepslate', t: 'deepslate_tiles', b: 'deepslate_tiles' }, hardness: -1, drop: null });
 defBlock('spruce_leaves', 'Spruce Leaves', { tex: 'spruce_leaves', opaque: false, render: 'cutout', cullSame: true, hardness: 0.2, snd: 'grass', drop: (r) => r < 0.1 ? ['stick', 1] : null });
+// fire: an animated flame you light with flint and steel (the logic is in 99k_fire.js)
+function firePaint(t) { return (set) => { for (let x = 0; x < 16; x++) { const f = 0.5 + 0.5 * Math.sin(x * 0.9 + t * 8), g = 0.5 + 0.5 * Math.sin(x * 2.3 - t * 13 + 1.7); const h = 4 + 4.2 * f + 2.6 * g + 4 * (1 - Math.abs(x - 7.5) / 8);
+    for (let y = 15; y > 15 - h && y >= 0; y--) { const k = (15 - y) / h; if (k > 0.5 && Math.sin(x * 3.1 + y * 2.7 + t * 20) > 0.72) continue; set(x, y, k < 0.28 ? [255, 244, 170] : k < 0.58 ? [255, 176, 44] : k < 0.84 ? [240, 100, 18] : [196, 44, 12]); } } }; }
+makeTile('fire', firePaint(0));
+defBlock('fire', 'Fire', { tex: 'fire', solid: false, opaque: false, render: 'cross', hardness: 0, light: 1, snd: 'wool', drop: null, isFire: true });
 defBlock('tall_grass', 'Tall Grass', { tex: 'tall_grass', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', drop: (r) => r < 0.125 ? ['wheat_seeds', 1] : null, plant: true });
 defBlock('rose', 'Rose', { tex: 'flower_red', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
 defBlock('dandelion', 'Dandelion', { tex: 'flower_yellow', solid: false, opaque: false, render: 'cross', hardness: 0, snd: 'grass', plant: true });
