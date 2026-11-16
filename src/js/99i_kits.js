@@ -111,3 +111,17 @@ rebuildKits();
 // A browser stops drawing a tab you switch away from (to paste the invite code somewhere, say), and the game loop stops
 // with it, so friends saw the host freeze. While the tab is hidden the network part now runs on a timer instead.
 setInterval(() => { try { if (document.hidden && typeof MP !== 'undefined' && MP.active && S.started && !S.loading) mpTick(0.5); } catch (e) { } }, 500);
+
+// ================= SMOOTHER, MORE CURRENT PLAYERS =================
+// Other players used to be drawn about a sixth of a second behind where they really were (15 updates a second, then
+// eased slowly), which is what made hits feel late. Now: 30 updates a second while you move, each carrying your
+// speed, and the receiver moves the player forward along that speed between updates and eases faster.
+MP.sendIv = 0.033; MP.lerpK = 22; MP.predict = true;
+{ const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); const P = player; const v = P.riding && P.riding.vel ? P.riding.vel : P.vel;
+    const vy = P.onGround && !P.riding ? 0 : v.y; if (Math.abs(v.x) + Math.abs(vy) + Math.abs(v.z) > 0.05) s.v = [+v.x.toFixed(1), +vy.toFixed(1), +v.z.toFixed(1)]; return s; }; }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m.t === 'p') { const av = MP.avatars.get(MP.role === 'host' ? peer.id : m.id); if (av) { (av.net || (av.net = new V3())).set(m.x, m.y, m.z); const v = Array.isArray(m.v) ? m.v : null; (av.nvel || (av.nvel = new V3())).set(v ? +v[0] || 0 : 0, v ? +v[1] || 0 : 0, v ? +v[2] || 0 : 0); if (av.nvel.length() > 45) av.nvel.set(0, 0, 0); av.netT = performance.now(); } }
+    return _on(peer, m); }; }
+{ const _ua = updateAvatars; updateAvatars = function (dt) {
+    if (MP.predict) { const now = performance.now(); for (const av of MP.avatars.values()) if (av.net && av.tgt.distanceToSquared(av.net) < 400) av.tgt.copy(av.net).addScaledVector(av.nvel, Math.min((now - av.netT) / 1000, 0.1)); }
+    return _ua.apply(this, arguments); }; }

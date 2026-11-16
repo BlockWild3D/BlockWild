@@ -8788,7 +8788,7 @@ function removeAvatar(id) { const av = MP.avatars.get(id); if (!av) return; if (
 MP.remotePlayers = () => [...MP.avatars.values()].filter(a => a.dim === (world && world.dim)).map(a => ({ kind: 'player', name: a.name, pos: a.pos, ref: a, local: false, id: a.id }));
 function updateAvatars(dt) {
   for (const av of MP.avatars.values()) {
-    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * 12)); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
+    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * (MP.lerpK || 12))); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
     av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
     if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
@@ -9063,7 +9063,7 @@ function mpShutdown() {
 function mpTick(dt) {
   if (!MP.active || !world) return;
   updateAvatars(dt); updateProxyMode();
-  MP.sendT += dt; if (MP.sendT >= 0.066) { MP.sendT = 0; const s = myState(); if (MP.role === 'host') mpSendAll(s, true); else mpToHost(s, true); }
+  MP.sendT += dt; if (MP.sendT >= (MP.sendIv || 0.066)) { MP.sendT = 0; const s = myState(); if (MP.role === 'host') mpSendAll(s, true); else mpToHost(s, true); }
   if (MP.outBlocks.length) { const l = MP.outBlocks; MP.outBlocks = []; if (MP.role === 'host') mpSendAll({ t: 'b', l }); else mpToHost({ t: 'b', l }); }
   if (MP.role === 'host') hostTick(dt);
   else { MP.stateT += dt; if (MP.stateT > 10) { MP.stateT = 0; MP.sendState(); } }
@@ -19310,7 +19310,7 @@ let PVP_AXE = false;
 // Your own state goes out 15 times a second only while something changes (twice a second when you stand still), and
 // the host sends far-away mobs to each friend a third as often as near ones.
 { let last = '', idle = 0; const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); const k = JSON.stringify(s); s._same = k === last; last = k; return s; };
-  const wrap = (fn) => function (m, fast, ex) { if (m && m.t === 'p' && m._same !== undefined) { const same = m._same; delete m._same; if (same && ++idle % 8) return; if (!same) idle = 0; } return fn.apply(this, arguments); };
+  const wrap = (fn) => function (m, fast, ex) { if (m && m.t === 'p' && m._same !== undefined) { const same = m._same; delete m._same; if (same && ++idle % 15) return; if (!same) idle = 0; } return fn.apply(this, arguments); };
   mpSendAll = wrap(mpSendAll); mpToHost = wrap(mpToHost); }
 { const _ht = hostTick; let phase = 0; hostTick = function (dt) {
     const due = MP.mobT + dt >= 0.1; if (!due) return _ht.apply(this, arguments);
@@ -19640,6 +19640,20 @@ rebuildKits();
 // A browser stops drawing a tab you switch away from (to paste the invite code somewhere, say), and the game loop stops
 // with it, so friends saw the host freeze. While the tab is hidden the network part now runs on a timer instead.
 setInterval(() => { try { if (document.hidden && typeof MP !== 'undefined' && MP.active && S.started && !S.loading) mpTick(0.5); } catch (e) { } }, 500);
+
+// ================= SMOOTHER, MORE CURRENT PLAYERS =================
+// Other players used to be drawn about a sixth of a second behind where they really were (15 updates a second, then
+// eased slowly), which is what made hits feel late. Now: 30 updates a second while you move, each carrying your
+// speed, and the receiver moves the player forward along that speed between updates and eases faster.
+MP.sendIv = 0.033; MP.lerpK = 22; MP.predict = true;
+{ const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); const P = player; const v = P.riding && P.riding.vel ? P.riding.vel : P.vel;
+    const vy = P.onGround && !P.riding ? 0 : v.y; if (Math.abs(v.x) + Math.abs(vy) + Math.abs(v.z) > 0.05) s.v = [+v.x.toFixed(1), +vy.toFixed(1), +v.z.toFixed(1)]; return s; }; }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m.t === 'p') { const av = MP.avatars.get(MP.role === 'host' ? peer.id : m.id); if (av) { (av.net || (av.net = new V3())).set(m.x, m.y, m.z); const v = Array.isArray(m.v) ? m.v : null; (av.nvel || (av.nvel = new V3())).set(v ? +v[0] || 0 : 0, v ? +v[1] || 0 : 0, v ? +v[2] || 0 : 0); if (av.nvel.length() > 45) av.nvel.set(0, 0, 0); av.netT = performance.now(); } }
+    return _on(peer, m); }; }
+{ const _ua = updateAvatars; updateAvatars = function (dt) {
+    if (MP.predict) { const now = performance.now(); for (const av of MP.avatars.values()) if (av.net && av.tgt.distanceToSquared(av.net) < 400) av.tgt.copy(av.net).addScaledVector(av.nvel, Math.min((now - av.netT) / 1000, 0.1)); }
+    return _ua.apply(this, arguments); }; }
 
 </script>
 </body>

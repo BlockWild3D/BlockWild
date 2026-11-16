@@ -24,7 +24,7 @@ function removeAvatar(id) { const av = MP.avatars.get(id); if (!av) return; if (
 MP.remotePlayers = () => [...MP.avatars.values()].filter(a => a.dim === (world && world.dim)).map(a => ({ kind: 'player', name: a.name, pos: a.pos, ref: a, local: false, id: a.id }));
 function updateAvatars(dt) {
   for (const av of MP.avatars.values()) {
-    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * 12)); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
+    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * (MP.lerpK || 12))); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
     av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
     if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
@@ -299,7 +299,7 @@ function mpShutdown() {
 function mpTick(dt) {
   if (!MP.active || !world) return;
   updateAvatars(dt); updateProxyMode();
-  MP.sendT += dt; if (MP.sendT >= 0.066) { MP.sendT = 0; const s = myState(); if (MP.role === 'host') mpSendAll(s, true); else mpToHost(s, true); }
+  MP.sendT += dt; if (MP.sendT >= (MP.sendIv || 0.066)) { MP.sendT = 0; const s = myState(); if (MP.role === 'host') mpSendAll(s, true); else mpToHost(s, true); }
   if (MP.outBlocks.length) { const l = MP.outBlocks; MP.outBlocks = []; if (MP.role === 'host') mpSendAll({ t: 'b', l }); else mpToHost({ t: 'b', l }); }
   if (MP.role === 'host') hostTick(dt);
   else { MP.stateT += dt; if (MP.stateT > 10) { MP.stateT = 0; MP.sendState(); } }

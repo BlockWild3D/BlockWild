@@ -37,7 +37,7 @@ let PVP_AXE = false;
 // Your own state goes out 15 times a second only while something changes (twice a second when you stand still), and
 // the host sends far-away mobs to each friend a third as often as near ones.
 { let last = '', idle = 0; const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); const k = JSON.stringify(s); s._same = k === last; last = k; return s; };
-  const wrap = (fn) => function (m, fast, ex) { if (m && m.t === 'p' && m._same !== undefined) { const same = m._same; delete m._same; if (same && ++idle % 8) return; if (!same) idle = 0; } return fn.apply(this, arguments); };
+  const wrap = (fn) => function (m, fast, ex) { if (m && m.t === 'p' && m._same !== undefined) { const same = m._same; delete m._same; if (same && ++idle % 15) return; if (!same) idle = 0; } return fn.apply(this, arguments); };
   mpSendAll = wrap(mpSendAll); mpToHost = wrap(mpToHost); }
 { const _ht = hostTick; let phase = 0; hostTick = function (dt) {
     const due = MP.mobT + dt >= 0.1; if (!due) return _ht.apply(this, arguments);
