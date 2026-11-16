@@ -19619,7 +19619,7 @@ function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringif
 function rebuildKits() {
   KITS.length = KITS_BASE;
   loadCustomKits().forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
-    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit. Right-click to delete it.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
+    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
   const el = $('kitPick'); if (el) { const open = S.uiOpen === 'kit'; if (open) closeKitPicker(true); el.remove(); if (open) openKitPicker(); }
 }
 { const _gk = giveKit; giveKit = function (kit) {
@@ -19667,9 +19667,12 @@ renderLobby = function () {
     if (st && !$('lobbyCustom')) { const b = document.createElement('button'); b.id = 'lobbyCustom'; b.style.cssText = st.style.cssText; b.style.background = '#3b3b3b'; b.textContent = 'Make a custom kit'; st.parentNode.insertBefore(b, st);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(); });
       const g = $('kitGrid'); g.style.maxHeight = '56vh'; g.style.overflowY = 'auto'; g.style.padding = '4px';
-      g.querySelectorAll('button').forEach(bt => bt.addEventListener('contextmenu', (e) => { e.preventDefault(); const kt = KITS[+bt.dataset.i]; if (!kt || kt.custom == null || !arenaHost()) return;
-        const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a); if (AR.def && AR.def.name === kt.name) { AR.def = null; S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); })); }
+      g.querySelectorAll('button').forEach(bt => { const kt = KITS[+bt.dataset.i]; bt.addEventListener('contextmenu', (e) => { e.preventDefault(); kitDelete(KITS[+bt.dataset.i]); });
+        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = 'Delete'; del.title = 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
+          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
     renderLobby(); return r; }; }
+function kitDelete(kt) { if (!kt || kt.custom == null || !arenaHost()) return; const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a);
+  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
 // ---- the kit editor ----
 function kitEditStart() {
   const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return; if (loadCustomKits().length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
@@ -19910,6 +19913,21 @@ if (typeof DEATH_YOU !== 'undefined') DEATH_YOU.fire = 'You burned to death';
         for (let x = -R; x <= R; x++) for (let y = -R; y <= R; y++) for (let z = -R; z <= R; z++) { if (x * x + y * y + z * z > r * r || Math.random() > 1 / 3) continue; const X = Math.floor(cx) + x, Y = Math.floor(cy) + y, Z = Math.floor(cz) + z;
           if (w.get(X, Y, Z) === 0 && SOLID[w.get(X, Y - 1, Z)] && BL[w.get(X, Y - 1, Z)].opaque) w.set(X, Y, Z, B.FIRE); } } } catch (e) { console.warn(e); }
     return res; }; }
+
+// ================= LIT TNT: HOOK IT WITH A FISHING ROD, KNOCK IT WITH ARROWS =================
+// A lit TNT is something you can move, as in Minecraft: cast a fishing rod at it and reel in to yank it towards you
+// (and past you), or shoot it and the arrow shoves it along its flight (Punch shoves harder). A flaming arrow that
+// hits a TNT block lights it.
+{ const _ub = updateBobber; updateBobber = function (dt) {
+    const B0 = bobber;
+    if (B0) { if (B0.hooked && B0.hooked.isTnt && !G.tnts.includes(B0.hooked)) B0.hooked.gone = true;
+      if (!B0.hooked && !B0.stuck && B0.phase === 'fly') for (const t of G.tnts) { if (Math.abs(B0.pos.x - t.pos.x) < 0.65 && Math.abs(B0.pos.z - t.pos.z) < 0.65 && B0.pos.y > t.pos.y - 0.15 && B0.pos.y < t.pos.y + 1.15) { t.isTnt = true; B0.hooked = t; Sfx.at('pop', t.pos, 0.4); break; } } }
+    return _ub.apply(this, arguments); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    for (const a of G.projectiles) { if (a.done || a.kind !== 'arrow' || a.stuckT > 0) continue; const sp = a.vel.length(); if (sp < 4) continue;
+      for (const t of G.tnts) { if (Math.abs(a.pos.x - t.pos.x) < 0.6 && Math.abs(a.pos.z - t.pos.z) < 0.6 && a.pos.y > t.pos.y - 0.1 && a.pos.y < t.pos.y + 1.1) { const k = 0.16 + 0.12 * (a.punch || 0); t.vel.x += a.vel.x * k; t.vel.z += a.vel.z * k; t.vel.y += Math.max(1.5, a.vel.y * k + 2); a.done = true; Sfx.at('hit', t.pos, 0.5); Particles.emit(a.pos.x, a.pos.y, a.pos.z, 5, [[0.8, 0.8, 0.8]], 1.2, 0.3, 4, 0.3); break; } }
+      if (!a.done && a.flame) { const n = a.vel.clone().normalize(); const reach = sp * dt + 0.35; for (let d = 0; d <= reach; d += 0.2) { const x = Math.floor(a.pos.x + n.x * d), y = Math.floor(a.pos.y + n.y * d), z = Math.floor(a.pos.z + n.z * d); const id = world.get(x, y, z); if (id === B.TNT) { world.set(x, y, z, 0); primeTNT(x, y, z); a.done = true; break; } if (SOLID[id]) break; } } }
+    return _up.apply(this, arguments); }; }
 
 // ================= WORLD OPTIONS BEFORE YOU CREATE: TYPE, GAME RULES, HARDCORE =================
 // Create World now has a world type (Default, Superflat with presets, Amplified, Large Biomes), a Game Rules button

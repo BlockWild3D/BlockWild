@@ -69,3 +69,18 @@ if (typeof DEATH_YOU !== 'undefined') DEATH_YOU.fire = 'You burned to death';
         for (let x = -R; x <= R; x++) for (let y = -R; y <= R; y++) for (let z = -R; z <= R; z++) { if (x * x + y * y + z * z > r * r || Math.random() > 1 / 3) continue; const X = Math.floor(cx) + x, Y = Math.floor(cy) + y, Z = Math.floor(cz) + z;
           if (w.get(X, Y, Z) === 0 && SOLID[w.get(X, Y - 1, Z)] && BL[w.get(X, Y - 1, Z)].opaque) w.set(X, Y, Z, B.FIRE); } } } catch (e) { console.warn(e); }
     return res; }; }
+
+// ================= LIT TNT: HOOK IT WITH A FISHING ROD, KNOCK IT WITH ARROWS =================
+// A lit TNT is something you can move, as in Minecraft: cast a fishing rod at it and reel in to yank it towards you
+// (and past you), or shoot it and the arrow shoves it along its flight (Punch shoves harder). A flaming arrow that
+// hits a TNT block lights it.
+{ const _ub = updateBobber; updateBobber = function (dt) {
+    const B0 = bobber;
+    if (B0) { if (B0.hooked && B0.hooked.isTnt && !G.tnts.includes(B0.hooked)) B0.hooked.gone = true;
+      if (!B0.hooked && !B0.stuck && B0.phase === 'fly') for (const t of G.tnts) { if (Math.abs(B0.pos.x - t.pos.x) < 0.65 && Math.abs(B0.pos.z - t.pos.z) < 0.65 && B0.pos.y > t.pos.y - 0.15 && B0.pos.y < t.pos.y + 1.15) { t.isTnt = true; B0.hooked = t; Sfx.at('pop', t.pos, 0.4); break; } } }
+    return _ub.apply(this, arguments); }; }
+{ const _up = updateProjectiles; updateProjectiles = function (dt) {
+    for (const a of G.projectiles) { if (a.done || a.kind !== 'arrow' || a.stuckT > 0) continue; const sp = a.vel.length(); if (sp < 4) continue;
+      for (const t of G.tnts) { if (Math.abs(a.pos.x - t.pos.x) < 0.6 && Math.abs(a.pos.z - t.pos.z) < 0.6 && a.pos.y > t.pos.y - 0.1 && a.pos.y < t.pos.y + 1.1) { const k = 0.16 + 0.12 * (a.punch || 0); t.vel.x += a.vel.x * k; t.vel.z += a.vel.z * k; t.vel.y += Math.max(1.5, a.vel.y * k + 2); a.done = true; Sfx.at('hit', t.pos, 0.5); Particles.emit(a.pos.x, a.pos.y, a.pos.z, 5, [[0.8, 0.8, 0.8]], 1.2, 0.3, 4, 0.3); break; } }
+      if (!a.done && a.flame) { const n = a.vel.clone().normalize(); const reach = sp * dt + 0.35; for (let d = 0; d <= reach; d += 0.2) { const x = Math.floor(a.pos.x + n.x * d), y = Math.floor(a.pos.y + n.y * d), z = Math.floor(a.pos.z + n.z * d); const id = world.get(x, y, z); if (id === B.TNT) { world.set(x, y, z, 0); primeTNT(x, y, z); a.done = true; break; } if (SOLID[id]) break; } } }
+    return _up.apply(this, arguments); }; }

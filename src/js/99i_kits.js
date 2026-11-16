@@ -11,7 +11,7 @@ function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringif
 function rebuildKits() {
   KITS.length = KITS_BASE;
   loadCustomKits().forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
-    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit. Right-click to delete it.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
+    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
   const el = $('kitPick'); if (el) { const open = S.uiOpen === 'kit'; if (open) closeKitPicker(true); el.remove(); if (open) openKitPicker(); }
 }
 { const _gk = giveKit; giveKit = function (kit) {
@@ -59,9 +59,12 @@ renderLobby = function () {
     if (st && !$('lobbyCustom')) { const b = document.createElement('button'); b.id = 'lobbyCustom'; b.style.cssText = st.style.cssText; b.style.background = '#3b3b3b'; b.textContent = 'Make a custom kit'; st.parentNode.insertBefore(b, st);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(); });
       const g = $('kitGrid'); g.style.maxHeight = '56vh'; g.style.overflowY = 'auto'; g.style.padding = '4px';
-      g.querySelectorAll('button').forEach(bt => bt.addEventListener('contextmenu', (e) => { e.preventDefault(); const kt = KITS[+bt.dataset.i]; if (!kt || kt.custom == null || !arenaHost()) return;
-        const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a); if (AR.def && AR.def.name === kt.name) { AR.def = null; S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); })); }
+      g.querySelectorAll('button').forEach(bt => { const kt = KITS[+bt.dataset.i]; bt.addEventListener('contextmenu', (e) => { e.preventDefault(); kitDelete(KITS[+bt.dataset.i]); });
+        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = 'Delete'; del.title = 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
+          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
     renderLobby(); return r; }; }
+function kitDelete(kt) { if (!kt || kt.custom == null || !arenaHost()) return; const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a);
+  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
 // ---- the kit editor ----
 function kitEditStart() {
   const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return; if (loadCustomKits().length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
