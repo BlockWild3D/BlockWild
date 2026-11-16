@@ -49,6 +49,16 @@ function moveEntity(e, dt) {
 }
 function boxIntersectsBlock(e, x, y, z) { return e.pos.x + e.hw > x && e.pos.x - e.hw < x + 1 && e.pos.y + e.h > y && e.pos.y < y + 1 && e.pos.z + e.hw > z && e.pos.z - e.hw < z + 1; }
 function inLava(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 2; }
+// Knockback as Minecraft does it (LivingEntity.knockback): the target's sideways speed is halved and a fixed push is
+// added away from the attacker; if it stands on the ground it also pops up, capped. A plain hit pushes with 0.4
+// (blocks per tick); every extra level (a sprint hit, each level of the Knockback enchantment) is a second push of 0.5
+// per level. Knockback resistance scales it all down. In this game `kb` is 1 for a plain hit and +0.6 per extra level.
+const KNOCK = { h: 12.3, lvl: 15.4, up: 8 }; // sideways pushes are scaled so the distance travelled matches Minecraft (3.05 blocks plain, 5.3 for a sprint hit) under this game's friction
+function applyKnockback(e, src, kb, res) {
+  if (!(kb > 0) || res >= 1) return; const d = new V3(e.pos.x - src.x, 0, e.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); else { const a = Math.random() * Math.PI * 2; d.set(Math.cos(a), 0, Math.sin(a)); }
+  const m = (1 - (res || 0)); const push = (s) => { e.vel.x = e.vel.x / 2 + d.x * s * m; e.vel.z = e.vel.z / 2 + d.z * s * m; if (e.onGround || e.vel.y === 0) e.vel.y = Math.min(KNOCK.up, e.vel.y / 2 + Math.min(s, KNOCK.up) * m); };
+  push(KNOCK.h * Math.min(1, kb)); const lv = (kb - 1) / 0.6; if (lv > 0.01) push(KNOCK.lvl * lv);
+}
 function inWater(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 1; }
 function rayAABB(o, d, min, max) {
   let tmin = 0, tmax = 1e9;
@@ -420,7 +430,7 @@ class Mob {
   get center() { return new V3(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z); }
   hurt(dmg, src, kb = 1, noAnger) {
     if (this.dead) return; this.hp -= dmg; this.hurtT = 0.35; Sfx.mob(this, 'hurt', 0.7);
-    if (src && !this.t.fly) { const d = new V3(this.pos.x - src.x, 0, this.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); const k = this.type === 'hoglin' || this.type === 'ghast' ? 0.4 : 1; this.vel.x += d.x * 7 * kb * k; this.vel.z += d.z * 7 * kb * k; this.vel.y = Math.max(this.vel.y, 5 * kb * k); }
+    if (src && !this.t.fly) applyKnockback(this, src, kb, this.type === 'hoglin' || this.type === 'ghast' ? 0.6 : (this.t.kbRes || 0));
     if (src && this.t.fly) { const d = this.pos.clone().sub(src); d.y = 0; if (d.lengthSq() > 1e-4) d.normalize(); this.vel.addScaledVector(d, 4 * kb); }
     if (this.t.kind === 'passive') this.flee = 5;
     if (src && !noAnger) this.angry = 30;

@@ -33,7 +33,7 @@ function meleeHit(tool, mob) {
   const crit = strong && !P.onGround && P.vel.y < 0 && !P.riding && !P.flying && !inWater(P, 0.4) && !P.sprinting && !climbingNow(P) && !effLevel('blindness');
   let dmg = (weapon + eff) * (0.2 + c * c * 0.8); if (crit) dmg *= 1.5; dmg += ench * c;
   if (typeof meleeExtra === 'function') dmg += meleeExtra(mob); // impaling, and the mace's smash bonus (not scaled)
-  let kb = eb.kb; const sprintHit = strong && P.sprinting; if (sprintHit) { kb += 0.6; P.sprinting = false; P.vel.x *= 0.6; P.vel.z *= 0.6; }
+  let kb = eb.kb; const sprintHit = strong && P.sprinting; if (sprintHit) { kb += 0.6; P.sprinting = false; S.sprintTap = false; P.vel.x *= 0.6; P.vel.z *= 0.6; } // Minecraft: a sprint hit ends the sprint, so you tap forward again for the next one
   const sweep = strong && !crit && !sprintHit && P.onGround && tool && tool.tool === 'sword' && Math.hypot(P.vel.x, P.vel.z) < 4.6;
   resetAttack(); S.swing = 1; if (typeof exhaust === 'function') exhaust(0.1);
   Sfx.play(crit ? 'crit' : strong ? 'hit' : 'weak', strong ? 0.6 : 0.4);

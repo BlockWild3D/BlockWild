@@ -70,7 +70,7 @@ class Player {
     dmg = armorReduce(dmg, cause); dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; Sfx.play('hurt', 1);
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
-    if (src) { const d = new V3(this.pos.x - src.x, 0, this.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); this.vel.x += d.x * 7 * kb; this.vel.z += d.z * 7 * kb; this.vel.y = Math.max(this.vel.y, 4.5 * Math.min(kb, 1.6)); }
+    if (src) applyKnockback(this, src, kb, typeof blastKbResist === 'function' ? blastKbResist(this) : 0);
     G.shake = Math.max(G.shake, 0.25); updateHearts();
     if (this.health <= 0) this.die(cause);
   }
