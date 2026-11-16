@@ -17,7 +17,7 @@ function mainHandHasUse() {
 function offhandShouldUse() {
   const off = player.inv[36]; if (!off || player.dead || S.uiOpen) return false; const od = ITEMS[off.id]; if (!od || od.kind === 'shield' || od.kind === 'totem') return false;
   if (target && !kd('sneak') && BL[target.id].use) return false; // opening a chest etc. is a main-hand thing
-  if (typeof rideTargetNow === 'function' && rideTargetNow()) return false; // getting into a boat, a minecart or onto a mount comes first
+  if (typeof interactTargetNow === 'function' && interactTargetNow()) return false; // using what you look at (a bed, a door, a villager, a boat...) comes first
   if (targetMob && player.inv[player.sel]) return false;
   return !mainHandHasUse();
 }

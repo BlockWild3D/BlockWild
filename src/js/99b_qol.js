@@ -93,3 +93,16 @@ function rideTargetNow() {
   const m = typeof targetMob !== 'undefined' ? targetMob : null;
   return !!(m && !m.dead && (m.hg || m.saddled || /^(horse|donkey|mule|camel|camel_husk|skeleton_horse|zombie_horse|pig|strider|happy_ghast|nautilus|zombie_nautilus|llama)$/.test(m.type)));
 }
+// Is there something under the crosshair that a right-click uses (a bed, a door, a lever, a workstation, a villager,
+// a pet, a boat...)? If so that comes first, as in Minecraft: an off-hand shield doesn't raise and an off-hand item
+// isn't used instead. Sneak to skip it (then the shield raises / the off-hand item is used).
+const INTERACT_RE = /(^|_)(bed|door|trapdoor|fence_gate|button|lever|crafting_table|anvil|grindstone|stonecutter|loom|smithing_table|cartography_table|fletching_table|enchanting_table|furnace|smoker|chest|barrel|shulker_box|hopper|dropper|dispenser|crafter|brewing_stand|beacon|bell|note_block|jukebox|lectern|repeater|comparator|daylight_detector|cake|sign|respawn_anchor|composter|cauldron|command_block|structure_block|shelf|flower_pot|item_frame|armor_stand|vault|decorated_pot|chiseled_bookshelf|candle|campfire|beehive|bee_nest|lodestone|trial_spawner)(_|$|#)/;
+const INTERACT_ID = new Map();
+function blockInteracts(id) { let v = INTERACT_ID.get(id); if (v === undefined) { const d = BL[id]; v = !!(d && (d.use || d.bed || d.bedPart || d.door || d.sign || d.anchor !== undefined || d.cmdBlock || d.structBlock || INTERACT_RE.test(String(d.fam || d.key || '').replace(/#.*/, '')) || INTERACT_RE.test(String(d.key || '')))); INTERACT_ID.set(id, v); } return v; }
+function interactTargetNow() {
+  if (player.dead || S.uiOpen || kd('sneak') || S.mode === 'spectator') return false;
+  if (rideTargetNow()) return true;
+  const m = typeof targetMob !== 'undefined' ? targetMob : null;
+  if (m && !m.dead) { if (/villager|trader/.test(m.type) || m.tamed || m.owner) return true; if (m.t && m.t.kind !== 'hostile' && !m.isBoss && player.inv[player.sel]) return true; return false; }
+  return !!(typeof target !== 'undefined' && target && blockInteracts(target.id));
+}
