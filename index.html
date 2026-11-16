@@ -19411,6 +19411,7 @@ let PVP_AXE = false;
     { k: 'neth_pot', name: 'Neth Pot', blurb: 'Netherite, splash healing, totems and golden apples. Long fights.', armor: KNETH, items: [['netherite_sword', KSHARP], ['golden_apple', 64], ['ender_pearl', 16], ['totem_of_undying'], ['potion', { pot: 'swiftness' }], ['potion', { pot: 'strength' }], ['experience_bottle', 64], ...pots('strong_healing', 22), ['totem_of_undying'], ['totem_of_undying']], off: ['totem_of_undying'] },
     { k: 'smp', name: 'SMP', blurb: 'Survival-server fight: netherite, axe and shield, pearls, gapples, totem.', armor: KNETH, items: [['netherite_sword', KSHARP], ['netherite_axe', { sharpness: 5, unbreaking: 3 }], ['golden_apple', 64], ['ender_pearl', 16], ['totem_of_undying'], ['potion', { pot: 'strength' }], ['potion', { pot: 'swiftness' }], ['experience_bottle', 64], ['steak', 32], ['cobweb', 16], ['water_bucket'], ['totem_of_undying']], off: ['shield'] },
     { k: 'dia_smp', name: 'Diamond SMP', blurb: 'SMP rules in diamond: axe and shield, gapples, pearls, no totems.', armor: dia({ protection: 4, unbreaking: 3 }), items: [['diamond_sword', KSHARP], ['diamond_axe', { sharpness: 5, unbreaking: 3 }], ['golden_apple', 32], ['ender_pearl', 16], ['potion', { pot: 'strength' }], ['potion', { pot: 'swiftness' }], ['steak', 32], ['cobweb', 16], ['water_bucket'], ['experience_bottle', 64]], off: ['shield'] });
+  KITS.push({ k: 'tnt', name: 'TNT', blurb: 'TNT, flint and steel, a rod to drag it and a Punch bow to launch it. Blast Protection armour.', armor: dia({ blast_protection: 4, unbreaking: 3 }), items: [['diamond_sword', S3], ['tnt', 64], ['flint_and_steel'], ['fishing_rod'], ['bow', { punch: 2, infinity: 1 }], ['golden_apple', 16], ['ender_pearl', 8], ['cobblestone', 64], ['arrow', 64], ['tnt', 64], ['steak', 16]] });
   // a stack's third part may carry a potion as well as enchantments
   const _ks = kitStack; kitStack = function (key, a) { if (a && typeof a === 'object' && a.pot) { const id = IT[key]; return id == null || !POTIONS[a.pot] ? null : { id, count: 1, pot: a.pot }; } return _ks(key, a); };
   // the picker: five columns for thirteen kits, keys 1-9 for the first nine
@@ -19920,14 +19921,43 @@ if (typeof DEATH_YOU !== 'undefined') DEATH_YOU.fire = 'You burned to death';
 // hits a TNT block lights it.
 { const _ub = updateBobber; updateBobber = function (dt) {
     const B0 = bobber;
-    if (B0) { if (B0.hooked && B0.hooked.isTnt && !G.tnts.includes(B0.hooked)) B0.hooked.gone = true;
-      if (!B0.hooked && !B0.stuck && B0.phase === 'fly') for (const t of G.tnts) { if (Math.abs(B0.pos.x - t.pos.x) < 0.65 && Math.abs(B0.pos.z - t.pos.z) < 0.65 && B0.pos.y > t.pos.y - 0.15 && B0.pos.y < t.pos.y + 1.15) { t.isTnt = true; B0.hooked = t; Sfx.at('pop', t.pos, 0.4); break; } } }
+    if (B0) { if (B0.hooked && B0.hooked.isTnt && !tntList().includes(B0.hooked)) B0.hooked.gone = true;
+      if (!B0.hooked && !B0.stuck && B0.phase === 'fly') for (const t of tntList()) { if (Math.abs(B0.pos.x - t.pos.x) < 0.65 && Math.abs(B0.pos.z - t.pos.z) < 0.65 && B0.pos.y > t.pos.y - 0.15 && B0.pos.y < t.pos.y + 1.15) { t.isTnt = true; B0.hooked = t; Sfx.at('pop', t.pos, 0.4); break; } } }
     return _ub.apply(this, arguments); }; }
 { const _up = updateProjectiles; updateProjectiles = function (dt) {
     for (const a of G.projectiles) { if (a.done || a.kind !== 'arrow' || a.stuckT > 0) continue; const sp = a.vel.length(); if (sp < 4) continue;
-      for (const t of G.tnts) { if (Math.abs(a.pos.x - t.pos.x) < 0.6 && Math.abs(a.pos.z - t.pos.z) < 0.6 && a.pos.y > t.pos.y - 0.1 && a.pos.y < t.pos.y + 1.1) { const k = 0.16 + 0.12 * (a.punch || 0); t.vel.x += a.vel.x * k; t.vel.z += a.vel.z * k; t.vel.y += Math.max(1.5, a.vel.y * k + 2); a.done = true; Sfx.at('hit', t.pos, 0.5); Particles.emit(a.pos.x, a.pos.y, a.pos.z, 5, [[0.8, 0.8, 0.8]], 1.2, 0.3, 4, 0.3); break; } }
+      for (const t of tntList()) { if (Math.abs(a.pos.x - t.pos.x) < 0.6 && Math.abs(a.pos.z - t.pos.z) < 0.6 && a.pos.y > t.pos.y - 0.1 && a.pos.y < t.pos.y + 1.1) { const k = 0.16 + 0.12 * (a.punch || 0); t.vel.x += a.vel.x * k; t.vel.z += a.vel.z * k; t.vel.y += Math.max(1.5, a.vel.y * k + 2); a.done = true; Sfx.at('hit', t.pos, 0.5); Particles.emit(a.pos.x, a.pos.y, a.pos.z, 5, [[0.8, 0.8, 0.8]], 1.2, 0.3, 4, 0.3); break; } }
       if (!a.done && a.flame) { const n = a.vel.clone().normalize(); const reach = sp * dt + 0.35; for (let d = 0; d <= reach; d += 0.2) { const x = Math.floor(a.pos.x + n.x * d), y = Math.floor(a.pos.y + n.y * d), z = Math.floor(a.pos.z + n.z * d); const id = world.get(x, y, z); if (id === B.TNT) { world.set(x, y, z, 0); primeTNT(x, y, z); a.done = true; break; } if (SOLID[id]) break; } } }
     return _up.apply(this, arguments); }; }
+
+// ---- lit TNT is shared in multiplayer ----
+// The host runs every lit TNT and sends where it is 15 times a second; friends see the same TNT in the same place,
+// flashing and swelling before it blows. When a friend lights TNT, hooks it or shoots it, that goes to the host and
+// comes back to everyone, so TNT fights (lighting it, pulling it, shooting it into the other player) work between players.
+const TNT_GHOST = new Map(); let tntSeq = 0, tntSendT = 0, tntHad = false;
+function tntList() { return typeof mpClient === 'function' && mpClient() ? [...TNT_GHOST.values()] : G.tnts; }
+{ const _pt = primeTNT; primeTNT = function (x, y, z, fuse) {
+    if (typeof mpClient === 'function' && mpClient()) { mpToHost({ t: 'tnt', a: 'prime', x, y, z, f: fuse == null ? 3 : fuse }); Sfx.at('hiss', new V3(x, y, z), 1); return; }
+    return _pt.apply(this, arguments); }; }
+function tntGhostDrop(id) { const g = TNT_GHOST.get(id); if (!g) return; G.scene.remove(g.mesh); g.mat.dispose(); g.gone = true; TNT_GHOST.delete(id); }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m.t !== 'tnt') return _on(peer, m);
+    if (MP.role === 'host') { const av = MP.avatars.get(peer.id);
+      if (m.a === 'prime') { if (av && Math.hypot(m.x - av.pos.x, m.z - av.pos.z) < 96 && G.tnts.length < 200) primeTNT(m.x | 0, m.y | 0, m.z | 0, clamp(+m.f || 3, 0.3, 10)); }
+      else if (m.a === 'push') { const t = G.tnts.find(q => q.nid === m.id); if (t && Array.isArray(m.v)) { const v = new V3(+m.v[0] || 0, +m.v[1] || 0, +m.v[2] || 0); if (v.length() > 45) v.setLength(45); t.vel.add(v); } }
+      return; }
+    if (peer.id !== 'host' || m.a !== 's') return; const seen = new Set();
+    if (m.dim === world.dim) for (const [id, x, y, z, fuse] of m.l) { seen.add(id); let g = TNT_GHOST.get(id);
+      if (!g) { const mat = new THREE.MeshLambertMaterial({ map: atlasTex }); const mesh = new THREE.Mesh(blockGeo(B.TNT), mat); mesh.layers.enable(1); G.scene.add(mesh); g = { nid: id, pos: new V3(x, y, z), tgt: new V3(x, y, z), vel: new V3(), hw: 0.49, h: 0.98, fuse, mesh, mat, isTnt: true }; TNT_GHOST.set(id, g); }
+      g.tgt.set(x, y, z); g.fuse = fuse; }
+    for (const id of [...TNT_GHOST.keys()]) if (!seen.has(id)) tntGhostDrop(id); }; }
+function tntNetTick(dt) {
+  if (!(typeof MP !== 'undefined' && MP.active)) { if (TNT_GHOST.size) for (const id of [...TNT_GHOST.keys()]) tntGhostDrop(id); return; }
+  if (MP.role === 'host') { tntSendT += dt; if (tntSendT < 0.066) return; tntSendT = 0; if (!G.tnts.length && !tntHad) return; tntHad = G.tnts.length > 0;
+    mpSendAll({ t: 'tnt', a: 's', dim: world.dim, l: G.tnts.map(t => [t.nid || (t.nid = ++tntSeq), +t.pos.x.toFixed(2), +t.pos.y.toFixed(2), +t.pos.z.toFixed(2), +t.fuse.toFixed(2)]) }, true); return; }
+  for (const g of TNT_GHOST.values()) { g.pos.lerp(g.tgt, Math.min(1, dt * 18)); g.fuse -= dt; g.mesh.position.set(g.pos.x, g.pos.y + 0.49, g.pos.z); const fl = Math.floor(g.fuse * 5) % 2 === 0; g.mesh.scale.setScalar(g.fuse < 0.4 ? 1 + (0.4 - g.fuse) * 0.6 : 1); g.mat.emissive.setRGB(fl ? 0.8 : 0, fl ? 0.8 : 0, fl ? 0.8 : 0);
+    if (g.vel.lengthSq() > 0.01) { mpToHost({ t: 'tnt', a: 'push', id: g.nid, v: [+g.vel.x.toFixed(2), +g.vel.y.toFixed(2), +g.vel.z.toFixed(2)] }); g.vel.set(0, 0, 0); } } }
+{ const _t = tick; tick = function (dt) { const r = _t.apply(this, arguments); try { if (S.started && !S.loading) tntNetTick(dt); } catch (e) { if (!tntNetTick.warned) { tntNetTick.warned = true; console.warn(e); } } return r; }; }
 
 // ================= WORLD OPTIONS BEFORE YOU CREATE: TYPE, GAME RULES, HARDCORE =================
 // Create World now has a world type (Default, Superflat with presets, Amplified, Large Biomes), a Game Rules button
