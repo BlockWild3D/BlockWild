@@ -83,3 +83,13 @@ Object.assign(MOB_VOICE, {
     while (k < ITEM_IDS.length && performance.now() < until) { const id = ITEM_IDS[k++]; try { void ICON[id]; } catch (e) { } }
     if (k < ITEM_IDS.length) (window.requestIdleCallback || ((f) => setTimeout(f, 30)))(step); };
   setTimeout(() => step(null), 3000); }
+// something you can get into or onto is under the crosshair (and you aren't sneaking): right-click rides it, whatever
+// is in either hand. Without this a shield in the off-hand raised itself, and other off-hand items got used, instead.
+function rideTargetNow() {
+  if (player.riding || player.dead || S.uiOpen || kd('sneak') || S.mode === 'spectator') return false;
+  if (typeof targetBoat !== 'undefined' && targetBoat) return true;
+  if (typeof targetCart !== 'undefined' && targetCart) return true;
+  try { const eye = player.eye(), dir = lookDir(); const blk = raycast(eye, dir, 4.5); const c = cartRay(eye, dir, blk ? blk.dist : 4.5); if (c) return true; } catch (e) { }
+  const m = typeof targetMob !== 'undefined' ? targetMob : null;
+  return !!(m && !m.dead && (m.hg || m.saddled || /^(horse|donkey|mule|camel|camel_husk|skeleton_horse|zombie_horse|pig|strider|happy_ghast|nautilus|zombie_nautilus|llama)$/.test(m.type)));
+}

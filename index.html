@@ -6625,7 +6625,7 @@ function updateInteraction(dt) {
   const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || BL[target.id].use === 'furnace' || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
   const offShield = player.inv[36] && player.inv[36].id === IT.shield; const mk = hb ? hb.kind : null;
   const canShield = mk === 'shield' || (offShield && (!mk || mk === 'tool' || mk === 'mat'));
-  if (canShield && !(S.shieldCD > 0) && mouseR && !blockUse && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.25; /* Minecraft: a shield takes 5 ticks to come up */ return; }
+  if (canShield && !(S.shieldCD > 0) && mouseR && !blockUse && !(typeof rideTargetNow === 'function' && rideTargetNow()) && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.25; /* Minecraft: a shield takes 5 ticks to come up */ return; }
   S.blockT = 0; player.blocking = false;
   // bow: hold to draw, release to shoot
   if (hb && hb.kind === 'bow' && !blockUse) {
@@ -12956,6 +12956,7 @@ function mainHandHasUse() {
 function offhandShouldUse() {
   const off = player.inv[36]; if (!off || player.dead || S.uiOpen) return false; const od = ITEMS[off.id]; if (!od || od.kind === 'shield' || od.kind === 'totem') return false;
   if (target && !kd('sneak') && BL[target.id].use) return false; // opening a chest etc. is a main-hand thing
+  if (typeof rideTargetNow === 'function' && rideTargetNow()) return false; // getting into a boat, a minecart or onto a mount comes first
   if (targetMob && player.inv[player.sel]) return false;
   return !mainHandHasUse();
 }
@@ -18917,6 +18918,16 @@ Object.assign(MOB_VOICE, {
     while (k < ITEM_IDS.length && performance.now() < until) { const id = ITEM_IDS[k++]; try { void ICON[id]; } catch (e) { } }
     if (k < ITEM_IDS.length) (window.requestIdleCallback || ((f) => setTimeout(f, 30)))(step); };
   setTimeout(() => step(null), 3000); }
+// something you can get into or onto is under the crosshair (and you aren't sneaking): right-click rides it, whatever
+// is in either hand. Without this a shield in the off-hand raised itself, and other off-hand items got used, instead.
+function rideTargetNow() {
+  if (player.riding || player.dead || S.uiOpen || kd('sneak') || S.mode === 'spectator') return false;
+  if (typeof targetBoat !== 'undefined' && targetBoat) return true;
+  if (typeof targetCart !== 'undefined' && targetCart) return true;
+  try { const eye = player.eye(), dir = lookDir(); const blk = raycast(eye, dir, 4.5); const c = cartRay(eye, dir, blk ? blk.dist : 4.5); if (c) return true; } catch (e) { }
+  const m = typeof targetMob !== 'undefined' ? targetMob : null;
+  return !!(m && !m.dead && (m.hg || m.saddled || /^(horse|donkey|mule|camel|camel_husk|skeleton_horse|zombie_horse|pig|strider|happy_ghast|nautilus|zombie_nautilus|llama)$/.test(m.type)));
+}
 
 // ================= WORLD GENERATION CLEANUP =================
 // Decoration is planned from the terrain height map, but caves, ravines, rivers and structures can cut the ground away

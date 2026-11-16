@@ -477,7 +477,7 @@ function updateInteraction(dt) {
   const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || BL[target.id].use === 'furnace' || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
   const offShield = player.inv[36] && player.inv[36].id === IT.shield; const mk = hb ? hb.kind : null;
   const canShield = mk === 'shield' || (offShield && (!mk || mk === 'tool' || mk === 'mat'));
-  if (canShield && !(S.shieldCD > 0) && mouseR && !blockUse && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.25; /* Minecraft: a shield takes 5 ticks to come up */ return; }
+  if (canShield && !(S.shieldCD > 0) && mouseR && !blockUse && !(typeof rideTargetNow === 'function' && rideTargetNow()) && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.25; /* Minecraft: a shield takes 5 ticks to come up */ return; }
   S.blockT = 0; player.blocking = false;
   // bow: hold to draw, release to shoot
   if (hb && hb.kind === 'bow' && !blockUse) {
