@@ -91,7 +91,7 @@ function onPeerMsg(peer, m) {
     case 'mobs': return clientMobs(m);
     case 'hit': return hostHit(peer, m);
     case 'drops': for (const [key, n, x, y, z] of m.items) if (IT[key] !== undefined) dropItem(IT[key], n, x, y, z); if (m.xp) spawnOrb(m.x, m.y, m.z, m.xp); return;
-    case 'fx': if (m.dim === world.dim) { if (m.k === 'boom') { Particles.emit(m.x, m.y, m.z, 60, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5); Sfx.at('boom', new V3(m.x, m.y, m.z), 1.4); G.shake = Math.max(G.shake, 0.5 * Math.max(0, 1 - player.pos.distanceTo(new V3(m.x, m.y, m.z)) / 24)); } } return;
+    case 'fx': if (m.dim === world.dim) { if (m.k === 'boom') { Particles.emit(m.x, m.y, m.z, 60, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5); Sfx.at('boom', new V3(m.x, m.y, m.z), 1.4); G.shake = Math.max(G.shake, 0.5 * Math.max(0, 1 - player.pos.distanceTo(new V3(m.x, m.y, m.z)) / 24)); if (m.r) blastSelf(m.x, m.y, m.z, m.r, m.cause); } } if (MP.role === 'host' && peer && peer.id !== 'host') mpSendAll(m, false, peer.id); return;
     case 'cmd': if (m.line) runCommand(m.line, { player, remote: true }); return;
     case 'whisper': chatPrint(m.from + ' whispers to you: ' + m.text, '#aaa'); return;
     case 'sleep': peer.sleeping = m.v; return;
@@ -177,11 +177,17 @@ Mob.prototype.hurt = function (dmg, src, kb, noAnger) {
   return _mobHurtRaw.call(this, dmg, src, kb, noAnger);
 };
 // explosions: show them to everyone and hurt remote players nearby
+function blastSelf(cx, cy, cz, r, cause) { // a blast somebody else set off, as it hits me (same maths as explode)
+  const P = player; if (!P || P.dead || S.mode === 'spectator') return; const f2 = r * 2;
+  const d = Math.hypot(P.pos.x - cx, P.pos.y - cy, P.pos.z - cz) / f2; if (d > 1) return;
+  const im = (1 - d) * blastSeen(cx, cy, cz, P.pos.x - 0.3, P.pos.y, P.pos.z - 0.3, P.pos.x + 0.3, P.pos.y + 1.8, P.pos.z + 0.3); if (im <= 0) return;
+  const c = new V3(cx, cy, cz); const vx = P.vel.x, vy = P.vel.y, vz = P.vel.z; P.hurt(Math.floor((im * im + im) / 2 * 7 * f2 + 1), c, cause || 'an explosion', 0); P.vel.set(vx, vy, vz);
+  if (!(S.mode === 'creative' && P.flying)) { let dx = P.pos.x - cx, dy = P.eye().y - cy, dz = P.pos.z - cz; const L = Math.hypot(dx, dy, dz); if (L > 1e-6) { const k = im * (1 - blastKbResist(P)) * 20; P.vel.x += dx / L * k; P.vel.y += dy / L * k; P.vel.z += dz / L * k; P.peak = null; } } }
 const _explode = explode;
 explode = function (cx, cy, cz, r, src, opts = {}) {
   const res = _explode(cx, cy, cz, r, src, opts);
-  if (MP.active && !MP.applying) { mpSend({ t: 'fx', k: 'boom', dim: world.dim, x: cx, y: cy, z: cz, r });
-    if (MP.role === 'host') for (const av of MP.avatars.values()) { if (av.dim !== world.dim) continue; const d = new V3(av.pos.x, av.pos.y + 0.9, av.pos.z).distanceTo(new V3(cx, cy, cz)); if (d > r * 2) continue; const f = 1 - d / (r * 2); const peer = MP.peers.get(av.id); if (peer) peer.link.send({ t: 'hurt', dmg: Math.round(f * f * 7 * r + 1), src: [cx, cy, cz], cause: opts.cause || 'an explosion', kb: 2.2 }); } }
+  // everyone else works out their own damage from it (blastSelf), with the same cover and distance rules as here
+  if (MP.active && !MP.applying) mpSend({ t: 'fx', k: 'boom', dim: world.dim, x: cx, y: cy, z: cz, r, cause: opts.cause || (src instanceof Mob ? 'a ' + (src.t && src.t.name || 'mob') : 'an explosion') });
   return res;
 };
 

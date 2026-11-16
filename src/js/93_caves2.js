@@ -25,7 +25,7 @@ for (const m of ['sulfur', 'cinnabar']) STONECUT.push([m, 'polished_' + m, 1], [
 function caveFlags(g, bx, bz) {
   if (!g.nCv1) { g.nCv1 = new Perlin(g.seed + 1401); g.nCv2 = new Perlin(g.seed + 1402); g.nCv3 = new Perlin(g.seed + 1403); }
   const lush = g.nW.f2(bx / 900 + 13, bz / 900 - 9, 2) > 0.2, drip = !lush && g.nT.f2(bx / 900 - 21, bz / 900 + 5, 2) > 0.22;
-  const sulfur = !lush && !drip && g.nCv1.f2(bx / 700, bz / 700, 2) > 0.26;
+  const sulfur = !lush && !drip && g.nCv1.f2(bx / 700, bz / 700, 2) > 0.33;
   const ice = !lush && !drip && !sulfur && g.nT.f2(bx / 560, bz / 560, 2) < -0.12 && g.nCv2.f2(bx / 500, bz / 500, 2) > 0.05;
   const dark = g.nCv3.f2(bx / 600, bz / 600, 2) > 0.16;
   return { lush, drip, sulfur, ice, dark };
@@ -57,7 +57,7 @@ function caveBiomeName(g, x, y, z) {
       }
     }
     // sulfur springs on the surface above sulfur caves
-    if (f.sulfur && r() < 1 / 24 && !startNear(world, 'village', cx, cz, 2)) { const x0 = bx + 4 + (r() * 8 | 0), z0 = bz + 4 + (r() * 8 | 0); const col = g.column(x0, z0);
+    if (f.sulfur && r() < 1 / 64 && !startNear(world, 'village', cx, cz, 2)) { const x0 = bx + 4 + (r() * 8 | 0), z0 = bz + 4 + (r() * 8 | 0); const col = g.column(x0, z0);
       if (col.h > SEA + 1 && col.h < WH - 30 && col.b !== BIO.OCEAN && col.b !== BIO.BEACH) { const y = col.h - 1; const R = 2.6 + r();
         for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) { const d = Math.hypot(dx, dz); const x = x0 + dx, z = z0 + dz; if (d > R + 2) continue; const h2 = g.column(x, z).h;
           for (let yy = y + 1; yy < Math.max(h2, y + 1) + 2; yy++) hard(x, yy, z, 0);
