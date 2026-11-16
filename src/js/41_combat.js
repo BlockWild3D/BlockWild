@@ -43,12 +43,12 @@ function playerMelee(m, tool) {
   const h = meleeHit(tool, m); m.hurt(h.dmg, player.pos, h.kb); // Minecraft: the push does not depend on the attack cooldown (only the sprint bonus needs a charged hit)
   if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
   const top = m.pos.y + Math.min(m.h, 3) * 0.7;
-  if (h.crit) Particles.emit(m.pos.x, top, m.pos.z, 12, [[1, 1, 0.7], [0.9, 0.9, 0.6]], 3, 0.5, 4, 0.6);
-  if (enchOf(player.held(), 'sharpness') || enchOf(player.held(), 'smite') || enchOf(player.held(), 'bane_of_arthropods')) Particles.emit(m.pos.x, top, m.pos.z, 6, [[0.5, 0.9, 1]], 2, 0.4, 2, 0.5);
+  if (h.crit) SpriteFX.emit('critical_hit', m.pos.x, top, m.pos.z, 12, { size: 0.28, grav: 4, spd: 4, life: 0.5, spread: 0.6 }) || Particles.emit(m.pos.x, top, m.pos.z, 12, [[1, 1, 0.7], [0.9, 0.9, 0.6]], 3, 0.5, 4, 0.6);
+  if (enchOf(player.held(), 'sharpness') || enchOf(player.held(), 'smite') || enchOf(player.held(), 'bane_of_arthropods')) SpriteFX.emit('enchanted_hit', m.pos.x, top, m.pos.z, 6, { size: 0.28, grav: 2, spd: 3, life: 0.5, spread: 0.5 }) || Particles.emit(m.pos.x, top, m.pos.z, 6, [[0.5, 0.9, 1]], 2, 0.4, 2, 0.5);
   if (h.sweep) {
     const se = enchOf(player.held(), 'sweeping_edge'); const sd = 1 + (se ? se / (se + 1) : 0) * h.weapon;
     for (const o of G.mobs) { if (o === m || o.dead || o === player.riding || o.tamed) continue; if (Math.abs(o.pos.x - m.pos.x) < 1 + o.hw + m.hw && Math.abs(o.pos.z - m.pos.z) < 1 + o.hw + m.hw && Math.abs(o.pos.y - m.pos.y) < 0.6 && o.pos.distanceTo(player.pos) < 3) o.hurt(sd, player.pos, 0.4); }
-    const d = lookDir(); const e = player.eye(); for (let i = -3; i <= 3; i++) { const a = Math.atan2(d.x, d.z) + i * 0.22; Particles.emit(e.x + Math.sin(a) * 1.6, e.y - 0.4, e.z + Math.cos(a) * 1.6, 1, [[0.95, 0.95, 0.95]], 0.2, 0.25, 0, 0.3); }
+    const d = lookDir(); const e = player.eye(); for (let i = -3; i <= 3; i++) { const a = Math.atan2(d.x, d.z) + i * 0.22; (i === 0 ? SpriteFX.emit('sweep', e.x + Math.sin(a) * 1.6, e.y - 0.4, e.z + Math.cos(a) * 1.6, 1, { size: 1.8, spd: 0, life: 0.3, spread: 0, vary: false }) : SpriteFX.has('sweep')) || Particles.emit(e.x + Math.sin(a) * 1.6, e.y - 0.4, e.z + Math.cos(a) * 1.6, 1, [[0.95, 0.95, 0.95]], 0.2, 0.25, 0, 0.3); }
     Sfx.play('sweep', 0.6);
   }
 }

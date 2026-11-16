@@ -45,7 +45,7 @@ function lightUp(x, y, z, d, id) { if (d.candle && !d.st.lit && world.get(x, y, 
       if (d && !(sneaking && h)) {
         // flint and steel / fire charges light candles, candle cakes and campfires
         if ((hk === 'flint_and_steel' || hk === 'fire_charge') && (d.candle || d.candleCake || d.campfire)) { if (lightUp(x, y, z, d, id)) { if (hk === 'fire_charge') useHeld(1); else if (typeof damageHeld === 'function') damageHeld(1); done('ignite', 0.8); return; } }
-        if ((d.candle || d.candleCake) && d.st.lit && !h) { world.set(x, y, z, withState(id, { lit: 0 })); Particles.emit(x + 0.5, y + 0.6, z + 0.5, 4, [[0.6, 0.6, 0.6]], 0.4, 0.8, -2, 0.1); done('fizz', 0.4); return; }
+        if ((d.candle || d.candleCake) && d.st.lit && !h) { world.set(x, y, z, withState(id, { lit: 0 })); SpriteFX.emit('generic', x + 0.5, y + 0.6, z + 0.5, 4, { size: 0.2, grav: -1.5, spd: 0.3, life: 0.8, spread: 0.1, tint: [0.7, 0.7, 0.7] }) || Particles.emit(x + 0.5, y + 0.6, z + 0.5, 4, [[0.6, 0.6, 0.6]], 0.4, 0.8, -2, 0.1); done('fizz', 0.4); return; }
         if (d.campfire && d.st.lit && hd && hd.kind === 'tool' && hd.tool === 'shovel') { world.set(x, y, z, withState(id, { lit: 0 })); done('fizz', 0.6); return; }
         if (d.campfire && d.st.lit && h && SMELT[h.id] !== undefined && ITEMS[SMELT[h.id]] && ITEMS[SMELT[h.id]].kind === 'food') { const k = keyOf(x, y, z); const list = DECO.cook.get(k) || []; if (list.length < 4) { list.push({ id: h.id, t: 0 }); DECO.cook.set(k, list); useHeld(1); done('wood', 0.6, 1.3); return; } }
         // cakes: one slice a click (when hungry, or in Creative)
@@ -107,10 +107,10 @@ function decoTick(dt) {
   for (const k of DECO.watch) { const [x, y, z] = k.split(',').map(Number); const d = BL[world.get(x, y, z)]; if (!d) continue;
     if (d.campfire) { if (!d.st.lit) continue; const list = DECO.cook.get(k);
       if (list) { for (const c of list) c.t += dt; const done = list.filter(c => c.t >= 30); if (done.length) { for (const c of done) dropItem(SMELT[c.id], 1, x + 0.5, y + 0.6, z + 0.5); DECO.cook.set(k, list.filter(c => c.t < 30)); } }
-      if (Math.random() < dt * 1.5 && Math.abs(x - P.pos.x) < 48 && Math.abs(z - P.pos.z) < 48) { const tall = world.get(x, y - 1, z) === B.HAY_BLOCK; Particles.emit(x + 0.5, y + 0.6, z + 0.5, 1, [[0.55, 0.55, 0.55], [0.4, 0.4, 0.4]], 0.4, tall ? 7 : 4, -1.2, 0.25); }
+      if (Math.random() < dt * 1.5 && Math.abs(x - P.pos.x) < 48 && Math.abs(z - P.pos.z) < 48) { const tall = world.get(x, y - 1, z) === B.HAY_BLOCK; SpriteFX.emit('big_smoke', x + 0.5, y + 0.6, z + 0.5, 1, { size: 0.6, grav: -1.4, spd: 0.15, life: 3, spread: 0.25 }) || Particles.emit(x + 0.5, y + 0.6, z + 0.5, 1, [[0.55, 0.55, 0.55], [0.4, 0.4, 0.4]], 0.4, tall ? 7 : 4, -1.2, 0.25); }
       if (list && list.length && Math.random() < dt * 4) Particles.emit(x + 0.5, y + 0.55, z + 0.5, 1, [[1, 0.6, 0.2]], 0.5, 0.4, -1, 0.3);
       if (isWaterId(world.get(x, y + 1, z)) || (FKIND[world.get(x, y + 1, z)] === 1)) world.set(x, y, z, withState(d.id, { lit: 0 })); }
-    else if (d.conduit && DECO.slow >= 2) { const n = conduitFrame(x, y, z); if (n >= 16) { const range = Math.floor(n / 7) * 16; Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[0.5, 0.9, 1]], 1.5, 1.2, 0, 0.6);
+    else if (d.conduit && DECO.slow >= 2) { const n = conduitFrame(x, y, z); if (n >= 16) { const range = Math.floor(n / 7) * 16; SpriteFX.emit('nautilus', x + 0.5, y + 0.5, z + 0.5, 3, { size: 0.25, spd: 1, life: 1.4, spread: 1.6, drag: 1 }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[0.5, 0.9, 1]], 1.5, 1.2, 0, 0.6);
         if (P.pos.distanceTo(new V3(x + 0.5, y + 0.5, z + 0.5)) <= range && (isWaterId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.5), Math.floor(P.pos.z))) || isWaterId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y), Math.floor(P.pos.z))))) { giveEffect('water_breathing', 13, 0); giveEffect('night_vision', 13, 0); giveEffect('haste', 13, 0); } } } }
   if (DECO.slow >= 2) DECO.slow = 0;
   // standing in a lit campfire hurts (not while sneaking, not with fire resistance)

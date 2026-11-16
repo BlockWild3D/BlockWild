@@ -67,7 +67,7 @@ function spearCharge(sp, eye, dir, dt) {
     const last = C.hits.get(m); const now = C.t; if (last != null && now - last < 0.25) continue;
     const first = last == null; C.hits.set(m, now);
     const kb = (st === 'engaged' || st === 'tired') && speed >= SPEAR.kbSpeed ? Math.min(2.5, 0.6 + (speed - SPEAR.kbSpeed) * 0.12) : 0;
-    if (first) { const dmg = Math.floor(sp.spear.mult * speed); m.hurt(dmg, P.pos, kb); damageHeld(1); Particles.emit(m.pos.x, m.pos.y + Math.min(m.h, 2) * 0.6, m.pos.z, 10, [[1, 1, 0.7], [0.9, 0.9, 0.9]], 3, 0.45, 4, 0.5); Sfx.play('hurt', 0.4, 0.7); if (C.hits.size >= 5 && !C.kabob) { C.kabob = true; toast('Mob Kabob! Five mobs in one charge', 2.5); } }
+    if (first) { const dmg = Math.floor(sp.spear.mult * speed); m.hurt(dmg, P.pos, kb); damageHeld(1); SpriteFX.emit('critical_hit', m.pos.x, m.pos.y + Math.min(m.h, 2) * 0.6, m.pos.z, 10, { size: 0.28, grav: 4, spd: 4, life: 0.5, spread: 0.6 }) || Particles.emit(m.pos.x, m.pos.y + Math.min(m.h, 2) * 0.6, m.pos.z, 10, [[1, 1, 0.7], [0.9, 0.9, 0.9]], 3, 0.45, 4, 0.5); Sfx.play('hurt', 0.4, 0.7); if (C.hits.size >= 5 && !C.kabob) { C.kabob = true; toast('Mob Kabob! Five mobs in one charge', 2.5); } }
     else if (kb) { const d = new V3(m.pos.x - P.pos.x, 0, m.pos.z - P.pos.z); if (d.lengthSq() > 1e-4) d.normalize(); m.vel.x += d.x * 7 * kb; m.vel.z += d.z * 7 * kb; m.vel.y = Math.max(m.vel.y, 3 * kb); }
     if (st === 'engaged' && speed >= sp.spear.dismount && m.rider != null && m.rider !== 'local') { /* knocks a rider off (multiplayer) */ }
   }

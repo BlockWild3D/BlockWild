@@ -19,7 +19,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, S.touch ? 1.25 : 1
 const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0x87ceeb, 40, 80); scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 420); camera.rotation.order = 'YXZ'; scene.add(camera);
 const hemiL = new THREE.HemisphereLight(0xffffff, 0x777777, 0.72); scene.add(hemiL); const dl = new THREE.DirectionalLight(0xffffff, 0.36); dl.position.set(0.4, 1, 0.3); scene.add(dl);
-G.scene = scene; Particles.init(scene);
+G.scene = scene; Particles.init(scene); if (typeof SpriteFX !== 'undefined') SpriteFX.init(scene);
 const handScene = new THREE.Scene(); const handCam = new THREE.PerspectiveCamera(70, 1, 0.01, 10);
 handScene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.9)); const hdl = new THREE.DirectionalLight(0xffffff, 0.4); hdl.position.set(-0.5, 1, 1); handScene.add(hdl);
 const handGroup = new THREE.Group(); handScene.add(handGroup); let handMesh = null, handId = -1;
@@ -654,7 +654,7 @@ function updateSpawning(dt) {
     const [x, y, z] = k.split(',').map(Number); if (Math.abs(x - P.pos.x) > 16 || Math.abs(y - P.pos.y) > 10 || Math.abs(z - P.pos.z) > 16) continue;
     if (world.get(x, y, z) !== B.SPAWNER) continue;
     const t = (spawnerT.get(k) || 0) - 1; spawnerT.set(k, t);
-    Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[1, 0.5, 0.1], [0.4, 0.4, 0.4]], 1, 0.6, -2, 0.6);
+    SpriteFX.emit('flame', x + 0.5, y + 0.5, z + 0.5, 3, { size: 0.2, grav: -1, spd: 0.6, life: 0.6, spread: 0.6 }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 3, [[1, 0.5, 0.1], [0.4, 0.4, 0.4]], 1, 0.6, -2, 0.6);
     if (t > 0 || !isSurv() || S.difficulty === 'peaceful') continue; spawnerT.set(k, 10 + Math.random() * 30); /* Minecraft: every 10-40 s, up to 4 tries, at most 6 of its mob nearby */
     if (G.mobs.filter(m => m.type === type && Math.abs(m.pos.x - x - 0.5) < 4.5 && Math.abs(m.pos.y - y) < 2.5 && Math.abs(m.pos.z - z - 0.5) < 4.5).length >= 6) continue;
     for (let tries = 0; tries < 6; tries++) { const sx = x + (Math.random() * 7 | 0) - 3, sz = z + (Math.random() * 7 | 0) - 3, sy = y + (Math.random() * 3 | 0) - 1; if (freeAt(sx, sy, sz) && SOLID[world.get(sx, sy - 1, sz)]) { spawnMob(type, sx + 0.5, sy, sz + 0.5); Particles.emit(sx + 0.5, sy + 0.8, sz + 0.5, 15, [0.6, 0.6, 0.6], 2, 0.6, -1, 0.6); break; } }
@@ -700,11 +700,11 @@ function updatePlayer(dt) {
   if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
-  if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
+  if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
   if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
-  if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
+  if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (isSurv()) { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
   // healing comes from food now (23_hunger.js)
@@ -1008,7 +1008,7 @@ function tick(dt) {
     S.saveT += dt; if (S.saveT > 30) { S.saveT = 0; saveGame(false); }
   }
   if (typeof mpTick === 'function') mpTick(dt);
-  Particles.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
+  Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
   { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;
     const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }

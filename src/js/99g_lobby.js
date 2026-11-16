@@ -141,7 +141,7 @@ var WIND_UP = 1.37;
     if (typeof MP !== 'undefined' && MP.active && !MP.applying) mpSend({ t: 'fx', k: 'wind', dim: world.dim, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), p: power }); return r; }; }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
     if (m.t === 'fx' && m.k === 'wind' && m.dim === world.dim && S.rules.pvp !== false) { const P = player; const p = new V3(m.x, m.y, m.z); const power = Math.min(2, m.p || 1); const R = power > 1 ? 2.4 : 2.5 + power * 0.5;
-      Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
+      SpriteFX.emit('gust', p.x, p.y, p.z, 5, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
       const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
       if (d < R && !P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * WIND_UP); P.peak = null; } }
     return _on(peer, m); }; }

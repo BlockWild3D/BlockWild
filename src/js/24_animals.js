@@ -13,8 +13,8 @@
 // ---------- small helpers ----------
 const angWrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 const isClient = () => typeof MP !== 'undefined' && MP.active && MP.role === 'client';
-function hearts(m, n = 1) { Particles.emit(m.pos.x, m.pos.y + m.h + 0.2, m.pos.z, n, [[1, 0.25, 0.35], [0.95, 0.1, 0.2]], 0.6, 0.9, -1.5, Math.max(0.4, m.hw)); }
-function smoke(m, n = 6) { Particles.emit(m.pos.x, m.pos.y + m.h * 0.7, m.pos.z, n, [[0.55, 0.55, 0.55], [0.35, 0.35, 0.35]], 1, 0.7, -1, Math.max(0.4, m.hw)); }
+function hearts(m, n = 1) { SpriteFX.emit('heart', m.pos.x, m.pos.y + m.h + 0.2, m.pos.z, n, { size: 0.32, grav: -0.6, spd: 0.5, life: 1.1, spread: 0.6 }) || Particles.emit(m.pos.x, m.pos.y + m.h + 0.2, m.pos.z, n, [[1, 0.25, 0.35], [0.95, 0.1, 0.2]], 0.6, 0.9, -1.5, Math.max(0.4, m.hw)); }
+function smoke(m, n = 6) { SpriteFX.emit('generic', m.pos.x, m.pos.y + m.h * 0.7, m.pos.z, n, { size: 0.35, grav: -1.2, spd: 0.6, life: 0.8, spread: 0.6, tint: [0.75, 0.75, 0.75] }) || Particles.emit(m.pos.x, m.pos.y + m.h * 0.7, m.pos.z, n, [[0.55, 0.55, 0.55], [0.35, 0.35, 0.35]], 1, 0.7, -1, Math.max(0.4, m.hw)); }
 
 // extra synthesized sounds (no recorded samples for these)
 { const _play = Sfx.play.bind(Sfx);
@@ -240,7 +240,7 @@ function mobInteract(m, sneaking) {
   if (m.type === 'cow' && h && h.id === IT.bucket && !m.baby) { replaceHeld(IT.milk_bucket); Sfx.at('milk', m.pos, 1); S.swing = 1; return true; }
   // breeding food
   const food = BREED_FOOD[m.type]; if (!food || !k || !food.includes(k)) return false;
-  if (m.baby) { mset(m, { growT: m.growT * 0.9 }); consumeHeldFood(); smoke(m, 3); Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.4); return true; }
+  if (m.baby) { mset(m, { growT: m.growT * 0.9 }); consumeHeldFood(); smoke(m, 3); SpriteFX.emit('glitter', m.pos.x, m.pos.y + m.h, m.pos.z, 4, { size: 0.25, grav: -0.5, spd: 0.6, life: 0.9, spread: 0.6, tint: [[0.4, 0.9, 0.4]] }) || Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.4); return true; }
   if (m.loveT > 0 || m.loveCD > 0) return true; // MC: they take no more food while in love or recovering
   mset(m, { loveT: 30 }); consumeHeldFood(); hearts(m, 4); return true;
 }
@@ -251,7 +251,7 @@ function feedHorse(m, k) {
   if (!g.tamed && temper && g.temper < 100) { set.temper = Math.min(100, g.temper + temper); ate = true; }
   if (g.tamed && !m.baby && BREED_FOOD.horse.includes(k) && m.loveT <= 0 && !(m.loveCD > 0)) { set.loveT = 30; ate = true; }
   if (!ate) return false;
-  mset(m, set); consumeHeldFood(); if (set.loveT) hearts(m, 5); else Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.5);
+  mset(m, set); consumeHeldFood(); if (set.loveT) hearts(m, 5); else SpriteFX.emit('glitter', m.pos.x, m.pos.y + m.h, m.pos.z, 4, { size: 0.25, grav: -0.5, spd: 0.6, life: 0.9, spread: 0.6, tint: [[0.4, 0.9, 0.4]] }) || Particles.emit(m.pos.x, m.pos.y + m.h, m.pos.z, 4, [[0.4, 0.9, 0.4]], 0.6, 0.6, -1, 0.5);
   if (m.head) m.grazeT = 0.8; Sfx.at('neigh', m.pos, 0.4, 1.2); return true;
 }
 const EQUINE = new Set(['horse', 'donkey']);

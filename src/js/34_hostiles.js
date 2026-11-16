@@ -101,7 +101,7 @@ MOBS.witch.tick = function (m, dt) {
 };
 { const _pi = projImpact; projImpact = function (a, mob) {
     if (a.kind !== 'potion') return _pi(a, mob); a.done = true; const c = POTION_COL[a.potion] || [[0.6, 0.3, 0.8]];
-    Particles.emit(a.pos.x, a.pos.y, a.pos.z, 40, c, 4, 0.8, -2, 2); Sfx.at('glass_break', a.pos, 0.8);
+    SpriteFX.emit('effect', a.pos.x, a.pos.y, a.pos.z, 40, { size: 0.3, grav: 1, spd: 3, life: 0.9, spread: 1.2, tint: c }) || Particles.emit(a.pos.x, a.pos.y, a.pos.z, 40, c, 4, 0.8, -2, 2); Sfx.at('glass_break', a.pos, 0.8);
     const P = player; const d = P.pos.clone().add(new V3(0, 0.9, 0)).distanceTo(a.pos); if (d > 4 || P.dead || !isSurv()) return; const k = 1 - d / 4;
     if (a.potion === 'instant_damage') { P.hurtCD = 0; P.hurt(Math.round(6 * k), null, 'magic', 0); }
     else giveEffect(a.potion, Math.round({ poison: 45, slowness: 90, weakness: 90 }[a.potion] * 0.75 * k), 0);
@@ -210,7 +210,7 @@ MOBS.breeze.tick = function (m, dt) {
 };
 // a wind burst: pushes everything nearby away; your own wind charges launch you (and spare you fall damage)
 function windBurst(p, power, src) {
-  Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
+  SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
   const R = power > 1 ? 2.4 : 2.5 + power * 0.5; // a player's wind charge reaches about 2.4 blocks (explosion radius 1.2); a breeze's is wider
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
@@ -257,7 +257,7 @@ function maceBonus(mob) {
     const slot = cause === 'the void' ? -1 : this.inv[this.sel] && this.inv[this.sel].id === IT.totem_of_undying ? this.sel : this.inv[36] && this.inv[36].id === IT.totem_of_undying ? 36 : -1;
     if (slot < 0 || !isSurv()) return _die.apply(this, arguments);
     this.inv[slot] = null; invDirty(); this.dead = false; this.health = 1; this.hurtCD = 1; this.effects = {}; giveEffect('regeneration', 45, 1); giveEffect('absorption', 5, 1); giveEffect('fire_resistance', 40, 0); updateHearts();
-    Particles.emit(this.pos.x, this.pos.y + 1, this.pos.z, 60, [[0.9, 0.8, 0.2], [0.3, 0.8, 0.3]], 5, 1.2, -2, 1.2); Sfx.play('levelup', 0.8); toast('Totem of Undying!', 2);
+    SpriteFX.emit('glitter', this.pos.x, this.pos.y + 1, this.pos.z, 60, { size: 0.3, grav: 1, spd: 5, life: 1.6, spread: 1, drag: 1.5, tint: [[0.9, 0.8, 0.2], [0.3, 0.8, 0.3]] }) || Particles.emit(this.pos.x, this.pos.y + 1, this.pos.z, 60, [[0.9, 0.8, 0.2], [0.3, 0.8, 0.3]], 5, 1.2, -2, 1.2); Sfx.play('levelup', 0.8); toast('Totem of Undying!', 2);
   }; }
 
 // ---------- natural spawning ----------

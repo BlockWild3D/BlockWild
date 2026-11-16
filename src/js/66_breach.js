@@ -17,7 +17,7 @@ pvpHit = function (av, dmg, kb, cause) {
   if (!S.rules.pvp) { toast('PvP is off in this world (/gamerule pvp true)', 1.5); return; }
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName(), breach: BREACH_NOW || 0 };
   BREACH_NOW = 0; if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
-  av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6); Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
+  av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6); SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 };
 pvpDeliver = function (m) { if (m.to === MP.myId || m.to === 'host') return pvpReceive(m); const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, breach: m.breach || 0 }); };
 { const _pr = pvpReceive; pvpReceive = function (m) { player.breachIn = Math.min(4, m.breach || 0); try { return _pr.apply(this, arguments); } finally { player.breachIn = 0; } }; }

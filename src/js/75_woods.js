@@ -72,7 +72,7 @@ function saplingTick(x, y, z, id) { if (Math.random() < 0.25) trySapling(x, y, z
 // bone meal: 45% chance; fungi grow on their own nylium
 { const _fu = farmUse; farmUse = function (h, hd) {
     if (hd && hd.kind === 'bonemeal' && target) { const id = target.id; const d = BL[id]; const { x, y, z } = target;
-      const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); };
+      const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; SpriteFX.emit('glitter', x + 0.5, y + 0.5, z + 0.5, 10, { size: 0.25, grav: -0.5, spd: 0.8, life: 0.9, spread: 0.9, tint: [[0.4, 0.9, 0.4], [0.7, 1, 0.6]] }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); };
       if (d && d.sapling) { if (Math.random() < 0.45) trySapling(x, y, z, id); fx(); return true; }
       if ((id === B.CRIMSON_FUNGUS || id === B.WARPED_FUNGUS) && world.get(x, y - 1, z) === (id === B.CRIMSON_FUNGUS ? B.CRIMSON_NYLIUM : B.WARPED_NYLIUM)) { if (Math.random() < 0.4) { world.set(x, y, z, 0); if (!growTree(x, y, z, 'fungus')) world.set(x, y, z, id); } fx(); return true; }
     }

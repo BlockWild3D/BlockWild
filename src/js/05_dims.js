@@ -258,7 +258,7 @@ class Dragon {
   updateBar() { $('bossfill').style.width = Math.max(0, this.hp / this.maxHp * 100) + '%'; }
   remove() { scene.remove(this.root); for (const g of this.tail) scene.remove(g); for (const [m] of this.mats) m.dispose(); }
 }
-function explodeFx(x, y, z) { Particles.emit(x, y, z, 30, [[1, 0.9, 0.6], [0.8, 0.4, 1]], 8, 0.5, 0, 1); Sfx.play('boom', 0.5); }
+function explodeFx(x, y, z) { SpriteFX.emit('explosion', x, y, z, 6, { size: 2, spd: 2, life: 0.8, spread: 1.5, vary: false }) || Particles.emit(x, y, z, 30, [[1, 0.9, 0.6], [0.8, 0.4, 1]], 8, 0.5, 0, 1); Sfx.play('boom', 0.5); }
 const EndFight = {
   dragon: null, crystals: [],
   enter() {

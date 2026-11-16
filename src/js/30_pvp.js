@@ -20,7 +20,7 @@ function pvpHit(av, dmg, kb, cause) {
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName() };
   if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
   av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6);
-  Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
+  SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 }
 function pvpDeliver(m) { // host: route a hit to its target
   if (m.to === MP.myId || m.to === 'host') return pvpReceive(m);
@@ -47,7 +47,7 @@ function pvpReceive(m) {
     if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } if (typeof spearLunge === 'function') spearLunge(dir); } } // a jab at a player lunges too
     else if (meleeReady()) {
       const tool = player.heldDef(); const h = meleeHit(tool, null); pvpHit(hit.av, h.dmg, h.kb);
-      if (h.crit) Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
+      if (h.crit) SpriteFX.emit('critical_hit', hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, { size: 0.28, grav: 4, spd: 4, life: 0.5, spread: 0.6 }) || Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
       if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
     }
     const ml = mouseL; mouseL = false; try { return _ui.apply(this, arguments); } finally { mouseL = ml; }

@@ -69,7 +69,7 @@ MOBS.axolotl.tick = (m, dt) => {
 // axolotls play dead when badly hurt; squid squirt ink
 { const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) { const r = _h.call(this, dmg, src, kb, na);
     if (this.type === 'axolotl' && !this.dead && this.hp < 5 && !(this.deadT > 0) && Math.random() < 0.33) this.deadT = 10;
-    if ((this.type === 'squid' || this.type === 'glow_squid') && !this.dead) Particles.emit(this.pos.x, this.pos.y + 0.6, this.pos.z, 30, this.type === 'squid' ? [[0.05, 0.05, 0.08], [0.15, 0.15, 0.2]] : [[0.3, 0.9, 0.85], [0.6, 1, 0.9]], 3, 1.2, 1, 1.2);
+    if ((this.type === 'squid' || this.type === 'glow_squid') && !this.dead) (this.type === 'glow_squid' && SpriteFX.emit('glow', this.pos.x, this.pos.y + 0.6, this.pos.z, 24, { size: 0.2, spd: 3, life: 1.2, spread: 1.2, drag: 2, tint: [0.45, 1, 0.9] })) || Particles.emit(this.pos.x, this.pos.y + 0.6, this.pos.z, 30, this.type === 'squid' ? [[0.05, 0.05, 0.08], [0.15, 0.15, 0.2]] : [[0.3, 0.9, 0.85], [0.6, 1, 0.9]], 3, 1.2, 1, 1.2);
     return r; }; }
 // Dolphin's Grace: much faster swimming
 { const _up = updatePlayer; updatePlayer = function (dt) { const r = _up.apply(this, arguments); const P = player; if (effLevel('dolphins_grace') && inWater(P, 0.4) && !P.riding) { const hs = Math.hypot(P.vel.x, P.vel.z); if (hs > 0.5 && hs < 9) { P.vel.x *= 1 + dt * 3; P.vel.z *= 1 + dt * 3; } } return r; }; }

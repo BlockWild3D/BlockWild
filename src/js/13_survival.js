@@ -9,9 +9,9 @@ const BUBBLE = (() => { const mk = (pop) => { const c = document.createElement('
 let drownT = 0;
 function updateAir(dt, eyeFluid) {
   const P = player; const under = eyeFluid === B.WATER && isSurv() && !P.dead;
-  if (under && !effLevel('water_breathing')) { P.air -= dt * 20; if (P.air <= 0) { P.air = 0; drownT += dt; if (drownT >= 1) { drownT = 0; P.hurtCD = 0; P.hurt(2, null, 'drowning', 0); Particles.emit(P.pos.x, P.pos.y + 1.4, P.pos.z, 6, [0.7, 0.85, 1], 1.5, 0.6, -4, 0.3); } } }
+  if (under && !effLevel('water_breathing')) { P.air -= dt * 20; if (P.air <= 0) { P.air = 0; drownT += dt; if (drownT >= 1) { drownT = 0; P.hurtCD = 0; P.hurt(2, null, 'drowning', 0); SpriteFX.emit('bubble', P.pos.x, P.pos.y + 1.4, P.pos.z, 6, { size: 0.16, grav: -4, spd: 1.5, life: 0.6, spread: 0.3 }) || Particles.emit(P.pos.x, P.pos.y + 1.4, P.pos.z, 6, [0.7, 0.85, 1], 1.5, 0.6, -4, 0.3); } } }
   else { P.air = Math.min(300, P.air + dt * 80); drownT = 0; }
-  if (under && Math.random() < dt * 1.5) { const e = P.eye(); Particles.emit(e.x, e.y, e.z, 1, [0.75, 0.9, 1], 0.3, 1.2, -3, 0.15); }
+  if (under && Math.random() < dt * 1.5) { const e = P.eye(); SpriteFX.emit('bubble', e.x, e.y, e.z, 1, { size: 0.14, grav: -3, spd: 0.3, life: 1.2, spread: 0.15 }) || Particles.emit(e.x, e.y, e.z, 1, [0.75, 0.9, 1], 0.3, 1.2, -3, 0.15); }
   const vis = (under || P.air < 300) && isSurv(); $('airRow').style.visibility = vis ? 'visible' : 'hidden';
   if (vis) { const n = Math.ceil(P.air / 30); for (let i = 0; i < 10; i++) { const b = bubbleImgs[9 - i]; if (i < n) { b.src = BUBBLE[0]; b.style.visibility = 'visible'; } else if (i === n && P.air > 0) { b.src = BUBBLE[1]; b.style.visibility = 'visible'; } else b.style.visibility = 'hidden'; } }
 }

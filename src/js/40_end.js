@@ -182,7 +182,7 @@ function glideUpdate(P, dt) {
       return; }
     return _ua(eye, dir); }; }
 function updateFireworks(dt) { if (!G.fireworks || !G.fireworks.length) return;
-  for (const fw of G.fireworks) { fw.t += dt; if (fw.t < 1.2) { if (Math.random() < 0.7) Particles.emit(fw.x, fw.y + fw.t * 12, fw.z, 1, [[1, 0.9, 0.6]], 0.3, 0.3, 0, 0.3); }
-    else if (!fw.done) { fw.done = true; const c = new THREE.Color().setHSL(fw.hue, 1, 0.6), c2 = new THREE.Color().setHSL((fw.hue + 0.15) % 1, 1, 0.7); Particles.emit(fw.x, fw.y + 14, fw.z, 70, [[c.r, c.g, c.b], [c2.r, c2.g, c2.b]], 9, 1.4, 3, 1.6); Sfx.play('boom', 0.25, 1.8); } }
+  for (const fw of G.fireworks) { fw.t += dt; if (fw.t < 1.2) { if (Math.random() < 0.7) SpriteFX.emit('spark', fw.x, fw.y + fw.t * 12, fw.z, 1, { size: 0.2, spd: 0.3, life: 0.4, spread: 0.2 }) || Particles.emit(fw.x, fw.y + fw.t * 12, fw.z, 1, [[1, 0.9, 0.6]], 0.3, 0.3, 0, 0.3); }
+    else if (!fw.done) { fw.done = true; const c = new THREE.Color().setHSL(fw.hue, 1, 0.6), c2 = new THREE.Color().setHSL((fw.hue + 0.15) % 1, 1, 0.7); SpriteFX.emit('flash', fw.x, fw.y + 14, fw.z, 1, { size: 3, spd: 0, life: 0.25, spread: 0, vary: false }), SpriteFX.emit('spark', fw.x, fw.y + 14, fw.z, 70, { size: 0.25, grav: 3, spd: 9, life: 1.4, spread: 0.5, drag: 1.2, tint: [[c.r, c.g, c.b], [c2.r, c2.g, c2.b]] }) || Particles.emit(fw.x, fw.y + 14, fw.z, 70, [[c.r, c.g, c.b], [c2.r, c2.g, c2.b]], 9, 1.4, 3, 1.6); Sfx.play('boom', 0.25, 1.8); } }
   G.fireworks = G.fireworks.filter(f => !f.done); }
 { const _ub = updateBoats; updateBoats = function (dt) { const r = _ub(dt); updateFireworks(dt); return r; }; }

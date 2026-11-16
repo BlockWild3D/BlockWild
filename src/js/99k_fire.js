@@ -30,15 +30,15 @@ function fireTick(dt) {
   const inFire = (e) => { const x = Math.floor(e.pos.x), z = Math.floor(e.pos.z); return w.get(x, Math.floor(e.pos.y + 0.1), z) === B.FIRE || w.get(x, Math.floor(e.pos.y + 1), z) === B.FIRE; };
   if (F.size && !P.dead && isSurv() && inFire(P)) P.fireT = 4;
   if (P.fireT > 0) { if (inWater(P, 0.4) || P.dead || !isSurv() || (typeof weatherWet === 'function' && weatherWet(P.pos))) { if (P.fireT > 0 && !P.dead && isSurv()) Sfx.play('fizz', 0.5); P.fireT = 0; }
-    else { P.fireT -= dt; fireHurtT -= dt; if (Math.random() < dt * 14) Particles.emit(P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, [[1, 0.7, 0.15], [1, 0.4, 0.05]], 0.4, 0.5, -2.5, 0.5);
+    else { P.fireT -= dt; fireHurtT -= dt; if (Math.random() < dt * 14) SpriteFX.emit('flame', P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, [[1, 0.7, 0.15], [1, 0.4, 0.05]], 0.4, 0.5, -2.5, 0.5);
       if (fireHurtT <= 0) { fireHurtT = 1; if (!effLevel('fire_resistance')) { P.hurtCD = 0; P.hurt(1, null, 'fire', 0); } } } }
   const ov = $('fireOv'); if (ov) ov.style.opacity = P.fireT > 0 && !(S.pov > 0) ? 0.55 + 0.1 * Math.sin(performance.now() / 90) : 0;
   fireT += dt; if (fireT < 0.5) return; fireT = 0; if (!F.size) return;
-  for (const m of G.mobs) if (!m.dead && !m.isBoss && m.vel && !(m.t && m.t.fireproof) && inFire(m)) { m.hurt(1, null, 0); Particles.emit(m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.8, 0.6, -2, 0.6); }
+  for (const m of G.mobs) if (!m.dead && !m.isBoss && m.vel && !(m.t && m.t.fireproof) && inFire(m)) { m.hurt(1, null, 0); SpriteFX.emit('flame', m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, { size: 0.22, grav: -1, spd: 0.5, life: 0.5, spread: 0.4 }) || Particles.emit(m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.8, 0.6, -2, 0.6); }
   const spread = S.rules.doFireTick !== false && !(typeof mpClient === 'function' && mpClient()); const rain = typeof weatherWet === 'function' && S.weather !== 'clear' && w.dim === 'overworld';
   let n = 0; for (const [k, [x, y, z]] of [...F]) { if (++n > 400) break;
     if (w.get(x, y, z) !== B.FIRE) { F.delete(k); continue; } if (!w.getChunk(Math.floor(x / 16), Math.floor(z / 16))) continue;
-    if (Math.random() < 0.25) Particles.emit(x + 0.5, y + 0.9, z + 0.5, 1, [[0.25, 0.25, 0.25], [0.4, 0.4, 0.4]], 0.3, 1.2, 1.2, 0.4);
+    if (Math.random() < 0.25) SpriteFX.emit('big_smoke', x + 0.5, y + 0.9, z + 0.5, 1, { size: 0.5, grav: -1.5, spd: 0.2, life: 1.4, spread: 0.3, tint: [0.45, 0.45, 0.45] }) || Particles.emit(x + 0.5, y + 0.9, z + 0.5, 1, [[0.25, 0.25, 0.25], [0.4, 0.4, 0.4]], 0.3, 1.2, 1.2, 0.4);
     if (!fireCanStay(w, x, y, z)) { w.set(x, y, z, 0); continue; }
     if (!spread) continue;
     if (rain && weatherWet(new V3(x + 0.5, y, z + 0.5)) && Math.random() < 0.4) { w.set(x, y, z, 0); Sfx.at('fizz', new V3(x, y, z), 0.3); continue; }

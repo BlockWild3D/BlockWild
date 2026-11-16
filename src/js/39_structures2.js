@@ -93,10 +93,10 @@ function updateTrials(dt) {
   if (!world || !world.trialSpawners || isClientMP()) return; const P = player;
   for (const [k, T] of world.trialSpawners) { const [x, y, z] = k.split(',').map(Number); if (Math.abs(x - P.pos.x) > 24 || Math.abs(z - P.pos.z) > 24) continue; if (world.get(x, y, z) !== B.TRIAL_SPAWNER) { world.trialSpawners.delete(k); continue; }
     T.cool -= dt; T.alive = T.alive.filter(m => !m.dead && !m.gone);
-    if (Math.random() < dt * 6) Particles.emit(x + 0.5, y + 0.6, z + 0.5, 1, T.state === 'active' ? [[1, 0.5, 0.1]] : [[0.5, 0.5, 0.5]], 0.6, 0.6, -2, 0.5);
+    if (Math.random() < dt * 6) SpriteFX.emit(typeof effLevel === 'function' && effLevel('bad_omen') ? 'trial_spawner_detection_ominous' : 'trial_spawner_detection', x + 0.5, y + 0.6, z + 0.5, 1, { size: 0.25, grav: -1, spd: 0.4, life: 0.8, spread: 0.6 }) || Particles.emit(x + 0.5, y + 0.6, z + 0.5, 1, T.state === 'active' ? [[1, 0.5, 0.1]] : [[0.5, 0.5, 0.5]], 0.6, 0.6, -2, 0.5);
     if (T.state === 'idle' && T.cool <= 0 && isSurv() && P.pos.distanceTo(new V3(x + 0.5, y, z + 0.5)) < 14) { T.state = 'active'; T.total = 6; T.spawned = 0; Sfx.at('portal', new V3(x, y, z), 0.6); }
     if (T.state === 'active') { T.spawnT = (T.spawnT || 0) - dt;
-      if (T.spawned < T.total && T.alive.length < 3 && T.spawnT <= 0) { T.spawnT = 2; for (let k2 = 0; k2 < 8; k2++) { const sx = x + (Math.random() * 7 | 0) - 3, sz = z + (Math.random() * 7 | 0) - 3; if (freeAt(sx, y, sz, 2) && SOLID[world.get(sx, y - 1, sz)]) { const m = spawnMob(T.mob, sx + 0.5, y, sz + 0.5); m.trial = true; T.alive.push(m); T.spawned++; Particles.emit(sx + 0.5, y + 0.8, sz + 0.5, 14, [[1, 0.6, 0.2]], 2, 0.6, -1, 0.6); break; } } }
+      if (T.spawned < T.total && T.alive.length < 3 && T.spawnT <= 0) { T.spawnT = 2; for (let k2 = 0; k2 < 8; k2++) { const sx = x + (Math.random() * 7 | 0) - 3, sz = z + (Math.random() * 7 | 0) - 3; if (freeAt(sx, y, sz, 2) && SOLID[world.get(sx, y - 1, sz)]) { const m = spawnMob(T.mob, sx + 0.5, y, sz + 0.5); m.trial = true; T.alive.push(m); T.spawned++; (typeof effLevel === 'function' && effLevel('bad_omen')) && SpriteFX.emit('ominous_spawning', sx + 0.5, y + 0.8, sz + 0.5, 14, { size: 0.3, grav: -1, spd: 1.5, life: 0.8, spread: 0.6 }) || Particles.emit(sx + 0.5, y + 0.8, sz + 0.5, 14, [[1, 0.6, 0.2]], 2, 0.6, -1, 0.6); break; } } }
       if (T.spawned >= T.total && !T.alive.length) { T.state = 'idle'; T.cool = 1800; const loot = rollLoot('trial_reward', (Math.random() * 1e9) | 0); for (const s of loot) if (s) { const it = dropItem(s.id, s.count, x + 0.5, y + 1.2, z + 0.5, true); } Sfx.play('levelup', 0.6); toast('Trial complete!', 2); } }
   }
 }
@@ -159,7 +159,7 @@ MOBS.warden.tick = function (m, dt) {
   let goal = m.heard; if (m.anger > 80 && P && !P.dead) goal = P.pos;
   if (goal) { steerTo(m, goal, 1.2); const d = P ? P.pos.distanceTo(m.pos) : 99;
     if (P && d < 2.4 && m.atkCD <= 0 && m.anger > 40) { m.atkCD = 0.9; P.hurt(m.t.dmg, m.pos, 'the Warden', 1.6); if (m.arms) for (const a of m.arms) a.rotation.x = -1.4; }
-    m.boomT = (m.boomT || 8) - dt; if (P && m.anger > 80 && d > 3 && d < 15 && m.boomT <= 0) { m.boomT = 5; Sfx.at('roar', m.pos, 0.8, 1.6); const a = m.pos.clone().add(new V3(0, 2, 0)), b = P.eye(); for (let i = 0; i < 12; i++) { const p = a.clone().lerp(b, i / 12); Particles.emit(p.x, p.y, p.z, 3, [[0.4, 0.9, 0.95]], 1, 0.6, 0, 0.4); } P.hurtCD = 0; const armor = 0; P.hurt(10, null, 'the Warden', 0); const dir = b.sub(a).normalize(); P.vel.addScaledVector(dir, 6); } }
+    m.boomT = (m.boomT || 8) - dt; if (P && m.anger > 80 && d > 3 && d < 15 && m.boomT <= 0) { m.boomT = 5; Sfx.at('roar', m.pos, 0.8, 1.6); const a = m.pos.clone().add(new V3(0, 2, 0)), b = P.eye(); for (let i = 0; i < 12; i++) { const p = a.clone().lerp(b, i / 12); SpriteFX.emit('sonic_boom', p.x, p.y, p.z, 1, { size: 1.2, spd: 0, life: 0.8, spread: 0.1, vary: false }) || Particles.emit(p.x, p.y, p.z, 3, [[0.4, 0.9, 0.95]], 1, 0.6, 0, 0.4); } P.hurtCD = 0; const armor = 0; P.hurt(10, null, 'the Warden', 0); const dir = b.sub(a).normalize(); P.vel.addScaledVector(dir, 6); } }
   m.heartPulse = (m.heartPulse || 0) + dt * (1 + m.anger / 40); if (m.heart) m.heart.scale.setScalar(1 + Math.sin(m.heartPulse * 6) * 0.25);
   m.lostT = goal ? 0 : (m.lostT || 0) + dt; if (m.lostT > 60 && !isClientMP()) { m.gone = true; Particles.emit(m.pos.x, m.pos.y, m.pos.z, 30, [[0.2, 0.2, 0.25]], 3, 0.8, 8, 1); }
   return false;
@@ -173,7 +173,7 @@ function updateSculk(dt) {
   const x0 = Math.floor(P.pos.x), y0 = Math.floor(P.pos.y), z0 = Math.floor(P.pos.z); let shrieker = null;
   for (let dx = -8; dx <= 8 && !shrieker; dx++) for (let dy = -3; dy <= 3 && !shrieker; dy++) for (let dz = -8; dz <= 8; dz++) { const id = world.get(x0 + dx, y0 + dy, z0 + dz); if (id === B.SCULK_SHRIEKER || (id === B.SCULK_SENSOR && Math.abs(dx) + Math.abs(dz) < 5)) { shrieker = [x0 + dx, y0 + dy, z0 + dz]; break; } }
   if (!shrieker) return; S.warnCD = 10; S.warn++; S.warnDecay = 0; const sp = new V3(shrieker[0] + 0.5, shrieker[1] + 1, shrieker[2] + 0.5);
-  Sfx.at('scream', sp, 1, 0.5); Particles.emit(sp.x, sp.y, sp.z, 20, [[0.3, 0.9, 0.95]], 2, 1, -2, 0.8); giveEffect('darkness', 12, 0);
+  Sfx.at('scream', sp, 1, 0.5); SpriteFX.emit('shriek', sp.x, sp.y, sp.z, 6, { size: 0.6, grav: -3, spd: 0.2, life: 1.2, spread: 0.3 }) || Particles.emit(sp.x, sp.y, sp.z, 20, [[0.3, 0.9, 0.95]], 2, 1, -2, 0.8); giveEffect('darkness', 12, 0);
   if (S.warn >= 4 && !G.mobs.some(m => m.type === 'warden' && !m.dead)) { S.warn = 0; for (let k = 0; k < 30; k++) { const x = x0 + (Math.random() * 20 | 0) - 10, z = z0 + (Math.random() * 20 | 0) - 10; for (let y = y0 + 4; y > y0 - 6; y--) if (freeAt(x, y, z, 3) && SOLID[world.get(x, y - 1, z)]) { spawnMob('warden', x + 0.5, y, z + 0.5); toast('The Warden is coming', 3); k = 99; break; } } }
   else toast(['', 'Something heard you', 'It is getting closer', 'It is very close'][S.warn] || '', 2);
 }

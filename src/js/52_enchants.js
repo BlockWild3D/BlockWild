@@ -42,7 +42,7 @@ const BLAST_CAUSES = /Creeper|TNT|explosion|End Crystal|fireball|Ghast|Wither|be
 // Swift Sneak / Depth Strider / Soul Speed change walking speed (hooked into the movement code)
 function sneakSpeedMul() { return 1 + 0.5 * enchOf(player.inv[39], 'swift_sneak'); }
 function waterSpeedMul() { const d = Math.min(3, enchOf(player.inv[40], 'depth_strider')); return 0.55 + (1 - 0.55) * d / 3; }
-function soulSandMul() { const s = enchOf(player.inv[40], 'soul_speed'); if (!s) return 0.55; if (Math.random() < 0.04 && isSurv()) damageSlot(40, 1); if (Math.random() < 0.2) Particles.emit(player.pos.x, player.pos.y + 0.1, player.pos.z, 1, [[0.3, 0.8, 0.9]], 0.5, 0.4, -1, 0.5); return 1.05 + 0.105 * s; }
+function soulSandMul() { const s = enchOf(player.inv[40], 'soul_speed'); if (!s) return 0.55; if (Math.random() < 0.04 && isSurv()) damageSlot(40, 1); if (Math.random() < 0.2) SpriteFX.emit('soul', player.pos.x, player.pos.y + 0.1, player.pos.z, 1, { size: 0.25, grav: -1, spd: 0.4, life: 0.8, spread: 0.3 }) || Particles.emit(player.pos.x, player.pos.y + 0.1, player.pos.z, 1, [[0.3, 0.8, 0.9]], 0.5, 0.4, -1, 0.5); return 1.05 + 0.105 * s; }
 // Mending: experience you pick up repairs a random damaged Mending item you're wearing or holding (2 durability each)
 { const _ax = addXP; addXP = function (n) {
     if (n > 0) { const slots = [player.sel, 36, 37, 38, 39, 40].filter(i => { const s = player.inv[i]; return s && s.dmg > 0 && enchOf(s, 'mending'); });

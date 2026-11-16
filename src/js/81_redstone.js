@@ -138,7 +138,7 @@ function rsRun(kind, x, y, z) {
     case 'torch': { if (!d.rsTorch) return; const a = torchAttach(x, y, z, rget); const v = RV[a]; const want = rsAttachedPower(x + v[0], y + v[1], z + v[2], a ^ 1) === 0; if (want === !d.torchOff) return;
       if (want && RS.burnt.has(k) && RS.burnt.get(k) > RS.tick) return;
       const h = (RS.torch.get(k) || []).filter(t => t > RS.tick - 60); h.push(RS.tick); RS.torch.set(k, h);
-      if (h.length > 8 && !want) { RS.burnt.set(k, RS.tick + 160); RS.torch.delete(k); rsSet(x, y, z, B.REDSTONE_TORCH_OFF); Sfx.at('fizz', new V3(x + 0.5, y + 0.5, z + 0.5), 0.6); Particles.emit(x + 0.5, y + 0.8, z + 0.5, 6, [[0.5, 0.5, 0.5]], 0.6, 1, -3, 0.15); rsSchedule(x, y, z, 'relight', 161); return; }
+      if (h.length > 8 && !want) { RS.burnt.set(k, RS.tick + 160); RS.torch.delete(k); rsSet(x, y, z, B.REDSTONE_TORCH_OFF); Sfx.at('fizz', new V3(x + 0.5, y + 0.5, z + 0.5), 0.6); SpriteFX.emit('generic', x + 0.5, y + 0.8, z + 0.5, 6, { size: 0.2, grav: -1.5, spd: 0.3, life: 0.8, spread: 0.1, tint: [0.7, 0.7, 0.7] }) || Particles.emit(x + 0.5, y + 0.8, z + 0.5, 6, [[0.5, 0.5, 0.5]], 0.6, 1, -3, 0.15); rsSchedule(x, y, z, 'relight', 161); return; }
       rsSet(x, y, z, want ? B.REDSTONE_TORCH : B.REDSTONE_TORCH_OFF); return; }
     case 'relight': RS.burnt.delete(k); rsUpdate(x, y, z); return;
     case 'rep': { if (!d.repeater || d.st.locked) return; const on = repInput(x, y, z, d) > 0;
@@ -269,7 +269,7 @@ function noteInstrument(x, y, z) { const id = rget(x, y - 1, z); const d = BL[id
 const NOTE_OCT = { harp: 0, bass: -2, guitar: -1, didgeridoo: -2, bell: 2, chime: 2, xylophone: 2, flute: 1, cow_bell: 1, iron_xylophone: 0, bit: 0, banjo: 0, pling: 0 };
 function playNote(x, y, z) { const d = BL[rget(x, y, z)]; if (!d || d.note === undefined) return; if (rget(x, y + 1, z)) return; // only plays with air above
   const inst = noteInstrument(x, y, z); const n = d.note; const pos = new V3(x + 0.5, y + 1.2, z + 0.5); Sfx.at('note:' + inst + ':' + n, pos, 1);
-  const hue = n / 24; const col = [Math.max(0, Math.sin((hue + 0) * 6.28) * 0.65 + 0.35), Math.max(0, Math.sin((hue + 0.33) * 6.28) * 0.65 + 0.35), Math.max(0, Math.sin((hue + 0.67) * 6.28) * 0.65 + 0.35)]; Particles.emit(x + 0.5, y + 1.2, z + 0.5, 1, [col], 0.3, 0.8, -2, 0.05, 1.5); }
+  const hue = n / 24; const col = [Math.max(0, Math.sin((hue + 0) * 6.28) * 0.65 + 0.35), Math.max(0, Math.sin((hue + 0.33) * 6.28) * 0.65 + 0.35), Math.max(0, Math.sin((hue + 0.67) * 6.28) * 0.65 + 0.35)]; SpriteFX.emit('note', x + 0.5, y + 1.2, z + 0.5, 1, { size: 0.3, grav: -1.2, spd: 0.2, life: 1, spread: 0.05, vary: false, tint: [col] }) || Particles.emit(x + 0.5, y + 1.2, z + 0.5, 1, [col], 0.3, 0.8, -2, 0.05, 1.5); }
 { const _pl = Sfx.play; Sfx.play = function (name, v = 1, rate) {
     if (!this.ctx) return _pl.apply(this, arguments); if (!(v >= 0.02)) return;
     if (typeof name === 'string' && name.startsWith('note:')) { const [, inst, ns] = name.split(':'); const n = +ns; const f = 185 * Math.pow(2, n / 12 + (NOTE_OCT[inst] || 0));

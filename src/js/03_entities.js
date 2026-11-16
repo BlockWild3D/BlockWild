@@ -467,7 +467,7 @@ class Mob {
     if (this.dead) {
       this.deadT += dt; const k = Math.min(1, this.deadT * 3.5); this.root.rotation.z = (1 - Math.pow(1 - k, 3)) * Math.PI / 2 * (this.deathSide || (this.deathSide = Math.random() < 0.5 ? -1 : 1)); if (t.fly) this.pos.y -= dt * 2;
       this.root.position.set(this.pos.x, this.pos.y, this.pos.z); this.hurtT = 0.2; this.colorize();
-      if (this.deadT > 1.0) { this.gone = true; Particles.emit(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, [0.8, 0.8, 0.8], 2, 0.8, -1, Math.max(0.8, this.hw * 2), Math.max(0.3, this.light)); this.dropLoot(); }
+      if (this.deadT > 1.0) { this.gone = true; SpriteFX.emit('generic', this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, { size: 0.5, grav: -0.5, spd: 1.5, life: 0.8, spread: 0.8 }) || Particles.emit(this.pos.x, this.pos.y + this.h * 0.5, this.pos.z, 20, [0.8, 0.8, 0.8], 2, 0.8, -1, Math.max(0.8, this.hw * 2), Math.max(0.3, this.light)); this.dropLoot(); }
       return;
     }
     const water = inWater(this, 0.4), lava = inLava(this, 0.3); if (water) fluidPush(this, dt, 0.6);
@@ -520,10 +520,10 @@ class Mob {
     }
     if (this.detourT > 0) { this.detourT -= dt; tyaw += this.detour; if (move === 0) move = 1; }
     if (t.burns && w.dim === 'overworld' && G.daylight > 0.62 && !water && w.skyAt(Math.floor(this.pos.x), Math.floor(this.pos.y + this.h), Math.floor(this.pos.z)) >= 1) {
-      this.burnT += dt; if (Math.random() < dt * 20) Particles.emit(this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.6, 0.6, -2, 0.6);
+      this.burnT += dt; if (Math.random() < dt * 20) SpriteFX.emit('flame', this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.6, 0.6, -2, 0.6);
       if (this.burnT > 1) { this.burnT = 0; this.hurt(1, null, 0); }
     }
-    if (t.fireproof && (lava || this.type === 'strider') && Math.random() < dt * 2) Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 1, [[1, 0.5, 0.1]], 0.4, 0.5, -1, 0.5);
+    if (t.fireproof && (lava || this.type === 'strider') && Math.random() < dt * 2) SpriteFX.emit('lava', this.pos.x, this.pos.y + 0.3, this.pos.z, 1, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 1, [[1, 0.5, 0.1]], 0.4, 0.5, -1, 0.5);
     let diff = tyaw - this.yaw; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2; this.yaw += diff * Math.min(1, dt * 7);
     const tx = Math.sin(this.yaw) * speed * move, tz = Math.cos(this.yaw) * speed * move;
     const k = this.onGround ? Math.min(1, dt * 10) : Math.min(1, dt * 2);
@@ -658,7 +658,7 @@ function hitsMob(m, p, pad = 0.1) { if (m.hitPoint) return m.hitPoint(p); return
 function projImpact(a, mob) {
   const P = G.player; a.done = true;
   if (a.kind === 'fireball') { explode(a.pos.x, a.pos.y, a.pos.z, 1.7, a.src, { cause: 'a Ghast fireball' }); if (mob && a.owner === 'player') mob.hurt(mob.type === 'ghast' ? 100 : 12, a.pos, 1); }
-  else if (a.kind === 'smallfire') Particles.emit(a.pos.x, a.pos.y, a.pos.z, 10, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 3, 0.5, 2, 0.3);
+  else if (a.kind === 'smallfire') SpriteFX.emit('flame', a.pos.x, a.pos.y, a.pos.z, 10, { size: 0.25, grav: 2, spd: 3, life: 0.5, spread: 0.3 }) || Particles.emit(a.pos.x, a.pos.y, a.pos.z, 10, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 3, 0.5, 2, 0.3);
   else if (a.kind === 'breath') { spawnBreathCloud(a.pos.x, a.pos.y, a.pos.z); }
   else if (a.kind === 'pearl') {
     if (!P.dead) { const back = a.vel.clone().normalize().multiplyScalar(-0.6); const p = a.pos.clone().add(back); let x = Math.floor(p.x), y = Math.floor(p.y), z = Math.floor(p.z); for (let k = 0; k < 4 && (G.world.solid(x, y, z) || G.world.solid(x, y + 1, z)); k++) y++;
@@ -671,7 +671,7 @@ function updateProjectiles(dt) {
     a.life -= dt; if (a.life <= 0) { a.done = true; continue; }
     const def = PROJ[a.kind];
     if (def.trail && Math.random() < dt * 25) Particles.emit(a.pos.x, a.pos.y, a.pos.z, 1, def.trail, 0.4, 0.6, -0.5, 0.3);
-    if (a.crit && Math.random() < dt * 40) Particles.emit(a.pos.x, a.pos.y, a.pos.z, 1, def.critTrail, 0.3, 0.4, 0, 0.1);
+    if (a.crit && Math.random() < dt * 40) SpriteFX.emit('critical_hit', a.pos.x, a.pos.y, a.pos.z, 1, { size: 0.2, spd: 0.3, life: 0.4, spread: 0.1 }) || Particles.emit(a.pos.x, a.pos.y, a.pos.z, 1, def.critTrail, 0.3, 0.4, 0, 0.1);
     const steps = 4; for (let s = 0; s < steps && !a.done; s++) {
       const h = dt / steps; a.vel.y -= def.grav * h; a.pos.addScaledVector(a.vel, h);
       if (G.world.solid(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z))) {
@@ -792,8 +792,8 @@ function explode(cx, cy, cz, r, src, opts = {}) {
     if (id === B.TNT) { w.set(x, y, z, 0); primeTNT(x, y, z, 0.5 + Math.random() * 1); continue; }
     onBlockRemoved(x, y, z, id); w.set(x, y, z, 0);
     if (Math.random() < (opts.dropAll ? 1 : 1 / r)) { const dr = blockDrop(id); if (dr) dropItem(dr[0], dr[1], x + 0.5, y + 0.5, z + 0.5); } }
-  Particles.emit(cx, cy, cz, 70, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5);
-  Particles.emit(cx, cy, cz, 60, [[0.35, 0.35, 0.35], [0.55, 0.55, 0.55], [0.2, 0.2, 0.2]], 6, 1.4, -1.5, r);
+  SpriteFX.emit('explosion', cx, cy, cz, 10, { size: 2.4, spd: 2, life: 0.9, spread: 3, vary: false }) || Particles.emit(cx, cy, cz, 70, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5);
+  SpriteFX.emit('big_smoke', cx, cy, cz, 24, { size: 1.2, grav: -1, spd: 3, life: 1.2, spread: 3 }) || Particles.emit(cx, cy, cz, 60, [[0.35, 0.35, 0.35], [0.55, 0.55, 0.55], [0.2, 0.2, 0.2]], 6, 1.4, -1.5, r);
   Sfx.at('boom', c, 1.5); if (P) G.shake = Math.max(G.shake, Math.max(0, 1 - P.pos.distanceTo(c) / 24));
 }
 function blockDrop(id, tool) {

@@ -91,7 +91,7 @@ function onPeerMsg(peer, m) {
     case 'mobs': return clientMobs(m);
     case 'hit': return hostHit(peer, m);
     case 'drops': for (const [key, n, x, y, z] of m.items) if (IT[key] !== undefined) dropItem(IT[key], n, x, y, z); if (m.xp) spawnOrb(m.x, m.y, m.z, m.xp); return;
-    case 'fx': if (m.dim === world.dim) { if (m.k === 'boom') { Particles.emit(m.x, m.y, m.z, 60, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5); Sfx.at('boom', new V3(m.x, m.y, m.z), 1.4); G.shake = Math.max(G.shake, 0.5 * Math.max(0, 1 - player.pos.distanceTo(new V3(m.x, m.y, m.z)) / 24)); if (m.r) blastSelf(m.x, m.y, m.z, m.r, m.cause); } } if (MP.role === 'host' && peer && peer.id !== 'host') mpSendAll(m, false, peer.id); return;
+    case 'fx': if (m.dim === world.dim) { if (m.k === 'boom') { SpriteFX.emit('explosion', m.x, m.y, m.z, 10, { size: 2.4, spd: 2, life: 0.9, spread: 3, vary: false }) || Particles.emit(m.x, m.y, m.z, 60, [[1, 0.9, 0.5], [1, 0.6, 0.2], [0.9, 0.3, 0.1]], 12, 0.5, 0, 1.5); Sfx.at('boom', new V3(m.x, m.y, m.z), 1.4); G.shake = Math.max(G.shake, 0.5 * Math.max(0, 1 - player.pos.distanceTo(new V3(m.x, m.y, m.z)) / 24)); if (m.r) blastSelf(m.x, m.y, m.z, m.r, m.cause); } } if (MP.role === 'host' && peer && peer.id !== 'host') mpSendAll(m, false, peer.id); return;
     case 'cmd': if (m.line) runCommand(m.line, { player, remote: true }); return;
     case 'whisper': chatPrint(m.from + ' whispers to you: ' + m.text, '#aaa'); return;
     case 'sleep': peer.sleeping = m.v; return;

@@ -48,7 +48,7 @@ function hugeMushroom(x, y, z, red, put) {
 }
 { const _fu = farmUse; farmUse = function (h, hd) {
     if (hd && target && !targetMob) { const id = target.id; const d = BL[id]; const { x, y, z } = target;
-      const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; Particles.emit(x + 0.5, y + 0.6, z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); };
+      const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; SpriteFX.emit('glitter', x + 0.5, y + 0.6, z + 0.5, 10, { size: 0.25, grav: -0.5, spd: 0.8, life: 0.9, spread: 0.9, tint: [[0.4, 0.9, 0.4], [0.7, 1, 0.6]] }) || Particles.emit(x + 0.5, y + 0.6, z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); };
       if (hd.kind === 'bonemeal' && d) {
         if (id === B.TALL_GRASS || id === B.FERN) { if (!world.get(x, y + 1, z)) { const t = id === B.FERN ? B.LARGE_FERN : B.DOUBLE_TALL_GRASS; world.set(x, y, z, t); world.set(x, y + 1, z, BL[t].tallOther); } fx(); return true; }
         if (d.tallLower || d.tallUpper) { const k = d.tallLower ? d.key : BL[d.tallOther].key; if (!/grass|fern/.test(k)) dropItem(IT[k], 1, x + 0.5, y + 0.5, z + 0.5); fx(); return true; }

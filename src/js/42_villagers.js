@@ -158,7 +158,7 @@ function villagerTick(m, dt) {
   if (v.t <= 0) { v.t = 3 + Math.random() * 2;
     // job: keep or lose the job site, or look for one
     if (v.ws) { const [x, y, z] = v.ws.split(',').map(Number); if (world.loaded(x, z) && PROF_OF_BLOCK[world.get(x, y, z)] !== v.prof) { world.jobClaims && world.jobClaims.delete(v.ws); v.ws = null; if (v.xp === 0 && v.lvl === 1 && !v.offers.some(o => o.uses)) { setProfession(m, null); Particles.emit(m.pos.x, m.pos.y + 2, m.pos.z, 6, [[0.5, 0.5, 0.5]], 1, 0.6, 0, 0.6); } } }
-    if (!v.ws && !v.nit) { const f = findJobSite(m); if (f) { v.ws = f[0]; world.jobClaims.set(f[0], m); if (!v.prof) { setProfession(m, f[1]); Particles.emit(m.pos.x, m.pos.y + 2.1, m.pos.z, 8, [[0.3, 0.9, 0.3]], 1, 0.7, 0, 0.6); Sfx.at('hmm', m.pos, 0.8, 1.2); } } }
+    if (!v.ws && !v.nit) { const f = findJobSite(m); if (f) { v.ws = f[0]; world.jobClaims.set(f[0], m); if (!v.prof) { setProfession(m, f[1]); SpriteFX.emit('glitter', m.pos.x, m.pos.y + 2.1, m.pos.z, 8, { size: 0.25, grav: -0.4, spd: 0.5, life: 0.9, spread: 0.6, tint: [[0.3, 0.9, 0.3]] }) || Particles.emit(m.pos.x, m.pos.y + 2.1, m.pos.z, 8, [[0.3, 0.9, 0.3]], 1, 0.7, 0, 0.6); Sfx.at('hmm', m.pos, 0.8, 1.2); } } }
     // iron golems
     golemCheck(m);
   }
@@ -168,7 +168,7 @@ function villagerTick(m, dt) {
     else if (d <= 2.6) { if (v.rday !== S.day) { v.rday = S.day; v.restocks = 0; } if (v.restocks < 2 && v.offers.some(o => o.uses > 0) && (v.lastR == null || G.simT - v.lastR > 30)) { restock(m); v.restocks++; v.lastR = G.simT; } } }
   return false;
 }
-function restock(m) { const v = vData(m); for (const o of v.offers) { o.demand = Math.max(0, o.demand + o.uses - (o.max - o.uses)); o.uses = 0; } Particles.emit(m.pos.x, m.pos.y + 2, m.pos.z, 4, [[0.4, 1, 0.4]], 1, 0.5, 0, 0.5); }
+function restock(m) { const v = vData(m); for (const o of v.offers) { o.demand = Math.max(0, o.demand + o.uses - (o.max - o.uses)); o.uses = 0; } SpriteFX.emit('glitter', m.pos.x, m.pos.y + 2, m.pos.z, 4, { size: 0.25, grav: -0.4, spd: 0.5, life: 0.9, spread: 0.6, tint: [[0.4, 1, 0.4]] }) || Particles.emit(m.pos.x, m.pos.y + 2, m.pos.z, 4, [[0.4, 1, 0.4]], 1, 0.5, 0, 0.5); }
 // demand slowly falls back when nobody trades (Minecraft lowers it at each restock)
 function golemCheck(m) {
   if (!S.rules.doMobSpawning || m.baby) return; const v = vData(m); if (v.gCD > 0) return;
@@ -242,7 +242,7 @@ function openTrade(m) {
 }
 function doTrade(m, o) {
   const v = vData(m); o.uses++; v.xp += o.xp; spawnOrbRange(m.pos.x, m.pos.y + 1, m.pos.z, 3, 6);
-  Sfx.at('hmm', m.pos, 0.6, 1.3); Particles.emit(m.pos.x, m.pos.y + 2, m.pos.z, 3, [[0.4, 1, 0.4]], 1, 0.5, 0, 0.5);
+  Sfx.at('hmm', m.pos, 0.6, 1.3); SpriteFX.emit('glitter', m.pos.x, m.pos.y + 2, m.pos.z, 3, { size: 0.25, grav: -0.4, spd: 0.5, life: 0.9, spread: 0.6, tint: [[0.4, 1, 0.4]] }) || Particles.emit(m.pos.x, m.pos.y + 2, m.pos.z, 3, [[0.4, 1, 0.4]], 1, 0.5, 0, 0.5);
   if (S.panel && S.panel.refresh) S.panel.refresh();
 }
 function levelCheck(m) { const v = vData(m); let up = false; while (v.lvl < 5 && v.xp >= VXP[v.lvl]) { v.lvl++; addLevelOffers(m, v.lvl); up = true; }

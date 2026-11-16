@@ -43,7 +43,7 @@ RECIPES.push(RSL('firework_rocket', 3, ['paper', 'gunpowder', 'firework_star']))
 { const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const star = h && h.id === IT.firework_rocket ? h.star : null; const n0 = (G.fireworks || []).length; const r = _ua.apply(this, arguments);
     if (star && G.fireworks) for (let i = n0; i < G.fireworks.length; i++) G.fireworks[i].star = star; return r; };
   const _uf = updateFireworks; updateFireworks = function (dt) { const live = (G.fireworks || []).filter(f => f.star && !f.done); const r = _uf.apply(this, arguments);
-    for (const fw of live) if (fw.done) { const c = (STAR_RGB[fw.star] || [255, 255, 255]).map(v => v / 255); const y = fw.y + 14; Particles.emit(fw.x, y, fw.z, 110, [c, c.map(v => Math.min(1, v + 0.3))], 11, 1.8, 3, 1.4);
+    for (const fw of live) if (fw.done) { const c = (STAR_RGB[fw.star] || [255, 255, 255]).map(v => v / 255); const y = fw.y + 14; SpriteFX.emit('flash', fw.x, y, fw.z, 1, { size: 3.5, spd: 0, life: 0.25, spread: 0, vary: false }), SpriteFX.emit('spark', fw.x, y, fw.z, 110, { size: 0.25, grav: 3, spd: 11, life: 1.8, spread: 0.5, drag: 1.2, tint: [c, c.map(v => Math.min(1, v + 0.3))] }) || Particles.emit(fw.x, y, fw.z, 110, [c, c.map(v => Math.min(1, v + 0.3))], 11, 1.8, 3, 1.4);
       for (const m of G.mobs) { if (m.dead || m.isBoss) continue; const d = Math.hypot(m.pos.x - fw.x, m.pos.y - y, m.pos.z - fw.z); if (d < 5) m.hurt(Math.max(1, Math.round(7 * (1 - d / 5))), null, 0); } }
     return r; }; }
 

@@ -185,7 +185,7 @@ function flyTick(m, dt, o) {
   const want = m.flyGoal.clone().sub(m.pos); const L = want.length(); want.multiplyScalar(Math.min(o.speed, L * 2) / Math.max(L, 0.01));
   if (m.hurtT > 0) want.y += 3; const k = Math.min(1, dt * 3); m.vel.lerp(want, k); moveEntity(m, dt); if (m.hitH) m.flyT = 0;
   m.yaw += angWrap(Math.atan2(m.vel.x, m.vel.z) - m.yaw) * Math.min(1, dt * 6); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw;
-  if (m.wings) m.wings.forEach((w, i) => w.rotation.z = Math.sin(m.age * o.flap) * 0.7 * (i ? -1 : 1)); m.colorize();
+  if (m.wings) m.wings.forEach((w, i) => w.rotation[m.wingAxis || 'z'] = Math.sin(m.age * o.flap) * 0.7 * (i ? -1 : 1)); m.colorize();
   m.sndT -= dt; if (m.sndT <= 0) { m.sndT = 4 + Math.random() * 8; if (m.pos.distanceTo(player.pos) < 16) Sfx.mob(m, null, 0.3); }
   return true;
 }
@@ -230,7 +230,7 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
       if (d.crop !== undefined) { if (d.crop >= 3) return false; const n = Math.min(3, d.crop + 2 + (Math.random() * 4 | 0)); const nid = B[(d.cropBase || 'wheat_').toUpperCase() + n]; world.set(target.x, target.y, target.z, nid); mpBlock(target.x, target.y, target.z, nid); }
       else if (id === B.GRASS) { for (let k = 0; k < 14; k++) { const x = target.x + Math.round((Math.random() - 0.5) * 6), z = target.z + Math.round((Math.random() - 0.5) * 6); for (let dy = 1; dy >= -1; dy--) { const y = target.y + dy; if (world.get(x, y, z) === B.GRASS && !world.get(x, y + 1, z)) { const f = Math.random() < 0.8 ? B.TALL_GRASS : Math.random() < 0.5 ? B.ROSE : B.DANDELION; world.set(x, y + 1, z, f); mpBlock(x, y + 1, z, f); break; } } } }
       else if (id === B.SUGAR_CANE || id === B.CACTUS) return false; else return false;
-      useHeld(1); S.swing = 1; S.useCD = 0.2; Particles.emit(target.x + 0.5, target.y + 1, target.z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); return true; }
+      useHeld(1); S.swing = 1; S.useCD = 0.2; SpriteFX.emit('glitter', target.x + 0.5, target.y + 1, target.z + 0.5, 10, { size: 0.25, grav: -0.5, spd: 0.8, life: 0.9, spread: 0.9, tint: [[0.4, 0.9, 0.4], [0.7, 1, 0.6]] }) || Particles.emit(target.x + 0.5, target.y + 1, target.z + 0.5, 10, [[0.4, 0.9, 0.4], [0.7, 1, 0.6]], 1.5, 0.8, -1, 0.8); return true; }
     return _fu(h, hd);
   }; }
 // ---------- where they live (when a chunk is first made) and villages' iron golems ----------

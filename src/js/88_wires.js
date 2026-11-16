@@ -57,7 +57,7 @@ function senseVibration(pos) { if (!world || isClientMP()) return;
   for (const k of WIRES.sensors) { const [x, y, z] = k.split(',').map(Number); const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.sensor) continue; const range = d.sensor === 'calibrated' ? 16 : 8;
     const dist = Math.hypot(pos.x - x - 0.5, pos.y - y - 0.5, pos.z - z - 0.5); if (dist > range || dist < 0.6 || d.sensorOn) continue; if ((RS.edge.get('sc:' + k) || 0) > RS.tick) continue;
     const p = Math.max(1, Math.min(15, 15 - Math.floor(dist / range * 15))); WIRES.sense.set(k, p); world.set(x, y, z, d.sensor === 'calibrated' ? B['CALIBRATED_SCULK_SENSOR#ON'] : B['SCULK_SENSOR#ON']); mpBlock(x, y, z, world.get(x, y, z));
-    rsSchedule(x, y, z, 'sensor_off', d.sensor === 'calibrated' ? 10 : 30); Sfx.at('sculk_click', new V3(x + 0.5, y + 0.5, z + 0.5), 0.8); Particles.emit(x + 0.5, y + 1, z + 0.5, 4, [[0.2, 0.9, 0.9]], 0.8, 0.6, -1, 0.3); } }
+    rsSchedule(x, y, z, 'sensor_off', d.sensor === 'calibrated' ? 10 : 30); Sfx.at('sculk_click', new V3(x + 0.5, y + 0.5, z + 0.5), 0.8); SpriteFX.emit('vibration', x + 0.5, y + 1, z + 0.5, 2, { size: 0.35, grav: -0.5, spd: 0.3, life: 0.7, spread: 0.3 }) || Particles.emit(x + 0.5, y + 1, z + 0.5, 4, [[0.2, 0.9, 0.9]], 0.8, 0.6, -1, 0.3); } }
 // more things make vibrations (the warden already hears steps of mobs near it)
 { const _pb = placeBlock; placeBlock = function (hit, id) { const r = _pb.apply(this, arguments); if (r && hit) vibrate(new V3(hit.x + hit.nx + 0.5, hit.y + hit.ny + 0.5, hit.z + hit.nz + 0.5), 'player'); return r; }; }
 { const _sd = setDoor; setDoor = function (x, y, z) { const r = _sd.apply(this, arguments); vibrate(new V3(x + 0.5, y + 0.5, z + 0.5), 'player'); return r; }; }

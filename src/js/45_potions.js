@@ -80,7 +80,7 @@ function mobEffect(m, e, sec, amp, scale = 1) {
         if (k === 'regeneration') { e.acc = (e.acc || 0) + dt; if (e.acc >= 2.5 / Math.pow(2, e.amp)) { e.acc = 0; this.hp = Math.min(this.maxHp || this.t.hp, this.hp + 1); } }
         if (k === 'speed') sp *= 1 + 0.2 * (e.amp + 1); if (k === 'slowness') sp *= Math.max(0, 1 - 0.15 * (e.amp + 1)); if (k === 'levitation') this.vel.y = 0.9 * (e.amp + 1); if (k === 'slow_falling') this.vel.y = Math.max(this.vel.y, -1.5);
         if (k === 'invisibility' && this.root) this.root.visible = false; if (k === 'weaving' && this.web) { } }
-      this.spMul = sp; if (Math.random() < dt * 4) { const ks = Object.keys(E).filter(k => k !== 'invisibility'); if (ks.length) { const c = POT_COLOR[{ speed: 'swiftness', jump_boost: 'leaping', instant_health: 'healing' }[ks[0]] || ks[0]] || [200, 200, 200]; Particles.emit(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, 1, [[c[0] / 255, c[1] / 255, c[2] / 255]], 0.6, 0.7, -1, 0.5); } } }
+      this.spMul = sp; if (Math.random() < dt * 4) { const ks = Object.keys(E).filter(k => k !== 'invisibility'); if (ks.length) { const c = POT_COLOR[{ speed: 'swiftness', jump_boost: 'leaping', instant_health: 'healing' }[ks[0]] || ks[0]] || [200, 200, 200]; SpriteFX.emit(({ infested: 'infested', raid_omen: 'raid_omen', bad_omen: 'trial_omen' })[ks[0]] || 'effect', this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, 1, { size: 0.25, grav: -1, spd: 0.4, life: 1, spread: 0.6, tint: ({ infested: 1, raid_omen: 1, bad_omen: 1 })[ks[0]] ? [1, 1, 1] : [[c[0] / 255, c[1] / 255, c[2] / 255]] }) || Particles.emit(this.pos.x, this.pos.y + this.h * 0.6, this.pos.z, 1, [[c[0] / 255, c[1] / 255, c[2] / 255]], 0.6, 0.7, -1, 0.5); } } }
     return _u.call(this, dt);
   }; }
 // Weaving, Oozing, Wind Charged and Infested act when their owner is hurt or dies
@@ -122,7 +122,7 @@ PROJ.potion = { grav: 20, size: 0.24, color: 0x6070e0, trail: [[0.7, 0.7, 1]] };
 function giveBottle(id, pot) { const item = pot ? { id, count: 1, pot } : { id, count: 1 }; if (S.mode !== 'creative') { const h = player.held(); h.count--; if (h.count <= 0) player.inv[handSlot()] = null; } giveOrDrop(item.id, 1, pot ? { pot } : null); invDirty(); }
 { const _pi = projImpact; projImpact = function (a, mob) {
     if (a.kind !== 'potion') return _pi(a, mob); a.done = true; const p = a.pos; const c = POT_COLOR[(POTIONS[a.pot] && POTIONS[a.pot].base) || a.pot] || POT_COLOR.water; const col = [c[0] / 255, c[1] / 255, c[2] / 255];
-    Sfx.play('glass', 0.6); Particles.emit(p.x, p.y, p.z, 40, [col, [1, 1, 1]], 3, 0.8, 2, 1.2);
+    Sfx.play('glass', 0.6); SpriteFX.emit(POTIONS[a.pot] && /^(healing|harming)$/.test(POTIONS[a.pot].base) ? 'spell' : 'effect', p.x, p.y, p.z, 40, { size: 0.3, grav: 1, spd: 3, life: 0.9, spread: 1.2, tint: [col, [1, 1, 1]] }) || Particles.emit(p.x, p.y, p.z, 40, [col, [1, 1, 1]], 3, 0.8, 2, 1.2);
     if (a.ling) { G.potClouds = G.potClouds || []; G.potClouds.push({ x: p.x, y: p.y - 0.5, z: p.z, r: 3, life: 30, pot: a.pot, col, cd: new Map() }); return; }
     // splash: full strength at the impact, fading to nothing 4 blocks away; water puts out fires
     const P = player; const dP = new V3(P.pos.x, P.pos.y + 0.9, P.pos.z).distanceTo(p); if (dP < 4 && !P.dead) { applyPotion(a.pot, mob === null && dP < 1.5 ? 1 : 1 - dP / 4); if (a.pot === 'water') P.fireT = 0; }
@@ -130,7 +130,7 @@ function giveBottle(id, pot) { const item = pot ? { id, count: 1, pot } : { id, 
   }; }
 function updatePotClouds(dt) {
   const L = G.potClouds; if (!L || !L.length) return; const P = player;
-  for (const c of L) { c.life -= dt; c.r = Math.max(0, c.r - dt * 0.1); if (Math.random() < dt * 30) { const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * c.r; Particles.emit(c.x + Math.cos(a) * rr, c.y + 0.2, c.z + Math.sin(a) * rr, 1, [c.col], 0.3, 1, -0.5, 0.4); }
+  for (const c of L) { c.life -= dt; c.r = Math.max(0, c.r - dt * 0.1); if (Math.random() < dt * 30) { const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * c.r; SpriteFX.emit('effect', c.x + Math.cos(a) * rr, c.y + 0.2, c.z + Math.sin(a) * rr, 1, { size: 0.25, grav: -0.5, spd: 0.3, life: 1, spread: 0.2, tint: [c.col] }) || Particles.emit(c.x + Math.cos(a) * rr, c.y + 0.2, c.z + Math.sin(a) * rr, 1, [c.col], 0.3, 1, -0.5, 0.4); }
     const touch = (e, key, fn) => { const last = c.cd.get(key) || -9; if (G.simT - last < 1) return; if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < c.r && Math.abs(e.pos.y - c.y) < 1.5) { c.cd.set(key, G.simT); fn(); c.r = Math.max(0, c.r - 0.5); } };
     if (!P.dead) touch(P, 'player', () => applyPotion(c.pot, 0.25)); for (const m of G.mobs) if (!m.dead && !m.isBoss) touch(m, m, () => applyPotion(c.pot, 0.25, m)); }
   G.potClouds = L.filter(c => c.life > 0 && c.r > 0.2);
