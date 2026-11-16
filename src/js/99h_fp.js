@@ -23,7 +23,11 @@ function fpFinal(dt) {
   } else if (id !== IT.shield && !busy) { handGroup.position.x += 0.02; handGroup.position.y -= 0.02; handGroup.position.z -= 0.02; }
   // recharge dip and equip dip
   if (id !== IT.shield) { let c = 1; try { c = (h && ITEMS[id] && (ITEMS[id].kind === 'tool' || ITEMS[id].melee)) ? attackCharge() : 1; } catch (e) { }
-    const e2 = FP.equip * FP.equip; handGroup.position.y -= 0.14 * (1 - c * c * c) * (S.swing > 0 ? 0 : 1) + 0.5 * e2; }
+    const e2 = FP.equip * FP.equip;
+    if (kind === 'mace' && !busy) { // the mace drops well down after a hit and is hauled steadily back up as the bar refills
+      const d = (1 - c) * (1 - c) * (3 - 2 * (1 - c)) * (S.swing > 0 ? 1 - S.swing : 1); // eases in as the swing ends, no pop
+      handGroup.position.y -= 0.42 * d + 0.5 * e2; handGroup.position.x += 0.06 * d; handGroup.rotation.x -= 0.5 * d; }
+    else handGroup.position.y -= 0.14 * (1 - c * c * c) * (S.swing > 0 ? 0 : 1) + 0.5 * e2; }
   // shields
   const bk = S.blockPose || 0, hit = Math.sin((S.shieldHit || 0) * Math.PI);
   const pose = (grp, mesh, sgn, k) => { const e = k * k * (3 - 2 * k); mesh.scale.setScalar(1.3);
