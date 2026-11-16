@@ -461,7 +461,7 @@ const TILE = {}; let tileCount = 0; const TILE_AVG = [];
 const vary = (c, r, v) => { const f = (r() * 2 - 1) * v; return [c[0] + f, c[1] + f, c[2] + f]; };
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 function makeTile(name, painter) {
-  const re = TILE[name] !== undefined; const i = re ? TILE[name] : tileCount++; TILE[name] = i;
+  const re = TILE[name] !== undefined; const i = re ? TILE[name] : tileCount++; TILE[name] = i; if (re && typeof TILE_CV !== 'undefined') TILE_CV.delete(i);
   const img = actx.createImageData(16, 16); const d = img.data;
   const r = mulberry32(i * 7919 + 1337 + (re ? 4242 : 0));
   const set = (x, y, c, a = 255) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x > 15 || y > 15) return; const k = (y * 16 + x) * 4; d[k] = clamp(c[0], 0, 255); d[k + 1] = clamp(c[1], 0, 255); d[k + 2] = clamp(c[2], 0, 255); d[k + 3] = a; };
@@ -1206,7 +1206,16 @@ Object.assign(ICONP, {
   eye_of_ender: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [40, 130, 90], r, [20, 70, 50]); blob(s, 8, 8, 3, 2, [200, 230, 120], r); for (let y = 6; y <= 10; y++) s(8, y, [10, 30, 20]); s(6, 6, [160, 240, 200]); },
 });
 
-function tileCanvas(t) { const c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); return c; }
+const TILE_CV = new Map(); // one small canvas per atlas tile, reused by every icon that shows it (cleared when a tile is repainted)
+function tileCanvas(t) { let c = TILE_CV.get(t); if (c) return c; c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); TILE_CV.set(t, c); return c; }
+// Icons are drawn the first time something asks for them (a slot, the hand, the creative list), not all at page load:
+// ICON_CANVAS[id] and ICON[id] are getters until then. Assigning either replaces the lazy one as usual.
+function lazyIcon(id, make) {
+  const def = (o, v) => Object.defineProperty(o, id, { value: v, writable: true, configurable: true, enumerable: true });
+  Object.defineProperty(ICON_CANVAS, id, { configurable: true, enumerable: true, get() { let c; try { c = make(); } catch (e) { console.warn('icon', id, e); c = iconCanvas((s) => s(8, 8, [255, 0, 255])); } def(ICON_CANVAS, c); return c; },
+    set(v) { def(ICON_CANVAS, v); } });
+  Object.defineProperty(ICON, id, { configurable: true, enumerable: true, get() { const u = ICON_CANVAS[id].toDataURL(); def(ICON, u); return u; }, set(v) { def(ICON, v); } });
+}
 function blockIconCanvas(id) {
   const d = BL[id]; const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
   if (d.render === 'cross' || d.render === 'torch' || d.flatIcon) { x.drawImage(tileCanvas(d.texIds[0]), 0, 0, 48, 48); return c; }
@@ -1236,10 +1245,8 @@ const BOW_FRAMES = [1, 2, 3].map(k => iconCanvas((s) => {
   for (const [dx, dy] of [[-1, 0], [0, 1], [-1, 1], [-2, 1], [-1, 2]]) s(px + dx, py + dy, [240, 240, 240]);
 }));
 function buildIcons() { for (const id of ITEM_IDS) {
-  const it = ITEMS[id]; let c;
-  if (it.kind === 'block') c = blockIconCanvas(id);
-  else { const p = ICONP[it.key]; c = iconCanvas(p || ((s) => { s(8, 8, [255, 0, 255]); })); }
-  ICON_CANVAS[id] = c; ICON[id] = c.toDataURL();
+  const it = ITEMS[id];
+  lazyIcon(id, it.kind === 'block' ? () => blockIconCanvas(id) : () => iconCanvas(ICONP[it.key] || ((s) => { s(8, 8, [255, 0, 255]); })));
 } }
 
 // heart icons
@@ -3711,7 +3718,7 @@ function icIngot(g, M) { const art = ['....LLLLLLL..', '...LCCCCCCCd.', '..LCCCC
   for (const m of mats) for (const tool of ['pickaxe', 'axe', 'shovel', 'hoe', 'sword']) for (const p of pref[m]) { const k = p + '_' + tool; if (IT[k] != null) ICONS2[k] = (g) => TOOL[tool](g, MAT[m]); }
   for (const m of ['wooden', 'stone', 'copper', 'iron', 'golden', 'diamond', 'netherite']) if (IT[m + '_spear'] != null) ICONS2[m + '_spear'] = (g) => TOOL.spear(g, MAT[m] || MAT.wood);
   for (const m of ['leather', 'golden', 'iron', 'diamond', 'netherite', 'chainmail']) for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) if (IT[m + '_' + p] != null) ICONS2[m + '_' + p] = icArmor(MAT[m], p);
-  for (const k in ICONS2) { const f = ICONS2[k]; if (!f || IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; try { const c = IC.canvas(f, { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } }
+  for (const k in ICONS2) { const f = ICONS2[k]; if (!f || IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); }
 }
 
 // ================= ITEM ICONS, SECOND PASS =================
@@ -4012,7 +4019,7 @@ function icIngot(g, M) { const art = ['....LLLLLLL..', '...LCCCCCCCd.', '..LCCCC
       '...Ld.....dd....'], { L: [214, 182, 140], C: [184, 148, 104], c: [150, 116, 76], d: [120, 90, 56] }, 1, 1); },
     spider_eye: (g) => { IC.ball(g, 8, 8.5, 5, 4.6, [150, 30, 50], { k: 0.4 }); for (const [x, y] of [[6, 7], [10, 7], [8, 10], [9, 6]]) g.set(x, y, [40, 8, 16]); g.set(5, 6, [230, 120, 140]); },
   };
-  for (const k in X) { if (IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; ICONS2[k] = X[k]; try { const c = IC.canvas(X[k], { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } }
+  for (const k in X) { if (IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; ICONS2[k] = X[k]; const f = X[k]; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); }
 }
 
 // ================= WORLD: generation, structures, chunks, meshing =================
@@ -6337,9 +6344,7 @@ let bookOpen = true;
 function toggleBook() { bookOpen = !bookOpen; show('rightPanel', bookOpen || S.mode === 'creative'); if (bookOpen) setTab('craft'); renderBook(); }
 $('btnBook').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleBook(); }); $('btnBook2').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleBook(); });
 // creative palette
-(() => { const pal = $('palette'); for (const id of ITEM_IDS) { if (id === B.AIR || (ITEMS[id].kind === 'block' && BL[id].hidden)) continue; const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = '<img src="' + ICON[id] + '">';
-  d.addEventListener('pointerdown', (e) => { e.preventDefault(); if (S.cursor) { S.cursor = null; } else if (e.shiftKey) addItem(id, stackMax(id)); else S.cursor = { id, count: stackMax(id) }; invDirty(); renderInvUI(); });
-  d.addEventListener('pointerenter', () => showTip(ITEMS[id].name)); d.addEventListener('pointerleave', () => showTip(null)); pal.appendChild(d); } })();
+// (the creative list is built by buildPalette in 46_creative.js the first time the Creative tab opens)
 let invTab = 'craft';
 function setTab(t) { invTab = t; for (const b of $('invTabs').children) b.classList.toggle('on', b.dataset.t === t); show('craftBox', t === 'craft'); show('paletteBox', t === 'creative'); renderBook(); }
 for (const b of $('invTabs').children) b.addEventListener('pointerdown', (e) => { e.preventDefault(); setTab(b.dataset.t); });
@@ -13129,8 +13134,9 @@ function creativeEntries() {
   return list;
 }
 let CREATIVE_LIST = null;
+let PALETTE_READY = false;
 function buildPalette(q) {
-  const pal = $('palette'); if (!pal) return; pal.innerHTML = ''; CREATIVE_LIST = CREATIVE_LIST || creativeEntries();
+  const pal = $('palette'); if (!pal) return; if (!PALETTE_READY && !(S.uiOpen && invTab === 'creative')) return; PALETTE_READY = true; pal.innerHTML = ''; CREATIVE_LIST = CREATIVE_LIST || creativeEntries();
   const words = String(q || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
   let shown = 0;
   for (const e of CREATIVE_LIST) {
@@ -17135,12 +17141,10 @@ for (const k of Object.keys(MOBS)) {
   const key = k + '_spawn_egg'; if (IT[key] !== undefined) continue;
   const id = nid++; const nm = (MOBS[k].name || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) + ' Spawn Egg';
   defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
-  const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL();
+  const [b, sp] = eggColors(k); lazyIcon(id, () => iconCanvas(eggPainter(b, sp)));
 }
 // the Creative inventory lists the eggs at the end
-{ const pal = $('palette'); for (const id of SPAWN_EGG_IDS) { const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = '<img src="' + ICON[id] + '">';
-  d.addEventListener('pointerdown', (e) => { e.preventDefault(); if (S.cursor) { S.cursor = null; } else if (e.shiftKey) addItem(id, stackMax(id)); else S.cursor = { id, count: stackMax(id) }; invDirty(); renderInvUI(); });
-  d.addEventListener('pointerenter', () => showTip(ITEMS[id].name)); d.addEventListener('pointerleave', () => showTip(null)); pal.appendChild(d); } }
+// (spawn eggs appear in the creative list built by buildPalette)
 
 function eggSpawn(type, x, y, z, baby) {
   if (typeof MP !== 'undefined' && MP.active && MP.role === 'client' && MP.proxyMode) { mpToHost({ t: 'eggspawn', type, x, y, z, baby: baby ? 1 : 0 }); return null; }
@@ -18615,7 +18619,7 @@ addLoot('sift_rift', [L('soul_shard', 2, 7, 0.9), L('siftite_scrap', 1, 2, 0.35)
 addLoot('ancient_city', [L('siftite_upgrade_smithing_template', 1, 1, 0.08)]);
 // ---- icons for siftite gear, drawn with the same tool and armor art as the other materials ----
 { MAT.siftite = { c: [90, 196, 216], l: [170, 240, 250], d: [36, 100, 130] };
-  const put = (k, f) => { if (IT[k] == null) return; try { const c = IC.canvas(f, { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } };
+  const put = (k, f) => { if (IT[k] == null) return; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); };
   for (const tool of ['pickaxe', 'axe', 'shovel', 'hoe', 'sword']) put('siftite_' + tool, (g) => TOOL[tool](g, MAT.siftite));
   for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) put('siftite_' + p, icArmor(MAT.siftite, p));
   put('siftite_ingot', (g) => icIngot(g, MAT.siftite)); }
@@ -18638,7 +18642,7 @@ function siftTick(dt) {
 { let added = 0; for (const k of Object.keys(MOBS)) { const key = k + '_spawn_egg'; if (IT[key] !== undefined || MOBS[k].noEgg) continue;
     const id = nid++; const nm = (MOBS[k].name || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) + ' Spawn Egg';
     defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
-    const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); added++; }
+    const [b, sp] = eggColors(k); lazyIcon(id, () => iconCanvas(eggPainter(b, sp))); added++; }
   if (added) CREATIVE_LIST = null; }
 // siftite armor outlasts netherite (14_durability sets armor durability by material before this file loads)
 ARMOR_MULT.siftite = 45; for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) { const it = ITEMS[IT['siftite_' + p]]; if (it) it.dur = ARMOR_BASE[it.slot] * 45; }
@@ -18851,6 +18855,15 @@ Object.assign(MOB_VOICE, {
   copper_golem: [(d, p) => { V.chime(d, p * 0.9, [740, 988]); }, (d, p) => V.clank(d, p * 1.6, false), (d, p) => V.clank(d, p * 1.2, true)],
   illusioner: [(d, p) => V.grumble(d, p * 0.95, 0.45), (d, p) => V.grumble(d, p * 1.2, 0.25), (d, p) => V.grumble(d, p * 0.8, 0.9)],
 });
+// ================= FASTER START-UP =================
+// Icons and the creative list are built when first needed (see lazyIcon in 01_core.js). Build the creative list when
+// its tab is shown, and draw the remaining icons a few at a time while the game is idle so the list opens quickly.
+{ const _rui = renderInvUI; renderInvUI = function () { if (S.uiOpen && invTab === 'creative' && !PALETTE_READY) buildPalette(($('creativeSearch') || {}).value || ''); return _rui.apply(this, arguments); }; }
+{ let k = 0; const step = (dl) => { if (!S.started || S.loading) { setTimeout(() => step(null), 1500); return; }
+    const until = performance.now() + (dl && dl.timeRemaining ? Math.min(12, dl.timeRemaining()) : 6);
+    while (k < ITEM_IDS.length && performance.now() < until) { const id = ITEM_IDS[k++]; try { void ICON[id]; } catch (e) { } }
+    if (k < ITEM_IDS.length) (window.requestIdleCallback || ((f) => setTimeout(f, 30)))(step); };
+  setTimeout(() => step(null), 3000); }
 
 // ================= WORLD GENERATION CLEANUP =================
 // Decoration is planned from the terrain height map, but caves, ravines, rivers and structures can cut the ground away

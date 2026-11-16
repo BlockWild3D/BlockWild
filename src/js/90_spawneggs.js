@@ -28,12 +28,10 @@ for (const k of Object.keys(MOBS)) {
   const key = k + '_spawn_egg'; if (IT[key] !== undefined) continue;
   const id = nid++; const nm = (MOBS[k].name || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) + ' Spawn Egg';
   defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
-  const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL();
+  const [b, sp] = eggColors(k); lazyIcon(id, () => iconCanvas(eggPainter(b, sp)));
 }
 // the Creative inventory lists the eggs at the end
-{ const pal = $('palette'); for (const id of SPAWN_EGG_IDS) { const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = '<img src="' + ICON[id] + '">';
-  d.addEventListener('pointerdown', (e) => { e.preventDefault(); if (S.cursor) { S.cursor = null; } else if (e.shiftKey) addItem(id, stackMax(id)); else S.cursor = { id, count: stackMax(id) }; invDirty(); renderInvUI(); });
-  d.addEventListener('pointerenter', () => showTip(ITEMS[id].name)); d.addEventListener('pointerleave', () => showTip(null)); pal.appendChild(d); } }
+// (spawn eggs appear in the creative list built by buildPalette)
 
 function eggSpawn(type, x, y, z, baby) {
   if (typeof MP !== 'undefined' && MP.active && MP.role === 'client' && MP.proxyMode) { mpToHost({ t: 'eggspawn', type, x, y, z, baby: baby ? 1 : 0 }); return null; }

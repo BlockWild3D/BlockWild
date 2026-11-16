@@ -11,8 +11,9 @@ function creativeEntries() {
   return list;
 }
 let CREATIVE_LIST = null;
+let PALETTE_READY = false;
 function buildPalette(q) {
-  const pal = $('palette'); if (!pal) return; pal.innerHTML = ''; CREATIVE_LIST = CREATIVE_LIST || creativeEntries();
+  const pal = $('palette'); if (!pal) return; if (!PALETTE_READY && !(S.uiOpen && invTab === 'creative')) return; PALETTE_READY = true; pal.innerHTML = ''; CREATIVE_LIST = CREATIVE_LIST || creativeEntries();
   const words = String(q || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
   let shown = 0;
   for (const e of CREATIVE_LIST) {

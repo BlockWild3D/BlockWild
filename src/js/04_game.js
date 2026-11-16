@@ -231,9 +231,7 @@ let bookOpen = true;
 function toggleBook() { bookOpen = !bookOpen; show('rightPanel', bookOpen || S.mode === 'creative'); if (bookOpen) setTab('craft'); renderBook(); }
 $('btnBook').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleBook(); }); $('btnBook2').addEventListener('pointerdown', (e) => { e.preventDefault(); toggleBook(); });
 // creative palette
-(() => { const pal = $('palette'); for (const id of ITEM_IDS) { if (id === B.AIR || (ITEMS[id].kind === 'block' && BL[id].hidden)) continue; const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = '<img src="' + ICON[id] + '">';
-  d.addEventListener('pointerdown', (e) => { e.preventDefault(); if (S.cursor) { S.cursor = null; } else if (e.shiftKey) addItem(id, stackMax(id)); else S.cursor = { id, count: stackMax(id) }; invDirty(); renderInvUI(); });
-  d.addEventListener('pointerenter', () => showTip(ITEMS[id].name)); d.addEventListener('pointerleave', () => showTip(null)); pal.appendChild(d); } })();
+// (the creative list is built by buildPalette in 46_creative.js the first time the Creative tab opens)
 let invTab = 'craft';
 function setTab(t) { invTab = t; for (const b of $('invTabs').children) b.classList.toggle('on', b.dataset.t === t); show('craftBox', t === 'craft'); show('paletteBox', t === 'creative'); renderBook(); }
 for (const b of $('invTabs').children) b.addEventListener('pointerdown', (e) => { e.preventDefault(); setTab(b.dataset.t); });

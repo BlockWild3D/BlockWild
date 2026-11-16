@@ -244,7 +244,7 @@ addLoot('sift_rift', [L('soul_shard', 2, 7, 0.9), L('siftite_scrap', 1, 2, 0.35)
 addLoot('ancient_city', [L('siftite_upgrade_smithing_template', 1, 1, 0.08)]);
 // ---- icons for siftite gear, drawn with the same tool and armor art as the other materials ----
 { MAT.siftite = { c: [90, 196, 216], l: [170, 240, 250], d: [36, 100, 130] };
-  const put = (k, f) => { if (IT[k] == null) return; try { const c = IC.canvas(f, { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } };
+  const put = (k, f) => { if (IT[k] == null) return; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); };
   for (const tool of ['pickaxe', 'axe', 'shovel', 'hoe', 'sword']) put('siftite_' + tool, (g) => TOOL[tool](g, MAT.siftite));
   for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) put('siftite_' + p, icArmor(MAT.siftite, p));
   put('siftite_ingot', (g) => icIngot(g, MAT.siftite)); }
@@ -267,7 +267,7 @@ function siftTick(dt) {
 { let added = 0; for (const k of Object.keys(MOBS)) { const key = k + '_spawn_egg'; if (IT[key] !== undefined || MOBS[k].noEgg) continue;
     const id = nid++; const nm = (MOBS[k].name || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) + ' Spawn Egg';
     defItem(id, key, nm, { kind: 'spawn_egg', mob: k, stack: 64 }); ITEM_IDS.push(id); SPAWN_EGG_IDS.push(id);
-    const [b, sp] = eggColors(k); const c = iconCanvas(eggPainter(b, sp)); ICON_CANVAS[id] = c; ICON[id] = c.toDataURL(); added++; }
+    const [b, sp] = eggColors(k); lazyIcon(id, () => iconCanvas(eggPainter(b, sp))); added++; }
   if (added) CREATIVE_LIST = null; }
 // siftite armor outlasts netherite (14_durability sets armor durability by material before this file loads)
 ARMOR_MULT.siftite = 45; for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) { const it = ITEMS[IT['siftite_' + p]]; if (it) it.dur = ARMOR_BASE[it.slot] * 45; }

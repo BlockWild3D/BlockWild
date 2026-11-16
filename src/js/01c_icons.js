@@ -144,5 +144,5 @@ function icIngot(g, M) { const art = ['....LLLLLLL..', '...LCCCCCCCd.', '..LCCCC
   for (const m of mats) for (const tool of ['pickaxe', 'axe', 'shovel', 'hoe', 'sword']) for (const p of pref[m]) { const k = p + '_' + tool; if (IT[k] != null) ICONS2[k] = (g) => TOOL[tool](g, MAT[m]); }
   for (const m of ['wooden', 'stone', 'copper', 'iron', 'golden', 'diamond', 'netherite']) if (IT[m + '_spear'] != null) ICONS2[m + '_spear'] = (g) => TOOL.spear(g, MAT[m] || MAT.wood);
   for (const m of ['leather', 'golden', 'iron', 'diamond', 'netherite', 'chainmail']) for (const p of ['helmet', 'chestplate', 'leggings', 'boots']) if (IT[m + '_' + p] != null) ICONS2[m + '_' + p] = icArmor(MAT[m], p);
-  for (const k in ICONS2) { const f = ICONS2[k]; if (!f || IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; try { const c = IC.canvas(f, { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } }
+  for (const k in ICONS2) { const f = ICONS2[k]; if (!f || IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); }
 }

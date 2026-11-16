@@ -74,3 +74,12 @@ Object.assign(MOB_VOICE, {
   copper_golem: [(d, p) => { V.chime(d, p * 0.9, [740, 988]); }, (d, p) => V.clank(d, p * 1.6, false), (d, p) => V.clank(d, p * 1.2, true)],
   illusioner: [(d, p) => V.grumble(d, p * 0.95, 0.45), (d, p) => V.grumble(d, p * 1.2, 0.25), (d, p) => V.grumble(d, p * 0.8, 0.9)],
 });
+// ================= FASTER START-UP =================
+// Icons and the creative list are built when first needed (see lazyIcon in 01_core.js). Build the creative list when
+// its tab is shown, and draw the remaining icons a few at a time while the game is idle so the list opens quickly.
+{ const _rui = renderInvUI; renderInvUI = function () { if (S.uiOpen && invTab === 'creative' && !PALETTE_READY) buildPalette(($('creativeSearch') || {}).value || ''); return _rui.apply(this, arguments); }; }
+{ let k = 0; const step = (dl) => { if (!S.started || S.loading) { setTimeout(() => step(null), 1500); return; }
+    const until = performance.now() + (dl && dl.timeRemaining ? Math.min(12, dl.timeRemaining()) : 6);
+    while (k < ITEM_IDS.length && performance.now() < until) { const id = ITEM_IDS[k++]; try { void ICON[id]; } catch (e) { } }
+    if (k < ITEM_IDS.length) (window.requestIdleCallback || ((f) => setTimeout(f, 30)))(step); };
+  setTimeout(() => step(null), 3000); }

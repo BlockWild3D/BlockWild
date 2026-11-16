@@ -47,7 +47,7 @@ const TILE = {}; let tileCount = 0; const TILE_AVG = [];
 const vary = (c, r, v) => { const f = (r() * 2 - 1) * v; return [c[0] + f, c[1] + f, c[2] + f]; };
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 function makeTile(name, painter) {
-  const re = TILE[name] !== undefined; const i = re ? TILE[name] : tileCount++; TILE[name] = i;
+  const re = TILE[name] !== undefined; const i = re ? TILE[name] : tileCount++; TILE[name] = i; if (re && typeof TILE_CV !== 'undefined') TILE_CV.delete(i);
   const img = actx.createImageData(16, 16); const d = img.data;
   const r = mulberry32(i * 7919 + 1337 + (re ? 4242 : 0));
   const set = (x, y, c, a = 255) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x > 15 || y > 15) return; const k = (y * 16 + x) * 4; d[k] = clamp(c[0], 0, 255); d[k + 1] = clamp(c[1], 0, 255); d[k + 2] = clamp(c[2], 0, 255); d[k + 3] = a; };
@@ -792,7 +792,16 @@ Object.assign(ICONP, {
   eye_of_ender: (s, r) => { blob(s, 8, 8, 5.5, 5.5, [40, 130, 90], r, [20, 70, 50]); blob(s, 8, 8, 3, 2, [200, 230, 120], r); for (let y = 6; y <= 10; y++) s(8, y, [10, 30, 20]); s(6, 6, [160, 240, 200]); },
 });
 
-function tileCanvas(t) { const c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); return c; }
+const TILE_CV = new Map(); // one small canvas per atlas tile, reused by every icon that shows it (cleared when a tile is repainted)
+function tileCanvas(t) { let c = TILE_CV.get(t); if (c) return c; c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); TILE_CV.set(t, c); return c; }
+// Icons are drawn the first time something asks for them (a slot, the hand, the creative list), not all at page load:
+// ICON_CANVAS[id] and ICON[id] are getters until then. Assigning either replaces the lazy one as usual.
+function lazyIcon(id, make) {
+  const def = (o, v) => Object.defineProperty(o, id, { value: v, writable: true, configurable: true, enumerable: true });
+  Object.defineProperty(ICON_CANVAS, id, { configurable: true, enumerable: true, get() { let c; try { c = make(); } catch (e) { console.warn('icon', id, e); c = iconCanvas((s) => s(8, 8, [255, 0, 255])); } def(ICON_CANVAS, c); return c; },
+    set(v) { def(ICON_CANVAS, v); } });
+  Object.defineProperty(ICON, id, { configurable: true, enumerable: true, get() { const u = ICON_CANVAS[id].toDataURL(); def(ICON, u); return u; }, set(v) { def(ICON, v); } });
+}
 function blockIconCanvas(id) {
   const d = BL[id]; const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
   if (d.render === 'cross' || d.render === 'torch' || d.flatIcon) { x.drawImage(tileCanvas(d.texIds[0]), 0, 0, 48, 48); return c; }
@@ -822,10 +831,8 @@ const BOW_FRAMES = [1, 2, 3].map(k => iconCanvas((s) => {
   for (const [dx, dy] of [[-1, 0], [0, 1], [-1, 1], [-2, 1], [-1, 2]]) s(px + dx, py + dy, [240, 240, 240]);
 }));
 function buildIcons() { for (const id of ITEM_IDS) {
-  const it = ITEMS[id]; let c;
-  if (it.kind === 'block') c = blockIconCanvas(id);
-  else { const p = ICONP[it.key]; c = iconCanvas(p || ((s) => { s(8, 8, [255, 0, 255]); })); }
-  ICON_CANVAS[id] = c; ICON[id] = c.toDataURL();
+  const it = ITEMS[id];
+  lazyIcon(id, it.kind === 'block' ? () => blockIconCanvas(id) : () => iconCanvas(ICONP[it.key] || ((s) => { s(8, 8, [255, 0, 255]); })));
 } }
 
 // heart icons

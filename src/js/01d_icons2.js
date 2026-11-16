@@ -296,5 +296,5 @@
       '...Ld.....dd....'], { L: [214, 182, 140], C: [184, 148, 104], c: [150, 116, 76], d: [120, 90, 56] }, 1, 1); },
     spider_eye: (g) => { IC.ball(g, 8, 8.5, 5, 4.6, [150, 30, 50], { k: 0.4 }); for (const [x, y] of [[6, 7], [10, 7], [8, 10], [9, 6]]) g.set(x, y, [40, 8, 16]); g.set(5, 6, [230, 120, 140]); },
   };
-  for (const k in X) { if (IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; ICONS2[k] = X[k]; try { const c = IC.canvas(X[k], { seed: IT[k] }); ICON_CANVAS[IT[k]] = c; ICON[IT[k]] = c.toDataURL(); } catch (e) { console.warn('icon', k, e); } }
+  for (const k in X) { if (IT[k] == null || ITEMS[IT[k]].kind === 'block') continue; ICONS2[k] = X[k]; const f = X[k]; lazyIcon(IT[k], () => IC.canvas(f, { seed: IT[k] })); }
 }
