@@ -40,7 +40,7 @@ function meleeHit(tool, mob) {
   return { dmg: Math.max(0, dmg), kb, crit, sweep, c, weapon };
 }
 function playerMelee(m, tool) {
-  const h = meleeHit(tool, m); m.hurt(h.dmg, player.pos, h.kb * (h.c > 0.9 ? 1 : 0.5 + h.c * 0.5));
+  const h = meleeHit(tool, m); m.hurt(h.dmg, player.pos, h.kb); // Minecraft: the push does not depend on the attack cooldown (only the sprint bonus needs a charged hit)
   if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
   const top = m.pos.y + Math.min(m.h, 3) * 0.7;
   if (h.crit) Particles.emit(m.pos.x, top, m.pos.z, 12, [[1, 1, 0.7], [0.9, 0.9, 0.6]], 3, 0.5, 4, 0.6);

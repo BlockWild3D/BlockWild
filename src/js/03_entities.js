@@ -53,11 +53,12 @@ function inLava(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Ma
 // added away from the attacker; if it stands on the ground it also pops up, capped. A plain hit pushes with 0.4
 // (blocks per tick); every extra level (a sprint hit, each level of the Knockback enchantment) is a second push of 0.5
 // per level. Knockback resistance scales it all down. In this game `kb` is 1 for a plain hit and +0.6 per extra level.
-const KNOCK = { h: 12.3, lvl: 15.4, up: 8 }; // sideways pushes are scaled so the distance travelled matches Minecraft (3.05 blocks plain, 5.3 for a sprint hit) under this game's friction
+const KNOCK = { base: 6.7, lvl: 10.5, up: 6.98, upLvl: 7.71 }; // tuned so the distances match the Minecraft Wiki's (see below)
 function applyKnockback(e, src, kb, res) {
   if (!(kb > 0) || res >= 1) return; const d = new V3(e.pos.x - src.x, 0, e.pos.z - src.z); if (d.lengthSq() > 1e-4) d.normalize(); else { const a = Math.random() * Math.PI * 2; d.set(Math.cos(a), 0, Math.sin(a)); }
-  const m = (1 - (res || 0)); const push = (s) => { e.vel.x = e.vel.x / 2 + d.x * s * m; e.vel.z = e.vel.z / 2 + d.z * s * m; if (e.onGround || e.vel.y === 0) e.vel.y = Math.min(KNOCK.up, e.vel.y / 2 + Math.min(s, KNOCK.up) * m); };
-  push(KNOCK.h * Math.min(1, kb)); const lv = (kb - 1) / 0.6; if (lv > 0.01) push(KNOCK.lvl * lv);
+  const m = 1 - (res || 0); const lv = Math.max(0, (kb - 1) / 0.6); const sp = (KNOCK.base * Math.min(1, kb) + KNOCK.lvl * lv) * m;
+  e.vel.x = e.vel.x / 2 + d.x * sp; e.vel.z = e.vel.z / 2 + d.z * sp;
+  if (e.onGround || e.vel.y === 0) e.vel.y = Math.min(KNOCK.upLvl, e.vel.y / 2 + (lv > 0.01 ? KNOCK.upLvl : KNOCK.up * Math.min(1, kb)) * m);
 }
 function inWater(e, off = 0.3) { return FKIND[G.world.get(Math.floor(e.pos.x), Math.floor(e.pos.y + off), Math.floor(e.pos.z))] === 1; }
 function rayAABB(o, d, min, max) {

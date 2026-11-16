@@ -59,6 +59,4 @@ function fireTick(dt) {
 if (typeof DEATH_YOU !== 'undefined') DEATH_YOU.fire = 'You burned to death';
 { const _die = Player.prototype.die; Player.prototype.die = function () { this.fireT = 0; return _die.apply(this, arguments); }; }
 
-// ================= A BARE-HANDED PUNCH KNOCKS BACK LESS =================
-// (My change, not Minecraft's: a fist pushes half as far as a weapon. A sprinting punch still adds its extra shove.)
-{ const _mh = meleeHit; meleeHit = function (tool, mob) { const h = _mh.apply(this, arguments); if (h && !(tool && (tool.kind === 'tool' || tool.melee))) h.kb = h.kb > 1.01 ? h.kb - 0.45 : h.kb * 0.5; return h; }; }
+// (A bare hand knocks back exactly like any tool, as in Minecraft; the earlier half-strength punch was removed.)
