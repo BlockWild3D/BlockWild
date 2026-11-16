@@ -19,3 +19,8 @@ function paintIconSet(id, bytes) { const copy = new Uint8ClampedArray(bytes); la
   for (const key in PAINT.icons) { const id = IT[key]; if (id === undefined) continue; try { paintIconSet(id, paintBytes(PAINT.icons[key])); } catch (e) { console.warn('paint icon', key, e); } }
 })();
 
+// hand-drawn potion bottles: one picture per bottle type (potion / splash / lingering) and brew; long_ and strong_ use the base brew's picture
+if (PAINT.potions && typeof potionIcon === 'function') { const _potionIcon = potionIcon; const cache = {};
+  potionIcon = function (id, pot) { const kind = id === IT.potion ? 'potion' : id === IT.splash_potion ? 'splash_potion' : id === IT.lingering_potion ? 'lingering_potion' : id === IT.tipped_arrow ? 'tipped_arrow' : null;
+    const P = typeof POTIONS !== 'undefined' ? POTIONS[pot] : null; const k = (P && P.base) || pot; const b = kind && PAINT.potions[kind] && PAINT.potions[kind][k];
+    if (!b) return _potionIcon(id, pot); const key = kind + ':' + k; return cache[key] || (cache[key] = paintCanvas(paintBytes(b)).toDataURL()); }; }
