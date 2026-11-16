@@ -92,3 +92,10 @@ if (BB_MODELS['@ench_book']) {
       const want = Math.atan2(player.pos.x - (x + 0.5), player.pos.z - (z + 0.5)) + Math.PI / 2; let dd = want - b.yaw; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); b.yaw += dd * Math.min(1, dt * 3); b.g.rotation.y = b.yaw; }
   });
 }
+
+// ---------- beacon beams: the owner's beam texture, stretched up the sky and scrolling ----------
+if (BB_MODELS['@beacon_beam']) {
+  const tex = new THREE.TextureLoader().load(BB_MODELS['@beacon_beam'].texture); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1, 200);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+  BB_TICKS.push((dt) => { tex.offset.y = (tex.offset.y - dt * 0.5) % 1; if (typeof beaconBeams === 'undefined') return; for (const b of beaconBeams.values()) if (b.material !== mat) b.material = mat; });
+}

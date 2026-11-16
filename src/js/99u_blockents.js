@@ -15,3 +15,5 @@
       d.render = 'boxes'; d.boxes = d.rb = [[1, 0, 1, 15, 14, 15], LATCH[fi].concat([n('latch')])]; d.opaque = false; OPAQUE[d.id] = 0; }
   }
 }
+// ---------- armor stands: wooden sticks, stone base plate (both from the owner's armor stand skin) ----------
+if (TILE.armor_stand_base !== undefined) for (const d of BL) if (d && d.armorStand === 'lower' && d.boxes) { d.boxes = d.rb = d.boxes.map(b => (b[1] === 0 && b[4] - b[1] <= 2 && b[3] - b[0] >= 8) ? b.slice(0, 6).concat([TILE.armor_stand_base]) : b); }
