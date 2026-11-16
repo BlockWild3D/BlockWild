@@ -16,6 +16,7 @@ function modPainter(spec, kind) {
   if (typeof spec === 'function') return spec;
   if (typeof spec === 'string') spec = { color: spec };
   if (!spec) spec = { color: '#ff00ff' };
+  if (spec.rgba) return paintPainter(spec.rgba);
   if (spec.pixels) {
     const pal = {}; for (const k in (spec.palette || {})) pal[k] = hexc(spec.palette[k]);
     return (set) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const ch = (spec.pixels[y] || '')[x]; if (!ch || ch === '.' || ch === ' ' || !pal[ch]) set(x, y, [0, 0, 0], 0); else set(x, y, pal[ch]); } };
@@ -59,7 +60,7 @@ function makeModApi(mod) {
   const ns = (key) => String(key).toLowerCase().replace(/[^a-z0-9_]/g, '_');
   const tex6 = (o, key) => { // texture spec -> defBlock tex
     const t = o.textures || o.texture || o.color || '#888888';
-    if (t && typeof t === 'object' && !t.pixels && !t.color && !t.image && !t.style && (t.top || t.side || t.bottom || t.all)) {
+    if (t && typeof t === 'object' && !t.pixels && !t.rgba && !t.color && !t.image && !t.style && (t.top || t.side || t.bottom || t.all)) {
       const all = t.all || t.side || t.top; const side = modTile(key + '_side', t.side || all), top = modTile(key + '_top', t.top || all), bot = modTile(key + '_bottom', t.bottom || t.top || all);
       return { s: side, t: top, b: bot };
     }
@@ -72,7 +73,7 @@ function makeModApi(mod) {
       key = ns(key); if (B[key.toUpperCase()] !== undefined) throw new Error('Block "' + key + '" already exists');
       if (BL.length >= ITEM_BASE) throw new Error('No block ids left (max ' + (ITEM_BASE - 1) + ')');
       const shape = o.shape || 'cube';
-      const def = { tex: tex6(o, key), hardness: o.hardness != null ? o.hardness : 1.5, tool: o.tool === 'pickaxe' || o.tool === 'pick' ? 'pick' : null, tier: o.tier || (o.tool ? 1 : 0), light: o.light || 0, snd: o.sound || 'stone', drop: o.drop === undefined ? key : o.drop, mod: mod.name };
+      const def = { tex: tex6(o, key), hardness: o.hardness != null ? o.hardness : 1.5, tool: ({ pickaxe: 'pick', pick: 'pick', axe: 'axe', shovel: 'shovel', hoe: 'hoe' })[o.tool] || null, tier: o.tier || (o.tool ? 1 : 0), light: o.light || 0, snd: o.sound || 'stone', drop: o.drop === undefined ? key : o.drop, mod: mod.name };
       if (shape === 'cross') Object.assign(def, { solid: false, opaque: false, render: 'cross', plant: true, hardness: o.hardness || 0, snd: o.sound || 'grass' });
       if (o.transparent || shape === 'glass') Object.assign(def, { opaque: false, render: 'cutout', cullSame: true });
       if (o.solid === false) def.solid = false;
@@ -92,9 +93,9 @@ function makeModApi(mod) {
       return id;
     },
     addTool(key, o = {}) {
-      key = ns(key); const type = o.type === 'sword' ? 'sword' : 'pick'; const tier = o.tier || 2;
+      key = ns(key); const type = ({ sword: 'sword', axe: 'axe', shovel: 'shovel', hoe: 'hoe' })[o.type] || 'pick'; const tier = o.tier || 2;
       ICONP[key] = modPainter(o.icon || { color: o.color || '#cccccc', color2: o.color2, style: type === 'sword' ? 'sword' : 'pickaxe' }, 'item');
-      const id = nid++; defItem(id, key, o.name || key, { kind: 'tool', stack: 1, tool: type, tier, speed: o.speed || (type === 'pick' ? tier * 2 : 1), dmg: o.damage || (type === 'sword' ? 3 + tier : 1 + tier), mod: mod.name }); ITEM_IDS.push(id);
+      const id = nid++; defItem(id, key, o.name || key, { kind: 'tool', stack: 1, tool: type, tier, speed: o.speed || (type === 'sword' || type === 'hoe' ? 1 : tier * 2), dmg: o.damage || (type === 'sword' ? 3 + tier : 1 + tier), mod: mod.name }); ITEM_IDS.push(id);
       return id;
     },
     addRecipe(out, count, pattern, keyMap) {
@@ -153,6 +154,15 @@ function makeModApi(mod) {
   return api;
 }
 // run enabled mods
+// ---- Texture Studio: pictures you drew yourself (see 99p_paint.js for the editor) ----
+// Kept in this browser as { tiles: { tileName: picture }, icons: { itemKey: picture }, custom: [things you made] }.
+// A picture is 16x16 pixels, 4 bytes each (red, green, blue, see-through or not), stored as base64 text.
+function paintLoad() { try { const p = JSON.parse(localStorage.getItem('blockwild_paint') || '{}'); return { tiles: p.tiles || {}, icons: p.icons || {}, custom: Array.isArray(p.custom) ? p.custom : [] }; } catch (e) { return { tiles: {}, icons: {}, custom: [] }; } }
+const PAINT = paintLoad(); const PAINT_LIVE = new Set();
+function paintSave() { try { localStorage.setItem('blockwild_paint', JSON.stringify(PAINT)); return true; } catch (e) { return false; } }
+function paintBytes(b64) { const out = new Uint8ClampedArray(1024); try { const s = atob(b64); for (let i = 0; i < 1024 && i < s.length; i++) out[i] = s.charCodeAt(i); } catch (e) { } return out; }
+function paintB64(bytes) { let s = ''; for (let i = 0; i < 1024; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+function paintPainter(b64) { const d = paintBytes(b64); return (set) => { for (let k = 0; k < 256; k++) set(k & 15, k >> 4, [d[k * 4], d[k * 4 + 1], d[k * 4 + 2]], d[k * 4 + 3] > 127 ? 255 : 0); }; }
 (function runMods() {
   MODS.list = modsLoad();
   for (const m of MODS.list) {
@@ -162,4 +172,16 @@ function makeModApi(mod) {
     try { new Function('api', '"use strict";\n' + m.code)(makeModApi(mod)); MODS.loaded.push(m.id); }
     catch (e) { MODS.errors[m.id] = String(e && e.message || e); console.error('[mod ' + meta.name + ']', e); }
   }
+})();
+// the blocks, items and tools you made in the Texture Studio join the game here, the same way a mod's would
+(function paintRegister() {
+  if (!PAINT.custom.length) return; const api = makeModApi({ id: 'paint', name: 'Texture Studio' });
+  const tile = (n, fb) => PAINT.tiles[n] ? { rgba: PAINT.tiles[n] } : PAINT.tiles[fb] ? { rgba: PAINT.tiles[fb] } : { color: '#b060d0' };
+  for (const c of PAINT.custom) { try {
+    if (c.type === 'block') api.addBlock(c.key, { name: c.name, texture: c.faces ? { side: tile(c.key + '_side', c.key), top: tile(c.key + '_top', c.key), bottom: tile(c.key + '_bottom', c.key) } : tile(c.key), hardness: c.hardness != null ? c.hardness : 1.5, tool: c.tool || undefined, tier: c.tier || 0, light: (c.light || 0) / 15, transparent: !!c.clear });
+    else { const icon = PAINT.icons[c.key] ? { rgba: PAINT.icons[c.key] } : { color: '#b060d0' };
+      if (c.type === 'item' || c.type === 'food') api.addItem(c.key, { name: c.name, icon, food: c.type === 'food' ? (c.food || 4) : 0 });
+      else api.addTool(c.key, { name: c.name, type: c.type, tier: c.tier || 2, speed: c.speed || 0, damage: c.damage || 0, icon }); }
+    PAINT_LIVE.add(c.key);
+  } catch (e) { console.warn('[Texture Studio] ' + c.key + ':', e); } }
 })();

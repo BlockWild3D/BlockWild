@@ -816,7 +816,9 @@ const TILE_CV = new Map(); // one small canvas per atlas tile, reused by every i
 function tileCanvas(t) { let c = TILE_CV.get(t); if (c) return c; c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').drawImage(atlasCanvas, (t % ATN) * 16, Math.floor(t / ATN) * 16, 16, 16, 0, 0, 16, 16); TILE_CV.set(t, c); return c; }
 // Icons are drawn the first time something asks for them (a slot, the hand, the creative list), not all at page load:
 // ICON_CANVAS[id] and ICON[id] are getters until then. Assigning either replaces the lazy one as usual.
+const LAZY_MAKE = []; // how each item's picture is drawn, kept so the Texture Studio can put an original back
 function lazyIcon(id, make) {
+  LAZY_MAKE[id] = make;
   const def = (o, v) => Object.defineProperty(o, id, { value: v, writable: true, configurable: true, enumerable: true });
   Object.defineProperty(ICON_CANVAS, id, { configurable: true, enumerable: true, get() { let c; try { c = make(); } catch (e) { console.warn('icon', id, e); c = iconCanvas((s) => s(8, 8, [255, 0, 255])); } def(ICON_CANVAS, c); return c; },
     set(v) { def(ICON_CANVAS, v); } });
