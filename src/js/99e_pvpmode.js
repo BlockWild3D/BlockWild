@@ -176,7 +176,8 @@ function arenaMsg(text, secs, small) { let el = $('arenaMsg'); if (!el) { el = d
 { const _h = Player.prototype.hurt; Player.prototype.hurt = function () { if (this === player && S.rules.arena && S.arena && S.arena.phase !== 'fight') return; return _h.apply(this, arguments); }; }
 // dying in the arena drops nothing; respawning puts you back in your cage
 { const _die = Player.prototype.die; Player.prototype.die = function (cause) {
-    if (this === player && S.rules.arena) { for (let i = 0; i <= 40; i++) this.inv[i] = null; for (let i = 0; i < 9; i++) craftGrid[i] = null; if (typeof setLevel === 'function') setLevel(0, 0); invDirty(); if (S.arena) S.arena.phase = 'dead'; }
+    const tot = (s) => s && s.id === IT.totem_of_undying; const saved = cause !== 'the void' && (tot(this.inv[this.sel]) || tot(this.inv[36])); // a held totem saves you
+    if (this === player && S.rules.arena && !saved) { for (let i = 0; i <= 40; i++) this.inv[i] = null; for (let i = 0; i < 9; i++) craftGrid[i] = null; if (typeof setLevel === 'function') setLevel(0, 0); invDirty(); if (S.arena) S.arena.phase = 'dead'; }
     return _die.apply(this, arguments); }; }
 function arenaTick(dt) {
   const A = S.arena; if (!S.rules.arena || !A || !S.started || S.loading) return;
@@ -185,7 +186,7 @@ function arenaTick(dt) {
     if (!A.built && world.getChunk(Math.floor(px / 16), Math.floor(pz / 16))) { cageBlocks(px, pz, B.GLASS); A.built = true; }
     if (Math.abs(player.pos.x - px - 0.5) > 0.7 || Math.abs(player.pos.z - pz - 0.5) > 0.7 || player.pos.y < AR.Y - 0.5) { player.pos.set(px + 0.5, AR.Y, pz + 0.5); player.vel.set(0, 0, 0); }
     if (A.phase === 'count') { const before = Math.ceil(A.t); A.t -= dt; const now = Math.ceil(A.t); if (A.t <= 0) releaseCage(); else if (now !== before) { arenaMsg(String(now), 0.9); Sfx.play('click', 0.6); } }
-    else if (!$('kitPick') || $('kitPick').style.display === 'none') arenaMsg('Press K to pick a kit', 0, true); }
+    else if (!$('kitPick') || $('kitPick').style.display === 'none') arenaMsg('Press K for the lobby', 0, true); }
   if (A.phase === 'fight' && player.pos.y < AR.Y - 48 && !player.dead && isSurv()) { player.health = 0; player.die('the void'); }
 }
 addEventListener('keydown', (e) => { if (e.code === 'KeyK' && S.rules.arena && S.arena && S.arena.phase === 'cage' && !S.uiOpen && !player.dead) { e.preventDefault(); openKitPicker(); } });

@@ -214,7 +214,7 @@ function windBurst(p, power, src) {
   const R = 2.5 + power * 0.5;
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
-  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, dir.y * k + k * 0.6); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
+  if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * (typeof WIND_UP === 'number' ? WIND_UP : 1)); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
 }
 { const _pi = projImpact; projImpact = function (a, mob) {
     if (a.kind !== 'wind') return _pi(a, mob); a.done = true;

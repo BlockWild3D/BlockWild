@@ -40,7 +40,7 @@ function pvpReceive(m) {
 { const _ui = updateInteraction; updateInteraction = function (dt) {
     if (!(typeof MP !== 'undefined' && MP.active) || !mouseL || S.uiOpen || player.dead || S.mode === 'spectator') return _ui.apply(this, arguments);
     const eye = player.eye(), dir = lookDir(); const sp = typeof heldSpear === 'function' ? heldSpear() : null;
-    const reach = sp ? 4.5 : S.mode === 'creative' ? 6 : 3.8; const blk = raycast(eye, dir, reach);
+    const reach = sp ? 4.5 : S.mode === 'creative' ? 5 : 3; const blk = raycast(eye, dir, reach);
     const hit = avatarRay(eye, dir, blk ? blk.dist : reach); if (!hit) return _ui.apply(this, arguments);
     let mobT = Infinity; for (const mb of G.mobs) { if (mb.dead || mb === player.riding) continue; const t = mobRay(mb, eye, dir); if (t >= 0 && t < mobT) mobT = t; }
     if (mobT < hit.dist) return _ui.apply(this, arguments);

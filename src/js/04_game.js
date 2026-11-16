@@ -446,9 +446,9 @@ function mobRay(m, eye, dir) { if (m.rayTest) return m.rayTest(eye, dir); return
 function updateInteraction(dt) {
   S.atkCD -= dt; S.useCD -= dt;
   if (player.dead || S.uiOpen) { selBox.visible = false; crackMesh.visible = false; show('mineBar', false); S.mineT = 0; return; }
-  const eye = player.eye(), dir = lookDir(); const reach = S.mode === 'creative' ? 7 : 5;
+  const eye = player.eye(), dir = lookDir(); const reach = S.mode === 'creative' ? 5 : 4.5; // Minecraft: blocks 4.5 (Creative 5), entities 3 (Creative 5)
   target = raycast(eye, dir, reach);
-  targetMob = null; let best = S.mode === 'creative' ? 6 : 3.8;
+  targetMob = null; let best = S.mode === 'creative' ? 5 : 3;
   for (const m of G.mobs) { if (m.dead) continue; const t = mobRay(m, eye, dir); if (t >= 0 && t < best && (!target || t < target.dist)) { best = t; targetMob = m; } }
   targetBoat = boatRay(eye, dir, best); if (targetBoat) targetMob = null;
   if (target && !targetMob && !targetBoat) { selBox.visible = true; selBox.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5); } else selBox.visible = false;

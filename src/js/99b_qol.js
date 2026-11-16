@@ -40,7 +40,7 @@ for (const d of BL) if (d && !d.support && (!d.shape || d.shape === 'layer') && 
 const CRAM = { t: 0 };
 function crowdTick(dt) {
   if (!('maxEntityCramming' in S.rules)) S.rules.maxEntityCramming = 24;
-  const ms = G.mobs.filter(m => !m.dead && !m.gone && !m.vSleep && !m.mountOf && !(m.mobRiders && m.mobRiders.length) && m !== player.riding && !m.noPush && m.t && !m.t.noPush && !m.t.fly); if (!ms.length) return;
+  const ms = G.mobs.filter(m => m.vel && !m.isBoss && !m.isCrystal && !m.dead && !m.gone && !m.vSleep && !m.mountOf && !(m.mobRiders && m.mobRiders.length) && m !== player.riding && !m.noPush && m.t && !m.t.noPush && !m.t.fly); if (!ms.length) return;
   const grid = new Map(); const k = (x, z) => (x + 4096) * 8192 + (z + 4096);
   for (const m of ms) { const key = k(Math.floor(m.pos.x), Math.floor(m.pos.z)); let a = grid.get(key); if (!a) grid.set(key, a = []); a.push(m); }
   const cram = (CRAM.t += dt) >= 0.5; if (cram) CRAM.t = 0; const lim = S.rules.maxEntityCramming;
