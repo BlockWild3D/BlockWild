@@ -109,6 +109,9 @@ const ANIM = {
   portal: (t) => (set, r) => each((x, y) => { const dx = x - 7.5, dy = y - 7.5; const d = Math.hypot(dx, dy); const a = Math.atan2(dy, dx); const v = Math.sin(a * 3 + d * 0.9 - t * 3) * 0.5 + Math.sin(d * 1.3 - t * 2) * 0.3 + Math.sin((x + y) * 0.7 + t) * 0.2; set(x, y, v > 0.45 ? [200, 130, 255] : v > 0 ? [138, 56, 226] : v > -0.4 ? [100, 30, 186] : [70, 12, 140]); }),
 };
 ANIM.fire = (t) => firePaint(t);
+// hand-drawn animation frames (from 00_paint.js) replace a generated animation: one frame every 0.1 s
+if (PAINT_BAKED.anim) for (const k in PAINT_BAKED.anim) { const fr = PAINT_BAKED.anim[k].map(b => Uint8ClampedArray.from(atob(b), ch => ch.charCodeAt(0))); if (ANIM[k] && fr.length)
+  ANIM[k] = (t) => (set) => { const f = fr[Math.floor(t * 10) % fr.length]; each((x, y) => { const i = (y * 16 + x) * 4; set(x, y, [f[i], f[i + 1], f[i + 2]]); }); }; }
 let animT = 0;
 // animated tiles: repaint, then (detailed mode) upscale just those tiles and copy them into the GPU texture in place
 const animTex = {};

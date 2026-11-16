@@ -346,6 +346,14 @@ for (let s = 0; s < 6; s++) {
   for (let i = 0; i < Math.round((s + 1) * 2.3); i++) { const L = lines[i]; let px = L[0], py = L[1]; for (let k = 0; k < L[3] * (0.5 + s * 0.12); k++) { px += Math.cos(L[2]) + (r() - 0.5) * 0.6; py += Math.sin(L[2]) + (r() - 0.5) * 0.6; x.fillRect(Math.floor(px), Math.floor(py), 1, 1); } }
   crackTex.push(c);
 }
+// hand-drawn textures that have no generated version (lit furnace fronts, lit candles, pane edges ...) get a tile slot here,
+// before any block is defined, so blocks can use them; 99p_paint.js paints them again at the end like every other hand-drawn tile
+for (const n of (PAINT_BAKED.newtiles || [])) if (TILE[n] === undefined && PAINT_BAKED.tiles[n]) { const px = Uint8ClampedArray.from(atob(PAINT_BAKED.tiles[n]), ch => ch.charCodeAt(0));
+  makeTile(n, (set) => { for (let k = 0; k < 256; k++) set(k % 16, k >> 4, [px[k * 4], px[k * 4 + 1], px[k * 4 + 2]], px[k * 4 + 3]); }); }
+// hand-drawn breaking cracks (from 00_paint.js) replace the generated ones, any number of stages
+if (PAINT_BAKED.cracks && PAINT_BAKED.cracks.length) { crackTex.length = 0; for (const b64 of PAINT_BAKED.cracks) {
+  const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); const img = x.createImageData(16, 16);
+  img.data.set(Uint8ClampedArray.from(atob(b64), ch => ch.charCodeAt(0))); x.putImageData(img, 0, 0); crackTex.push(c); } }
 
 // ---------------- Blocks ----------------
 const BL = []; const B = {};

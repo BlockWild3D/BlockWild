@@ -271,6 +271,7 @@ function updateFurnaces(dt) {
     if (f.burn <= 0 && can && fuel && FUEL[fuel.id]) { f.burn = f.burnMax = FUEL[fuel.id]; if (fuel.id === IT.lava_bucket) f.s[1] = { id: IT.bucket, count: 1 }; else { fuel.count--; if (!fuel.count) f.s[1] = null; } if (S.furnKey === k) invDirty(); }
     if (f.burn > 0) { f.burn -= dt * spd; if (can) { f.cook += dt * spd; if (f.cook >= COOK_TIME) { f.cook = 0; inp.count--; if (!inp.count) f.s[0] = null; if (out) out.count++; else f.s[2] = { id: res, count: 1 }; f.xp = (f.xp || 0) + (SMELT_XP[ITEMS[res].key] || 0.1); if (S.furnKey === k) invDirty(); } } else f.cook = 0; }
     else f.cook = Math.max(0, f.cook - dt * 2);
+    if (typeof furnLitSync === 'function') furnLitSync(k, f);
   }
   if (furnState) { document.querySelector('.flameon').style.height = (furnState.burnMax ? Math.max(0, furnState.burn / furnState.burnMax) * 100 : 0) + '%'; document.querySelector('.progon').style.width = (furnState.cook / COOK_TIME * 100) + '%'; }
 }
@@ -468,7 +469,7 @@ function updateInteraction(dt) {
       if (S.mineT >= bt) { breakBlock(target.x, target.y, target.z); S.mineT = 0; S.mineKey = ''; }
     }
     const prog = bt === Infinity ? 0 : bt ? S.mineT / bt : 0;
-    crackMesh.visible = prog > 0.02; crackMesh.position.copy(selBox.position); crackMat.map = crackTextures[Math.min(5, Math.floor(prog * 6))];
+    crackMesh.visible = prog > 0.02; crackMesh.position.copy(selBox.position); crackMat.map = crackTextures[Math.min(crackTextures.length - 1, Math.floor(prog * crackTextures.length))];
     show('mineBar', prog > 0.02); $('mineBar').firstChild.style.width = Math.round(prog * 100) + '%';
   } else { S.mineT = 0; S.mineKey = ''; crackMesh.visible = false; show('mineBar', false); }
   if (!mouseL) { crackMesh.visible = false; show('mineBar', false); }
