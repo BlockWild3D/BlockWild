@@ -154,14 +154,9 @@ function makeModApi(mod) {
   return api;
 }
 // run enabled mods
-// ---- Texture Studio: pictures you drew yourself (see 99p_paint.js for the editor) ----
-// Kept in this browser as { tiles: { tileName: picture }, icons: { itemKey: picture }, custom: [things you made] }.
-// A picture is 16x16 pixels, 4 bytes each (red, green, blue, see-through or not), stored as base64 text.
-function paintLoad() { try { const p = JSON.parse(localStorage.getItem('blockwild_paint') || '{}'); return { tiles: p.tiles || {}, icons: p.icons || {}, custom: Array.isArray(p.custom) ? p.custom : [] }; } catch (e) { return { tiles: {}, icons: {}, custom: [] }; } }
-const PAINT = paintLoad(); const PAINT_LIVE = new Set();
-function paintSave() { try { localStorage.setItem('blockwild_paint', JSON.stringify(PAINT)); return true; } catch (e) { return false; } }
+// ---- hand-drawn textures (the data is in 00_paint.js, the part that paints them over the built-in ones in 99p_paint.js) ----
+const PAINT = PAINT_BAKED; const PAINT_LIVE = new Set();
 function paintBytes(b64) { const out = new Uint8ClampedArray(1024); try { const s = atob(b64); for (let i = 0; i < 1024 && i < s.length; i++) out[i] = s.charCodeAt(i); } catch (e) { } return out; }
-function paintB64(bytes) { let s = ''; for (let i = 0; i < 1024; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
 function paintPainter(b64) { const d = paintBytes(b64); return (set) => { for (let k = 0; k < 256; k++) set(k & 15, k >> 4, [d[k * 4], d[k * 4 + 1], d[k * 4 + 2]], d[k * 4 + 3] > 127 ? 255 : 0); }; }
 (function runMods() {
   MODS.list = modsLoad();
@@ -173,15 +168,16 @@ function paintPainter(b64) { const d = paintBytes(b64); return (set) => { for (l
     catch (e) { MODS.errors[m.id] = String(e && e.message || e); console.error('[mod ' + meta.name + ']', e); }
   }
 })();
-// the blocks, items and tools you made in the Texture Studio join the game here, the same way a mod's would
+// hand-drawn blocks, items and tools join the game here, the same way a mod's would
 (function paintRegister() {
-  if (!PAINT.custom.length) return; const api = makeModApi({ id: 'paint', name: 'Texture Studio' });
+  if (!PAINT.custom.length) return; const api = makeModApi({ id: 'paint', name: 'BlockWild' });
   const tile = (n, fb) => PAINT.tiles[n] ? { rgba: PAINT.tiles[n] } : PAINT.tiles[fb] ? { rgba: PAINT.tiles[fb] } : { color: '#b060d0' };
   for (const c of PAINT.custom) { try {
     if (c.type === 'block') api.addBlock(c.key, { name: c.name, texture: c.faces ? { side: tile(c.key + '_side', c.key), top: tile(c.key + '_top', c.key), bottom: tile(c.key + '_bottom', c.key) } : tile(c.key), hardness: c.hardness != null ? c.hardness : 1.5, tool: c.tool || undefined, tier: c.tier || 0, light: (c.light || 0) / 15, transparent: !!c.clear });
     else { const icon = PAINT.icons[c.key] ? { rgba: PAINT.icons[c.key] } : { color: '#b060d0' };
       if (c.type === 'item' || c.type === 'food') api.addItem(c.key, { name: c.name, icon, food: c.type === 'food' ? (c.food || 4) : 0 });
       else api.addTool(c.key, { name: c.name, type: c.type, tier: c.tier || 2, speed: c.speed || 0, damage: c.damage || 0, icon }); }
+    if (c.recipe) api.addRecipe(c.key, c.recipe.count || 1, c.recipe.pattern, c.recipe.key);
     PAINT_LIVE.add(c.key);
-  } catch (e) { console.warn('[Texture Studio] ' + c.key + ':', e); } }
+  } catch (e) { console.warn('[hand-drawn] ' + c.key + ':', e); } }
 })();
