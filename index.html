@@ -18949,6 +18949,17 @@ function interactTargetNow() {
   if (m && !m.dead) { if (/villager|trader/.test(m.type) || m.tamed || m.owner) return true; if (m.t && m.t.kind !== 'hostile' && !m.isBoss && player.inv[player.sel]) return true; return false; }
   return !!(typeof target !== 'undefined' && target && blockInteracts(target.id));
 }
+// ================= THE PAUSE BETWEEN BLOCKS (Minecraft) =================
+// Break times already follow Minecraft's formula exactly (stone: 7.5 s by hand, 1.15 wood, 0.6 stone, 0.4 iron, 0.3
+// diamond, 0.25 netherite, 0.2 gold). What was missing is the 5 tick (quarter second) pause Minecraft puts between
+// one block breaking and the next one starting while you hold the button, in Survival and in Creative. Blocks that
+// break instantly don't cause the pause, and letting go of the button clears it.
+{ const _bt = breakTime; breakTime = function (id, tool) { const t = _bt.apply(this, arguments); S.lastBt = t; return t; }; }
+{ const _bb = breakBlock; breakBlock = function (x, y, z) { const r = _bb.apply(this, arguments); if (mouseL && (S.mode === 'creative' || S.lastBt > 0.051)) S.breakDelay = 0.25; return r; }; }
+{ const _ui = updateInteraction; updateInteraction = function (dt) {
+    if (!mouseL) S.breakDelay = 0;
+    if (S.breakDelay > 0) { S.breakDelay -= dt; const mob = typeof targetMob !== 'undefined' && targetMob; if (!mob) { const ml = mouseL; mouseL = false; S.mineT = 0; try { return _ui.apply(this, arguments); } finally { mouseL = ml; } } }
+    return _ui.apply(this, arguments); }; }
 
 // ================= WORLD GENERATION CLEANUP =================
 // Decoration is planned from the terrain height map, but caves, ravines, rivers and structures can cut the ground away
