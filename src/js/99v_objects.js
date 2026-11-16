@@ -99,3 +99,32 @@ if (BB_MODELS['@beacon_beam']) {
   const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
   BB_TICKS.push((dt) => { tex.offset.y = (tex.offset.y - dt * 0.5) % 1; if (typeof beaconBeams === 'undefined') return; for (const b of beaconBeams.values()) if (b.material !== mat) b.material = mat; });
 }
+
+// ---------- worn armour: each box face cut from the owner's Minecraft armour layers (leather tinted like Minecraft) ----------
+{
+  const IMG = {}; const load = (src) => { if (!src) return null; if (IMG[src]) return IMG[src]; const im = new Image(); im.src = src; return IMG[src] = im; };
+  const A = (mat) => BB_MODELS['@armor_' + (mat === 'gold' ? 'golden' : mat)];
+  // box-UV regions on the 64x32 sheets: [u, v, w, h, d, rows from top, rows to keep]
+  const REG = { helm: ['texture', 0, 0, 8, 8, 8], chest: ['texture', 16, 16, 8, 12, 4], arm: ['texture', 40, 16, 4, 12, 4],
+    legs: ['legs', 16, 16, 8, 12, 4, 7, 5], leg: ['legs', 0, 16, 4, 12, 4, 0, 9], boot: ['texture', 0, 16, 4, 12, 4, 7, 5] };
+  const LEATHER = [160 / 255, 101 / 255, 64 / 255];
+  const _at = armorTex2;
+  armorTex2 = function (mat, part) {
+    const a = A(mat), R = REG[part]; if (!a || !R) return _at.apply(this, arguments);
+    const key = 'bb:' + mat + ':' + part; if (armorTex2Cache[key]) return armorTex2Cache[key];
+    const [sheet, u, v, w, h, d, r0 = 0, rn = h] = R; const img = load(a[sheet]), ov = load(a[sheet === 'legs' ? 'legs_overlay' : 'overlay']);
+    // face order px, nx, py, ny, pz, nz = the wearer's left, right, top, bottom, front, back
+    const F = [[u + d + w, v + d, d, h], [u, v + d, d, h], [u + d, v, w, d], [u + d + w, v, w, d], [u + d, v + d, w, h], [u + 2 * d + w, v + d, w, h]];
+    const mats = F.map(([fx, fy, fw, fh], i) => {
+      const side = i !== 2 && i !== 3; const sy = side ? fy + r0 : fy, sh = side ? rn : fh;
+      const cv = document.createElement('canvas'); cv.width = fw; cv.height = sh; const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter;
+      const draw = () => { const x = cv.getContext('2d'); x.clearRect(0, 0, fw, sh); x.drawImage(img, fx, sy, fw, sh, 0, 0, fw, sh);
+        if (mat === 'leather') { const id = x.getImageData(0, 0, fw, sh); for (let q = 0; q < id.data.length; q += 4) { id.data[q] *= LEATHER[0]; id.data[q + 1] *= LEATHER[1]; id.data[q + 2] *= LEATHER[2]; } x.putImageData(id, 0, 0); if (ov && ov.complete) x.drawImage(ov, fx, sy, fw, sh, 0, 0, fw, sh); }
+        t.needsUpdate = true; };
+      if (img.complete && (!ov || ov.complete)) draw(); else { img.addEventListener('load', draw); if (ov) ov.addEventListener('load', draw); }
+      return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.1, transparent: false, side: THREE.DoubleSide }); });
+    return armorTex2Cache[key] = mats;
+  };
+  // armour already on show gets redrawn with the new look
+  for (const k in armorTex2Cache) delete armorTex2Cache[k];
+}
