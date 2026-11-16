@@ -60,3 +60,12 @@ if (typeof DEATH_YOU !== 'undefined') DEATH_YOU.fire = 'You burned to death';
 { const _die = Player.prototype.die; Player.prototype.die = function () { this.fireT = 0; return _die.apply(this, arguments); }; }
 
 // (A bare hand knocks back exactly like any tool, as in Minecraft; the earlier half-strength punch was removed.)
+
+// ================= EXPLOSIONS THAT START FIRES (Minecraft) =================
+// Respawn anchors and beds used in the wrong dimension explode with power 5 and leave fire: a third of the open blocks
+// with something solid under them inside the blast catch light.
+{ const _ex = explode; explode = function (cx, cy, cz, r, src, opts) { const res = _ex.apply(this, arguments);
+    try { if (opts && opts.fire && B.FIRE != null && S.rules.doFireTick !== false && !(typeof MP !== 'undefined' && MP.applying)) { const w = G.world; const R = Math.ceil(r);
+        for (let x = -R; x <= R; x++) for (let y = -R; y <= R; y++) for (let z = -R; z <= R; z++) { if (x * x + y * y + z * z > r * r || Math.random() > 1 / 3) continue; const X = Math.floor(cx) + x, Y = Math.floor(cy) + y, Z = Math.floor(cz) + z;
+          if (w.get(X, Y, Z) === 0 && SOLID[w.get(X, Y - 1, Z)] && BL[w.get(X, Y - 1, Z)].opaque) w.set(X, Y, Z, B.FIRE); } } } catch (e) { console.warn(e); }
+    return res; }; }

@@ -11,7 +11,7 @@ function placeBed(hit) {
 function bedPartner(x, y, z) { const id = world.get(x, y, z); const d = BL[id]; if (!d || !d.bedPart) return null; const want = d.bedPair; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === want) return [x + a, y, z + b]; return null; }
 function breakBedPair(x, y, z, id) { const d = BL[id]; if (!d || !d.bedPart) return; let p = null; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (world.get(x + a, y, z + b) === d.bedPair) { p = [x + a, y, z + b]; break; } if (p) { world.set(p[0], p[1], p[2], 0); if (isSurv() && d.bedPart === 'foot') dropItem(IT[d.bedItem], 1, p[0] + 0.5, p[1] + 0.4, p[2] + 0.5); } }
 function useBed(x, y, z) {
-  if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { cause: 'a bed (intentional game design)' }); return; }
+  if (world.dim !== 'overworld') { const p = bedPartner(x, y, z); world.set(x, y, z, 0); if (p) world.set(p[0], p[1], p[2], 0); explode(x + 0.5, y + 0.5, z + 0.5, 5, null, { fire: true, cause: 'a bed (intentional game design)' }); return; }
   const head = (BL[world.get(x, y, z)] || {}).bedPart === 'head' ? [x, y, z] : bedPartner(x, y, z); if (!head) return;
   S.bed = head; toast('Respawn point set', 2); chatPrint('Respawn point set', '#ccc');
   const ticks = timeTicks(); const night = (ticks >= 12542 && ticks <= 23459) || S.weather === 'thunder';
