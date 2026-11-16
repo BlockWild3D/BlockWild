@@ -28,7 +28,7 @@ function bbBox(el, M, mat) {
 function bbRotate(obj, rot) { if (!rot) return; obj.rotation.order = 'ZYX'; obj.rotation.set(-rot[0] * Math.PI / 180, rot[1] * Math.PI / 180, -rot[2] * Math.PI / 180); }
 // parts that belong to the head (or a horse's neck) so they turn with it, and parts only shown with gear on
 const BB_HEADKIDS = ['nose', 'headwear', 'headwear2', 'hat', 'mole', 'mouth', 'left_ear', 'right_ear', 'ears', 'jaw', 'left_horn', 'right_horn', 'horns', 'lower_beak', 'left_tendril', 'right_tendril', 'mushrooms', 'mane', 'beak'];
-const BB_HIDE = ['saddle', 'bridle', 'reins', 'headpiece', 'noseband', 'left_bit', 'right_bit', 'left_rein', 'right_rein', 'left_chest', 'right_chest'];
+const BB_HIDE = ['saddle', 'bridle', 'reins', 'headpiece', 'noseband', 'left_bit', 'right_bit', 'left_rein', 'right_rein', 'left_chest', 'right_chest', 'chest_left', 'chest_right'];
 const BB_HIDE_MOB = { armadillo: ['cube'], turtle: ['body2'] };
 // resting poses Minecraft sets in code rather than in the model (Blockbench degrees)
 const BB_POSE = { vex: { right_wing: [-25, 30, 0], left_wing: [-25, -30, 0], right_arm: [0, 0, 25], left_arm: [0, 0, -25] } };
@@ -58,21 +58,36 @@ function bbBuildInto(M, mat, root, parts, reuse) {
   };
   for (const n of M.outliner) addNode(n, root, new THREE.Vector3());
 }
-function buildBBModel(m, root, key) {
-  const M = BB_MODELS[key];
-  const holder = new THREE.Group(); root.add(holder);
-  const mat = bbMaterial(key, M, key + ':glow'); m.mats.push([mat, WHITE_C, false]);
+// skins: a model can carry extra skins (states like tame/angry, or a layer's options) that swap onto the same shape
+function bbSkinTex(key, M, skin) { if (!skin || !M.skins || !M.skins[skin]) return bbTexture(key, M); return bbTexture(key + '#' + skin, { texture: M.skins[skin] }); }
+// swap the skin of the model (layer null) or of a named layer; a layer given no skin is hidden
+function bbSetSkin(m, layer, skin) {
+  if (!m.bbKey) return; const M = BB_MODELS[m.bbKey]; if (!M) return;
+  if (layer == null) { if (m.bbSkinNow === skin) return; m.bbSkinNow = skin; m.bbBase.map = bbSkinTex(m.bbKey, M, skin); m.bbBase.needsUpdate = true; return; }
+  const L = (M.layers || []).find((l, i) => (l.name || 'L' + i) === layer); const mat = m.bbLayer && m.bbLayer[layer]; if (!L || !mat) return;
+  const k = layer + '=' + skin; if (mat.userData.now === k) return; mat.userData.now = k;
+  if (skin === false) { mat.visible = false; return; } mat.visible = true;
+  mat.map = bbSkinTex(m.bbKey + ':' + layer, L, skin === true ? null : skin); mat.needsUpdate = true;
+}
+function buildBBModel(m, root, key, opt) {
+  opt = opt || {}; const M = BB_MODELS[key]; const base = key.split(':')[0];
+  const holder = new THREE.Group(); root.add(holder); m.bbHolder = holder; m.bbKey = key; m.bbSkinNow = opt.skin || null; m.bbLayer = {}; m.bbMats = [];
+  const mat = bbMaterial(key, M, key + ':glow'); if (opt.skin) mat.map = bbSkinTex(key, M, opt.skin); m.bbBase = mat; m.mats.push([mat, WHITE_C, false]); m.bbMats.push(mat);
   const parts = {}; bbBuildInto(M, mat, holder, parts, false);
-  (M.layers || []).forEach((L, i) => { const lm = bbMaterial(key + ':L' + i, L, null); m.mats.push([lm, WHITE_C, !!L.translucent]); bbBuildInto(L, lm, holder, parts, true); if (L.translucent) { lm.map.wrapS = THREE.RepeatWrapping; m.bbScroll = lm.map; } });
+  (M.layers || []).forEach((L, i) => { const nm = L.name || 'L' + i; const lm = bbMaterial(key + ':' + nm, L, null); m.mats.push([lm, WHITE_C, !!L.translucent]); m.bbMats.push(lm); m.bbLayer[nm] = lm;
+    // layers sit exactly on the body, so pull them toward the camera a touch to win the depth test
+    if (!L.translucent) { lm.polygonOffset = true; lm.polygonOffsetFactor = -1 - i; lm.polygonOffsetUnits = -4 - 4 * i; }
+    bbBuildInto(L, lm, holder, parts, true); if (L.translucent && L.scroll !== false) { lm.map.wrapS = THREE.RepeatWrapping; m.bbScroll = lm.map; } });
+  for (const nm in (opt.layers || {})) bbSetSkin(m, nm, opt.layers[nm]);
   holder.updateMatrixWorld(true);
-  for (const n of BB_HIDE.concat(BB_HIDE_MOB[key] || [])) if (parts[n]) parts[n].visible = false;
+  for (const n of BB_HIDE.concat(BB_HIDE_MOB[base] || [])) if (parts[n]) parts[n].visible = false;
   // head: horses and ravagers turn the whole neck
-  const headRoot = (parts.neck && (parts.mane || key === 'ravager')) ? parts.neck : parts.head;
+  const headRoot = (parts.neck && (parts.mane || base === 'ravager')) ? parts.neck : parts.head;
   for (const [c, p] of Object.entries(BB_REPARENT)) if (parts[c] && parts[p]) parts[p].userData.inner.attach(parts[c]);
   if (headRoot) { for (const n of BB_HEADKIDS.concat(headRoot === parts.neck ? ['head'] : [])) if (parts[n] && parts[n] !== headRoot && parts[n].parent === holder) headRoot.userData.inner.attach(parts[n]); m.head = headRoot; }
   // rest poses go on an extra joint inside the part, so the game's own swing/flap still works on top
   const rest = (part, rot) => { const host = part.userData.inner; const g = new THREE.Group(); bbRotate(g, rot); while (host.children.length) g.add(host.children[0]); host.add(g); part.userData.inner = g; };
-  for (const [n, rot] of Object.entries(BB_POSE[key] || {})) if (parts[n]) rest(parts[n], rot);
+  for (const [n, rot] of Object.entries(BB_POSE[base] || {})) if (parts[n]) rest(parts[n], rot);
   const gx = (o) => o.getWorldPosition(new THREE.Vector3());
   // legs, ordered the way the walk cycle expects
   let legs = Object.keys(parts).filter(n => /(^leg\d+$)|(_leg$)/.test(n) && !/^(neck)$/.test(n)).map(n => parts[n]);
@@ -89,9 +104,9 @@ function buildBBModel(m, root, key) {
   }
   // arms: villagers, witches and illagers keep their folded arms; the separate arms only show on illagers that fight
   let arms = ['right_arm', 'left_arm'].map(n => parts[n]).filter(Boolean);
-  if (parts.arms && arms.length) { const fight = /vindicator|evoker|illusioner/.test(key); for (const a of arms) a.visible = false; if (fight) m.bbFolded = parts.arms; }
+  if (parts.arms && arms.length) { const fight = /vindicator|evoker|illusioner/.test(base); for (const a of arms) a.visible = false; if (fight) m.bbFolded = parts.arms; }
   if (arms.length === 2) { arms.sort((a, b) => gx(a).x - gx(b).x); m.arms = arms; }
-  if (parts.left_wing || parts.right_wing) { m.wings = [parts.left_wing, parts.right_wing].filter(Boolean); m.wingAxis = M.wingAxis || (key === 'phantom' ? 'z' : 'y'); }
+  if (parts.left_wing || parts.right_wing) { m.wings = [parts.left_wing, parts.right_wing].filter(Boolean); m.wingAxis = M.wingAxis || (base === 'phantom' ? 'z' : 'y'); }
   if (parts.tail) m.tail = parts.tail;
   m.bbParts = parts;
   // breeze: the wind layer spins and its texture scrolls, the rods circle the body
@@ -99,10 +114,10 @@ function buildBBModel(m, root, key) {
     if (P.rods) P.rods.rotation.y = t * 1.4; if (m.bbScroll) m.bbScroll.offset.x = (t * 0.25) % 1; };
   // size: explicit scale, or fit the model to the mob's hitbox when the two are far apart (ghasts, elder guardians)
   let sc = M.scale || 1;
-  if (!M.scale && m.t && m.t.h) { const bb = new THREE.Box3().setFromObject(holder); const h = bb.max.y - bb.min.y; if (h > 0.05) { const r = (m.t.ai === 'magma' ? 1 : m.t.h) / h; if (r > 1.6 || r < 0.55) sc = r; } }
+  if (!M.scale && !opt.noAuto && !/:baby$/.test(key) && m.t && m.t.h) { const bb = new THREE.Box3().setFromObject(holder); const h = bb.max.y - bb.min.y; if (h > 0.05) { const r = (m.t.ai === 'magma' ? 1 : m.t.h) / h; if (r > 1.6 || r < 0.55) sc = r; } }
   holder.scale.setScalar(sc);
 }
 // models with their own motion (breeze wind) update whenever the mob is drawn
 if (typeof Mob !== 'undefined') { const _bbc = Mob.prototype.colorize; Mob.prototype.colorize = function () { if (this.bbAnim) this.bbAnim(this.age || 0); return _bbc.apply(this, arguments); }; }
 // replace the built-in look of every mob that has a model
-for (const key in BB_MODELS) if (typeof MOBS !== 'undefined' && MOBS[key]) { MOBS[key].build = function (m, r) { buildBBModel(m, r, key); }; }
+for (const key in BB_MODELS) if (typeof MOBS !== 'undefined' && MOBS[key]) { MOBS[key].bbOrigBuild = MOBS[key].build; MOBS[key].build = function (m, r) { buildBBModel(m, r, key); }; }
