@@ -57,7 +57,7 @@ function makeCaptain(m) { m.captain = true; m.maxHp = m.hp = 30; if (m.root && !
 { const _mr = mobRecord; mobRecord = function (m) { const r = _mr(m); if (m.captain) r.cap = 1; return r; }; const _mf = mobFromRecord; mobFromRecord = function (rec) { const m = _mf(rec); if (m && rec.cap) makeCaptain(m); return m; }; }
 // pillagers keep spawning around outposts (Minecraft: in the outpost's area, any light level)
 { const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments);
-    if (!world || world.dim !== 'overworld' || !world.outposts || isClientMP() || !S.rules.doMobSpawning || S.difficulty === 'peaceful' || Math.random() > dt * 0.15) return r;
+    if (!world || world.dim !== 'overworld' || mcNatOn() || !world.outposts || isClientMP() || !S.rules.doMobSpawning || S.difficulty === 'peaceful' || Math.random() > dt * 0.15) return r;
     const P = player.pos; for (const [x, y, z] of world.outposts) { const d = Math.hypot(x - P.x, z - P.z); if (d > 96 || d < 10) continue;
       if (G.mobs.filter(m => m.type === 'pillager' && !m.dead && Math.hypot(m.pos.x - x, m.pos.z - z) < 40).length >= 6) continue;
       const a = Math.random() * 6.28, rr = 6 + Math.random() * 16; const sx = Math.floor(x + Math.cos(a) * rr), sz = Math.floor(z + Math.sin(a) * rr); if (!world.loaded(sx, sz)) continue;

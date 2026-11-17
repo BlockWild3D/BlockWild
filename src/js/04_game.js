@@ -545,7 +545,7 @@ function surfaceSpawnY(x, z) { const c = world.getChunk(x >> 4, z >> 4); if (!c)
 function onChunkGen(c, hints, cols, w) {
   if (w !== world) return;
   for (const [type, x, y, z] of hints) spawnMob(type, x, y, z);
-  if (!cols) return;
+  if (!cols || (typeof mcNatOn === 'function' && mcNatOn())) return; // Minecraft spawning (99zzzzzzzzzz_mcspawn.js) places animals
   const passive = G.mobs.filter(m => m.t.kind === 'passive').length;
   if (passive < 60 && Math.random() < 0.35) { // Minecraft: animals are placed with the chunk, in groups of 4
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx];
@@ -587,6 +587,7 @@ function monsterDarkEnough(x, y, z) { const sky = Math.round(world.skyAt(x, y, z
 const MON = { chunks: [], cap: 0, count: 0, acc: 0 };
 // once a second: despawning, the cap and the list of chunks that can spawn
 function monsterSpawnTick(P) {
+  if (typeof mcNatOn === 'function' && mcNatOn()) return;
   const mons = G.mobs.filter(isMonster);
   // despawning (1 in 800 per tick = about 2.5% a second beyond 32 blocks; at once beyond 128)
   for (const m of mons) { if (monsterPersistent(m) || m.dead) continue; const d = m.pos.distanceTo(P.pos); if (d > 128 || (d > 32 && Math.random() < 0.0247)) m.gone = true; }
@@ -596,7 +597,7 @@ function monsterSpawnTick(P) {
 }
 // every game tick (20 a second, run from the frame loop): one try in each chunk while under the cap
 function monsterAttempts(P, ticks) {
-  if (!isSurv() || S.difficulty === 'peaceful' || !MON.chunks.length) return; const minY = 1; MON.budget = 6;
+  if (!isSurv() || S.difficulty === 'peaceful' || !MON.chunks.length || (typeof mcNatOn === 'function' && mcNatOn())) return; const minY = 1; MON.budget = 6;
   for (let tk = 0; tk < ticks && MON.count < MON.cap; tk++) for (const c of MON.chunks) {
     if (MON.count >= MON.cap) break; if (!world.chunks.has(ckey(c.cx, c.cz))) continue; const tops = chunkTops(c); if (!tops) continue; const lx = Math.random() * 16 | 0, lz = Math.random() * 16 | 0; const top = tops[lz * 16 + lx] + 1; if (top <= minY) continue;
     const x0 = c.cx * 16 + lx, z0 = c.cz * 16 + lz, y = minY + (Math.random() * (top - minY + 1) | 0); if (SOLID[c.d[y * 256 + lz * 16 + lx]]) continue;
@@ -621,7 +622,7 @@ function updateSpawning(dt) {
   // Peaceful (Minecraft): hostile mobs vanish
   if (S.difficulty === 'peaceful' && !isClientMP()) for (const m of G.mobs) if (isMonster(m) && !m.remote) m.gone = true;
   if (!S.rules.doMobSpawning) return;
-  if (isSurv() || world.dim !== 'overworld') {
+  if (!(typeof mcNatOn === 'function' && mcNatOn()) && (isSurv() || world.dim !== 'overworld')) {
     if (world.dim === 'overworld') {
       // Minecraft's natural monster spawning (NaturalSpawner), see monsterSpawnTick below
       monsterSpawnTick(P);

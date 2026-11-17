@@ -69,7 +69,7 @@ function isClientMP() { return typeof MP !== 'undefined' && MP.active && MP.role
 // natural spawning: drowned in deep water, mostly at night or in the dark
 let drownSpawnT = 0;
 function spawnDrowned(dt) {
-  drownSpawnT -= dt; if (drownSpawnT > 0 || !world || world.dim !== 'overworld' || !S.rules.doMobSpawning || !isSurv() || S.difficulty === 'peaceful' || isClientMP()) return; drownSpawnT = 1.5;
+  drownSpawnT -= dt; if (drownSpawnT > 0 || (typeof mcNatOn === 'function' && mcNatOn()) || !world || world.dim !== 'overworld' || !S.rules.doMobSpawning || !isSurv() || S.difficulty === 'peaceful' || isClientMP()) return; drownSpawnT = 1.5;
   if (G.mobs.filter(m => m.type === 'drowned').length >= 6) return;
   const P = player.pos; const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 24; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);
   if (!world.loaded(x, z)) return; let top = -1; for (let y = SEA + 2; y > 4; y--) { if (FKIND[world.get(x, y, z)] === 1) { top = y; break; } if (SOLID[world.get(x, y, z)]) break; } if (top < 0) return;

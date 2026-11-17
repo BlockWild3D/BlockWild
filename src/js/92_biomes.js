@@ -176,7 +176,7 @@ const TALLF = (k) => { const id = B[k.toUpperCase()]; return id !== undefined &&
     return r0; }; }
 // ---------- animals by sub-biome (added with the chunk, like Minecraft) ----------
 { const _ocg = onChunkGen; onChunkGen = function (c, hints, cols, w) {
-    _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
+    _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || mcNatOn()) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = w.gen.column(c.cx * 16 + lx, c.cz * 16 + lz); let tab = null, n = 3;
     if (col.b === BIO.MUSHROOM_FIELDS) { if (Math.random() < 0.3) { tab = { mooshroom: 1 }; n = 4 + (Math.random() * 4 | 0); } }
     else if (Math.random() > 0.08) return;
@@ -198,7 +198,7 @@ const TALLF = (k) => { const id = B[k.toUpperCase()]; return id !== undefined &&
   }; world && (world.onChunkGen = onChunkGen); }
 // ---------- monsters: none in mushroom fields; strays in the frozen sub-biomes ----------
 { const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
-    if (S.natSpawn && world && world.dim === 'overworld' && MOBS[type]) {
+    if (S.natSpawn && !S.mcNat && world && world.dim === 'overworld' && MOBS[type]) {
       const col = world.gen.column(Math.floor(x), Math.floor(z));
       if (col.b === BIO.MUSHROOM_FIELDS && MOBS[type].kind !== 'passive') return null;
       if (type === 'skeleton' && FROZEN_V().has(col.v) && world.skyAt(Math.floor(x), Math.floor(y + 1), Math.floor(z)) >= 1 && Math.random() < 0.8) type = 'stray';

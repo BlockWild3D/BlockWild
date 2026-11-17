@@ -219,9 +219,10 @@ const FV_PAL = { pig: { warm: [[178, 98, 70], [140, 72, 52]], cold: [[120, 96, 8
 { const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
     if (!S.natSpawn || !world || world.dim !== 'overworld' || S.jockeyBusy) return _sm(type, x, y, z, opts);
     const col = world.gen.column(Math.floor(x), Math.floor(z)); const sky = world.skyAt(Math.floor(x), Math.floor(y + 1), Math.floor(z)) >= 1;
-    if (type === 'skeleton' && col.b === BIO.DESERT && sky && Math.random() < 0.5) type = 'parched';
+    if (!S.mcNat && type === 'skeleton' && col.b === BIO.DESERT && sky && Math.random() < 0.5) type = 'parched';
     const jockey = (mountT, riderT, seatY, extra) => { S.jockeyBusy = true; try { const mt = _sm(mountT, x, y, z); if (!mt) return null; const rd = _sm(riderT, x, y + seatY, z); if (rd) { mountMob(rd, mt, seatY, extra ? 0.35 : 0); giveSpear(rd, [200, 200, 206]); rd.jockey = true; } if (extra) { const r2 = _sm(extra, x, y + seatY, z); if (r2) { mountMob(r2, mt, seatY, -0.55); r2.jockey = true; } } return rd || mt; } finally { S.jockeyBusy = false; } };
-    if (type === 'zombie' && sky && (col.b === BIO.PLAINS || col.b === BIO.SAVANNA || col.b === BIO.FOREST) && Math.random() < 0.05) return jockey('zombie_horse', 'zombie', 1.15);
+    if (S.mcNat && type === 'zombie_horse') return jockey('zombie_horse', 'zombie', 1.15); // Minecraft: zombie horses come with a zombie rider
+    if (!S.mcNat && type === 'zombie' && sky && (col.b === BIO.PLAINS || col.b === BIO.SAVANNA || col.b === BIO.FOREST) && Math.random() < 0.05) return jockey('zombie_horse', 'zombie', 1.15);
     if (type === 'husk' && sky && col.b === BIO.DESERT && Math.random() < 0.05) return jockey('camel_husk', 'husk', 1.85, 'parched');
     return _sm(type, x, y, z, opts); }; }
 // drowned sometimes ride zombie nautiluses; nautiluses swim in every ocean
@@ -229,7 +230,7 @@ const FV_PAL = { pig: { warm: [[178, 98, 70], [140, 72, 52]], cold: [[120, 96, 8
     if (m && type === 'drowned' && S.natSpawn && !S.jockeyBusy && world && world.dim === 'overworld' && inWater(m, 0.5) && Math.random() < 0.12) { const col = world.gen.column(Math.floor(x), Math.floor(z)); S.jockeyBusy = true;
       try { const n = _sm('zombie_nautilus', x, y - 0.6, z, { coral: col.v === BV.WARM_OCEAN }); if (n) { mountMob(m, n, 0.9); m.jockey = true; } } finally { S.jockeyBusy = false; } }
     return m; }; }
-{ const _ocg = onChunkGen; onChunkGen = function (c, hints, cols, w) { _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || Math.random() > 0.035) return;
+{ const _ocg = onChunkGen; onChunkGen = function (c, hints, cols, w) { _ocg(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || mcNatOn() || Math.random() > 0.035) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; if (col.b !== BIO.OCEAN || col.h > SEA - 6 || (typeof isRiver === 'function' && isRiver(col))) return;
     const y = col.h + 1 + Math.random() * (SEA - col.h - 3); spawnMob('nautilus', c.cx * 16 + lx + 0.5, y, c.cz * 16 + lz + 0.5); }; world && (world.onChunkGen = onChunkGen); }
 // creative inventory order

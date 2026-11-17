@@ -163,7 +163,7 @@ buildMonumentChunk = function (world, c) {
 };
 // guardians keep spawning in and around monuments (Minecraft spawns them in the monument's bounds in water)
 { const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments);
-    if (!world || world.dim !== 'overworld' || isClientMP() || !S.rules.doMobSpawning || S.difficulty === 'peaceful' || !world.monuments || Math.random() > dt * 0.5) return r;
+    if (!world || world.dim !== 'overworld' || mcNatOn() || isClientMP() || !S.rules.doMobSpawning || S.difficulty === 'peaceful' || !world.monuments || Math.random() > dt * 0.5) return r;
     const P = player.pos; for (const [mx, my, mz] of world.monuments) { if (Math.hypot(mx - P.x, mz - P.z) > 64) continue;
       if (G.mobs.filter(m => m.type === 'guardian' && !m.dead && Math.hypot(m.pos.x - mx, m.pos.z - mz) < 40).length >= 12) continue;
       const x = Math.floor(mx + (Math.random() - 0.5) * 56), z = Math.floor(mz + (Math.random() - 0.5) * 56), y = my + 1 + Math.floor(Math.random() * 20);

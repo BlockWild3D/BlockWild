@@ -243,7 +243,7 @@ function cubeAbsorb(m, id) { if (m.size < 2 || m.absorbed || !isCubeItem(id)) re
     if (hd && hd.kind === 'ice_ball' && !(target && !kd('sneak') && BL[target.id].use)) { mouseR = false; useHeld(1); const v = dir.clone().multiplyScalar(26); v.x += player.vel.x; v.z += player.vel.z; spawnProj('ice_ball', eye.clone().addScaledVector(dir, 0.5), v, 'player', 2); Sfx.play('ice_throw', 0.6, 1.2); S.useCD = 0.4; S.swing = 1; return; }
     return _ua.apply(this, arguments); }; }
 // sulfur cubes spawn in the dark of sulfur caves, like monsters (but they're harmless)
-{ const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || isClientMP() || Math.random() > 0.08) return;
+{ const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || mcNatOn() || isClientMP() || Math.random() > 0.08) return;
     if (G.mobs.filter(m => m.type === 'sulfur_cube').length >= 6) return; const P = player.pos;
     for (let t = 0; t < 4; t++) { const a = Math.random() * Math.PI * 2, d = 18 + Math.random() * 26; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d); if (!world.loaded(x, z)) continue;
       const y0 = clamp(Math.floor(P.y) + (Math.random() * 24 | 0) - 12, 3, WH - 4); if (caveBiomeName(world.gen, x, y0, z) !== 'Sulfur Caves') continue;

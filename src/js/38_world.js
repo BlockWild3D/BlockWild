@@ -187,14 +187,14 @@ function buildMineshaftChunk(world, c) {
 { const _up = updatePlayer; updatePlayer = function (dt) { const P = player; const v0 = P.slip ? P.vel.clone() : null; const r = _up.apply(this, arguments); if (v0 && P.onGround && !P.riding) { P.vel.x = v0.x + (P.vel.x - v0.x) * 0.15; P.vel.z = v0.z + (P.vel.z - v0.z) * 0.15; } return r; }; }
 // ---------- biome mobs ----------
 { const _og = onChunkGen; onChunkGen = function (c, hints, cols, w) {
-    _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || Math.random() > 0.1) return;
+    _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld' || mcNatOn() || Math.random() > 0.1) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; const b = world.gen.column(c.cx * 16 + lx, c.cz * 16 + lz).b;
     const tab = b === BIO.JUNGLE ? { parrot: 3, ocelot: 2, panda: 1, chicken: 2, pig: 1 } : b === BIO.TAIGA ? { wolf: 2, fox: 3, rabbit: 2, sheep: 2 } : b === BIO.SAVANNA ? { horse: 2, llama: 1, armadillo: 2, cow: 2, sheep: 2 } : b === BIO.SWAMP ? { frog: 3, cow: 1, sheep: 1 } : b === BIO.DARK_FOREST ? { rabbit: 1, chicken: 1 } : null;
     if (!tab) return; const type = pickWeighted(tab); const n = type === 'panda' ? 1 + (Math.random() * 2 | 0) : 2 + (Math.random() * 3 | 0);
     for (let i = 0; i < n; i++) { const x = c.cx * 16 + clamp(lx + (Math.random() * 5 | 0) - 2, 0, 15), z = c.cz * 16 + clamp(lz + (Math.random() * 5 | 0) - 2, 0, 15); const y = surfaceSpawnY(x, z); if (y > SEA && freeAt(x, y, z, 2)) spawnMob(type, x + 0.5, y + (type === 'parrot' ? 3 : 0), z + 0.5); }
   }; }
 // swamps: slimes at night (light 7 or less) besides slime chunks
-{ const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || isClientMP() || !isSurv() || S.difficulty === 'peaceful' || G.daylight > 0.5 || Math.random() > 0.3) return; const P = player.pos; const x = Math.floor(P.x + (Math.random() - 0.5) * 60), z = Math.floor(P.z + (Math.random() - 0.5) * 60); if (!world.loaded(x, z) || world.gen.column(x, z).b !== BIO.SWAMP || G.mobs.filter(m => m.type === 'slime').length >= 6) return; const y = surfaceSpawnY(x, z); if (y > 0 && freeAt(x, y, z, 2) && lightLevels(x, y, z).total <= 7) spawnMob('slime', x + 0.5, y, z + 0.5, { size: [1, 2, 4][Math.random() * 3 | 0] }); }; }
+{ const _se = spawnExtras; spawnExtras = function (dt) { _se(dt); if (!world || world.dim !== 'overworld' || mcNatOn() || isClientMP() || !isSurv() || S.difficulty === 'peaceful' || G.daylight > 0.5 || Math.random() > 0.3) return; const P = player.pos; const x = Math.floor(P.x + (Math.random() - 0.5) * 60), z = Math.floor(P.z + (Math.random() - 0.5) * 60); if (!world.loaded(x, z) || world.gen.column(x, z).b !== BIO.SWAMP || G.mobs.filter(m => m.type === 'slime').length >= 6) return; const y = surfaceSpawnY(x, z); if (y > 0 && freeAt(x, y, z, 2) && lightLevels(x, y, z).total <= 7) spawnMob('slime', x + 0.5, y, z + 0.5, { size: [1, 2, 4][Math.random() * 3 | 0] }); }; }
 
 // cobwebs (Minecraft's 'stuck' multiplier): movement inside a web is scaled by 0.25 sideways and 0.05 vertically, and
 // all momentum is lost every step, so you crawl through and barely sink. Spiders and cave spiders ignore webs.

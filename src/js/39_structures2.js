@@ -83,7 +83,7 @@ function buildAncientChunk(world, c) {
     for (const [x, y, z, mob] of c.trials || []) w.trialSpawners.set(x + ',' + y + ',' + z, { mob, state: 'idle', spawned: 0, alive: [], cool: 0 });
     for (const [x, y, z, loot] of c.vaults || []) w.chestLoot.set('vault:' + x + ',' + y + ',' + z, loot);
     for (const [x, y, z, loot] of c.loots || []) w.chestLoot.set(x + ',' + y + ',' + z, loot);
-    if (c.monument && w === world) { const [x, y, z] = c.monument; for (let i = 0; i < 8; i++) spawnMob('guardian', x + (Math.random() - 0.5) * 40, y + 3 + Math.random() * 10, z + (Math.random() - 0.5) * 40); for (let i = 0; i < 3; i++) spawnMob('elder_guardian', x + [-18, 18, 0][i], y + 8, z + [0, 0, 18][i]); }
+    if (c.monument && w === world) { const [x, y, z] = c.monument; if (!mcNatOn()) for (let i = 0; i < 8; i++) spawnMob('guardian', x + (Math.random() - 0.5) * 40, y + 3 + Math.random() * 10, z + (Math.random() - 0.5) * 40); for (let i = 0; i < 3; i++) spawnMob('elder_guardian', x + [-18, 18, 0][i], y + 8, z + [0, 0, 18][i]); }
     c.trials = c.vaults = c.loots = c.monument = null;
   }; }
 { const _w = World; const _get = Dim.get.bind(Dim); Dim.get = function (dim) { const w = _get(dim); if (!w.trialSpawners) w.trialSpawners = new Map(); if (!w.vaultUsed) w.vaultUsed = new Set(); return w; }; }

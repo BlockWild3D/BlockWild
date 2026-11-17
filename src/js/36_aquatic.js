@@ -81,7 +81,7 @@ Object.assign(MOB_PITCH, { cod: 1.5, salmon: 1.4, tropical_fish: 1.7, pufferfish
 // natural spawning in water: schools of fish, squid, dolphins in deep oceans, glow squid in dark water deep down
 let waterSpawnT = 0;
 function spawnWaterMobs(dt) {
-  waterSpawnT -= dt; if (waterSpawnT > 0 || !world || world.dim !== 'overworld' || isClientMP() || !S.rules.doMobSpawning) return; waterSpawnT = 1.5;
+  waterSpawnT -= dt; if (waterSpawnT > 0 || (typeof mcNatOn === 'function' && mcNatOn()) || !world || world.dim !== 'overworld' || isClientMP() || !S.rules.doMobSpawning) return; waterSpawnT = 1.5;
   const count = (types) => G.mobs.filter(m => types.includes(m.type)).length; const P = player.pos;
   const a = Math.random() * Math.PI * 2, d = 18 + Math.random() * 26; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d); if (!world.loaded(x, z)) return;
   let top = -1; for (let y = SEA + 1; y > 4; y--) { const id = world.get(x, y, z); if (FKIND[id] === 1) { top = y; break; } if (SOLID[id]) break; }

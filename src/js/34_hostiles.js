@@ -265,7 +265,7 @@ function maceBonus(mob) {
 // slime chunks below y 40, pillagers around watchtowers, phantoms
 { const _us = updateSpawning; updateSpawning = function (dt) { S.natSpawn = true; let r; try { r = _us.apply(this, arguments); } finally { S.natSpawn = false; } spawnPhantoms(dt); spawnExtras(dt); return r; }; }
 { const _sm = spawnMob; spawnMob = function (type, x, y, z, opts) {
-    if (S.natSpawn && world && world.dim === 'overworld') {
+    if (S.natSpawn && !S.mcNat && world && world.dim === 'overworld') {
       const b = world.gen.biome ? world.gen.column(Math.floor(x), Math.floor(z)).b : -1; const sky = world.skyAt(Math.floor(x), Math.floor(y + 1), Math.floor(z)) >= 1;
       if (type === 'zombie') { if (b === BIO.DESERT && sky && Math.random() < 0.8) type = 'husk'; else if (Math.random() < 0.05) type = 'zombie_villager'; }
       else if (type === 'skeleton' && b === BIO.SNOWY && sky && Math.random() < 0.8) type = 'stray';
@@ -275,7 +275,7 @@ function maceBonus(mob) {
   }; }
 let extraT = 0;
 function spawnExtras(dt) {
-  extraT -= dt; if (extraT > 0 || !world || isClientMP() || !S.rules.doMobSpawning || !isSurv() || S.difficulty === 'peaceful' || world.dim !== 'overworld') return; extraT = 2;
+  extraT -= dt; if (extraT > 0 || (typeof mcNatOn === 'function' && mcNatOn()) || !world || isClientMP() || !S.rules.doMobSpawning || !isSurv() || S.difficulty === 'peaceful' || world.dim !== 'overworld') return; extraT = 2;
   const P = player.pos;
   // slimes
   if (G.mobs.filter(m => m.type === 'slime').length < 6) { const a = Math.random() * Math.PI * 2, d = 20 + Math.random() * 24; const x = Math.floor(P.x + Math.cos(a) * d), z = Math.floor(P.z + Math.sin(a) * d);

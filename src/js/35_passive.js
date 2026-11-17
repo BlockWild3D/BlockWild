@@ -237,7 +237,7 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
 { const _og = onChunkGen; onChunkGen = function (c, hints, cols, w) {
     _og(c, hints, cols, w); if (w !== world || !cols || w.dim !== 'overworld') return;
     if (hints.some(h => h[0] === 'villager') && Math.random() < 0.15) { const v = hints.find(h => h[0] === 'villager'); spawnMob('cat', v[1] - 1, v[2], v[3]); }
-    if (G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.05) return;
+    if (mcNatOn() || G.mobs.filter(m => m.t.kind === 'passive').length > 60 || Math.random() > 0.05) return;
     const lx = 3 + (Math.random() * 10 | 0), lz = 3 + (Math.random() * 10 | 0); const col = cols[lz * 16 + lx]; let tab = null;
     if (col.b === BIO.SNOWY) tab = { rabbit: 3, fox: 3, polar_bear: 1, wolf: 1 };
     else if (col.b === BIO.DESERT) tab = { rabbit: 1, camel: 1 };
@@ -251,4 +251,4 @@ MOBS.sheep.drops = [['wool', 1, 1, 1], ['mutton', 1, 2, 1]];
   };
   world && (world.onChunkGen = onChunkGen); }
 // bats in dark caves
-{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (world && world.dim === 'overworld' && !isClientMP() && S.rules.doMobSpawning && Math.random() < 0.15 && G.mobs.filter(m => m.type === 'bat').length < 5) { const P = player.pos; const x = Math.floor(P.x + (Math.random() - 0.5) * 40), z = Math.floor(P.z + (Math.random() - 0.5) * 40), y = Math.floor(P.y + (Math.random() - 0.5) * 20); if (world.loaded(x, z) && y < SEA - 4 && freeAt(x, y, z, 2) && lightLevels(x, y, z).total <= 3 && world.skyAt(x, y, z) < 0.3) spawnMob('bat', x + 0.5, y, z + 0.5); } return r; }; }
+{ const _us = updateSpawning; updateSpawning = function (dt) { const r = _us.apply(this, arguments); if (world && world.dim === 'overworld' && !mcNatOn() && !isClientMP() && S.rules.doMobSpawning && Math.random() < 0.15 && G.mobs.filter(m => m.type === 'bat').length < 5) { const P = player.pos; const x = Math.floor(P.x + (Math.random() - 0.5) * 40), z = Math.floor(P.z + (Math.random() - 0.5) * 40), y = Math.floor(P.y + (Math.random() - 0.5) * 20); if (world.loaded(x, z) && y < SEA - 4 && freeAt(x, y, z, 2) && lightLevels(x, y, z).total <= 3 && world.skyAt(x, y, z) < 0.3) spawnMob('bat', x + 0.5, y, z + 0.5); } return r; }; }
