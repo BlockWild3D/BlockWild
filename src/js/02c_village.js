@@ -81,6 +81,7 @@ function villagePen(S, g, x0, z0, x1, z1, hard, M, r) {
 }
 function villageChunk(S, g, cx, cz, vs, hard, r, world) {
   const bx = cx * 16, bz = cz * 16, dx = cx - vs.cx, dz = cz - vs.cz; const vh = vs.seed >>> 0; const M = villageMats(vs.col.b, vh);
+  if (MCST_ON()) { if (!dx && !dz) S.kinds.push(['village', bx + 8, bz + 8]); return; } // Minecraft's jigsaw village is stamped per chunk (99zzzzzz_mcstructs.js)
   const here = g.column(bx + 8, bz + 8); if (here.b === BIO.OCEAN && !(dx === 0 || dz === 0)) return;
   if (dx === 0 && dz === 0) { // plaza: well, roads to all four sides, lamps
     for (let i = 0; i < 16; i++) for (const o of [7, 8]) { roadCell(g, bx + i, bz + o, hard, M); roadCell(g, bx + o, bz + i, hard, M); }

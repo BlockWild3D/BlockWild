@@ -115,3 +115,141 @@ function mcOceanRuin(world, S, x0, z0, r) {
 { const _f = buildFossil; buildFossil = function (S, x0, y0, z0, r, coal) { return MCST_ON() ? mcFossil(S, x0, y0, z0, r, coal) : _f.apply(this, arguments); }; }
 { const _o = buildOceanRuin; buildOceanRuin = function (world, S, x0, z0, r) { return MCST_ON() ? mcOceanRuin(world, S, x0, z0, r) : _o.apply(this, arguments); }; }
 { const _p = buildRuinedPortal; buildRuinedPortal = function (S, g, x0, z0, hard, r, world) { return MCST_ON() ? mcRuinedPortal(S, g, x0, z0, hard, r, world) : _p.apply(this, arguments); }; }
+
+// ================= JIGSAW STRUCTURES (villages, outposts, ...) =================
+// Minecraft's JigsawPlacement: a start piece from the start pool, then breadth first every jigsaw block pulls a piece
+// from its pool (weighted random order, 4 rotations shuffled) whose matching jigsaw faces it and whose box fits the free
+// space (inside the parent when the jigsaw points into it, else the structure's max distance minus every other piece),
+// to `size` levels deep, then only the pools' fallbacks (terminators). Rigid pieces keep their height; terrain matching
+// ones (roads) follow the ground block by block. The layout is made once per start and every chunk stamps its part.
+const MCJ_DIRS = { north: [0, 0, -1], south: [0, 0, 1], east: [1, 0, 0], west: [-1, 0, 0], up: [0, 1, 0], down: [0, -1, 0] };
+const MCJ_ROT = (d, rot) => { const L = ['north', 'east', 'south', 'west']; const i = L.indexOf(d); return i < 0 ? d : L[(i + rot) % 4]; };
+const MCJ_OPP = { north: 'south', south: 'north', east: 'west', west: 'east', up: 'down', down: 'up' };
+const MCJ = {
+  H(x, z, g) { const h = g.column(x, z).h; return Math.max(h, SEA); },   // WORLD_SURFACE_WG
+  order(list, r) { return list.map(e => [e, -Math.log(1 - r()) / Math.max(1e-6, e.weight || 1)]).sort((a, b) => a[1] - b[1]).map(a => a[0]); },
+  // a pool element -> the template it stamps (null for empty / feature elements)
+  tpl(el) { const t = el.element_type; if (t === 'single_pool_element' || t === 'legacy_single_pool_element') return { loc: el.location, proc: el.processors, proj: el.projection || 'rigid', legacy: t === 'legacy_single_pool_element' };
+    if (t === 'list_pool_element') { const a = (el.elements || []).map(MCJ.tpl).filter(Boolean); return a.length ? Object.assign({}, a[0], { list: a }) : null; } return null; },
+  jigs(loc, rot, x, y, z) { const t = MCST.H.t[loc]; if (!t) return []; return t.j.map(j => { const [a, b] = MCST.xf(j[0], j[2], rot, 0, 0); const [f, tp] = j[3].split('_');
+    return { x: x + a, y: y + j[1], z: z + b, front: MCJ_ROT(f, rot), top: MCJ_ROT(tp, rot), name: j[4], target: j[5], pool: j[6], joint: j[7] || (f === 'up' || f === 'down' ? 'rollable' : 'aligned'), pp: j[8] || 0, sp: j[9] || 0, ly: j[1] }; }); },
+  inBox(b, x, y, z) { return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && z >= b.z0 && z <= b.z1; },
+  hit(a, b) { return a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0 && a.z0 <= b.z1 && a.z1 >= b.z0; },
+  inside(a, b) { return a.x0 >= b.x0 && a.x1 <= b.x1 && a.y0 >= b.y0 && a.y1 <= b.y1 && a.z0 >= b.z0 && a.z1 <= b.z1; },
+  alias(name, al) { return al && al[name] ? al[name] : name; },
+  layout(world, sname, sx, sz, seed) {
+    const S = MCST.H.structs[sname]; const g = world.gen; const r = mulberry32(seed >>> 0); const pools = MCST.H.pools;
+    // pool aliases (trial chambers' spawner mobs)
+    const al = {}; for (const a of S.pool_aliases || []) { if (a.type === 'direct') al[a.alias] = a.target; else if (a.type === 'random') { const t = MCJ.order(a.targets, r)[0]; al[a.alias] = t.data; } else if (a.type === 'random_group') { const grp = MCJ.order(a.groups, r)[0]; for (const d of grp.data) al[d.alias] = d.target; } }
+    const sp = pools[MCJ.alias(S.start_pool, al)]; if (!sp) return null; let start = null; let rot = r() * 4 | 0;
+    for (const e of MCJ.order(sp.elements, r)) { const t = MCJ.tpl(e.element); if (t && MCST.H.t[t.loc]) { start = t; break; } } if (!start) return null;
+    let x = sx, z = sz, y;
+    const sh = S.start_height || {}; const hy = sh.absolute != null ? sh.absolute : (sh.min_inclusive ? sh.min_inclusive.absolute + Math.floor(r() * (sh.max_inclusive.absolute - sh.min_inclusive.absolute + 1)) : 0);
+    if (S.start_jigsaw_name) { const J = MCJ.jigs(start.loc, rot, 0, 0, 0).find(j => j.name === S.start_jigsaw_name); if (J) { x -= J.x; z -= J.z; } }
+    let box = MCST.box(start.loc, x, 0, z, rot, 0, 0);
+    if (S.project_start_to_heightmap) y = MCJ.H((box.x0 + box.x1) >> 1, (box.z0 + box.z1) >> 1, g) + hy - 1; else y = YOFF + hy;
+    if (S.start_jigsaw_name) { const J = MCJ.jigs(start.loc, rot, 0, 0, 0).find(j => j.name === S.start_jigsaw_name); if (J) y -= J.y; }
+    box = MCST.box(start.loc, x, y, z, rot, 0, 0);
+    const md = S.max_distance_from_center || 80; const cx = (box.x0 + box.x1) >> 1, cz = (box.z0 + box.z1) >> 1;
+    const bounds = { x0: cx - md, x1: cx + md, y0: Math.max(1, box.y0 - md), y1: Math.min(WH - 1, box.y0 + md), z0: cz - md, z1: cz + md };
+    const first = { t: start, rot, x, y, z, box, depth: 0, gd: 1, inner: [] }; if (S.use_expansion_hack) MCJ.expand(first, al); const pieces = [first]; const global = [box];
+    const queue = [first]; const size = S.size || 6;
+    while (queue.length) {
+      const P = queue.shift(); if (pieces.length > 400) break; const rigidP = P.t.proj === 'rigid';
+      const js = MCJ.order(MCJ.jigs(P.t.loc, P.rot, P.x, P.y, P.z).map(j => Object.assign(j, { weight: 1 })), r).sort((a, b) => b.sp - a.sp);
+      for (const J of js) {
+        const pool = pools[MCJ.alias(J.pool, al)]; if (!pool) continue; const D = MCJ_DIRS[J.front]; const ax = J.x + D[0], ay = J.y + D[1], az = J.z + D[2];
+        const intoParent = MCJ.inBox(P.box, ax, ay, az); const cont = intoParent ? { b: P.box, list: P.inner } : { b: bounds, list: global };
+        const fb = pools[pool.fallback]; let cands = P.depth < size ? MCJ.order(pool.elements, r) : []; if (fb) cands = cands.concat(MCJ.order(fb.elements, r));
+        let placed = false; const k = J.y - P.box.y0;
+        for (const ce of cands) {
+          const t = MCJ.tpl(ce.element); if (!t) { if (ce.element.element_type === 'empty_pool_element') break; continue; } if (!MCST.H.t[t.loc]) continue;
+          const rots = MCJ.order([0, 1, 2, 3].map(v => ({ v, weight: 1 })), r).map(o => o.v);
+          for (const rr of rots) {
+            const tj = MCJ.order(MCJ.jigs(t.loc, rr, 0, 0, 0).map(j => Object.assign(j, { weight: 1 })), r).sort((a, b) => b.sp - a.sp);
+            for (const T of tj) {
+              if (T.front !== MCJ_OPP[J.front] || T.name !== J.target || (J.joint !== 'rollable' && T.top !== J.top)) continue;
+              const ox = ax - T.x, oz = az - T.z; const rigidT = t.proj === 'rigid'; const i1 = T.ly; const j1 = k - i1 + D[1];
+              let k1; if (rigidP && rigidT) k1 = P.box.y0 + j1; else k1 = MCJ.H(J.x, J.z, g) - i1;
+              const oy = k1; const cb = MCST.box(t.loc, ox, oy, oz, rr, 0, 0);
+              if (!MCJ.inside(cb, cont.b) || cont.list.some(b => MCJ.hit(b, cb))) continue;
+              const C = { t, rot: rr, x: ox, y: oy, z: oz, box: cb, depth: P.depth + 1, inner: [] }; cont.list.push(cb); if (S.use_expansion_hack) MCJ.expand(C, al);
+              pieces.push(C); if (C.depth <= size) { let i = queue.length; while (i > 0 && (queue[i - 1].pp || 0) < (T.pp || 0)) i--; C.pp = J.pp; queue.splice(i, 0, C); } placed = true; break;
+            }
+            if (placed) break;
+          }
+          if (placed) break;
+        }
+      }
+    }
+    let mn = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 }; for (const p of pieces) { mn.x0 = Math.min(mn.x0, p.box.x0); mn.x1 = Math.max(mn.x1, p.box.x1); mn.z0 = Math.min(mn.z0, p.box.z0); mn.z1 = Math.max(mn.z1, p.box.z1); }
+    return { name: sname, pieces, all: mn, adapt: S.terrain_adaptation || 'none', seed };
+  },
+  // the tallest template a pool can give (Minecraft's StructureTemplatePool.getMaxSize)
+  maxSize(name) { MCJ._ms = MCJ._ms || {}; if (MCJ._ms[name] != null) return MCJ._ms[name]; const p = MCST.H.pools[name]; let m = 0;
+    if (p) for (const e of p.elements) { const t = MCJ.tpl(e.element); if (t && MCST.H.t[t.loc]) m = Math.max(m, MCST.H.t[t.loc].s[1]); } return (MCJ._ms[name] = m); },
+  // villages' expansion hack: a piece whose jigsaws point into itself (a street with house plots) gets a box tall
+  // enough for the tallest thing those jigsaws can pull, so the houses fit inside it
+  expand(P, al) { let k = 0; for (const J of MCJ.jigs(P.t.loc, P.rot, P.x, P.y, P.z)) { const D = MCJ_DIRS[J.front]; if (!MCJ.inBox(P.box, J.x + D[0], J.y + D[1], J.z + D[2])) continue; const pl = MCST.H.pools[MCJ.alias(J.pool, al)];
+      k = Math.max(k, MCJ.maxSize(MCJ.alias(J.pool, al)), pl && pl.fallback ? MCJ.maxSize(pl.fallback) : 0); }
+    if (k > 0) P.box = Object.assign({}, P.box, { y1: P.box.y0 + Math.max(k + 1, P.box.y1 - P.box.y0) }); },
+  famOf(id) { const d = BL[id]; return d ? (d.fam || (d.key || '').split('#')[0]) : ''; },
+  // processor list (name or inline) -> a function(id, x, y, z) -> id | null
+  procFn(spec, g, seed) {
+    let L = typeof spec === 'string' ? MCST.H.procs[spec] : spec; L = L && L.processors ? L.processors : (Array.isArray(L) ? L : []); if (!L.length) return null;
+    const G = MCST.gid; const gid = (o) => o && o.g != null && o.g >= 0 ? G[o.g] : -1;
+    const loc = (lp, x, y, z) => { const t = lp && lp.predicate_type; if (!t || t === 'always_true') return true; if (t === 'block_match') { if (lp.block === 'water') return y < SEA && g.column(x, z).h <= y; return false; } return false; };
+    const inp = (ip, id, x, y, z, k) => { const t = ip.predicate_type; if (t === 'always_true') return true;
+      if (t === 'block_match') return ip.bg >= 0 && MCJ.famOf(id) === MCJ.famOf(G[ip.bg]);
+      if (t === 'random_block_match') return ip.bg >= 0 && MCJ.famOf(id) === MCJ.famOf(G[ip.bg]) && rnd01(x * 7 + k, y, z, seed) < ip.probability;
+      if (t === 'blockstate_match') return id === gid(ip.block_state); return false; };
+    return (id, x, y, z) => {
+      for (let pi = 0; pi < L.length; pi++) { const p = L[pi]; const t = p.processor_type;
+        if (t === 'rule') { for (let k = 0; k < p.rules.length; k++) { const R = p.rules[k]; if (inp(R.input_predicate, id, x, y, z, pi * 31 + k) && loc(R.location_predicate, x, y, z)) { const o = gid(R.output_state); if (o >= 0) id = o; break; } } }
+        else if (t === 'block_rot') { if (id && rnd01(x, y * 3 + pi, z, seed ^ 0x5151) >= (p.integrity == null ? 1 : p.integrity)) return null; }
+        else if (t === 'capped' && p.delegate) { const sub = MCJ.procFn({ processors: [p.delegate] }, g, seed + pi); if (sub) { const v = sub(id, x, y, z); if (v == null) return null; id = v; } }
+      }
+      return id; };
+  },
+  // stamp every piece of a layout that reaches chunk c (blocks outside the chunk are dropped)
+  stamp(world, c, L, S) {
+    const g = world.gen; const bx = c.cx * 16, bz = c.cz * 16; const d = c.d; const I = (x, y, z) => (y * 16 + (z - bz)) * 16 + (x - bx);
+    const inC = (x, z) => x >= bx && x < bx + 16 && z >= bz && z < bz + 16;
+    for (const p of L.pieces) {
+      if (p.box.x1 < bx - 1 || p.box.x0 > bx + 16 || p.box.z1 < bz - 1 || p.box.z0 > bz + 16) continue;
+      const parts = p.t.list || [p.t];
+      for (const t of parts) {
+        const proc = t.proc ? MCJ.procFn(t.proc, g, L.seed) : null; const tm = t.proj === 'terrain_matching';
+        // beard: earth under rigid surface pieces, and the ground over them cut away
+        if (!tm && (L.adapt === 'beard_thin' || L.adapt === 'beard_box') && p === p) for (let x = Math.max(p.box.x0, bx); x <= Math.min(p.box.x1, bx + 15); x++) for (let z = Math.max(p.box.z0, bz); z <= Math.min(p.box.z1, bz + 15); z++) {
+          const h = g.column(x, z).h; if (L.adapt === 'beard_thin') { const fill = g.column(x, z).b === BIO.DESERT ? B.SAND : B.DIRT; for (let y = Math.max(1, h - 1); y < p.box.y0; y++) d[I(x, y, z)] = fill; }
+          if (L.adapt === 'beard_thin') for (let y = p.box.y1 + 1; y < Math.min(WH, h); y++) d[I(x, y, z)] = 0; }
+        MCST.place(t.loc, p.x, p.y, p.z, p.rot, { skipAir: t.legacy, proc: proc ? ((id, x, y, z) => proc(id, x, y, z)) : null,
+          set: (x, y, z, id) => { if (!inC(x, z)) return; if (tm) y = MCJ.H(x, z, g) - 1 + (y - p.y); if (y < 1 || y >= WH) return; d[I(x, y, z)] = id; },
+          chest: (x, y, z, tbl) => { if (inC(x, z)) mcSetChest(world, x, tm ? MCJ.H(x, z, g) - 1 + (y - p.y) : y, z, tbl); },
+          entity: (type, x, y, z) => { if (inC(x, z) && S && typeof MOBS !== 'undefined' && MOBS[type]) S.mobs.push([type, x + 0.5, tm ? MCJ.H(x, z, g) + (y - p.y) - 1 : y, z + 0.5]); } });
+      }
+    }
+  },
+};
+// which Minecraft jigsaw structure a game start becomes
+const MCJ_KINDS = {
+  village: { reach: 6, pick: (col) => col.b === BIO.DESERT ? 'village_desert' : col.b === BIO.SNOWY ? 'village_snowy' : col.b === BIO.SAVANNA ? 'village_savanna' : col.b === BIO.TAIGA ? 'village_taiga' : 'village_plains' },
+  outpost: { reach: 6, pick: () => 'pillager_outpost', mobs: [['pillager', 4]] },
+};
+function mcjLayout(world, kind, st) {
+  world.mcjCache = world.mcjCache || new Map(); const key = kind + ':' + st.cx + ',' + st.cz; if (world.mcjCache.has(key)) return world.mcjCache.get(key);
+  const sname = MCJ_KINDS[kind].pick(st.col); const L = MCST.H.structs[sname] ? MCJ.layout(world, sname, st.cx * 16, st.cz * 16, st.seed) : null;
+  if (world.mcjCache.size > 300) world.mcjCache.clear(); world.mcjCache.set(key, L); return L;
+}
+function mcjChunk(world, c) {
+  if (!MCST_ON() || world.dim !== 'overworld') return; const S = world.hintsDone.has(c.key) ? null : structuresFor(world, c.cx, c.cz);
+  for (const kind in MCJ_KINDS) { const K = MCJ_KINDS[kind]; const sp = PLACE[kind].spacing;
+    for (let rx = Math.floor((c.cx - K.reach) / sp); rx <= Math.floor((c.cx + K.reach) / sp); rx++) for (let rz = Math.floor((c.cz - K.reach) / sp); rz <= Math.floor((c.cz + K.reach) / sp); rz++) {
+      const st = regionStart(world, kind, rx, rz); if (!st || Math.max(Math.abs(st.cx - c.cx), Math.abs(st.cz - c.cz)) > K.reach) continue;
+      const L = mcjLayout(world, kind, st); if (!L) continue; if (L.all.x1 < c.cx * 16 || L.all.x0 > c.cx * 16 + 15 || L.all.z1 < c.cz * 16 || L.all.z0 > c.cz * 16 + 15) continue;
+      MCJ.stamp(world, c, L, S);
+      if (S && K.mobs && st.cx === c.cx && st.cz === c.cz) for (const [t, n] of K.mobs) for (let i = 0; i < n; i++) { const p = L.pieces[0]; S.mobs.push([t, (p.box.x0 + p.box.x1) / 2 + i, p.box.y0 + 1, (p.box.z0 + p.box.z1) / 2]); }
+    } }
+}
+{ const _wc = worldgenCleanup; worldgenCleanup = function (world, c) { const r = _wc.apply(this, arguments); try { mcjChunk(world, c); } catch (e) { console.error('jigsaw', e); } return r; }; }

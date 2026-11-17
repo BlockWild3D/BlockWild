@@ -146,7 +146,7 @@ function structuresFor(world, cx, cz) {
   const bx = cx * 16, bz = cz * 16;
   const vs = startNear(world, 'village', cx, cz, 2);
   // --- trees ---
-  for (let a = 0; a < (vs ? 0 : 9); a++) {
+  for (let a = 0; a < (vs || (MCST_ON() && startNear(world, 'village', cx, cz, 4)) ? 0 : 9); a++) {
     const lx = r() * 16 | 0, lz = r() * 16 | 0, q = r(), t = r(), hh = r();
     const wx = bx + lx, wz = bz + lz; const col = g.column(wx, wz);
     if (col.h <= SEA || col.h > WH - 14) continue;
@@ -176,7 +176,7 @@ function structuresFor(world, cx, cz) {
     const dp = startNear(world, 'desert_pyramid', cx, cz, 0);
     if (dp) { buildPyramid(S, g, bx + 8, bz + 8, hard, r, world); S.kinds.push(['pyramid', bx + 8, bz + 8]); }
     // watchtower: uses pillager-outpost rules (20% of regions, never within 10 chunks of a village)
-    else if (startNear(world, 'outpost', cx, cz, 0)) { buildTower(S, g, bx + 6, bz + 6, hard, r, world); S.kinds.push(['tower', bx + 8, bz + 8]); }
+    else if (startNear(world, 'outpost', cx, cz, 0)) { if (!MCST_ON()) buildTower(S, g, bx + 6, bz + 6, hard, r, world); S.kinds.push(['tower', bx + 8, bz + 8]); }
     // ruined portal: any land biome, one chance per 40x40-chunk region
     else if (startNear(world, 'ruined_portal', cx, cz, 0)) { buildRuinedPortal(S, g, bx + 6, bz + 7, hard, r, world); S.kinds.push(['ruined_portal', bx + 8, bz + 8]); }
     // desert well: 1 in 1000 desert chunks
