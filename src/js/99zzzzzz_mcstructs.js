@@ -647,3 +647,125 @@ const MS = {
     } },
 };
 { const _bm = buildMineshaftChunk; buildMineshaftChunk = function (world, c) { const starts = mineshaftStartsNear(world, c.cx, c.cz); for (const [sx, sz] of starts) { const L = MS.layout(world, sx, sz); if (L.all.x1 < c.cx * 16 - 1 || L.all.x0 > c.cx * 16 + 16 || L.all.z1 < c.cz * 16 - 1 || L.all.z0 > c.cz * 16 + 16) continue; MS.stamp(world, c, L); } }; }
+
+// ================= SHARED: Minecraft's StructurePiece helpers for code-built pieces =================
+// orientBox like BoundingBox.orientBox; OPW(piece) gives local->world like StructurePiece.getWorldX/Y/Z.
+function orientBox(x, y, z, ox, oy, oz, W, H, D, dir) {
+  if (dir === 'north') return { x0: x + ox, y0: y + oy, z0: z - D + 1 + oz, x1: x + W - 1 + ox, y1: y + H - 1 + oy, z1: z + oz };
+  if (dir === 'south') return { x0: x + ox, y0: y + oy, z0: z + oz, x1: x + W - 1 + ox, y1: y + H - 1 + oy, z1: z + D - 1 + oz };
+  if (dir === 'west') return { x0: x - D + 1 + oz, y0: y + oy, z0: z + ox, x1: x + oz, y1: y + H - 1 + oy, z1: z + W - 1 + ox };
+  return { x0: x + oz, y0: y + oy, z0: z + ox, x1: x + D - 1 + oz, y1: y + H - 1 + oy, z1: z + W - 1 + ox };
+}
+// a writer for one piece inside one chunk: local coordinates, boxes, columns down, turned facings
+function OPW(p, c, world, opt = {}) {
+  const b = p.box, D = p.dir, bx = c.cx * 16, bz = c.cz * 16, d = c.d; const inC = (x, z) => x >= bx && x < bx + 16 && z >= bz && z < bz + 16;
+  const X = (x, z) => D === 'west' ? b.x1 - z : D === 'east' ? b.x0 + z : b.x0 + x, Z = (x, z) => D === 'north' ? b.z1 - z : D === 'south' ? b.z0 + z : b.z0 + x;
+  const I = (x, y, z) => (y * 16 + (z - bz)) * 16 + (x - bx); const top = opt.top || WH;
+  const T = { north: 0, east: 1, south: 2, west: 3 }; const DV = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const turn = (f) => { const v = DV[T[f]]; const ax = X(v[0], v[1]) - X(0, 0), az = Z(v[0], v[1]) - Z(0, 0); return DV.findIndex(q => q[0] === ax && q[1] === az); };
+  const W = {
+    get(x, y, z) { const a = X(x, z), c2 = Z(x, z), yy = b.y0 + y; return inC(a, c2) && yy >= 0 && yy < WH ? d[I(a, yy, c2)] : -1; },
+    put(x, y, z, id) { if (id == null || id < 0) return; const a = X(x, z), c2 = Z(x, z), yy = b.y0 + y; if (!inC(a, c2) || yy < 1 || yy >= top) return; const j = I(a, yy, c2); if (d[j] === B.BEDROCK) return; d[j] = id; },
+    box(x0, y0, z0, x1, y1, z1, edge, inner, onlyReplace) { for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) { const e = x === x0 || x === x1 || y === y0 || y === y1 || z === z0 || z === z1; const id = typeof edge === 'function' ? edge(x, y, z, e) : (e ? edge : (inner === undefined ? edge : inner)); if (onlyReplace && !W.get(x, y, z)) continue; W.put(x, y, z, id); } },
+    colDown(x, y, z, id) { for (let yy = y; b.y0 + yy > 1; yy--) { const cur = W.get(x, yy, z); if (cur < 0) return; if (cur && !(BL[cur] && (BL[cur].fluid || FKIND[cur]))) return; W.put(x, yy, z, id); } },
+    stairs(fam, f, half = 'bottom') { return famId(fam, { facing: turn(f), half, wl: 0 }); },
+    wx: X, wz: Z, wy: (y) => b.y0 + y, inC, turn,
+  };
+  return W;
+}
+function rndOf(x, y, z, k, seed) { return rnd01(x * 31 + k, y, z, seed ^ 0x51f7); }
+
+// ================= NETHER FORTRESSES (Minecraft's NetherFortressPieces, rebuilt in JS) =================
+// Bridges (straight, crossing, end rubble), room crossings, stair rooms, the blaze spawner throne, castle entrances
+// with the lava fountain, nether wart rooms, small corridors, turns with chests, corridor stairs and T balconies,
+// chosen by Minecraft's weights / place limits from a start crossing, up to 112 blocks out, then moved to y 48-70.
+const NF = {
+  BRIDGE: [['straight', 30, 0, true], ['crossing', 10, 4], ['roomcross', 10, 4], ['stairsroom', 10, 3], ['throne', 5, 2], ['entrance', 5, 1]],
+  CASTLE: [['corridor', 25, 0, true], ['corrcross', 15, 5], ['right', 5, 10], ['left', 5, 10], ['corrstairs', 10, 3, true], ['balcony', 7, 2], ['stalk', 5, 2]],
+  SIZE: { straight: [-1, -3, 0, 5, 10, 19], filler: [-1, -3, 0, 5, 10, 8], crossing: [-8, -3, 0, 19, 10, 19], roomcross: [-2, 0, 0, 7, 9, 7], stairsroom: [-2, 0, 0, 7, 11, 7], throne: [-2, 0, 0, 7, 8, 9],
+    entrance: [-5, -3, 0, 13, 14, 13], stalk: [-5, -3, 0, 13, 14, 13], corridor: [-1, 0, 0, 5, 7, 5], corrcross: [-1, 0, 0, 5, 7, 5], right: [-1, 0, 0, 5, 7, 5], left: [-1, 0, 0, 5, 7, 5], corrstairs: [-1, -7, 0, 5, 14, 10], balcony: [-3, 0, 0, 9, 7, 9] },
+  make(S, t, x, y, z, dir, depth) { const s = NF.SIZE[t]; const box = orientBox(x, y, z, s[0], s[1], s[2], s[3], s[4], s[5], dir); if (box.y0 <= 10 || S.P.some(p => MCJ.hit(p.box, box))) return null; return { t, box, dir, depth, seed: (S.r() * 2147483647) | 0, chest: S.r() * 3 < 1 }; },
+  pick(S, list, x, y, z, dir, depth) {
+    const W = list === 'B' ? S.wB : S.wC; const tot = W.reduce((a, w) => a + (w[2] === 0 || w.n < w[2] ? w[1] : 0), 0);
+    for (let j = 0; j < 5 && tot > 0 && depth <= 30; j++) { let k = S.r() * tot | 0;
+      for (const w of W) { if (!(w[2] === 0 || w.n < w[2])) continue; k -= w[1]; if (k < 0) { if (S.prev === w && !w[3]) break; const p = NF.make(S, w[0], x, y, z, dir, depth); if (p) { w.n++; S.prev = w; return p; } } } }
+    return NF.make(S, 'filler', x, y, z, dir, depth); },
+  add(S, x, y, z, dir, depth, castle) { if (Math.abs(x - S.start.box.x0) > 112 || Math.abs(z - S.start.box.z0) > 112) return null; const p = NF.pick(S, castle ? 'C' : 'B', x, y, z, dir, depth + 1); if (p) { S.P.push(p); S.pending.push(p); } return p; },
+  fwd(S, p, xo, yo, c) { const b = p.box, d = p.dir; if (d === 'north') NF.add(S, b.x0 + xo, b.y0 + yo, b.z0 - 1, d, p.depth, c); else if (d === 'south') NF.add(S, b.x0 + xo, b.y0 + yo, b.z1 + 1, d, p.depth, c); else if (d === 'west') NF.add(S, b.x0 - 1, b.y0 + yo, b.z0 + xo, d, p.depth, c); else NF.add(S, b.x1 + 1, b.y0 + yo, b.z0 + xo, d, p.depth, c); },
+  left(S, p, yo, zo, c) { const b = p.box, d = p.dir; if (d === 'north' || d === 'south') NF.add(S, b.x0 - 1, b.y0 + yo, b.z0 + zo, 'west', p.depth, c); else NF.add(S, b.x0 + zo, b.y0 + yo, b.z0 - 1, 'north', p.depth, c); },
+  right(S, p, yo, zo, c) { const b = p.box, d = p.dir; if (d === 'north' || d === 'south') NF.add(S, b.x1 + 1, b.y0 + yo, b.z0 + zo, 'east', p.depth, c); else NF.add(S, b.x0 + zo, b.y0 + yo, b.z1 + 1, 'south', p.depth, c); },
+  children(S, p) { switch (p.t) {
+    case 'straight': NF.fwd(S, p, 1, 3, false); break;
+    case 'crossing': NF.fwd(S, p, 8, 3, false); NF.left(S, p, 3, 8, false); NF.right(S, p, 3, 8, false); break;
+    case 'roomcross': NF.fwd(S, p, 2, 0, false); NF.left(S, p, 0, 2, false); NF.right(S, p, 0, 2, false); break;
+    case 'stairsroom': NF.right(S, p, 6, 2, false); break;
+    case 'entrance': NF.fwd(S, p, 5, 3, true); break;
+    case 'stalk': NF.fwd(S, p, 5, 3, true); NF.fwd(S, p, 5, 11, true); break;
+    case 'corridor': NF.fwd(S, p, 1, 0, true); break;
+    case 'corrcross': NF.fwd(S, p, 1, 0, true); NF.left(S, p, 0, 1, true); NF.right(S, p, 0, 1, true); break;
+    case 'right': NF.right(S, p, 0, 1, true); break;
+    case 'left': NF.left(S, p, 0, 1, true); break;
+    case 'corrstairs': NF.fwd(S, p, 1, 0, true); break;
+    case 'balcony': { const i = p.dir === 'west' || p.dir === 'north' ? 5 : 1; NF.left(S, p, 0, i, S.r() * 8 >= 1); NF.right(S, p, 0, i, S.r() * 8 >= 1); break; } } },
+  layout(world, f) {
+    world.mcjCache = world.mcjCache || new Map(); const key = 'nf:' + f.ccx + ',' + f.ccz; if (world.mcjCache.has(key)) return world.mcjCache.get(key);
+    const r = mulberry32((f.seed ^ 0x4e46) >>> 0); const S = { r, P: [], pending: [], prev: null, wB: NF.BRIDGE.map(w => Object.assign(w.slice(), { n: 0 })), wC: NF.CASTLE.map(w => Object.assign(w.slice(), { n: 0 })) };
+    const dir = SP_ORI[r() * 4 | 0]; const x = f.ccx * 16 + 2, z = f.ccz * 16 + 2; const start = { t: 'crossing', box: orientBox(x, 64, z, 0, 0, 0, 19, 10, 19, dir), dir, depth: 0, seed: 1 };
+    S.start = start; S.P.push(start); NF.children(S, start);
+    while (S.pending.length) { const p = S.pending.splice(r() * S.pending.length | 0, 1)[0]; NF.children(S, p); }
+    let mn = 1e9, mx = -1e9; for (const p of S.P) { mn = Math.min(mn, p.box.y0); mx = Math.max(mx, p.box.y1); }
+    const room = 70 - 48 + 1 - (mx - mn + 1); const j = room > 1 ? 48 + (r() * room | 0) : 48; const k = j - mn; for (const p of S.P) { p.box.y0 += k; p.box.y1 += k; }
+    const all = { x0: Math.min(...S.P.map(p => p.box.x0)), x1: Math.max(...S.P.map(p => p.box.x1)), z0: Math.min(...S.P.map(p => p.box.z0)), z1: Math.max(...S.P.map(p => p.box.z1)) };
+    const L = { pieces: S.P, all }; if (world.mcjCache.size > 300) world.mcjCache.clear(); world.mcjCache.set(key, L); return L; },
+  draw(world, c, p, hints) {
+    const W = OPW(p, c, world, { top: NH - 1 }); const NB = B.NETHER_BRICKS, FN = B.NETHER_BRICK_FENCE, A = 0; const bx = W.box; const col = (x0, x1, z0, z1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) W.colDown(x, -1, z, NB); };
+    switch (p.t) {
+      case 'straight': bx(0, 3, 0, 4, 4, 18, NB); bx(1, 5, 0, 3, 7, 18, A); bx(0, 5, 0, 0, 5, 18, NB); bx(4, 5, 0, 4, 5, 18, NB); bx(0, 2, 0, 4, 2, 5, NB); bx(0, 2, 13, 4, 2, 18, NB); bx(0, 0, 0, 4, 1, 3, NB); bx(0, 0, 15, 4, 1, 18, NB);
+        col(0, 4, 0, 2); col(0, 4, 16, 18); for (const x of [0, 4]) { bx(x, 1, 1, x, 4, 1, FN); bx(x, 3, 4, x, 4, 4, FN); bx(x, 3, 14, x, 4, 14, FN); bx(x, 1, 17, x, 4, 17, FN); } break;
+      case 'filler': { const r = mulberry32(p.seed >>> 0); for (let x = 0; x <= 4; x++) for (let y = 3; y <= 4; y++) bx(x, y, 0, x, y, r() * 8 | 0, NB); bx(0, 5, 0, 0, 5, r() * 8 | 0, NB); bx(4, 5, 0, 4, 5, r() * 8 | 0, NB);
+        for (let x = 0; x <= 4; x++) bx(x, 2, 0, x, 2, r() * 5 | 0, NB); for (let x = 0; x <= 4; x++) for (let y = 0; y <= 1; y++) bx(x, y, 0, x, y, r() * 3 | 0, NB); break; }
+      case 'crossing': bx(7, 3, 0, 11, 4, 18, NB); bx(0, 3, 7, 18, 4, 11, NB); bx(8, 5, 0, 10, 7, 18, A); bx(0, 5, 8, 18, 7, 10, A);
+        for (const [a, b2, c2, d2] of [[7, 0, 7, 7], [7, 11, 7, 18], [11, 0, 11, 7], [11, 11, 11, 18]]) bx(a, 5, b2, c2, 5, d2, NB); for (const [a, c2, z] of [[0, 7, 7], [11, 18, 7], [0, 7, 11], [11, 18, 11]]) bx(a, 5, z, c2, 5, z, NB);
+        bx(7, 2, 0, 11, 2, 5, NB); bx(7, 2, 13, 11, 2, 18, NB); bx(7, 0, 0, 11, 1, 3, NB); bx(7, 0, 15, 11, 1, 18, NB); col(7, 11, 0, 2); col(7, 11, 16, 18);
+        bx(0, 2, 7, 5, 2, 11, NB); bx(13, 2, 7, 18, 2, 11, NB); bx(0, 0, 7, 3, 1, 11, NB); bx(15, 0, 7, 18, 1, 11, NB); col(0, 2, 7, 11); col(16, 18, 7, 11); break;
+      case 'roomcross': bx(0, 0, 0, 6, 1, 6, NB); bx(0, 2, 0, 6, 7, 6, A); for (const [a, b2, c2, d2] of [[0, 0, 1, 0], [0, 6, 1, 6], [5, 0, 6, 0], [5, 6, 6, 6]]) bx(a, 2, b2, c2, 6, d2, NB); for (const [a, b2, d2] of [[0, 0, 1], [0, 5, 6], [6, 0, 1], [6, 5, 6]]) bx(a, 2, b2, a, 6, d2, NB);
+        bx(2, 6, 0, 4, 6, 0, NB); bx(2, 5, 0, 4, 5, 0, FN); bx(2, 6, 6, 4, 6, 6, NB); bx(2, 5, 6, 4, 5, 6, FN); bx(0, 6, 2, 0, 6, 4, NB); bx(0, 5, 2, 0, 5, 4, FN); bx(6, 6, 2, 6, 6, 4, NB); bx(6, 5, 2, 6, 5, 4, FN); col(0, 6, 0, 6); break;
+      case 'stairsroom': bx(0, 0, 0, 6, 1, 6, NB); bx(0, 2, 0, 6, 10, 6, A); bx(0, 2, 0, 1, 8, 0, NB); bx(5, 2, 0, 6, 8, 0, NB); bx(0, 2, 1, 0, 8, 6, NB); bx(6, 2, 1, 6, 8, 6, NB); bx(1, 2, 6, 5, 8, 6, NB);
+        bx(0, 3, 2, 0, 5, 4, FN); bx(6, 3, 2, 6, 5, 2, FN); bx(6, 3, 4, 6, 5, 4, FN); W.put(5, 2, 5, NB); bx(4, 2, 5, 4, 3, 5, NB); bx(3, 2, 5, 3, 4, 5, NB); bx(2, 2, 5, 2, 5, 5, NB); bx(1, 2, 5, 1, 6, 5, NB);
+        bx(1, 7, 1, 5, 7, 4, NB); bx(6, 8, 2, 6, 8, 4, A); bx(2, 6, 0, 4, 8, 0, NB); bx(2, 5, 0, 4, 5, 0, FN); col(0, 6, 0, 6); break;
+      case 'throne': bx(0, 2, 0, 6, 7, 7, A); bx(1, 0, 0, 5, 1, 7, NB); bx(1, 2, 1, 5, 2, 7, NB); bx(1, 3, 2, 5, 3, 7, NB); bx(1, 4, 3, 5, 4, 7, NB); bx(1, 2, 0, 1, 4, 2, NB); bx(5, 2, 0, 5, 4, 2, NB); bx(1, 5, 2, 1, 5, 3, NB); bx(5, 5, 2, 5, 5, 3, NB);
+        bx(0, 5, 3, 0, 5, 8, NB); bx(6, 5, 3, 6, 5, 8, NB); bx(1, 5, 8, 5, 5, 8, NB); W.put(1, 6, 3, FN); W.put(5, 6, 3, FN); bx(0, 6, 3, 0, 6, 8, FN); bx(6, 6, 3, 6, 6, 8, FN); bx(1, 6, 8, 5, 7, 8, FN); bx(2, 8, 8, 4, 8, 8, FN);
+        if (W.inC(W.wx(3, 5), W.wz(3, 5))) { W.put(3, 5, 5, B.SPAWNER); world.spawners.set(W.wx(3, 5) + ',' + W.wy(5) + ',' + W.wz(3, 5), 'blaze'); } col(0, 6, 0, 6); break;
+      case 'entrance': case 'stalk': {
+        bx(0, 3, 0, 12, 4, 12, NB); bx(0, 5, 0, 12, 13, 12, A); bx(0, 5, 0, 1, 12, 12, NB); bx(11, 5, 0, 12, 12, 12, NB); bx(2, 5, 11, 4, 12, 12, NB); bx(8, 5, 11, 10, 12, 12, NB); bx(5, 9, 11, 7, 12, 12, NB);
+        bx(2, 5, 0, 4, 12, 1, NB); bx(8, 5, 0, 10, 12, 1, NB); bx(5, 9, 0, 7, 12, 1, NB); bx(2, 11, 2, 10, 12, 10, NB); bx(5, 8, 0, 7, 8, 0, FN);
+        for (let i = 1; i <= 11; i += 2) { bx(i, 10, 0, i, 11, 0, FN); bx(i, 10, 12, i, 11, 12, FN); bx(0, 10, i, 0, 11, i, FN); bx(12, 10, i, 12, 11, i, FN); W.put(i, 13, 0, NB); W.put(i, 13, 12, NB); W.put(0, 13, i, NB); W.put(12, 13, i, NB);
+          if (i !== 11) { W.put(i + 1, 13, 0, FN); W.put(i + 1, 13, 12, FN); W.put(0, 13, i + 1, FN); W.put(12, 13, i + 1, FN); } }
+        for (const [x, z] of [[0, 0], [0, 12], [12, 12], [12, 0]]) W.put(x, 13, z, FN);
+        bx(4, 2, 0, 8, 2, 12, NB); bx(0, 2, 4, 12, 2, 8, NB); bx(4, 0, 0, 8, 1, 3, NB); bx(4, 0, 9, 8, 1, 12, NB); bx(0, 0, 4, 3, 1, 8, NB); bx(9, 0, 4, 12, 1, 8, NB); col(4, 8, 0, 2); col(4, 8, 10, 12); col(0, 2, 4, 8); col(10, 12, 4, 8);
+        if (p.t === 'entrance') { for (let k = 3; k <= 9; k += 2) { bx(1, 7, k, 1, 8, k, FN); bx(11, 7, k, 11, 8, k, FN); } bx(5, 5, 5, 7, 5, 7, NB); bx(6, 1, 6, 6, 4, 6, A); W.put(6, 0, 6, NB); W.put(6, 5, 6, B.LAVA); }
+        else { // nether wart beds on soul sand either side, a stair up to the high doorway
+          for (const x of [2, 3, 9, 10]) { bx(x, 4, 2, x, 4, 9, B.SOUL_SAND); bx(x, 5, 2, x, 5, 9, B.NETHER_WART_1 != null ? B.NETHER_WART_1 : FKIND && B.NETHER_WART_0); }
+          for (let i = 0; i <= 5; i++) { bx(5, 5 + i, 9 - i, 7, 5 + i, 9 - i, W.stairs('nether_brick_stairs', 'south')); bx(5, 4, 9 - i, 7, 4 + i, 9 - i, NB); }
+          bx(4, 10, 1, 8, 10, 4, NB); bx(5, 11, 0, 7, 13, 0, A); }
+        for (let i = 0; i < 2; i++) hints.push(['wither_skeleton', W.wx(6, 6) + 0.5, W.wy(5), W.wz(6, 6) + 0.5]); break; }
+      case 'corridor': case 'corrcross': case 'right': case 'left': {
+        bx(0, 0, 0, 4, 1, 4, NB); bx(0, 2, 0, 4, 5, 4, A); bx(0, 6, 0, 4, 6, 4, NB);
+        if (p.t === 'corridor') { bx(0, 2, 0, 0, 5, 4, NB); bx(4, 2, 0, 4, 5, 4, NB); for (const x of [0, 4]) { bx(x, 3, 1, x, 4, 1, FN); bx(x, 3, 3, x, 4, 3, FN); } }
+        else if (p.t === 'corrcross') { for (const [x, z] of [[0, 0], [4, 0], [0, 4], [4, 4]]) bx(x, 2, z, x, 5, z, NB); }
+        else { const sx = p.t === 'right' ? 0 : 4, ox = 4 - sx; bx(sx, 2, 0, sx, 5, 4, NB); bx(sx, 3, 1, sx, 4, 1, FN); bx(sx, 3, 3, sx, 4, 3, FN); bx(ox, 2, 0, ox, 5, 0, NB); bx(Math.min(1, ox), 2, 4, Math.max(3, ox), 5, 4, NB); bx(1, 3, 4, 1, 4, 4, FN); bx(3, 3, 4, 3, 4, 4, FN);
+          if (p.chest) { const cx = p.t === 'right' ? 3 : 1; if (W.inC(W.wx(cx, 3), W.wz(cx, 3))) { W.put(cx, 2, 3, B.CHEST); mcSetChest(world, W.wx(cx, 3), W.wy(2), W.wz(cx, 3), 'chests/nether_bridge'); } } }
+        col(0, 4, 0, 4); break; }
+      case 'corrstairs': for (let i = 0; i <= 9; i++) { const j = Math.max(1, 7 - i), k = Math.min(Math.max(j + 5, 14 - i), 13), l = i;
+          bx(0, 0, l, 4, j, l, NB); bx(1, j + 1, l, 3, k - 1, l, A); if (i <= 6) for (const x of [1, 2, 3]) W.put(x, j + 1, l, W.stairs('nether_brick_stairs', 'south'));
+          bx(0, k, l, 4, k, l, NB); bx(0, j + 1, l, 0, k - 1, l, NB); bx(4, j + 1, l, 4, k - 1, l, NB); if ((i & 1) === 0) { bx(0, j + 2, l, 0, j + 3, l, FN); bx(4, j + 2, l, 4, j + 3, l, FN); } for (let x = 0; x <= 4; x++) W.colDown(x, -1, l, NB); } break;
+      case 'balcony': bx(0, 0, 0, 8, 1, 8, NB); bx(0, 2, 0, 8, 5, 8, A); bx(0, 6, 0, 8, 6, 5, NB); bx(0, 2, 0, 2, 5, 0, NB); bx(6, 2, 0, 8, 5, 0, NB); bx(1, 3, 0, 1, 4, 0, FN); bx(7, 3, 0, 7, 4, 0, FN);
+        bx(0, 2, 4, 8, 2, 8, NB); bx(1, 1, 4, 2, 2, 4, A); bx(6, 1, 4, 7, 2, 4, A); bx(1, 3, 8, 7, 3, 8, FN); W.put(0, 3, 8, FN); W.put(8, 3, 8, FN); bx(0, 3, 6, 0, 3, 7, FN); bx(8, 3, 6, 8, 3, 7, FN);
+        bx(0, 3, 4, 0, 5, 5, NB); bx(8, 3, 4, 8, 5, 5, NB); bx(1, 3, 5, 2, 5, 5, NB); bx(6, 3, 5, 7, 5, 5, NB); bx(1, 4, 5, 1, 5, 5, FN); bx(7, 4, 5, 7, 5, 5, FN); col(0, 8, 0, 8); break;
+    } },
+};
+{ const _bf = buildFortressChunk; buildFortressChunk = function (world, c, hints) { const g = world.gen; const R = 8;
+    for (let rx = Math.floor((c.cx - R) / 27); rx <= Math.floor((c.cx + R) / 27); rx++) for (let rz = Math.floor((c.cz - R) / 27); rz <= Math.floor((c.cz + R) / 27); rz++) {
+      const f = g.fortress(rx, rz); if (!f || Math.abs(f.ccx - c.cx) > R || Math.abs(f.ccz - c.cz) > R) continue; f.seed = f.seed || ihash(rx, rz, 909, world.seed);
+      const L = NF.layout(world, f); if (L.all.x1 < c.cx * 16 || L.all.x0 > c.cx * 16 + 15 || L.all.z1 < c.cz * 16 || L.all.z0 > c.cz * 16 + 15) continue;
+      for (const p of L.pieces) { if (p.box.x1 < c.cx * 16 || p.box.x0 > c.cx * 16 + 15 || p.box.z1 < c.cz * 16 || p.box.z0 > c.cz * 16 + 15) continue; c.fortress = true; NF.draw(world, c, p, hints || []); } } }; }
