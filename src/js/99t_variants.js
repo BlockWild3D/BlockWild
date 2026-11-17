@@ -163,3 +163,11 @@ bbGear('trader_llama', (m) => bbSetSkin(m, 'decor', !m.baby));
 // the old placeholder saddle and wolf armour boxes are drawn on the mob's root; hide them when the model has its own
 if (typeof saddleMesh !== 'undefined') { const _sm = saddleMesh; saddleMesh = function (m) { const r = _sm.apply(this, arguments); if (m && m.bbLayer && m.bbLayer.saddle && m.saddleMesh) m.saddleMesh.visible = false; return r; }; }
 if (typeof wolfArmorMesh !== 'undefined') { const _wm = wolfArmorMesh; wolfArmorMesh = function (m) { const r = _wm.apply(this, arguments); if (m && m.bbLayer && m.bbLayer.armor && m.wolfArmorMesh) m.wolfArmorMesh.visible = false; return r; }; }
+
+// ---- ghasts: Minecraft draws the body (the hitbox) at 4x / 4.5x and lets the tentacles hang below it ----
+function bbGhastFit(m, sc) { const P = m.bbParts || {}; const body = P.body; if (!body || !m.bbHolder) return; m.bbHolder.scale.setScalar(1); m.bbHolder.position.set(0, 0, 0); m.bbHolder.updateMatrixWorld(true);
+  const b = new THREE.Box3(); body.traverse(o => { if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+  const bodyH = b.max.y - b.min.y; const k = sc || (m.t.h / bodyH); m.bbHolder.scale.setScalar(k); m.bbHolder.position.y = -b.min.y * k; }
+for (const k of ['ghast', 'happy_ghast']) if (MOBS[k]) MOBS[k].bbAfterBuild = (m) => bbGhastFit(m);
+// happy ghast goggles rest up on the forehead and drop over the eyes when someone rides it
+bbGear('happy_ghast', (m) => { const g = m.bbParts && m.bbParts.goggles; if (!g) return; if (g.userData.y0 == null) g.userData.y0 = g.position.y; const ridden = m.rider || (typeof player !== 'undefined' && player.riding === m) || (m.mobRiders && m.mobRiders.length); g.position.y = g.userData.y0 + (ridden ? 0 : 0.31); });

@@ -124,4 +124,4 @@ if (typeof Mob !== 'undefined') { const _bbc = Mob.prototype.colorize; Mob.proto
 // the game's own build still runs, hidden, first: it sets up gameplay bits (horse genes, saddles, chests, extra heads)
 for (const key in BB_MODELS) if (typeof MOBS !== 'undefined' && MOBS[key]) { const orig = MOBS[key].bbOrigBuild = MOBS[key].build;
   MOBS[key].build = function (m, r) { const tmp = new THREE.Group(); tmp.visible = false; r.add(tmp); const n0 = m.mats.length; try { orig(m, tmp); } catch (e) { } m.mats.length = n0; m.bbOld = tmp;
-    m.head = m.legs = m.arms = m.wings = m.tail = undefined; buildBBModel(m, r, key); }; }
+    m.head = m.legs = m.arms = m.wings = m.tail = undefined; buildBBModel(m, r, key); if (MOBS[key].bbAfterBuild) MOBS[key].bbAfterBuild(m); }; }
