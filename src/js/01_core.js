@@ -991,7 +991,7 @@ const LOOT = {
   library: [['book', 1, 4, 0.8], ['paper', 2, 8, 0.6], ['lapis_lazuli', 2, 6, 0.4], ['bookshelf', 1, 2, 0.2], ['experience_bottle', 1, 1, 0]],
   tower: [['iron_pickaxe', 1, 1, 0.2], ['iron_sword', 1, 1, 0.25], ['arrow', 4, 16, 0.6], ['bow', 1, 1, 0.3], ['diamond', 1, 2, 0.25], ['torch', 4, 8, 0.5], ['glowstone', 1, 3, 0.3], ['apple', 1, 3, 0.5], ['iron_ingot', 1, 4, 0.5]],
 };
-function rollLoot(type, seed) {
+function rollLoot(type, seed) { { const _m = typeof mcChestLoot === 'function' ? mcChestLoot(type, seed) : null; if (_m) return _m; }
   const r = mulberry32(seed); const inv = new Array(27).fill(null); const T = LOOT[type] || LOOT.house;
   const put = (s) => { let slot = r() * 27 | 0; for (let t = 0; t < 27 && inv[slot]; t++) slot = (slot + 1) % 27; if (!inv[slot]) inv[slot] = s; };
   // like Minecraft, a stack is often spread over a few slots

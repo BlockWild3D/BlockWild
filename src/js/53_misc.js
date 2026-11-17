@@ -19,7 +19,7 @@ if (MOBS.snow_golem) MOBS.snow_golem.drops = [['snowball', 0, 15, 1]];
 // ---------- piglin bartering (Minecraft 1.21 table, weights out of 459) ----------
 // Drop or hand a gold ingot to an adult piglin: it picks it up, admires it for 6 seconds, then throws you something.
 BARTER.length = 0; BARTER.push(['enchanted_book', 1, 1, 5], ['iron_boots', 1, 1, 8], ['splash_potion', 1, 1, 8], ['potion', 1, 1, 8], ['potion', 1, 1, 10], ['iron_nugget', 10, 36, 10], ['ender_pearl', 2, 4, 10], ['string', 3, 9, 20], ['quartz', 5, 12, 20], ['obsidian', 1, 1, 40], ['leather', 2, 4, 40], ['soul_sand', 2, 8, 40], ['nether_brick', 2, 8, 40], ['arrow', 6, 12, 40], ['gravel', 8, 16, 40], ['magma_cream', 2, 6, 40], ['netherrack', 8, 16, 40]);
-rollBarter = function () { const tot = BARTER.reduce((s, b) => s + b[3], 0); let q = Math.random() * tot; let pick = BARTER[BARTER.length - 1];
+rollBarter = function () { { const _m = typeof mcBarter === 'function' ? mcBarter() : null; if (_m) return _m; } const tot = BARTER.reduce((s, b) => s + b[3], 0); let q = Math.random() * tot; let pick = BARTER[BARTER.length - 1];
   for (const b of BARTER) { q -= b[3]; if (q <= 0) { pick = b; break; } } const [k, a, bb] = pick; const n = a + Math.floor(Math.random() * (bb - a + 1)); let ex = null;
   if (k === 'enchanted_book' || k === 'iron_boots') ex = { ench: { soul_speed: 1 + Math.floor(Math.random() * 3) } };
   if (k === 'splash_potion' || (k === 'potion' && pick === BARTER[3])) ex = { pot: 'fire_resistance' }; if (k === 'potion' && pick === BARTER[4]) ex = { pot: 'water' };

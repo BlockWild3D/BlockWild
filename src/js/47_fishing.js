@@ -10,7 +10,7 @@ const FISH_LOOT = { fish: [['cod', 60], ['salmon', 25], ['tropical_fish', 2], ['
 Object.assign(ENCH, { lure: { name: 'Lure', max: 3, for: 'rod', w: 2 }, luck_of_the_sea: { name: 'Luck of the Sea', max: 3, for: 'rod', w: 2 } });
 { const _ec = enchCat; enchCat = function (id) { if (id === IT.fishing_rod) return 'rod'; return _ec(id); }; }
 { const _ea = enchantability; enchantability = function (id) { if (id === IT.fishing_rod) return 1; return _ea(id); }; }
-function rollFishing(luck) {
+function rollFishing(luck) { { const _m = typeof mcFish === 'function' ? mcFish(luck) : null; if (_m) return _m; }
   const pick = (L) => { const tot = L.reduce((a, b) => a + b[1], 0); let q = Math.random() * tot; for (const e of L) { q -= e[1]; if (q <= 0) return e[0]; } return L[0][0]; };
   const junk = Math.max(0, 10 - 2.5 * luck), tre = 5 + 2.1 * luck, q = Math.random() * 100;
   const cat = q < tre ? 'treasure' : q < tre + junk ? 'junk' : 'fish'; const key = pick(FISH_LOOT[cat]); const s = { id: IT[key], count: 1 };

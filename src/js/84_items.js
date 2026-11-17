@@ -101,7 +101,7 @@ const bundleUsed = (b) => (b.data && b.data.items || []).reduce((a, s) => a + bu
 // ---------------- brushing suspicious sand and gravel ----------------
 const BRUSH_LOOT = { sand: [['archer_pottery_sherd', 8], ['miner_pottery_sherd', 8], ['prize_pottery_sherd', 8], ['skull_pottery_sherd', 8], ['arms_up_pottery_sherd', 6], ['brewer_pottery_sherd', 6], ['angler_pottery_sherd', 5], ['shelter_pottery_sherd', 5], ['snort_pottery_sherd', 5], ['emerald', 10], ['diamond', 3], ['gunpowder', 10], ['tnt', 4], ['coal', 10], ['wheat', 8], ['gold_nugget', 8]],
   gravel: [['burn_pottery_sherd', 8], ['danger_pottery_sherd', 8], ['friend_pottery_sherd', 8], ['heart_pottery_sherd', 8], ['heartbreak_pottery_sherd', 6], ['howl_pottery_sherd', 8], ['sheaf_pottery_sherd', 8], ['explorer_pottery_sherd', 6], ['mourner_pottery_sherd', 6], ['plenty_pottery_sherd', 6], ['blade_pottery_sherd', 5], ['emerald', 8], ['wheat', 8], ['coal', 10], ['string', 8], ['iron_nugget', 8], ['glass', 6]] };
-function brushLoot(kind) { const L = BRUSH_LOOT[kind].filter(e => IT[e[0]] !== undefined); let t = Math.random() * L.reduce((a, e) => a + e[1], 0); for (const e of L) { t -= e[1]; if (t <= 0) return IT[e[0]]; } return IT[L[0][0]]; }
+function brushLoot(kind) { { const _m = typeof mcBrush === 'function' ? mcBrush(kind) : null; if (_m != null) return _m; } const L = BRUSH_LOOT[kind].filter(e => IT[e[0]] !== undefined); let t = Math.random() * L.reduce((a, e) => a + e[1], 0); for (const e of L) { t -= e[1]; if (t <= 0) return IT[e[0]]; } return IT[L[0][0]]; }
 let BRUSH = { k: null, t: 0 };
 { const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments);
     const h = player.held(); const hd = h && ITEMS[h.id];
