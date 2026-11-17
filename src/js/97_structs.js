@@ -155,10 +155,10 @@ EndGen.prototype.biomeName = function (x, z) { const dd = Math.hypot(x, z); if (
     if (P.onGround && vy0 < -4 && !P.flying) { const d = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z))] || BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y), Math.floor(P.pos.z))]; if (d && d.shelf === 2 && !kd('sneak')) { P.vel.y = -vy0 * 0.5; P.peak = null; } }
     vy0 = P.vel.y;
     // sitting on a cushion: stay put until you sneak or jump
-    if (P.cushion) { const [x, y, z] = P.cushion; if (!BL[world.get(x, y, z)] || !BL[world.get(x, y, z)].cushion || kd('sneak') || kd('jump') || P.dead) { P.cushion = null; P.pos.y = y + 0.45; } else { P.pos.set(x + 0.5, y + 0.2, z + 0.5); P.vel.set(0, 0, 0); P.onGround = true; P.peak = null; } }
+    if (P.cushion) { const [x, y, z] = P.cushion; if (!BL[world.get(x, y, z)] || !BL[world.get(x, y, z)].cushion || kd('sneak') || kd('jump') || P.dead) { P.cushion = null; blkPlay('snd.entity.cushion.get_up', 0.7); P.pos.y = y + 0.45; } else { P.pos.set(x + 0.5, y + 0.2, z + 0.5); P.vel.set(0, 0, 0); P.onGround = true; P.peak = null; } }
     return r; }; }
 { const _ua = useAction; useAction = function (eye, dir) { if (target && !targetMob && BL[target.id] && !kd('sneak')) { const d = BL[target.id];
-      if (d.cushion && !player.riding && !player.cushion) { if (!world.get(target.x, target.y + 1, target.z) && !world.get(target.x, target.y + 2, target.z)) { player.cushion = [target.x, target.y, target.z]; Sfx.play('cloth', 0.6); } mouseR = false; return; }
+      if (d.cushion && !player.riding && !player.cushion) { if (!world.get(target.x, target.y + 1, target.z) && !world.get(target.x, target.y + 2, target.z)) { player.cushion = [target.x, target.y, target.z]; (blkPlay('snd.entity.cushion.sit', 0.8) || Sfx.play('cloth', 0.6)); } mouseR = false; return; }
       if (d.strawBed) { mouseR = false; if (world.dim !== 'overworld') { toast('The straw bed falls apart here', 2); world.set(target.x, target.y, target.z, 0); return; }
         const ticks = timeTicks(); const night = (ticks >= 12542 && ticks <= 23459) || S.weather === 'thunder'; if (!night) { toast('You can sleep only at night', 2); return; }
         if (G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8) && isSurv()) { toast('You may not rest now; there are monsters nearby', 2); return; }

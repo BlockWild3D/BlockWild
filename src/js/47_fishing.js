@@ -28,7 +28,7 @@ function castBobber() {
   const geo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 12 }, () => new V3())); const line = new THREE.Line(geo, fishLineMat); line.frustumCulled = false; G.scene.add(line);
   const v = d.clone().multiplyScalar(14 + Math.random() * 2); v.y += 2; v.add(player.vel.clone().multiplyScalar(0.5));
   bobber = { pos: rodHand(), vel: v, mesh, line, geo, phase: 'fly', wait: 0, lure: heldEnch('lure'), luck: heldEnch('luck_of_the_sea'), hooked: null, stuck: false };
-  Sfx.play('bow', 0.4, 0.6); S.swing = 1;
+  (blkPlay('snd.entity.bobber.castfast', 0.8) || Sfx.play('bow', 0.4, 0.6)); S.swing = 1;
 }
 function removeBobber() { if (!bobber) return; G.scene.remove(bobber.mesh); G.scene.remove(bobber.line); bobber.geo.dispose(); bobber = null; }
 function reelIn() {
@@ -36,7 +36,7 @@ function reelIn() {
   if (B0.hooked && !B0.hooked.dead) { const m = B0.hooked; const d = P.pos.clone().sub(m.pos); m.vel.x += d.x * 0.5; m.vel.z += d.z * 0.5; m.vel.y += Math.sqrt(d.length()) * 1.6 + 1; dur = 5; }
   else if (B0.phase === 'bite') { const s = rollFishing(B0.luck); const it = dropItem(s.id, s.count, B0.pos.x, B0.pos.y + 0.3, B0.pos.z, false, xtra(s)); const d = P.eye().sub(B0.pos); it.vel.set(d.x * 2.2, d.y * 2 + Math.sqrt(d.length()) * 2.4, d.z * 2.2); it.pickDelay = 0; spawnOrbRange(P.pos.x, P.pos.y + 0.5, P.pos.z, 1, 6); Sfx.play('splash', 0.5, 1.2); dur = 1; }
   else if (B0.stuck) dur = 2;
-  if (dur && S.mode !== 'creative') damageHeld(dur); removeBobber(); Sfx.play('bow', 0.3, 1.4); S.swing = 1;
+  if (dur && S.mode !== 'creative') damageHeld(dur); removeBobber(); (blkPlay('snd.entity.bobber.retrieve', 0.8) || Sfx.play('bow', 0.3, 1.4)); S.swing = 1;
 }
 function updateBobber(dt) {
   const B0 = bobber; if (!B0) return; const P = player; const h = P.held();

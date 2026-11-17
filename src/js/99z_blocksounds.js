@@ -68,8 +68,9 @@ function blockSfx(kind, id, v = 1, pos) {
 }
 // player damage (owner's damage folder): hit, small and big falls
 function playerHurtSfx(dmg, cause) {
-  if (!Sfx.ctx) return false; const fall = /fall/.test(cause || '');
-  return BlkSnd.play([fall ? (dmg > 4 ? 'dmg.fallbig' : 'dmg.fallsmall') : 'dmg.hit', 'dmg.hit'], 1, 1);
+  if (!Sfx.ctx) return false; const c = cause || ''; const fall = /fall/.test(c);
+  const special = /drown/i.test(c) ? 'snd.entity.player.hurt.drown' : /fire|lava|burn|magma|campfire/i.test(c) ? 'snd.entity.player.hurt.fire_hurt' : /freez|frost|powder snow/i.test(c) ? 'snd.entity.player.hurt.freeze_hurt' : /berr/i.test(c) ? 'snd.entity.player.hurt.berrybush_hurt' : null;
+  return BlkSnd.play([...(special ? [special] : []), fall ? (dmg > 4 ? 'dmg.fallbig' : 'dmg.fallsmall') : 'dmg.hit', 'dmg.hit'], 1, 1);
 }
 // soul speed: the owner's sound while running on soul sand / soul soil with the boots
 { const _s = soulSandMul; let last = 0; soulSandMul = function () { const r = _s.apply(this, arguments);
@@ -153,6 +154,7 @@ const BLOCK_AMBIENT = [
   [/^beacon$/, 'blk.beacon.ambient', 0.3, 0.4], [/^conduit$/, 'blk.conduit.ambient', 0.3, 0.4], [/^respawn_anchor/, 'blk.respawn_anchor.ambient', 0.3, 0.4, (d) => d.st && d.st.charges > 0],
   [/creaking_heart/, 'blk.creaking_heart.idle', 0.2, 0.4, () => G.daylight < 0.4], [/dried_ghast/, 'blk.dried_ghast.ambient', 0.2, 0.4], [/potent_sulfur/, 'blk.potent_sulfur.noxious_gas_ambient', 0.1, 0.35],
   [/^(beehive|bee_nest)/, 'blk.beehive.work', 0.15, 0.35],
+  [/^nether_portal/, 'snd.portal.portal', 0.05, 0.4],
   [/^fire$|^soul_fire$/, 'snd.fire.fire', 0.5, 0.5], [/^lava(_\d)?$/, 'LAVA', 0.1, 0.5], [/^water_[1-8]$/, 'snd.liquid.water', 0.04, 0.4],
 ];
 const DEADBUSH_VARIANTS = ['bushrustle', 'creakysand', 'crickets', 'howlingwind', 'insect', 'leaves', 'movingsand'];

@@ -171,7 +171,7 @@ function updateFalling(dt) {
       f.done = true; scene.remove(f.mesh); f.mesh.geometry !== blockGeo(f.id) && f.mesh.geometry.dispose(); f.mesh.material.dispose();
       const y = Math.floor(f.y); const here = world.get(bx, y, bz);
       let id = f.id; const d = BL[id];
-      if (d.anvil) { Sfx.at('anvil', new V3(f.x, f.y, f.z), 0.9); const dist = f.y0 - f.y; if (Math.random() < 0.05 * Math.max(0, dist)) { const next = { anvil: 'chipped_anvil', chipped_anvil: 'damaged_anvil', damaged_anvil: null }[d.anvil]; id = next ? B[(next + (d.swapXZ ? '_x' : '')).toUpperCase()] : 0; } }
+      if (d.anvil) { (blkPlay('snd.random.anvil_land', 0.8, new V3(f.x, f.y, f.z)) || Sfx.at('anvil', new V3(f.x, f.y, f.z), 0.9)); const dist = f.y0 - f.y; if (Math.random() < 0.05 * Math.max(0, dist)) { const next = { anvil: 'chipped_anvil', chipped_anvil: 'damaged_anvil', damaged_anvil: null }[d.anvil]; id = next ? B[(next + (d.swapXZ ? '_x' : '')).toUpperCase()] : 0; } }
       else blockSfx('place', d.id, 0.7, new V3(f.x, f.y, f.z)) || Sfx.at(d.snd || 'sand', new V3(f.x, f.y, f.z), 0.7);
       if (!id) continue;
       if (canFallInto(here) && y > 0) { if (here && BL[here].plant) { const dr = blockDrop(here, null); if (dr) dropItem(dr[0], dr[1], bx + 0.5, y + 0.5, bz + 0.5); } world.set(bx, y, bz, id); mpBlock(bx, y, bz, id); }

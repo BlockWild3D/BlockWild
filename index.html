@@ -7439,7 +7439,7 @@ function updateEyes(dt) {
     else e.pos.y += Math.sin(e.t * 6) * dt * 0.3;
     if (Math.random() < dt * 30) Particles.emit(e.pos.x, e.pos.y, e.pos.z, 1, [[0.6, 0.2, 0.9], [0.3, 0.9, 0.6]], 0.4, 0.8, -0.5, 0.2);
     e.mesh.position.copy(e.pos);
-    if (e.t > 3.2) { e.done = true; scene.remove(e.mesh); if (Math.random() < 0.8) dropItem(IT.eye_of_ender, 1, e.pos.x, e.pos.y, e.pos.z, false); else { Sfx.play('glass_break', 0.7); Particles.emit(e.pos.x, e.pos.y, e.pos.z, 15, [[0.3, 0.8, 0.6]], 2, 0.8, 4, 0.3); } }
+    if (e.t > 3.2) { e.done = true; scene.remove(e.mesh); if (Math.random() < 0.8) dropItem(IT.eye_of_ender, 1, e.pos.x, e.pos.y, e.pos.z, false); else { (blkPlay('snd.entity.endereye.dead', 0.8) || Sfx.play('glass_break', 0.7)); Particles.emit(e.pos.x, e.pos.y, e.pos.z, 15, [[0.3, 0.8, 0.6]], 2, 0.8, 4, 0.3); } }
   }
   G.eyes = G.eyes.filter(e => !e.done);
 }
@@ -9801,7 +9801,7 @@ function updateEating(dt) {
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
     if (typeof onEatItem === 'function') onEatItem(h.id);
     if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
-    Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
+    (blkPlay('snd.random.burp', 0.8) || Sfx.play('pop', 0.5, 0.8)); renderFood(); S.useCD = 0.3;
   }
 }
 { const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); updateEating(dt); return r; }; }
@@ -10470,7 +10470,7 @@ function openSmithUI() {
       if (shift) { const left = addItem(r.id, 1, xtra(r)); if (left) return; }
       else { if (c) return; S.cursor = r; }
       for (let i = 0; i < 3; i++) { slots[i].count--; if (slots[i].count <= 0) slots[i] = null; }
-      slots[3] = smithResult(slots); Sfx.play('anvil', 0.6); Sfx.play('armor', 0.7);
+      slots[3] = smithResult(slots); (blkPlay('blk.smithing_table.smithing_table', 0.8) || Sfx.play('anvil', 0.6)); Sfx.play('armor', 0.7);
     },
     layout: (body) => {
       const grp = document.createElement('div'); grp.className = 'crow'; grp.style.gap = '4px'; body.appendChild(grp);
@@ -10989,7 +10989,7 @@ function updateFalling(dt) {
       f.done = true; scene.remove(f.mesh); f.mesh.geometry !== blockGeo(f.id) && f.mesh.geometry.dispose(); f.mesh.material.dispose();
       const y = Math.floor(f.y); const here = world.get(bx, y, bz);
       let id = f.id; const d = BL[id];
-      if (d.anvil) { Sfx.at('anvil', new V3(f.x, f.y, f.z), 0.9); const dist = f.y0 - f.y; if (Math.random() < 0.05 * Math.max(0, dist)) { const next = { anvil: 'chipped_anvil', chipped_anvil: 'damaged_anvil', damaged_anvil: null }[d.anvil]; id = next ? B[(next + (d.swapXZ ? '_x' : '')).toUpperCase()] : 0; } }
+      if (d.anvil) { (blkPlay('snd.random.anvil_land', 0.8, new V3(f.x, f.y, f.z)) || Sfx.at('anvil', new V3(f.x, f.y, f.z), 0.9)); const dist = f.y0 - f.y; if (Math.random() < 0.05 * Math.max(0, dist)) { const next = { anvil: 'chipped_anvil', chipped_anvil: 'damaged_anvil', damaged_anvil: null }[d.anvil]; id = next ? B[(next + (d.swapXZ ? '_x' : '')).toUpperCase()] : 0; } }
       else blockSfx('place', d.id, 0.7, new V3(f.x, f.y, f.z)) || Sfx.at(d.snd || 'sand', new V3(f.x, f.y, f.z), 0.7);
       if (!id) continue;
       if (canFallInto(here) && y > 0) { if (here && BL[here].plant) { const dr = blockDrop(here, null); if (dr) dropItem(dr[0], dr[1], bx + 0.5, y + 0.5, bz + 0.5); } world.set(bx, y, bz, id); mpBlock(bx, y, bz, id); }
@@ -11370,7 +11370,7 @@ MOBS.breeze.tick = function (m, dt) {
 };
 // a wind burst: pushes everything nearby away; your own wind charges launch you (and spare you fall damage)
 function windBurst(p, power, src) {
-  SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
+  SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); (blkPlay('snd.entity.wind_charge.wind_burst', 0.8, p) || Sfx.at('vwoop', p, 0.9, 0.6));
   const R = power > 1 ? 2.4 : 2.5 + power * 0.5; // a player's wind charge reaches about 2.4 blocks (explosion radius 1.2); a breeze's is wider
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
@@ -13215,7 +13215,7 @@ S.drinkT = 0;
 { const _ui = updateInteraction; updateInteraction = function (dt) {
     const r = _ui.apply(this, arguments); const h = player.held();
     if (h && h.id === IT.potion && mouseR && !S.uiOpen && !player.dead && S.mode !== 'spectator') {
-      S.drinkT += dt; S.eating = Math.min(1, S.drinkT / 1.6); if (Math.random() < dt * 5) Sfx.play('splash', 0.15, 1.8);
+      S.drinkT += dt; S.eating = Math.min(1, S.drinkT / 1.6); if (Math.random() < dt * 5) (blkPlay('snd.random.drink', 0.6) || Sfx.play('splash', 0.15, 1.8));
       if (S.drinkT >= 1.6) { S.drinkT = 0; S.eating = 0; mouseR = false; applyPotion(h.pot || 'water', 1); Sfx.play('pop', 0.5, 0.8); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.glass_bottle, count: 1 }; invDirty(); } }
     } else if (S.drinkT) { S.drinkT = 0; S.eating = 0; }
     return r; }; }
@@ -13386,7 +13386,7 @@ function castBobber() {
   const geo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 12 }, () => new V3())); const line = new THREE.Line(geo, fishLineMat); line.frustumCulled = false; G.scene.add(line);
   const v = d.clone().multiplyScalar(14 + Math.random() * 2); v.y += 2; v.add(player.vel.clone().multiplyScalar(0.5));
   bobber = { pos: rodHand(), vel: v, mesh, line, geo, phase: 'fly', wait: 0, lure: heldEnch('lure'), luck: heldEnch('luck_of_the_sea'), hooked: null, stuck: false };
-  Sfx.play('bow', 0.4, 0.6); S.swing = 1;
+  (blkPlay('snd.entity.bobber.castfast', 0.8) || Sfx.play('bow', 0.4, 0.6)); S.swing = 1;
 }
 function removeBobber() { if (!bobber) return; G.scene.remove(bobber.mesh); G.scene.remove(bobber.line); bobber.geo.dispose(); bobber = null; }
 function reelIn() {
@@ -13394,7 +13394,7 @@ function reelIn() {
   if (B0.hooked && !B0.hooked.dead) { const m = B0.hooked; const d = P.pos.clone().sub(m.pos); m.vel.x += d.x * 0.5; m.vel.z += d.z * 0.5; m.vel.y += Math.sqrt(d.length()) * 1.6 + 1; dur = 5; }
   else if (B0.phase === 'bite') { const s = rollFishing(B0.luck); const it = dropItem(s.id, s.count, B0.pos.x, B0.pos.y + 0.3, B0.pos.z, false, xtra(s)); const d = P.eye().sub(B0.pos); it.vel.set(d.x * 2.2, d.y * 2 + Math.sqrt(d.length()) * 2.4, d.z * 2.2); it.pickDelay = 0; spawnOrbRange(P.pos.x, P.pos.y + 0.5, P.pos.z, 1, 6); Sfx.play('splash', 0.5, 1.2); dur = 1; }
   else if (B0.stuck) dur = 2;
-  if (dur && S.mode !== 'creative') damageHeld(dur); removeBobber(); Sfx.play('bow', 0.3, 1.4); S.swing = 1;
+  if (dur && S.mode !== 'creative') damageHeld(dur); removeBobber(); (blkPlay('snd.entity.bobber.retrieve', 0.8) || Sfx.play('bow', 0.3, 1.4)); S.swing = 1;
 }
 function updateBobber(dt) {
   const B0 = bobber; if (!B0) return; const P = player; const h = P.held();
@@ -16508,10 +16508,10 @@ function placePainting(hit) { if (hit.ny !== 0) return false; const f = dirOf(hi
   if (!cands.length) return false; const v = cands[Math.random() * cands.length | 0]; const P = PAINTINGS[v]; const ox = Math.floor((P.w - 1) / 2), oy = Math.floor((P.h - 1) / 2);
   const ax = cx - ox * rx, ay = cy - oy, az = cz - ox * rz; const cell = FAMILY.painting.ids[String(f)]; const bd = bdataOf(world);
   for (let i = 0; i < P.w; i++) for (let j = 0; j < P.h; j++) { const x = ax + i * rx, y = ay + j, z = az + i * rz; world.set(x, y, z, cell); mpBlock(x, y, z, cell); bd.set(keyOf(x, y, z), { p: keyOf(ax, ay, az) }); }
-  bd.set(keyOf(ax, ay, az), { p: keyOf(ax, ay, az), v, f, anchor: 1 }); OV.watch.add(keyOf(ax, ay, az)); Sfx.play('wood', 0.8, 1.2); return true; }
+  bd.set(keyOf(ax, ay, az), { p: keyOf(ax, ay, az), v, f, anchor: 1 }); OV.watch.add(keyOf(ax, ay, az)); (blkPlay('snd.entity.painting.place', 0.8) || Sfx.play('wood', 0.8, 1.2)); return true; }
 function removePainting(anchorKey, drop) { const bd = bdataOf(world); const a = bd.get(anchorKey); if (!a || !a.anchor) return; const P = PAINTINGS[a.v]; const [ax, ay, az] = anchorKey.split(',').map(Number); const [rx, rz] = P_RIGHT[a.f];
   for (let i = 0; i < P.w; i++) for (let j = 0; j < P.h; j++) { const x = ax + i * rx, y = ay + j, z = az + i * rz; const k = keyOf(x, y, z); bd.delete(k); if ((BL[world.get(x, y, z)] || {}).painting) { world.set(x, y, z, 0); mpBlock(x, y, z, 0); } }
-  OV.watch.delete(anchorKey); if (drop && S.rules.doTileDrops !== false && S.mode !== 'creative') dropItem(IT.painting, 1, ax + 0.5, ay + 0.5, az + 0.5); Sfx.play('wood', 0.8, 0.9); }
+  OV.watch.delete(anchorKey); if (drop && S.rules.doTileDrops !== false && S.mode !== 'creative') dropItem(IT.painting, 1, ax + 0.5, ay + 0.5, az + 0.5); (blkPlay('snd.entity.painting.break', 0.8) || Sfx.play('wood', 0.8, 0.9)); }
 // ---- placing ----
 { const _pb = placeBlock; placeBlock = function (hit, id) {
     const d = BL[id]; if (!d || !hit) return _pb.apply(this, arguments);
@@ -16549,7 +16549,7 @@ const ARMOR_IDX = { head: 0, chest: 1, legs: 2, feet: 3 };
     if (d.painting) { const e = bdataOf(world).get(k); removePainting(e ? e.p : k, true); Particles.blockBreak(x, y, z, B.PLANKS, 6); return true; }
     if (d.armorStand) { const by = d.armorStand === 'upper' ? y - 1 : y; const kk = keyOf(x, by, z); const inv = world.chestInv.get(kk); world.chestInv.delete(kk); ovDrop(kk);
       if (inv) for (const s of inv) if (s) dropItem(s.id, 1, x + 0.5, by + 0.8, z + 0.5, false, xtra(s));
-      world.set(x, by, z, 0); world.set(x, by + 1, z, 0); mpBlock(x, by, z, 0); mpBlock(x, by + 1, z, 0); if (S.mode !== 'creative' && S.rules.doTileDrops !== false) dropItem(IT.armor_stand, 1, x + 0.5, by + 0.5, z + 0.5); Sfx.play('wood', 0.9); return true; }
+      world.set(x, by, z, 0); world.set(x, by + 1, z, 0); mpBlock(x, by, z, 0); mpBlock(x, by + 1, z, 0); if (S.mode !== 'creative' && S.rules.doTileDrops !== false) dropItem(IT.armor_stand, 1, x + 0.5, by + 0.5, z + 0.5); (blkPlay('snd.entity.armorstand.break', 0.8) || Sfx.play('wood', 0.9)); return true; }
     return _bb.apply(this, arguments); }; }
 { const _obr = onBlockRemoved; onBlockRemoved = function (x, y, z, id) { const r = _obr.apply(this, arguments); const d = BL[id]; if (!d) return r; const k = keyOf(x, y, z);
     if (d.sign) bdataOf(G.world).delete(k);
@@ -18555,10 +18555,10 @@ EndGen.prototype.biomeName = function (x, z) { const dd = Math.hypot(x, z); if (
     if (P.onGround && vy0 < -4 && !P.flying) { const d = BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z))] || BL[world.get(Math.floor(P.pos.x), Math.floor(P.pos.y), Math.floor(P.pos.z))]; if (d && d.shelf === 2 && !kd('sneak')) { P.vel.y = -vy0 * 0.5; P.peak = null; } }
     vy0 = P.vel.y;
     // sitting on a cushion: stay put until you sneak or jump
-    if (P.cushion) { const [x, y, z] = P.cushion; if (!BL[world.get(x, y, z)] || !BL[world.get(x, y, z)].cushion || kd('sneak') || kd('jump') || P.dead) { P.cushion = null; P.pos.y = y + 0.45; } else { P.pos.set(x + 0.5, y + 0.2, z + 0.5); P.vel.set(0, 0, 0); P.onGround = true; P.peak = null; } }
+    if (P.cushion) { const [x, y, z] = P.cushion; if (!BL[world.get(x, y, z)] || !BL[world.get(x, y, z)].cushion || kd('sneak') || kd('jump') || P.dead) { P.cushion = null; blkPlay('snd.entity.cushion.get_up', 0.7); P.pos.y = y + 0.45; } else { P.pos.set(x + 0.5, y + 0.2, z + 0.5); P.vel.set(0, 0, 0); P.onGround = true; P.peak = null; } }
     return r; }; }
 { const _ua = useAction; useAction = function (eye, dir) { if (target && !targetMob && BL[target.id] && !kd('sneak')) { const d = BL[target.id];
-      if (d.cushion && !player.riding && !player.cushion) { if (!world.get(target.x, target.y + 1, target.z) && !world.get(target.x, target.y + 2, target.z)) { player.cushion = [target.x, target.y, target.z]; Sfx.play('cloth', 0.6); } mouseR = false; return; }
+      if (d.cushion && !player.riding && !player.cushion) { if (!world.get(target.x, target.y + 1, target.z) && !world.get(target.x, target.y + 2, target.z)) { player.cushion = [target.x, target.y, target.z]; (blkPlay('snd.entity.cushion.sit', 0.8) || Sfx.play('cloth', 0.6)); } mouseR = false; return; }
       if (d.strawBed) { mouseR = false; if (world.dim !== 'overworld') { toast('The straw bed falls apart here', 2); world.set(target.x, target.y, target.z, 0); return; }
         const ticks = timeTicks(); const night = (ticks >= 12542 && ticks <= 23459) || S.weather === 'thunder'; if (!night) { toast('You can sleep only at night', 2); return; }
         if (G.mobs.some(m => !m.dead && m.t.kind === 'hostile' && m.pos.distanceTo(player.pos) < 8) && isSurv()) { toast('You may not rest now; there are monsters nearby', 2); return; }
@@ -21138,6 +21138,30 @@ if (typeof shieldMesh !== 'undefined' && BB_MODELS['@shield']) { const _sh = shi
     return _up.apply(this, arguments); }; }
 }
 
+// ================= OWNER GENERIC SOUNDS (random / entity / portal) =================
+// Loads before the mob/ambient/block/item sound files, so their context-aware swaps run first and this table only
+// catches what is left: the game's own generic sound names -> the owner's recordings (snd.random.*, snd.entity.*,
+// snd.portal.*). Until a file has loaded (or from file://) the old sample / synth plays.
+const GENERIC_SND = {
+  bow: 'snd.random.bow', break: 'snd.random.break', click: 'snd.random.click', click_on: 'snd.random.click', click_off: 'snd.random.click',
+  eat: 'snd.random.eat', fizz: 'snd.random.fizz', hiss: 'snd.random.fuse', glass: 'snd.random.glass', glass_break: 'snd.random.glass',
+  levelup: 'snd.random.levelup', orb: 'snd.random.orb', pop: 'snd.random.pop', splash: 'snd.random.splash', boom: 'snd.random.explode',
+  anvil: 'snd.random.anvil_use', door_open: 'snd.random.door_open', door_close: 'snd.random.door_close', trap_open: 'snd.random.door_open', trap_close: 'snd.random.door_close',
+  chest: 'snd.random.chestopen', portal: 'snd.portal.travel', sweep: 'snd.entity.player.attack.sweep', frame_remove: 'snd.entity.itemframe.remove_item',
+  // a melee hit landing: Minecraft's strong / crit hit sounds (crit while falling)
+  thit_: () => { const P = G.player; return P && !P.onGround && P.vel && P.vel.y < -0.5 ? 'snd.entity.player.attack.crit' : 'snd.entity.player.attack.strong'; },
+};
+function genericSnd(name) {
+  let k = GENERIC_SND[name]; if (!k && /^thit_(?!spear)/.test(name)) k = GENERIC_SND.thit_;
+  if (typeof k === 'function') k = k(); return k || null;
+}
+{ const _p = Sfx.play.bind(Sfx); Sfx.play = function (name, v = 1, rate) {
+    if (typeof name === 'string' && this.ctx && !(typeof MobSnd !== 'undefined' && MobSnd.busy) && typeof MobSnd !== 'undefined') {
+      const k = genericSnd(name); if (k) { MobSnd.load(k); if (this.has(k)) { MobSnd.busy++; try { return _p(k, v, rate && name !== 'thit_' ? rate : 1); } finally { MobSnd.busy--; } } }
+    }
+    return _p(name, v, rate);
+  }; }
+
 // ================= FEATURES ADDED SO THE REST OF THE OWNER'S ARCHIVE.ZIP HAS SOMETHING TO SHOW ON =================
 // baby zombies / husks / drowned / piglins / zombified piglins, mobs wearing armour, the elytra on your back,
 // the end crystal's healing beam, and leads (lead animals around, tie them to fences: the knot shows).
@@ -21199,14 +21223,14 @@ if (typeof Crystal !== 'undefined' && BB_MODELS['@crystal_beam']) {
   const holderPos = (m) => m.bbLeash === 'player' ? new V3(player.pos.x, player.pos.y + 0.9, player.pos.z) : m.bbLeash && m.bbLeash.pos;
   const canLead = (m) => m && !m.dead && m.t && m.t.kind !== 'hostile' && !m.t.boss && m.type !== 'villager' && m.type !== 'wandering_trader' && !m.leashTo;
   const dropLead = (m) => { try { dropItem(IT.lead, 1, m.pos.x, m.pos.y + 0.5, m.pos.z); } catch (e) { } unleash(m); };
-  const unleash = (m) => { m.bbLeash = null; if (m.bbRope) { G.scene.remove(m.bbRope); m.bbRope = null; } };
+  const unleash = (m) => { m.bbLeash = null; blkPlay('snd.entity.leashknot.unleash', 0.7, m.pos); if (m.bbRope) { G.scene.remove(m.bbRope); m.bbRope = null; } };
   const knotAt = (x, y, z) => { const k = x + ',' + y + ',' + z; let n = KNOTS.get(k); if (!n) { n = { pos: new V3(x + 0.5, y + 0.6, z + 0.5), x, y, z, k, dim: world.dim };
       if (BB_MODELS['@lead_knot']) { const o = bbObject('@lead_knot'); n.mesh = o.root; n.mesh.position.set(x + 0.5, y + 0.1, z + 0.5); G.scene.add(n.mesh); } KNOTS.set(k, n); } return n; };
   const leashed = () => G.mobs.filter(m => m.bbLeash && !m.dead);
   if (typeof useAction !== 'undefined') { const _ua = useAction; useAction = function (eye, dir) {
     try { const h = player.held(); const hd = h && ITEMS[h.id]; const m = targetMob;
       if (m && m.bbLeash) { if (m.bbLeash === 'player' || !hd || hd.kind === 'lead') { dropLead(m); S.swing = 1; mouseR = false; return; } }
-      if (m && hd && hd.kind === 'lead' && canLead(m)) { m.bbLeash = 'player'; useHeld(1); S.swing = 1; mouseR = false; Sfx.at && Sfx.at('saddle', m.pos, 0.5, 1.3); return; }
+      if (m && hd && hd.kind === 'lead' && canLead(m)) { m.bbLeash = 'player'; useHeld(1); S.swing = 1; mouseR = false; Sfx.at && (blkPlay('snd.entity.leashknot.leash', 0.8, m.pos) || Sfx.at('saddle', m.pos, 0.5, 1.3)); return; }
       if (!m) { const hit = raycast(eye, dir, 5); const d = hit && BL[hit.id];
         if (d && d.fence) { const mine = leashed().filter(q => q.bbLeash === 'player');
           if (mine.length) { const n = knotAt(hit.x, hit.y, hit.z); for (const q of mine) q.bbLeash = n; S.swing = 1; mouseR = false; return; }
@@ -21392,6 +21416,17 @@ const Amb = {
       if (P.gliding) want['snd.item.elytra.elytra_loop'] = Math.max(0.1, Math.min(0.6, spd / 40));
       const feetWet = isWaterId(w.get(ex, Math.floor(P.pos.y + 0.3), ez));
       if ((wet || feetWet) && Math.hypot(P.vel.x, P.vel.z) > 1) { this.swimD = (this.swimD || 0) + Math.hypot(P.vel.x, P.vel.z) * dt; if (this.swimD > 2.4) { this.swimD = 0; this.shot('snd.liquid.swim', 0.25); } }
+      // boats: paddle strokes while rowing; minecarts: rolling loop when riding, nearby carts rumble
+      const rid = P.riding;
+      if (rid && G.boats && G.boats.includes(rid) && Math.hypot(rid.vel ? rid.vel.x : 0, rid.vel ? rid.vel.z : 0) > 0.8) {
+        this.paddleT = (this.paddleT || 0) - dt; if (this.paddleT <= 0) { this.paddleT = 0.9; const bw = isWaterId(w.get(Math.floor(rid.pos.x), Math.floor(rid.pos.y), Math.floor(rid.pos.z))) || isWaterId(w.get(Math.floor(rid.pos.x), Math.floor(rid.pos.y - 0.3), Math.floor(rid.pos.z)));
+          this.shot(bw ? 'snd.entity.boat.paddle_water' : 'snd.entity.boat.paddle_land', 0.35); } }
+      if (G.carts) { let near = 0; for (const c of G.carts) { const sp = Math.abs(c.v || 0); if (sp < 0.3 || c === rid) continue; const d = c.pos.distanceTo(P.pos); if (d < 16) near = Math.max(near, Math.min(1, sp / 8) * (1 - d / 16)); }
+        if (near > 0.02) want['snd.minecart.base'] = near * 0.6;
+        if (rid && G.carts.includes(rid) && Math.abs(rid.v || 0) > 0.3) want[wet ? 'snd.minecart.inside_underwater' : 'snd.minecart.inside'] = Math.min(0.6, Math.abs(rid.v) / 10 + 0.1); }
+      // standing in a nether portal
+      const inPortal = /nether_portal/.test((BL[w.get(ex, Math.floor(P.pos.y + 0.5), ez)] || {}).key || '');
+      if (inPortal && !this.wasPortal) this.shot('snd.portal.trigger', 0.5); this.wasPortal = inPortal;
       if (dim === 'nether' && w.gen && w.gen.biome) {
         const b = w.gen.biome(P.pos.x, P.pos.z) | 0; want['amb.n' + b + '.loop'] = wet ? 0.15 : 0.5;
         if ((this.t.nmood -= dt) <= 0) { this.t.nmood = 30 + Math.random() * 60; this.shot('amb.n' + b + '.mood', 0.5); }
@@ -21486,8 +21521,9 @@ function blockSfx(kind, id, v = 1, pos) {
 }
 // player damage (owner's damage folder): hit, small and big falls
 function playerHurtSfx(dmg, cause) {
-  if (!Sfx.ctx) return false; const fall = /fall/.test(cause || '');
-  return BlkSnd.play([fall ? (dmg > 4 ? 'dmg.fallbig' : 'dmg.fallsmall') : 'dmg.hit', 'dmg.hit'], 1, 1);
+  if (!Sfx.ctx) return false; const c = cause || ''; const fall = /fall/.test(c);
+  const special = /drown/i.test(c) ? 'snd.entity.player.hurt.drown' : /fire|lava|burn|magma|campfire/i.test(c) ? 'snd.entity.player.hurt.fire_hurt' : /freez|frost|powder snow/i.test(c) ? 'snd.entity.player.hurt.freeze_hurt' : /berr/i.test(c) ? 'snd.entity.player.hurt.berrybush_hurt' : null;
+  return BlkSnd.play([...(special ? [special] : []), fall ? (dmg > 4 ? 'dmg.fallbig' : 'dmg.fallsmall') : 'dmg.hit', 'dmg.hit'], 1, 1);
 }
 // soul speed: the owner's sound while running on soul sand / soul soil with the boots
 { const _s = soulSandMul; let last = 0; soulSandMul = function () { const r = _s.apply(this, arguments);
@@ -21571,6 +21607,7 @@ const BLOCK_AMBIENT = [
   [/^beacon$/, 'blk.beacon.ambient', 0.3, 0.4], [/^conduit$/, 'blk.conduit.ambient', 0.3, 0.4], [/^respawn_anchor/, 'blk.respawn_anchor.ambient', 0.3, 0.4, (d) => d.st && d.st.charges > 0],
   [/creaking_heart/, 'blk.creaking_heart.idle', 0.2, 0.4, () => G.daylight < 0.4], [/dried_ghast/, 'blk.dried_ghast.ambient', 0.2, 0.4], [/potent_sulfur/, 'blk.potent_sulfur.noxious_gas_ambient', 0.1, 0.35],
   [/^(beehive|bee_nest)/, 'blk.beehive.work', 0.15, 0.35],
+  [/^nether_portal/, 'snd.portal.portal', 0.05, 0.4],
   [/^fire$|^soul_fire$/, 'snd.fire.fire', 0.5, 0.5], [/^lava(_\d)?$/, 'LAVA', 0.1, 0.5], [/^water_[1-8]$/, 'snd.liquid.water', 0.04, 0.4],
 ];
 const DEADBUSH_VARIANTS = ['bushrustle', 'creakysand', 'crickets', 'howlingwind', 'insect', 'leaves', 'movingsand'];
@@ -21653,6 +21690,10 @@ function itemSndSwap(name, pos, v) {
 { const _b = brushLoot; brushLoot = function () { return withItemCtx('brush', _b, this, arguments); }; }
 { const _w = updateFireworks; updateFireworks = function () { return withItemCtx('firework', _w, this, arguments); }; }
 // firework bursts play at the burst: Sfx.at with the burst position goes through itemSndSwap above (ctx 'firework')
+
+// witches drink and throw potions; eyes of ender fly off with their launch sound
+MOB_ACTION.witch = { eat: 'drink', bow: 'throw' };
+{ const _t = throwEye; throwEye = function () { const r = _t.apply(this, arguments); if (r !== false) blkPlay('snd.entity.endereye.endereye_launch', 0.8); return r; }; }
 
 </script>
 </body>

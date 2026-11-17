@@ -54,10 +54,10 @@ function placePainting(hit) { if (hit.ny !== 0) return false; const f = dirOf(hi
   if (!cands.length) return false; const v = cands[Math.random() * cands.length | 0]; const P = PAINTINGS[v]; const ox = Math.floor((P.w - 1) / 2), oy = Math.floor((P.h - 1) / 2);
   const ax = cx - ox * rx, ay = cy - oy, az = cz - ox * rz; const cell = FAMILY.painting.ids[String(f)]; const bd = bdataOf(world);
   for (let i = 0; i < P.w; i++) for (let j = 0; j < P.h; j++) { const x = ax + i * rx, y = ay + j, z = az + i * rz; world.set(x, y, z, cell); mpBlock(x, y, z, cell); bd.set(keyOf(x, y, z), { p: keyOf(ax, ay, az) }); }
-  bd.set(keyOf(ax, ay, az), { p: keyOf(ax, ay, az), v, f, anchor: 1 }); OV.watch.add(keyOf(ax, ay, az)); Sfx.play('wood', 0.8, 1.2); return true; }
+  bd.set(keyOf(ax, ay, az), { p: keyOf(ax, ay, az), v, f, anchor: 1 }); OV.watch.add(keyOf(ax, ay, az)); (blkPlay('snd.entity.painting.place', 0.8) || Sfx.play('wood', 0.8, 1.2)); return true; }
 function removePainting(anchorKey, drop) { const bd = bdataOf(world); const a = bd.get(anchorKey); if (!a || !a.anchor) return; const P = PAINTINGS[a.v]; const [ax, ay, az] = anchorKey.split(',').map(Number); const [rx, rz] = P_RIGHT[a.f];
   for (let i = 0; i < P.w; i++) for (let j = 0; j < P.h; j++) { const x = ax + i * rx, y = ay + j, z = az + i * rz; const k = keyOf(x, y, z); bd.delete(k); if ((BL[world.get(x, y, z)] || {}).painting) { world.set(x, y, z, 0); mpBlock(x, y, z, 0); } }
-  OV.watch.delete(anchorKey); if (drop && S.rules.doTileDrops !== false && S.mode !== 'creative') dropItem(IT.painting, 1, ax + 0.5, ay + 0.5, az + 0.5); Sfx.play('wood', 0.8, 0.9); }
+  OV.watch.delete(anchorKey); if (drop && S.rules.doTileDrops !== false && S.mode !== 'creative') dropItem(IT.painting, 1, ax + 0.5, ay + 0.5, az + 0.5); (blkPlay('snd.entity.painting.break', 0.8) || Sfx.play('wood', 0.8, 0.9)); }
 // ---- placing ----
 { const _pb = placeBlock; placeBlock = function (hit, id) {
     const d = BL[id]; if (!d || !hit) return _pb.apply(this, arguments);
@@ -95,7 +95,7 @@ const ARMOR_IDX = { head: 0, chest: 1, legs: 2, feet: 3 };
     if (d.painting) { const e = bdataOf(world).get(k); removePainting(e ? e.p : k, true); Particles.blockBreak(x, y, z, B.PLANKS, 6); return true; }
     if (d.armorStand) { const by = d.armorStand === 'upper' ? y - 1 : y; const kk = keyOf(x, by, z); const inv = world.chestInv.get(kk); world.chestInv.delete(kk); ovDrop(kk);
       if (inv) for (const s of inv) if (s) dropItem(s.id, 1, x + 0.5, by + 0.8, z + 0.5, false, xtra(s));
-      world.set(x, by, z, 0); world.set(x, by + 1, z, 0); mpBlock(x, by, z, 0); mpBlock(x, by + 1, z, 0); if (S.mode !== 'creative' && S.rules.doTileDrops !== false) dropItem(IT.armor_stand, 1, x + 0.5, by + 0.5, z + 0.5); Sfx.play('wood', 0.9); return true; }
+      world.set(x, by, z, 0); world.set(x, by + 1, z, 0); mpBlock(x, by, z, 0); mpBlock(x, by + 1, z, 0); if (S.mode !== 'creative' && S.rules.doTileDrops !== false) dropItem(IT.armor_stand, 1, x + 0.5, by + 0.5, z + 0.5); (blkPlay('snd.entity.armorstand.break', 0.8) || Sfx.play('wood', 0.9)); return true; }
     return _bb.apply(this, arguments); }; }
 { const _obr = onBlockRemoved; onBlockRemoved = function (x, y, z, id) { const r = _obr.apply(this, arguments); const d = BL[id]; if (!d) return r; const k = keyOf(x, y, z);
     if (d.sign) bdataOf(G.world).delete(k);

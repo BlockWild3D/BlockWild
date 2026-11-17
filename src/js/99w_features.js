@@ -59,14 +59,14 @@ if (typeof Crystal !== 'undefined' && BB_MODELS['@crystal_beam']) {
   const holderPos = (m) => m.bbLeash === 'player' ? new V3(player.pos.x, player.pos.y + 0.9, player.pos.z) : m.bbLeash && m.bbLeash.pos;
   const canLead = (m) => m && !m.dead && m.t && m.t.kind !== 'hostile' && !m.t.boss && m.type !== 'villager' && m.type !== 'wandering_trader' && !m.leashTo;
   const dropLead = (m) => { try { dropItem(IT.lead, 1, m.pos.x, m.pos.y + 0.5, m.pos.z); } catch (e) { } unleash(m); };
-  const unleash = (m) => { m.bbLeash = null; if (m.bbRope) { G.scene.remove(m.bbRope); m.bbRope = null; } };
+  const unleash = (m) => { m.bbLeash = null; blkPlay('snd.entity.leashknot.unleash', 0.7, m.pos); if (m.bbRope) { G.scene.remove(m.bbRope); m.bbRope = null; } };
   const knotAt = (x, y, z) => { const k = x + ',' + y + ',' + z; let n = KNOTS.get(k); if (!n) { n = { pos: new V3(x + 0.5, y + 0.6, z + 0.5), x, y, z, k, dim: world.dim };
       if (BB_MODELS['@lead_knot']) { const o = bbObject('@lead_knot'); n.mesh = o.root; n.mesh.position.set(x + 0.5, y + 0.1, z + 0.5); G.scene.add(n.mesh); } KNOTS.set(k, n); } return n; };
   const leashed = () => G.mobs.filter(m => m.bbLeash && !m.dead);
   if (typeof useAction !== 'undefined') { const _ua = useAction; useAction = function (eye, dir) {
     try { const h = player.held(); const hd = h && ITEMS[h.id]; const m = targetMob;
       if (m && m.bbLeash) { if (m.bbLeash === 'player' || !hd || hd.kind === 'lead') { dropLead(m); S.swing = 1; mouseR = false; return; } }
-      if (m && hd && hd.kind === 'lead' && canLead(m)) { m.bbLeash = 'player'; useHeld(1); S.swing = 1; mouseR = false; Sfx.at && Sfx.at('saddle', m.pos, 0.5, 1.3); return; }
+      if (m && hd && hd.kind === 'lead' && canLead(m)) { m.bbLeash = 'player'; useHeld(1); S.swing = 1; mouseR = false; Sfx.at && (blkPlay('snd.entity.leashknot.leash', 0.8, m.pos) || Sfx.at('saddle', m.pos, 0.5, 1.3)); return; }
       if (!m) { const hit = raycast(eye, dir, 5); const d = hit && BL[hit.id];
         if (d && d.fence) { const mine = leashed().filter(q => q.bbLeash === 'player');
           if (mine.length) { const n = knotAt(hit.x, hit.y, hit.z); for (const q of mine) q.bbLeash = n; S.swing = 1; mouseR = false; return; }

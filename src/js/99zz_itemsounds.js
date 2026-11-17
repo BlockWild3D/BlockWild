@@ -60,3 +60,7 @@ function itemSndSwap(name, pos, v) {
 { const _b = brushLoot; brushLoot = function () { return withItemCtx('brush', _b, this, arguments); }; }
 { const _w = updateFireworks; updateFireworks = function () { return withItemCtx('firework', _w, this, arguments); }; }
 // firework bursts play at the burst: Sfx.at with the burst position goes through itemSndSwap above (ctx 'firework')
+
+// witches drink and throw potions; eyes of ender fly off with their launch sound
+MOB_ACTION.witch = { eat: 'drink', bow: 'throw' };
+{ const _t = throwEye; throwEye = function () { const r = _t.apply(this, arguments); if (r !== false) blkPlay('snd.entity.endereye.endereye_launch', 0.8); return r; }; }

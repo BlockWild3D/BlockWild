@@ -210,7 +210,7 @@ MOBS.breeze.tick = function (m, dt) {
 };
 // a wind burst: pushes everything nearby away; your own wind charges launch you (and spare you fall damage)
 function windBurst(p, power, src) {
-  SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
+  SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); (blkPlay('snd.entity.wind_charge.wind_burst', 0.8, p) || Sfx.at('vwoop', p, 0.9, 0.6));
   const R = power > 1 ? 2.4 : 2.5 + power * 0.5; // a player's wind charge reaches about 2.4 blocks (explosion radius 1.2); a breeze's is wider
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
   const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);

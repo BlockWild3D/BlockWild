@@ -92,7 +92,7 @@ function updateEating(dt) {
     for (const [ef, sec, amp, chance] of it.eatFx || []) if (Math.random() < chance) giveEffect(ef, sec, amp);
     if (typeof onEatItem === 'function') onEatItem(h.id);
     if (h.id === IT.milk_bucket) { player.effects = {}; if (typeof renderEffects === 'function') renderEffects(); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } } else useHeld(1);
-    Sfx.play('pop', 0.5, 0.8); renderFood(); S.useCD = 0.3;
+    (blkPlay('snd.random.burp', 0.8) || Sfx.play('pop', 0.5, 0.8)); renderFood(); S.useCD = 0.3;
   }
 }
 { const _ui = updateInteraction; updateInteraction = function (dt) { const r = _ui.apply(this, arguments); updateEating(dt); return r; }; }

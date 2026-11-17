@@ -20,7 +20,7 @@ function openSmithUI() {
       if (shift) { const left = addItem(r.id, 1, xtra(r)); if (left) return; }
       else { if (c) return; S.cursor = r; }
       for (let i = 0; i < 3; i++) { slots[i].count--; if (slots[i].count <= 0) slots[i] = null; }
-      slots[3] = smithResult(slots); Sfx.play('anvil', 0.6); Sfx.play('armor', 0.7);
+      slots[3] = smithResult(slots); (blkPlay('blk.smithing_table.smithing_table', 0.8) || Sfx.play('anvil', 0.6)); Sfx.play('armor', 0.7);
     },
     layout: (body) => {
       const grp = document.createElement('div'); grp.className = 'crow'; grp.style.gap = '4px'; body.appendChild(grp);

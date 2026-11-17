@@ -100,7 +100,7 @@ S.drinkT = 0;
 { const _ui = updateInteraction; updateInteraction = function (dt) {
     const r = _ui.apply(this, arguments); const h = player.held();
     if (h && h.id === IT.potion && mouseR && !S.uiOpen && !player.dead && S.mode !== 'spectator') {
-      S.drinkT += dt; S.eating = Math.min(1, S.drinkT / 1.6); if (Math.random() < dt * 5) Sfx.play('splash', 0.15, 1.8);
+      S.drinkT += dt; S.eating = Math.min(1, S.drinkT / 1.6); if (Math.random() < dt * 5) (blkPlay('snd.random.drink', 0.6) || Sfx.play('splash', 0.15, 1.8));
       if (S.drinkT >= 1.6) { S.drinkT = 0; S.eating = 0; mouseR = false; applyPotion(h.pot || 'water', 1); Sfx.play('pop', 0.5, 0.8); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.glass_bottle, count: 1 }; invDirty(); } }
     } else if (S.drinkT) { S.drinkT = 0; S.eating = 0; }
     return r; }; }

@@ -113,7 +113,7 @@ function updateEyes(dt) {
     else e.pos.y += Math.sin(e.t * 6) * dt * 0.3;
     if (Math.random() < dt * 30) Particles.emit(e.pos.x, e.pos.y, e.pos.z, 1, [[0.6, 0.2, 0.9], [0.3, 0.9, 0.6]], 0.4, 0.8, -0.5, 0.2);
     e.mesh.position.copy(e.pos);
-    if (e.t > 3.2) { e.done = true; scene.remove(e.mesh); if (Math.random() < 0.8) dropItem(IT.eye_of_ender, 1, e.pos.x, e.pos.y, e.pos.z, false); else { Sfx.play('glass_break', 0.7); Particles.emit(e.pos.x, e.pos.y, e.pos.z, 15, [[0.3, 0.8, 0.6]], 2, 0.8, 4, 0.3); } }
+    if (e.t > 3.2) { e.done = true; scene.remove(e.mesh); if (Math.random() < 0.8) dropItem(IT.eye_of_ender, 1, e.pos.x, e.pos.y, e.pos.z, false); else { (blkPlay('snd.entity.endereye.dead', 0.8) || Sfx.play('glass_break', 0.7)); Particles.emit(e.pos.x, e.pos.y, e.pos.z, 15, [[0.3, 0.8, 0.6]], 2, 0.8, 4, 0.3); } }
   }
   G.eyes = G.eyes.filter(e => !e.done);
 }
