@@ -769,3 +769,45 @@ const NF = {
       const f = g.fortress(rx, rz); if (!f || Math.abs(f.ccx - c.cx) > R || Math.abs(f.ccz - c.cz) > R) continue; f.seed = f.seed || ihash(rx, rz, 909, world.seed);
       const L = NF.layout(world, f); if (L.all.x1 < c.cx * 16 || L.all.x0 > c.cx * 16 + 15 || L.all.z1 < c.cz * 16 || L.all.z0 > c.cz * 16 + 15) continue;
       for (const p of L.pieces) { if (p.box.x1 < c.cx * 16 || p.box.x0 > c.cx * 16 + 15 || p.box.z1 < c.cz * 16 || p.box.z0 > c.cz * 16 + 15) continue; c.fortress = true; NF.draw(world, c, p, hints || []); } } }; }
+
+// ================= OCEAN MONUMENTS (shaped after Minecraft's OceanMonumentPieces) =================
+// 58 x 23 x 58 of prismarine at Minecraft's height (bottom y 39), random facing: the 4x4 brick pads under it, the two
+// stepped side wings with their dark prismarine dot rows and cross pillars (Minecraft's generateWing), the entrance
+// arches between them, the two-tier main hall split into flooded 8-block rooms, sponge rooms, the dark prismarine
+// core with 8 gold blocks, and the penthouse on the roof. Guardians and elder guardians as the game's own monument.
+function mcMonumentDraw(world, c, p) {
+  const W = OPW(p, c, world); const G = B.PRISMARINE, L = B.PRISMARINE_BRICKS, K = B.DARK_PRISMARINE, LAMP = B.SEA_LANTERN, WA = B.WATER; const bx = W.box; const r = (x, y, z, k) => rndOf(W.wx(x, z), W.wy(y), W.wz(x, z), k, world.seed);
+  bx(0, 1, 0, 57, 22, 57, WA);
+  for (let j = 0; j < 7; j++) for (let k = 0; k < 7; k++) { if (j !== 0 && j !== 6 && k !== 0 && k !== 6) continue; if (k === 0 && j === 3) continue; for (let a = 0; a < 4; a++) for (let b2 = 0; b2 < 4; b2++) { W.put(j * 9 + a, 0, k * 9 + b2, L); W.colDown(j * 9 + a, -1, k * 9 + b2, L); } }
+  bx(0, 0, 21, 57, 0, 57, G); for (let x = 0; x <= 57; x += 4) for (let z = 21; z <= 57; z += 4) W.colDown(x, -1, z, L);
+  // the wings (Minecraft's generateWing, x offset 0 and 33)
+  for (const [flip, xo] of [[false, 0], [true, 33]]) {
+    bx(xo, 0, 0, xo + 24, 0, 20, G); for (let k = 0; k < 4; k++) { bx(xo + k, k + 1, k, xo + k, k + 1, 20, L); bx(xo + k + 7, k + 5, k + 7, xo + k + 7, k + 5, 20, L); bx(xo + 17 - k, k + 5, k + 7, xo + 17 - k, k + 5, 20, L); bx(xo + 24 - k, k + 1, k, xo + 24 - k, k + 1, 20, L); bx(xo + k + 1, k + 1, k, xo + 23 - k, k + 1, k, L); bx(xo + k + 8, k + 5, k + 7, xo + 16 - k, k + 5, k + 7, L); }
+    bx(xo + 4, 4, 4, xo + 6, 4, 20, G); bx(xo + 7, 4, 4, xo + 17, 4, 6, G); bx(xo + 18, 4, 4, xo + 20, 4, 20, G); bx(xo + 11, 8, 11, xo + 13, 8, 20, G);
+    for (const z of [12, 15, 18]) W.put(xo + 12, 9, z, K); const j1 = flip ? xo + 19 : xo + 5, k1 = flip ? xo + 5 : xo + 19;
+    for (let l = 20; l >= 5; l -= 3) W.put(j1, 5, l, K); for (let i = 19; i >= 7; i -= 3) W.put(k1, 5, i, K); for (let j = 0; j < 4; j++) W.put(flip ? xo + 24 - (17 - j * 3) : xo + 17 - j * 3, 5, 5, K); W.put(k1, 5, 5, K);
+    bx(xo + 11, 1, 12, xo + 13, 7, 12, G); bx(xo + 12, 1, 11, xo + 12, 7, 13, G); }
+  // entrance arches between the wings
+  for (let z = 1; z <= 20; z += 4) { bx(25, 1, z, 25, 6, z, L); bx(32, 1, z, 32, 6, z, L); bx(25, 7, z, 32, 7, z, L); W.put(28, 7, z, LAMP); W.put(29, 7, z, LAMP); }
+  // main hall: lower tier (x 0-57, z 21-57, y 1-9) and upper tier (x 7-50, z 21-50, y 10-17)
+  const shell = (x0, y0, z0, x1, y1, z1) => { bx(x0, y0, z0, x1, y1, z1, (x, y, z, e) => e ? (y === y1 ? L : ((x + y + z) % 6 === 0 ? LAMP : (y === y0 + 2 ? K : L))) : WA); };
+  shell(0, 1, 21, 57, 10, 57); shell(7, 10, 21, 50, 18, 50);
+  // rooms: 8-block cells with doorways and a lamp in each ceiling
+  for (const [x0, x1, z0, z1, y0, y1] of [[1, 56, 22, 56, 1, 9], [8, 49, 22, 49, 11, 17]]) {
+    for (let x = x0 + 7; x < x1; x += 8) bx(x, y0, z0, x, y1, z1, G); for (let z = z0 + 7; z < z1; z += 8) bx(x0, y0, z, x1, y1, z, G);
+    for (let x = x0 + 7; x < x1; x += 8) for (let z = z0 + 3; z < z1; z += 8) bx(x, y0 + 1, z, x, y0 + 2, z + 1, WA);
+    for (let z = z0 + 7; z < z1; z += 8) for (let x = x0 + 3; x < x1; x += 8) bx(x, y0 + 1, z, x + 1, y0 + 2, z, WA);
+    for (let x = x0 + 3; x < x1; x += 8) for (let z = z0 + 3; z < z1; z += 8) { W.put(x, y1, z, LAMP);
+      if (y0 === 1 && r(x, 0, z, 1) < 0.12) for (let a = -1; a <= 1; a++) for (let b2 = -1; b2 <= 1; b2++) if (r(x + a, 1, z + b2, 2) < 0.7) W.put(x + a, y1 - 1, z + b2, B.WET_SPONGE); } }
+  bx(26, 1, 21, 31, 4, 21, WA); bx(26, 10, 21, 31, 13, 21, WA); // doors into both tiers
+  // the core: 8 gold blocks inside dark prismarine
+  bx(26, 11, 33, 31, 16, 38, K); bx(27, 12, 34, 30, 15, 37, WA); bx(28, 13, 35, 29, 14, 36, B.GOLD_BLOCK); bx(28, 12, 33, 29, 13, 33, WA);
+  // penthouse
+  bx(21, 18, 28, 36, 22, 43, (x, y, z, e) => e ? (y === 22 ? K : ((x + z) % 3 === 0 ? LAMP : K)) : WA); for (let x = 23; x <= 34; x += 3) { bx(x, 19, 28, x, 20, 28, WA); bx(x, 19, 43, x, 20, 43, WA); }
+}
+{ const _bm = buildMonumentChunk; buildMonumentChunk = function (world, c) {
+    for (const st of bigStartsNear(world, 'ocean_monument', c.cx, c.cz, 4)) { if (st.col.h > SEA - 18) continue; const r = mulberry32((st.seed ^ 0x0ce4) >>> 0); const dir = SP_ORI[r() * 4 | 0];
+      const p = { box: orientBox(st.cx * 16 + 8 - 29, YOFF + 39, st.cz * 16 + 8 - 29, 0, 0, 0, 58, 23, 58, 'south'), dir };
+      if (dir === 'north' || dir === 'south') p.box = orientBox(st.cx * 16 + 8 - 29, YOFF + 39, st.cz * 16 + 8 - 29 + (dir === 'north' ? 57 : 0), 0, 0, 0, 58, 23, 58, dir); else p.box = orientBox(st.cx * 16 + 8 - 29 + (dir === 'west' ? 57 : 0), YOFF + 39, st.cz * 16 + 8 - 29, 0, 0, 0, 58, 23, 58, dir);
+      if (p.box.x1 < c.cx * 16 || p.box.x0 > c.cx * 16 + 15 || p.box.z1 < c.cz * 16 || p.box.z0 > c.cz * 16 + 15) continue;
+      mcMonumentDraw(world, c, p); const mx = st.cx * 16 + 8, mz = st.cz * 16 + 8; if (mx >> 4 === c.cx && mz >> 4 === c.cz) c.monument = [mx, YOFF + 50, mz]; } }; }
