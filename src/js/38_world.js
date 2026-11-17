@@ -77,6 +77,7 @@ function placeNewStructures(world, S, cx, cz) {
     for (let x = x0; x < x0 + 7; x++) for (let z = z0; z < z0 + 9; z++) { hard(x, fy, z, B.PLANKS); for (let y = fy + 1; y <= fy + 5; y++) { const wall = (x === x0 || x === x0 + 6 || z === z0 + 2 || z === z0 + 8) && z >= z0 + 2; hard(x, y, z, y === fy + 5 ? B.SPRUCE_LOG : wall && y <= fy + 3 ? ((y === fy + 2 && (x === x0 + 3 || z === z0 + 5)) ? 0 : B.PLANKS) : 0); } }
     hard(x0 + 3, fy + 1, z0 + 2, 0); hard(x0 + 3, fy + 2, z0 + 2, 0); hard(x0 + 5, fy + 1, z0 + 7, B.CAULDRON); hard(x0 + 1, fy + 1, z0 + 7, B.CRAFTING_TABLE);
     S.mobs.push(['witch', x0 + 3.5, fy + 1, z0 + 5.5]); S.mobs.push(['cat', x0 + 2.5, fy + 1, z0 + 4.5]); S.kinds.push(['swamp_hut', x0 + 3, z0 + 4]);
+  } else if (startNear(world, 'igloo', cx, cz, 0) && MCST_ON()) { mcIgloo(world, S, hard, bx, bz, r);
   } else if (startNear(world, 'igloo', cx, cz, 0)) { // snow dome with an ice window, bed, table and furnace
     const xc = bx + 8, zc = bz + 8; const fy = g.column(xc, zc).h;
     for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) { const d = Math.hypot(x, z); if (d > 3.6) continue; for (let y = 0; y <= 4; y++) { const shell = Math.hypot(x, z, y * 1.1) ; const id = shell > 3.0 && shell <= 4.0 ? B.SNOW_BLOCK : shell <= 3.0 ? 0 : -1; if (id >= 0) hard(xc + x, fy + y, zc + z, id); } hard(xc + x, fy - 1, zc + z, B.SNOW_BLOCK); }
@@ -93,6 +94,7 @@ function placeNewStructures(world, S, cx, cz) {
     hard(x0 + 5, fy, z0 + 3, 0); hard(x0 + 5, fy - 1, z0 + 3, 0); chest(x0 + 4, fy - 3, z0 + 9, 'jungle_temple'); chest(x0 + 8, fy - 3, z0 + 5, 'jungle_temple');
     for (let y = fy + 1; y <= fy + 8; y += 3) hard(x0 + 2, y, z0 + 2, B.TORCH);
     S.kinds.push(['jungle_temple', x0 + 6, z0 + 7]);
+  } else if (startNear(world, 'shipwreck', cx, cz, 0) && MCST_ON()) { mcShipwreck(world, S, hard, bx + 8, bz + 8, r);
   } else if (startNear(world, 'shipwreck', cx, cz, 0)) { // a sunken ship on the sea floor
     const xc = bx + 8, zc = bz + 8; const floor = g.column(xc, zc).h; if (floor < SEA - 1) {
       const L = 18, along = r() < 0.5; const tilt = r() < 0.3; const at = (i, j) => along ? [xc - 9 + i, zc + j] : [xc + j, zc - 9 + i];

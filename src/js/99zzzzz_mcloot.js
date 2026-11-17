@@ -133,7 +133,7 @@ const MCL_CHEST = { ruined_portal: 'chests/ruined_portal', fortress: 'chests/net
   buried_treasure: 'chests/buried_treasure', trial_corridor: 'chests/trial_chambers/corridor', trial_supply: 'chests/trial_chambers/supply', trial_vault: 'chests/trial_chambers/reward',
   ominous_vault: 'chests/trial_chambers/reward_ominous', trial_reward: 'spawners/trial_chamber/consumables', farm: 'chests/village/village_plains_house', library: 'chests/stronghold_library' };
 function mcChestLoot(type, seed) {
-    const name = MCL_CHEST[type]; if (!name) return null;
+    const name = String(type).startsWith('mc:') ? type.slice(3) : MCL_CHEST[type]; if (!name) return null;
     const r = mulberry32((seed ^ 0x6d636c) >>> 0); const res = MCLOOT.roll(name, { r, luck: 0, skipMissing: true }); if (!res || !res.length) return null;
     const inv = new Array(27).fill(null); const stacks = [];
     // like Minecraft: split some stacks so the chest doesn't look packed, then scatter into random slots

@@ -180,6 +180,7 @@ function structuresFor(world, cx, cz) {
     // ruined portal: any land biome, one chance per 40x40-chunk region
     else if (startNear(world, 'ruined_portal', cx, cz, 0)) { buildRuinedPortal(S, g, bx + 6, bz + 7, hard, r, world); S.kinds.push(['ruined_portal', bx + 8, bz + 8]); }
     // desert well: 1 in 1000 desert chunks
+    else if (cc0.b === BIO.DESERT && rnd01(cx, cz, 4417, seed) < 0.001 && MCST_ON()) { mcDesertWell(world, S, g, bx + 6, bz + 6, hard, r); S.kinds.push(['desert_well', bx + 8, bz + 8]); }
     else if (cc0.b === BIO.DESERT && rnd01(cx, cz, 4417, seed) < 0.001) { buildWell(S, g, bx + 6, bz + 6, hard, { wall: B.SANDSTONE, corner: B.SANDSTONE, floor: B.SANDSTONE, roof: B.SANDSTONE, found: B.SANDSTONE }); S.kinds.push(['desert_well', bx + 8, bz + 8]); }
   }
   // --- dungeon (monster room): a few attempts per chunk, kept only where it breaks into a cave ---
