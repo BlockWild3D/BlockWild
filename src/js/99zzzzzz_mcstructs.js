@@ -603,7 +603,8 @@ const MS = {
     // moveBelowSeaLevel(63, -64, random, 10), then into this game's heights (y + YOFF)
     let mn = 1e9, mx = -1e9; for (const p of P) { mn = Math.min(mn, p.box.y0); mx = Math.max(mx, p.box.y1); }
     let j = (mx - mn + 1) - 64 + 1; const i = 63 - 10; if (j < i) j += r() * (i - j) | 0; const k = j - mx + YOFF;
-    for (const p of P) { p.box.y0 += k; p.box.y1 += k; if (p.ent) for (const e of p.ent) { e.y0 += k; e.y1 += k; } }
+    // (the room's entrance list holds the same box objects as its child pieces, so moving the pieces moves them too)
+    for (const p of P) { p.box.y0 += k; p.box.y1 += k; }
     const all = { x0: Math.min(...P.map(p => p.box.x0)), x1: Math.max(...P.map(p => p.box.x1)), z0: Math.min(...P.map(p => p.box.z0)), z1: Math.max(...P.map(p => p.box.z1)) };
     const L = { pieces: P, all }; if (world.mcjCache.size > 300) world.mcjCache.clear(); world.mcjCache.set(key, L); return L; },
   stamp(world, c, L) {

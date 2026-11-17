@@ -58,6 +58,16 @@ const MCV = (() => {
   const solid = (n) => !isAir(n) && !isFluid(n) && !inTag('replaceable', n) && !/(flower|sapling|grass$|fern|bush|petals|mushroom$|tulip|orchid|allium|bluet|daisy|poppy|dandelion|cornflower|lily|seagrass|kelp|coral$|coral_fan|pickle|vine|litter)/.test(n);
   const DOUBLE = new Set(['tall_grass', 'large_fern', 'sunflower', 'lilac', 'rose_bush', 'peony', 'tall_seagrass', 'pitcher_plant', 'tall_dry_grass', 'small_dripleaf']);
   const PLANTISH = /(sapling|flower|tulip|orchid|allium|bluet|daisy|poppy|dandelion|cornflower|lily_of|rose_bush|peony|lilac|sunflower|grass$|fern|bush$|petals|wildflowers|torchflower|eyeblossom|leaf_litter|cactus_flower)/;
+  // Minecraft's TreeFeature / huge mushroom space rules: the trunk (for huge mushrooms the whole body) may only go into
+  // air, leaves or replaceable plants, otherwise nothing is placed; leaves only fill spaces that are free
+  const freeFor = (n) => isAir(n) || /leaves$/.test(n) || replaceable(n) || PLANTISH.test(n) || n === 'vine' || n === 'snow';
+  const trunkId = (id, flag) => !!flag && flag !== 0 || /log|wood|stem|_roots?$/.test((BL[id] && BL[id].key) || '');
+  function commitBody(V, W, y0, all) {
+    for (let i = 0; i < W.length; i += 5) { if (W[i + 1] < y0) continue; if ((all || trunkId(W[i + 3], W[i + 4])) && !freeFor(V.block(W[i], W[i + 1], W[i + 2]))) return false; }
+    for (let i = 0; i < W.length; i += 5) { const X = W[i], Y = W[i + 1], Z = W[i + 2], id = W[i + 3];
+      if (all || trunkId(id, W[i + 4])) { V.put(X, Y, Z, id, true); continue; }
+      const n = V.block(X, Y, Z); if (isAir(n) || /leaves$/.test(n) || (replaceable(n) && n !== 'water') || PLANTISH.test(n)) V.put(X, Y, Z, id, false); }
+    return true; }
   function survive(V, name, x, y, z) {
     name = nm(name); const below = V.block(x, y - 1, z);
     const supports = (t) => inTag(t, below);
@@ -150,8 +160,9 @@ const MCV = (() => {
       case 'simple_random_selector': { const L = f.features || []; return L.length ? placed(L[(r() * L.length) | 0], V, r, x, y, z, ctx) : false; }
       case 'random_boolean_selector': return placed(r() < 0.5 ? f.feature_true : f.feature_false, V, r, x, y, z, ctx);
       case 'weighted_random_selector': { const L = f.features || []; let tt = 0; for (const e of L) tt += e.weight ?? 1; let q = r() * tt; for (const e of L) { q -= e.weight ?? 1; if (q < 0) return placed(e.data ?? e.feature, V, r, x, y, z, ctx); } return false; }
-      case 'tree': { if (ctx.noTrees) return false; const c = treeCfg(f); if (!c) return false; const put = (X, Y, Z, id, isLog) => V.put(X, Y, Z, id, !!isLog);
+      case 'tree': { if (ctx.noTrees) return false; const c = treeCfg(f); if (!c) return false; const W = []; const put = (X, Y, Z, id, isLog) => { W.push(X, Y, Z, id, isLog ? 1 : 0); };
         try { if (c.game) { if (TREES[c.kind]) TREES[c.kind](put, x, y, z, r); else return false; } else mcTree(c.kind, put, x, y, z, r); } catch (e) { return false; }
+        if (!commitBody(V, W, y, false)) return false;
         const below = V.block(x, y - 1, z); if (c.dirt && (below === 'grass_block' || below === 'mycelium' || below === 'podzol')) V.put(x, y - 1, z, 'dirt', true);
         if (c.podzol) for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue; if (r() < 0.75) { const fy = V.floor(x + dx, z + dz); if (Math.abs(fy - (y - 1)) <= 2 && /grass_block|dirt/.test(V.block(x + dx, fy, z + dz))) V.put(x + dx, fy, z + dz, 'podzol', true); } }
         if (c.bees && r() < c.bees && B.BEE_NEST !== undefined) { for (const [a, b] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) { const yy = y + 2 + ((r() * 2) | 0); if (isAir(V.block(x + a, yy, z + b))) { V.put(x + a, yy, z + b, 'bee_nest', true); break; } } }
@@ -160,7 +171,7 @@ const MCV = (() => {
         V.put(x, y, z, log, true); const sx = x + dir[0] * 2, sz = z + dir[1] * 2; const axis = dir[0] ? 'x' : 'z'; const lid = typeof famId === 'function' ? famId(nm(log), { axis }) || idOf(log) : idOf(log);
         for (let i = 0; i < L; i++) { const X = sx + dir[0] * i, Z = sz + dir[1] * i; if (!isAir(V.block(X, y, Z)) || !solid(V.block(X, y - 1, Z))) break; V.put(X, y, Z, lid, true); if (r() < 0.1 && isAir(V.block(X, y + 1, Z))) V.put(X, y + 1, Z, r() < 0.67 ? 'red_mushroom' : 'brown_mushroom', false); }
         return true; }
-      case 'huge_red_mushroom': case 'huge_brown_mushroom': { if (ctx.noTrees || typeof bigMushroom !== 'function') return false; if (!solid(V.block(x, y - 1, z))) return false; bigMushroom((X, Y, Z, id) => V.put(X, Y, Z, id, true), x, y, z, t === 'huge_red_mushroom', r); return true; }
+      case 'huge_red_mushroom': case 'huge_brown_mushroom': { if (ctx.noTrees || typeof bigMushroom !== 'function') return false; if (!solid(V.block(x, y - 1, z))) return false; const W = []; bigMushroom((X, Y, Z, id) => { W.push(X, Y, Z, id, 1); }, x, y, z, t === 'huge_red_mushroom', r); return commitBody(V, W, y, true); }
       case 'bamboo': { if (!survive(V, 'bamboo', x, y, z) || !isAir(V.block(x, y, z))) return false; const H = 5 + ((r() * 12) | 0); for (let i = 0; i < H; i++) { if (!isAir(V.block(x, y + i, z))) break; V.put(x, y + i, z, 'bamboo', false); }
         if (r() < (f.probability || 0)) { const R = 1 + ((r() * 4) | 0); for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) if (dx * dx + dz * dz <= R * R) { const fy = V.floor(x + dx, z + dz); if (/grass_block|dirt/.test(V.block(x + dx, fy, z + dz))) V.put(x + dx, fy, z + dz, 'podzol', true); } } return true; }
       case 'coral_tree': case 'coral_claw': case 'coral_mushroom': { const kinds = ['tube', 'brain', 'bubble', 'fire', 'horn']; const k = kinds[(r() * 5) | 0]; const H = 1 + ((r() * (t === 'coral_tree' ? 4 : 2)) | 0);
