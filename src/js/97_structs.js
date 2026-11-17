@@ -115,7 +115,7 @@ function buildFossil(S, x0, y0, z0, r, coal) { const hard = (x, y, z, id) => { i
     else if (startNear(world, 'trail_ruins', cx, cz, 0)) { const c = g.column(bx + 8, bz + 8); if (c.h > SEA + 4) buildTrailRuins(world, S, bx + 8, bz + 8, r); }
     else if (startNear(world, 'ocean_ruin', cx, cz, 0)) { const c = g.column(bx + 8, bz + 8); if (!isRiver(c) && c.h < SEA - 4) buildOceanRuin(world, S, bx + 4, bz + 4, r); }
     // buried treasure: 1 in 100 beach chunks
-    const c8 = g.column(bx + 9, bz + 9); if (c8.b === BIO.BEACH && c8.v !== BV.STONY_SHORE && rnd01(cx, cz, 61031, world.seed) < 0.01) { const y = c8.h - 4; S.hard.push(bx + 9, y, bz + 9, B.CHEST); S.kinds.push(['chest:buried_treasure', bx + 9, bz + 9, y], ['buried_treasure', bx + 9, bz + 9]); }
+    const c8 = g.column(bx + 9, bz + 9); if (c8.b === BIO.BEACH && c8.v !== BV.STONY_SHORE && rnd01(cx, cz, 61031, world.seed) < 0.01) { const y = c8.h - 3; S.hard.push(bx + 9, y, bz + 9, B.CHEST); S.kinds.push(['chest:buried_treasure', bx + 9, bz + 9, y], ['buried_treasure', bx + 9, bz + 9]); }
     // fossils under deserts and swamps
     if ((c8.b === BIO.DESERT || c8.b === BIO.SWAMP || c8.b === BIO.MANGROVE_SWAMP) && rnd01(cx, cz, 4471, world.seed) < 1 / 64) { const y = Math.max(YOFF + 5, c8.h - 15 - (r() * 10 | 0)); buildFossil(S, bx + 3, y, bz + 3, r, true); }
     return r0; }; }

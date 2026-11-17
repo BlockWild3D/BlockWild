@@ -71,7 +71,8 @@ function placeNewStructures(world, S, cx, cz) {
   const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
   const chest = (x, y, z, loot) => { hard(x, y, z, B.CHEST); S.kinds.push(['chest:' + loot, x, z, y]); };
   if (startNear(world, 'village', cx, cz, 2)) return;
-  if (startNear(world, 'swamp_hut', cx, cz, 0)) { // a spruce hut on log stilts with a witch and a black cat
+  if (startNear(world, 'swamp_hut', cx, cz, 0)) { mcSwampHut(world, S, g, bx + 4, bz + 4, hard, r); // Minecraft's SwampHutPiece (99zzzzzz_mcstructs.js)
+  } else if (false) { // the game's old hut
     const x0 = bx + 4, z0 = bz + 4; let fy = SEA + 3; for (let x = x0; x < x0 + 7; x++) for (let z = z0; z < z0 + 9; z++) fy = Math.max(fy, g.column(x, z).h + 2);
     for (const [x, z] of [[x0, z0], [x0 + 6, z0], [x0, z0 + 8], [x0 + 6, z0 + 8]]) for (let y = g.column(x, z).h - 1; y < fy; y++) hard(x, y, z, B.SPRUCE_LOG);
     for (let x = x0; x < x0 + 7; x++) for (let z = z0; z < z0 + 9; z++) { hard(x, fy, z, B.PLANKS); for (let y = fy + 1; y <= fy + 5; y++) { const wall = (x === x0 || x === x0 + 6 || z === z0 + 2 || z === z0 + 8) && z >= z0 + 2; hard(x, y, z, y === fy + 5 ? B.SPRUCE_LOG : wall && y <= fy + 3 ? ((y === fy + 2 && (x === x0 + 3 || z === z0 + 5)) ? 0 : B.PLANKS) : 0); } }
@@ -85,7 +86,8 @@ function placeNewStructures(world, S, cx, cz) {
     hard(xc + 3, fy + 1, zc, B.ICE); hard(xc - 3, fy + 1, zc, B.ICE); hard(xc, fy + 1, zc + 3, 0); hard(xc, fy + 2, zc + 3, 0); hard(xc, fy + 1, zc + 4, 0); hard(xc, fy + 2, zc + 4, 0);
     hard(xc - 2, fy + 1, zc - 1, B.CRAFTING_TABLE); hard(xc + 2, fy + 1, zc - 1, B.FURNACE); hard(xc, fy + 3, zc - 1, B.TORCH); hard(xc - 1, fy + 1, zc - 2, B.BED_HEAD); hard(xc - 1, fy + 1, zc - 1, B.BED_FOOT);
     chest(xc + 1, fy + 1, zc - 2, 'igloo'); S.kinds.push(['igloo', xc, zc]);
-  } else if (startNear(world, 'jungle_temple', cx, cz, 0)) { // mossy stone temple: 3 levels, hidden chests
+  } else if (startNear(world, 'jungle_temple', cx, cz, 0)) { mcJungleTemple(world, S, g, bx + 2, bz + 1, hard, r);
+  } else if (false) { // mossy stone temple: 3 levels, hidden chests
     const x0 = bx + 2, z0 = bz + 1; let fy = 0; for (let x = x0; x < x0 + 12; x += 3) for (let z = z0; z < z0 + 15; z += 3) fy = Math.max(fy, g.column(x, z).h); fy -= 1;
     const stone = (x, y, z) => rnd01(x, y, z, world.seed) < 0.45 ? B.MOSSY_COBBLESTONE : B.COBBLESTONE;
     for (let x = x0; x < x0 + 12; x++) for (let z = z0; z < z0 + 15; z++) { for (let y = fy - 4; y < fy; y++) hard(x, y, z, stone(x, y, z)); for (let y = fy; y <= fy + 10; y++) { const edge = x === x0 || x === x0 + 11 || z === z0 || z === z0 + 14; const lvl = y - fy; const inset = lvl >= 7 ? 2 : lvl >= 4 ? 1 : 0; const ix = x - x0, iz = z - z0; const inside = ix >= inset && ix <= 11 - inset && iz >= inset && iz <= 14 - inset; if (!inside) { hard(x, y, z, 0); continue; } const shell = ix === inset || ix === 11 - inset || iz === inset || iz === 14 - inset || lvl === 0 || lvl === 3 || lvl === 6 || lvl === 9; hard(x, y, z, shell ? stone(x, y, z) : 0); } }

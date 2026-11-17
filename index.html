@@ -12145,7 +12145,8 @@ function placeNewStructures(world, S, cx, cz) {
   const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); };
   const chest = (x, y, z, loot) => { hard(x, y, z, B.CHEST); S.kinds.push(['chest:' + loot, x, z, y]); };
   if (startNear(world, 'village', cx, cz, 2)) return;
-  if (startNear(world, 'swamp_hut', cx, cz, 0)) { // a spruce hut on log stilts with a witch and a black cat
+  if (startNear(world, 'swamp_hut', cx, cz, 0)) { mcSwampHut(world, S, g, bx + 4, bz + 4, hard, r); // Minecraft's SwampHutPiece (99zzzzzz_mcstructs.js)
+  } else if (false) { // the game's old hut
     const x0 = bx + 4, z0 = bz + 4; let fy = SEA + 3; for (let x = x0; x < x0 + 7; x++) for (let z = z0; z < z0 + 9; z++) fy = Math.max(fy, g.column(x, z).h + 2);
     for (const [x, z] of [[x0, z0], [x0 + 6, z0], [x0, z0 + 8], [x0 + 6, z0 + 8]]) for (let y = g.column(x, z).h - 1; y < fy; y++) hard(x, y, z, B.SPRUCE_LOG);
     for (let x = x0; x < x0 + 7; x++) for (let z = z0; z < z0 + 9; z++) { hard(x, fy, z, B.PLANKS); for (let y = fy + 1; y <= fy + 5; y++) { const wall = (x === x0 || x === x0 + 6 || z === z0 + 2 || z === z0 + 8) && z >= z0 + 2; hard(x, y, z, y === fy + 5 ? B.SPRUCE_LOG : wall && y <= fy + 3 ? ((y === fy + 2 && (x === x0 + 3 || z === z0 + 5)) ? 0 : B.PLANKS) : 0); } }
@@ -12159,7 +12160,8 @@ function placeNewStructures(world, S, cx, cz) {
     hard(xc + 3, fy + 1, zc, B.ICE); hard(xc - 3, fy + 1, zc, B.ICE); hard(xc, fy + 1, zc + 3, 0); hard(xc, fy + 2, zc + 3, 0); hard(xc, fy + 1, zc + 4, 0); hard(xc, fy + 2, zc + 4, 0);
     hard(xc - 2, fy + 1, zc - 1, B.CRAFTING_TABLE); hard(xc + 2, fy + 1, zc - 1, B.FURNACE); hard(xc, fy + 3, zc - 1, B.TORCH); hard(xc - 1, fy + 1, zc - 2, B.BED_HEAD); hard(xc - 1, fy + 1, zc - 1, B.BED_FOOT);
     chest(xc + 1, fy + 1, zc - 2, 'igloo'); S.kinds.push(['igloo', xc, zc]);
-  } else if (startNear(world, 'jungle_temple', cx, cz, 0)) { // mossy stone temple: 3 levels, hidden chests
+  } else if (startNear(world, 'jungle_temple', cx, cz, 0)) { mcJungleTemple(world, S, g, bx + 2, bz + 1, hard, r);
+  } else if (false) { // mossy stone temple: 3 levels, hidden chests
     const x0 = bx + 2, z0 = bz + 1; let fy = 0; for (let x = x0; x < x0 + 12; x += 3) for (let z = z0; z < z0 + 15; z += 3) fy = Math.max(fy, g.column(x, z).h); fy -= 1;
     const stone = (x, y, z) => rnd01(x, y, z, world.seed) < 0.45 ? B.MOSSY_COBBLESTONE : B.COBBLESTONE;
     for (let x = x0; x < x0 + 12; x++) for (let z = z0; z < z0 + 15; z++) { for (let y = fy - 4; y < fy; y++) hard(x, y, z, stone(x, y, z)); for (let y = fy; y <= fy + 10; y++) { const edge = x === x0 || x === x0 + 11 || z === z0 || z === z0 + 14; const lvl = y - fy; const inset = lvl >= 7 ? 2 : lvl >= 4 ? 1 : 0; const ix = x - x0, iz = z - z0; const inside = ix >= inset && ix <= 11 - inset && iz >= inset && iz <= 14 - inset; if (!inside) { hard(x, y, z, 0); continue; } const shell = ix === inset || ix === 11 - inset || iz === inset || iz === 14 - inset || lvl === 0 || lvl === 3 || lvl === 6 || lvl === 9; hard(x, y, z, shell ? stone(x, y, z) : 0); } }
@@ -18568,7 +18570,7 @@ function buildFossil(S, x0, y0, z0, r, coal) { const hard = (x, y, z, id) => { i
     else if (startNear(world, 'trail_ruins', cx, cz, 0)) { const c = g.column(bx + 8, bz + 8); if (c.h > SEA + 4) buildTrailRuins(world, S, bx + 8, bz + 8, r); }
     else if (startNear(world, 'ocean_ruin', cx, cz, 0)) { const c = g.column(bx + 8, bz + 8); if (!isRiver(c) && c.h < SEA - 4) buildOceanRuin(world, S, bx + 4, bz + 4, r); }
     // buried treasure: 1 in 100 beach chunks
-    const c8 = g.column(bx + 9, bz + 9); if (c8.b === BIO.BEACH && c8.v !== BV.STONY_SHORE && rnd01(cx, cz, 61031, world.seed) < 0.01) { const y = c8.h - 4; S.hard.push(bx + 9, y, bz + 9, B.CHEST); S.kinds.push(['chest:buried_treasure', bx + 9, bz + 9, y], ['buried_treasure', bx + 9, bz + 9]); }
+    const c8 = g.column(bx + 9, bz + 9); if (c8.b === BIO.BEACH && c8.v !== BV.STONY_SHORE && rnd01(cx, cz, 61031, world.seed) < 0.01) { const y = c8.h - 3; S.hard.push(bx + 9, y, bz + 9, B.CHEST); S.kinds.push(['chest:buried_treasure', bx + 9, bz + 9, y], ['buried_treasure', bx + 9, bz + 9]); }
     // fossils under deserts and swamps
     if ((c8.b === BIO.DESERT || c8.b === BIO.SWAMP || c8.b === BIO.MANGROVE_SWAMP) && rnd01(cx, cz, 4471, world.seed) < 1 / 64) { const y = Math.max(YOFF + 5, c8.h - 15 - (r() * 10 | 0)); buildFossil(S, bx + 3, y, bz + 3, r, true); }
     return r0; }; }
@@ -22482,6 +22484,116 @@ function mcBigChunk(world, c, kind) {
 { const _m = buildMansionChunk; buildMansionChunk = function (world, c) { if (!MCST_ON()) return _m.apply(this, arguments); }; }
 { const _wc = worldgenCleanup; worldgenCleanup = function (world, c) { const r = _wc.apply(this, arguments); try { mcBigChunk(world, c, 'woodland_mansion'); } catch (e) { console.error('mansion', e); } return r; }; }
 { const _e = genEndChunk; genEndChunk = function (world, c) { const r = _e.apply(this, arguments); try { mcBigChunk(world, c, 'end_city'); } catch (e) { console.error('end city', e); } return r; }; }
+
+// ================= CODE-BUILT STRUCTURES (recreated from Minecraft's piece code) =================
+// Minecraft writes these block by block in Java (no templates). SP is its ScatteredFeaturePiece: a box with a random
+// facing; local x/z map to world like StructurePiece.getWorldX/Z, and local stair/hook facings turn with it.
+function SP(set, x0, y0, z0, W, D, ori) {
+  const ns = ori === 'north' || ori === 'south'; const maxX = x0 + (ns ? W : D) - 1, maxZ = z0 + (ns ? D : W) - 1;
+  const wx = (x, z) => ori === 'west' ? maxX - z : ori === 'east' ? x0 + z : x0 + x, wz = (x, z) => ori === 'north' ? maxZ - z : ori === 'south' ? z0 + z : z0 + x;
+  const DV = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] }; const F4 = { north: 0, east: 1, south: 2, west: 3 }, F6 = { up: 0, down: 1, north: 2, south: 3, west: 4, east: 5 };
+  const turn = (dir) => { if (!DV[dir]) return dir; const [dx, dz] = DV[dir]; const ax = wx(dx, dz) - wx(0, 0), az = wz(dx, dz) - wz(0, 0); for (const k in DV) if (DV[k][0] === ax && DV[k][1] === az) return k; return dir; };
+  const api = {
+    put(x, y, z, id) { if (id != null && id >= 0) set(wx(x, z), y0 + y, wz(x, z), id); },
+    box(x1, y1, z1, x2, y2, z2, edge, inner) { for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) for (let z = z1; z <= z2; z++) { const e = x === x1 || x === x2 || y === y1 || y === y2 || z === z1 || z === z2; const id = typeof edge === 'function' ? edge() : (e ? edge : inner); if (id != null) api.put(x, y, z, id); } },
+    air(x1, y1, z1, x2, y2, z2) { api.box(x1, y1, z1, x2, y2, z2, 0, 0); },
+    // a family block whose facing is given in local terms
+    fam(f, st, six) { const s = Object.assign({}, st); if (s.facing) s.facing = (six ? F6 : F4)[turn(s.facing)]; const F = typeof FAMILY !== 'undefined' && FAMILY[f]; if (F) return famId(f, s); return B[f.toUpperCase()]; },
+    colDown(x, y, z, id, g) { const X = wx(x, z), Z = wz(x, z); const h = Math.max(g.column(X, Z).h, 1); for (let yy = y0 + y; yy >= h - 1 && yy > 1; yy--) set(X, yy, Z, id); },
+    wx, wz, turn,
+  };
+  return api;
+}
+const SP_ORI = ['north', 'east', 'south', 'west'];
+// lowest / average ground over a box (Minecraft's updateHeightPositionToLowestGroundHeight / updateAverageGroundHeight)
+function spGround(g, x0, z0, w, d, avg) { let mn = 1e9, s = 0, n = 0; for (let x = x0; x < x0 + w; x++) for (let z = z0; z < z0 + d; z++) { const h = Math.max(g.column(x, z).h, SEA); mn = Math.min(mn, h); s += h; n++; } return avg ? Math.round(s / n) : mn; }
+// ---- desert pyramid (DesertPyramidPiece) ----
+function mcDesertPyramid(world, S, g, bx, bz, hard, r) {
+  const ori = SP_ORI[r() * 4 | 0], W = 21, D = 21; const y0 = spGround(g, bx, bz, W, D, false) - (r() * 3 | 0); const P = SP(hard, bx, y0, bz, W, D, ori);
+  const SS = B.SANDSTONE, CUT = B.CUT_SANDSTONE, CH = B.CHISELED_SANDSTONE, OR = B.ORANGE_TERRACOTTA, BL2 = B.BLUE_TERRACOTTA;
+  const st = (f) => P.fam('sandstone_stairs', { facing: f, half: 'bottom', wl: 0 }); const n = st('north'), s = st('south'), e = st('east'), w = st('west');
+  P.box(0, -4, 0, W - 1, 0, D - 1, SS, SS);
+  for (let i = 1; i <= 9; i++) { P.box(i, i, i, W - 1 - i, i, D - 1 - i, SS, SS); P.box(i + 1, i, i + 1, W - 2 - i, i, D - 2 - i, 0, 0); }
+  for (let j = 0; j < W; j++) for (let k = 0; k < D; k++) P.colDown(j, -5, k, SS, g);
+  P.box(0, 0, 0, 4, 9, 4, SS, 0); P.box(1, 10, 1, 3, 10, 3, SS, SS); P.put(2, 10, 0, n); P.put(2, 10, 4, s); P.put(0, 10, 2, e); P.put(4, 10, 2, w);
+  P.box(W - 5, 0, 0, W - 1, 9, 4, SS, 0); P.box(W - 4, 10, 1, W - 2, 10, 3, SS, SS); P.put(W - 3, 10, 0, n); P.put(W - 3, 10, 4, s); P.put(W - 5, 10, 2, e); P.put(W - 1, 10, 2, w);
+  P.box(8, 0, 0, 12, 4, 4, SS, 0); P.box(9, 1, 0, 11, 3, 4, 0, 0);
+  for (const [x, y] of [[9, 1], [9, 2], [9, 3], [10, 3], [11, 3], [11, 2], [11, 1]]) P.put(x, y, 1, CUT);
+  P.box(4, 1, 1, 8, 3, 3, SS, 0); P.box(4, 1, 2, 8, 2, 2, 0, 0); P.box(12, 1, 1, 16, 3, 3, SS, 0); P.box(12, 1, 2, 16, 2, 2, 0, 0);
+  P.box(5, 4, 5, W - 6, 4, D - 6, SS, SS); P.box(9, 4, 9, 11, 4, 11, 0, 0);
+  for (const [x, z] of [[8, 8], [12, 8], [8, 12], [12, 12]]) P.box(x, 1, z, x, 3, z, CUT, CUT);
+  P.box(1, 1, 5, 4, 4, 11, SS, SS); P.box(W - 5, 1, 5, W - 2, 4, 11, SS, SS); P.box(6, 7, 9, 6, 7, 11, SS, SS); P.box(W - 7, 7, 9, W - 7, 7, 11, SS, SS);
+  P.box(5, 5, 9, 5, 7, 11, CUT, CUT); P.box(W - 6, 5, 9, W - 6, 7, 11, CUT, CUT);
+  for (const [x, y] of [[5, 5], [5, 6], [6, 6], [W - 6, 5], [W - 6, 6], [W - 7, 6]]) P.put(x, y, 10, 0);
+  P.box(2, 4, 4, 2, 6, 4, 0, 0); P.box(W - 3, 4, 4, W - 3, 6, 4, 0, 0); P.put(2, 4, 5, n); P.put(2, 3, 4, n); P.put(W - 3, 4, 5, n); P.put(W - 3, 3, 4, n);
+  P.box(1, 1, 3, 2, 2, 3, SS, SS); P.box(W - 3, 1, 3, W - 2, 2, 3, SS, SS); P.put(1, 1, 2, SS); P.put(W - 2, 1, 2, SS);
+  const slab = P.fam('sandstone_slab', { type: 'bottom', wl: 0 }); P.put(1, 2, 2, slab); P.put(W - 2, 2, 2, slab); P.put(2, 1, 2, w); P.put(W - 3, 1, 2, e);
+  P.box(4, 3, 5, 4, 3, 17, SS, SS); P.box(W - 5, 3, 5, W - 5, 3, 17, SS, SS); P.box(3, 1, 5, 4, 2, 16, 0, 0); P.box(W - 6, 1, 5, W - 5, 2, 16, 0, 0);
+  for (let l = 5; l <= 17; l += 2) { P.put(4, 1, l, CUT); P.put(4, 2, l, CH); P.put(W - 5, 1, l, CUT); P.put(W - 5, 2, l, CH); }
+  for (const [x, z] of [[10, 7], [10, 8], [9, 9], [11, 9], [8, 10], [12, 10], [7, 10], [13, 10], [9, 11], [11, 11], [10, 12], [10, 13]]) P.put(x, 0, z, OR); P.put(10, 0, 10, BL2);
+  const pat = [[CUT, OR, CUT], [CUT, OR, CUT], [OR, CH, OR], [CUT, OR, CUT], [OR, CH, OR], [OR, OR, OR], [CUT, CUT, CUT]];
+  for (const j1 of [0, W - 1]) for (let i = 0; i < 7; i++) for (let k = 0; k < 3; k++) P.put(j1, 2 + i, 1 + k, pat[i][k]);
+  for (const k1 of [2, W - 3]) for (let i = 0; i < 7; i++) for (let k = 0; k < 3; k++) P.put(k1 - 1 + k, 2 + i, 0, pat[i][k]);
+  P.box(8, 4, 0, 12, 6, 0, CUT, CUT); P.put(8, 6, 0, 0); P.put(12, 6, 0, 0); P.put(9, 5, 0, OR); P.put(10, 5, 0, CH); P.put(11, 5, 0, OR);
+  // the treasure room under the floor: TNT trap, pressure plate, four chests
+  P.box(8, -14, 8, 12, -11, 12, CUT, CUT); P.box(8, -10, 8, 12, -10, 12, CH, CH); P.box(8, -9, 8, 12, -9, 12, CUT, CUT); P.box(8, -8, 8, 12, -1, 12, SS, SS);
+  P.box(9, -11, 9, 11, -1, 11, 0, 0); P.put(10, -11, 10, B.STONE_PRESSURE_PLATE); P.box(9, -13, 9, 11, -13, 11, B.TNT, 0);
+  for (const [x, z, ox, oz] of [[8, 10, 7, 10], [12, 10, 13, 10], [10, 8, 10, 7], [10, 12, 10, 13]]) { P.put(x, -11, z, 0); P.put(x, -10, z, 0); P.put(ox, -10, oz, CH); P.put(ox, -11, oz, CUT); }
+  for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { const x = 10 + dx * 2, z = 10 + dz * 2; P.put(x, -11, z, B.CHEST); mcSetChest(world, P.wx(x, z), y0 - 11, P.wz(x, z), 'chests/desert_pyramid'); }
+}
+// ---- jungle temple (JungleTemplePiece): mossy cobblestone, two arrow traps, a lever puzzle and two chests ----
+function mcJungleTemple(world, S, g, bx, bz, hard, r) {
+  const ori = SP_ORI[r() * 4 | 0], W = 12, D = 15; const y0 = spGround(g, bx, bz, W, D, true); const P = SP(hard, bx, y0, bz, W, D, ori);
+  const sel = () => r() < 0.4 ? B.COBBLESTONE : B.MOSSY_COBBLESTONE; const bx2 = (a, b, c, d, e, f) => P.box(a, b, c, d, e, f, sel); const air = P.air;
+  bx2(0, -4, 0, W - 1, 0, D - 1); bx2(2, 1, 2, 9, 2, 2); bx2(2, 1, 12, 9, 2, 12); bx2(2, 1, 3, 2, 2, 11); bx2(9, 1, 3, 9, 2, 11); bx2(1, 3, 1, 10, 6, 1); bx2(1, 3, 13, 10, 6, 13); bx2(1, 3, 2, 1, 6, 12); bx2(10, 3, 2, 10, 6, 12);
+  bx2(2, 3, 2, 9, 3, 12); bx2(2, 6, 2, 9, 6, 12); bx2(3, 7, 3, 8, 7, 11); bx2(4, 8, 4, 7, 8, 10);
+  air(3, 1, 3, 8, 2, 11); air(4, 3, 6, 7, 3, 9); air(2, 4, 2, 9, 5, 12); air(4, 6, 5, 7, 6, 9); air(5, 7, 6, 6, 7, 8); air(5, 1, 2, 6, 2, 2); air(5, 2, 12, 6, 2, 12); air(5, 5, 1, 6, 5, 1); air(5, 5, 13, 6, 5, 13);
+  for (const [x, z] of [[1, 5], [10, 5], [1, 9], [10, 9]]) P.put(x, 5, z, 0);
+  for (const i of [0, 14]) for (const x of [2, 4, 7, 9]) bx2(x, 4, i, x, 5, i); bx2(5, 6, 0, 6, 6, 0);
+  for (const l of [0, 11]) { for (let j = 2; j <= 12; j += 2) bx2(l, 4, j, l, 5, j); bx2(l, 6, 5, l, 6, 5); bx2(l, 6, 9, l, 6, 9); }
+  for (const [x, z] of [[2, 2], [9, 2], [2, 12], [9, 12]]) bx2(x, 7, z, x, 9, z); for (const [x, z] of [[4, 4], [7, 4], [4, 10], [7, 10]]) bx2(x, 9, z, x, 9, z); bx2(5, 9, 7, 6, 9, 7);
+  const cs = (f) => P.fam('cobblestone_stairs', { facing: f, half: 'bottom', wl: 0 }); const e = cs('east'), w = cs('west'), s = cs('south'), n = cs('north');
+  P.put(5, 9, 6, n); P.put(6, 9, 6, n); P.put(5, 9, 8, s); P.put(6, 9, 8, s); for (const x of [4, 5, 6, 7]) P.put(x, 0, 0, n);
+  for (const x of [4, 7]) { P.put(x, 1, 8, n); P.put(x, 2, 9, n); P.put(x, 3, 10, n); }
+  bx2(4, 1, 9, 4, 1, 9); bx2(7, 1, 9, 7, 1, 9); bx2(4, 1, 10, 7, 2, 10); bx2(5, 4, 5, 6, 4, 5); P.put(4, 4, 5, e); P.put(7, 4, 5, w);
+  for (let k = 0; k < 4; k++) { P.put(5, -k, 6 + k, s); P.put(6, -k, 6 + k, s); air(5, -k, 7 + k, 6, -k, 9 + k); }
+  air(1, -3, 12, 10, -1, 13); air(1, -3, 1, 3, -1, 13); air(1, -3, 1, 9, -1, 5);
+  for (let i = 1; i <= 13; i += 2) bx2(1, -3, i, 1, -2, i); for (let j = 2; j <= 12; j += 2) bx2(1, -1, j, 3, -1, j);
+  bx2(2, -2, 1, 5, -2, 1); bx2(7, -2, 1, 9, -2, 1); bx2(6, -3, 1, 6, -3, 1); bx2(6, -1, 1, 6, -1, 1);
+  const hook = (f) => P.fam('tripwire_hook', { facing: f, attached: 1, powered: 0 }); const wire = B.REDSTONE_WIRE, tw = B.TRIPWIRE, MC2 = B.MOSSY_COBBLESTONE;
+  // trap 1: tripwire across the corridor, wire to a dispenser in the wall
+  P.put(1, -3, 8, hook('east')); P.put(4, -3, 8, hook('west')); P.put(2, -3, 8, tw); P.put(3, -3, 8, tw);
+  for (let z = 7; z >= 1; z--) P.put(5, -3, z, wire); P.put(4, -3, 1, wire); P.put(3, -3, 1, MC2);
+  P.put(3, -2, 1, P.fam('dispenser', { facing: 'north', ex: 0 }, true)); P.put(3, -2, 2, B.VINE);
+  // trap 2
+  P.put(7, -3, 1, hook('north')); P.put(7, -3, 5, hook('south')); for (const z of [2, 3, 4]) P.put(7, -3, z, tw);
+  P.put(8, -3, 6, wire); P.put(9, -3, 6, wire); P.put(9, -3, 5, wire); P.put(9, -3, 4, MC2); P.put(9, -2, 4, wire);
+  P.put(9, -2, 3, P.fam('dispenser', { facing: 'west', ex: 0 }, true)); P.put(8, -1, 3, B.VINE); P.put(8, -2, 3, B.VINE);
+  P.put(8, -3, 3, B.CHEST); mcSetChest(world, P.wx(8, 3), y0 - 3, P.wz(8, 3), 'chests/jungle_temple');
+  for (const [x, y, z] of [[9, -3, 2], [8, -3, 1], [4, -3, 5], [5, -2, 5], [5, -1, 5], [6, -3, 5], [7, -2, 5], [7, -1, 5], [8, -3, 5]]) P.put(x, y, z, MC2);
+  bx2(9, -1, 1, 9, -1, 5);
+  // the lever puzzle and the hidden chest
+  air(8, -3, 8, 10, -1, 10); for (const x of [8, 9, 10]) { P.put(x, -2, 11, B.CHISELED_STONE_BRICKS); P.put(x, -2, 12, B.LEVER); }
+  bx2(8, -3, 8, 8, -3, 10); bx2(10, -3, 8, 10, -3, 10); P.put(10, -2, 9, MC2); P.put(8, -2, 9, wire); P.put(8, -2, 10, wire); P.put(10, -1, 9, wire);
+  P.put(9, -2, 8, P.fam('sticky_piston', { facing: 'up', ex: 0 }, true)); P.put(10, -2, 8, P.fam('sticky_piston', { facing: 'west', ex: 0 }, true)); P.put(10, -1, 8, P.fam('sticky_piston', { facing: 'west', ex: 0 }, true));
+  P.put(10, -2, 10, P.fam('repeater', { facing: 'north', delay: 1, powered: 0, locked: 0 }));
+  P.put(9, -3, 10, B.CHEST); mcSetChest(world, P.wx(9, 10), y0 - 3, P.wz(9, 10), 'chests/jungle_temple');
+  S.kinds.push(['jungle_temple', P.wx(6, 7), P.wz(6, 7)]);
+}
+// ---- swamp hut (SwampHutPiece): spruce hut on oak log stilts, a witch and a black cat ----
+function mcSwampHut(world, S, g, bx, bz, hard, r) {
+  const ori = SP_ORI[r() * 4 | 0], W = 7, D = 9; const y0 = spGround(g, bx, bz, W, D, true); const P = SP(hard, bx, y0, bz, W, D, ori);
+  const PL = B.SPRUCE_PLANKS, LOG = B.LOG, FN = B.OAK_FENCE;
+  P.box(1, 1, 1, 5, 1, 7, PL, PL); P.box(1, 4, 2, 5, 4, 7, PL, PL); P.box(2, 1, 0, 4, 1, 0, PL, PL); P.box(2, 2, 2, 3, 3, 2, PL, PL); P.box(1, 2, 3, 1, 3, 6, PL, PL); P.box(5, 2, 3, 5, 3, 6, PL, PL); P.box(2, 2, 7, 4, 3, 7, PL, PL);
+  for (const [x, z] of [[1, 2], [5, 2], [1, 7], [5, 7]]) P.box(x, 0, z, x, 3, z, LOG, LOG);
+  P.put(2, 3, 2, FN); P.put(3, 3, 7, FN); P.put(1, 3, 4, 0); P.put(5, 3, 4, 0); P.put(5, 3, 5, 0); P.put(1, 3, 5, B.POTTED_RED_MUSHROOM); P.put(3, 2, 6, B.CRAFTING_TABLE); P.put(4, 2, 6, B.CAULDRON); P.put(1, 2, 1, FN); P.put(5, 2, 1, FN);
+  const ss = (f) => P.fam('spruce_stairs', { facing: f, half: 'bottom', wl: 0 });
+  P.box(0, 4, 1, 6, 4, 1, ss('north'), ss('north')); P.box(0, 4, 2, 0, 4, 7, ss('east'), ss('east')); P.box(6, 4, 2, 6, 4, 7, ss('west'), ss('west')); P.box(0, 4, 8, 6, 4, 8, ss('south'), ss('south'));
+  for (const i of [2, 7]) for (const j of [1, 5]) P.colDown(j, -1, i, LOG, g);
+  S.mobs.push(['witch', P.wx(2, 5) + 0.5, y0 + 2, P.wz(2, 5) + 0.5]); S.mobs.push(['cat', P.wx(2, 5) + 0.5, y0 + 2, P.wz(2, 5) + 0.5]); S.kinds.push(['swamp_hut', P.wx(3, 4), P.wz(3, 4)]);
+}
+// the game's desert pyramid builder becomes Minecraft's
+{ const _bp = buildPyramid; buildPyramid = function (S, g, cx, cz, hard, r, world) { return mcDesertPyramid(world || G.world, S, g, cx - 10, cz - 10, hard, r); }; }
 
 </script>
 </body>
