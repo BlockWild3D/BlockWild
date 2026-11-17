@@ -43,7 +43,7 @@ function eggSpawn(type, x, y, z, baby) {
     if (!hd || hd.kind !== 'spawn_egg') return _ua(eye, dir);
     const type = hd.mob; mouseR = false; S.useCD = 0.25;
     // on a grown animal of the same kind: a baby
-    if (targetMob && !targetMob.dead && targetMob.type === type && typeof BREED_FOOD !== 'undefined' && BREED_FOOD[type] && !targetMob.baby) { eggSpawn(type, targetMob.pos.x, targetMob.pos.y, targetMob.pos.z, true); useHeld(1); S.swing = 1; return; }
+    if (targetMob && !targetMob.dead && targetMob.type === type && typeof BREED_FOOD !== 'undefined' && BREED_FOOD[type] && !NO_BABY.has(type) && !targetMob.baby) { eggSpawn(type, targetMob.pos.x, targetMob.pos.y, targetMob.pos.z, true); useHeld(1); S.swing = 1; return; }
     // on a spawner: change what it spawns
     if (target && target.id === B.SPAWNER) { const k = target.x + ',' + target.y + ',' + target.z; world.spawners.set(k, type); useHeld(1); S.swing = 1; toast('The spawner now makes ' + MOBS[type].name + 's', 1.5); return; }
     // on a block (or into water)
@@ -55,3 +55,7 @@ function eggSpawn(type, x, y, z, baby) {
     eggSpawn(type, p[0], p[1], p[2], false); useHeld(1); S.swing = 1; Particles.emit(p[0], p[1] + 0.5, p[2], 10, [[0.85, 0.85, 0.85]], 1.5, 0.6, -1, 0.5);
   }; }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m.t === 'eggspawn') { if (MP.role === 'host' && MOBS[m.type]) eggSpawn(m.type, m.x, m.y, m.z, m.baby); return; } return _on(peer, m); }; }
+// mobs Minecraft never has babies of: they sit in BREED_FOOD (with no food) only so they get saved like animals,
+// which made a spawn egg used on one spawn a "baby". Baby flags on them (eggs, old saves, multiplayer) are ignored.
+const NO_BABY = new Set(['iron_golem', 'snow_golem', 'bat', 'allay', 'parrot', 'copper_golem', 'camel_husk', 'wandering_trader', 'trader_llama']);
+{ const _sb = setBaby; setBaby = function (m, on) { if (on && m && NO_BABY.has(m.type)) return; return _sb.apply(this, arguments); }; }
