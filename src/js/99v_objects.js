@@ -128,3 +128,13 @@ if (BB_MODELS['@beacon_beam']) {
   // armour already on show gets redrawn with the new look
   for (const k in armorTex2Cache) delete armorTex2Cache[k];
 }
+
+// ---------- banner patterns: shapes read from the owner's pattern masks (falls back to the drawn shapes until loaded) ----------
+if (BB_MODELS['@banner_patterns'] && typeof patternAt !== 'undefined') {
+  const MASK = {}; const ALIAS = { thing: 'mojang' };
+  for (const [name, src] of Object.entries(BB_MODELS['@banner_patterns'])) { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0); MASK[name] = { d: g.getImageData(0, 0, im.width, im.height).data, w: im.width, s: im.width / 64 }; }; im.src = src; }
+  const _pa = patternAt; patternAt = function (p, x, y) { const m = MASK[ALIAS[p] || p]; if (!m) return _pa.apply(this, arguments);
+    const px = Math.floor((x + 1) * m.s), py = Math.floor((y + 1) * m.s); const i = (py * m.w + px) * 4; return m.d[i + 3] / 255 * (m.d[i] / 255); };
+}
+// ---------- the shield: the owner's wooden shield model in hand ----------
+if (typeof shieldMesh !== 'undefined' && BB_MODELS['@shield']) { const _sh = shieldMesh; shieldMesh = function () { try { const o = bbObject('@shield'); const g = new THREE.Group(); o.root.scale.setScalar(0.42); o.root.position.y = -0.29; g.add(o.root); return g; } catch (e) { return _sh.apply(this, arguments); } }; }
