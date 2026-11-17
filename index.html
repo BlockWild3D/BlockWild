@@ -21122,6 +21122,22 @@ if (BB_MODELS['@banner_patterns'] && typeof patternAt !== 'undefined') {
 // ---------- the shield: the owner's wooden shield model in hand ----------
 if (typeof shieldMesh !== 'undefined' && BB_MODELS['@shield']) { const _sh = shieldMesh; shieldMesh = function () { try { const o = bbObject('@shield'); const g = new THREE.Group(); o.root.scale.setScalar(0.42); o.root.position.y = -0.29; g.add(o.root); return g; } catch (e) { return _sh.apply(this, arguments); } }; }
 
+// ---------- thrown items fly as the item's own picture, like Minecraft (potions, XP bottles, pearls, eggs, snowballs) ----------
+{
+  const texCache = {}; const texOf = (key, src) => { if (texCache[key]) return texCache[key]; let t;
+    if (typeof src === 'string') { t = new THREE.TextureLoader().load(src); } else { t = new THREE.CanvasTexture(src); } t.magFilter = t.minFilter = THREE.NearestFilter; return texCache[key] = t; };
+  const itemTex = (id) => (id != null && typeof ICON_CANVAS !== 'undefined' && ICON_CANVAS[id]) ? texOf('it' + id, ICON_CANVAS[id]) : null;
+  const sprite = (tex) => { const g = new THREE.Group(); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.1 })); s.scale.setScalar(0.5); g.add(s); g.userData.bbSprite = s; return g; };
+  const XP = () => IT.experience_bottle !== undefined ? IT.experience_bottle : IT.bottle_o_enchanting;
+  const KIND_ITEM = { snowball: () => IT.snowball, egg: () => IT.egg, pearl: () => IT.ender_pearl, xpbottle: XP, potion: () => IT.splash_potion };
+  if (typeof projMesh !== 'undefined') { const _pm = projMesh; projMesh = function (kind) { const f = KIND_ITEM[kind]; const t = f && itemTex(f()); return t ? sprite(t) : _pm.apply(this, arguments); }; }
+  // a thrown potion learns its brew after it's thrown: show that potion's picture (splash or lingering)
+  if (typeof updateProjectiles !== 'undefined') { const _up = updateProjectiles; updateProjectiles = function (dt) {
+    for (const a of G.projectiles) if (a.kind === 'potion' && !a.bbPot && a.mesh && a.mesh.userData.bbSprite) { a.bbPot = true; try { const id = a.ling ? IT.lingering_potion : IT.splash_potion; const pot = a.pot || 'water';
+      a.mesh.userData.bbSprite.material.map = texOf('pot' + id + pot, typeof potionIcon === 'function' ? potionIcon(id, pot) : ICON_CANVAS[id]); a.mesh.userData.bbSprite.material.needsUpdate = true; } catch (e) { } }
+    return _up.apply(this, arguments); }; }
+}
+
 // ================= FEATURES ADDED SO THE REST OF THE OWNER'S ARCHIVE.ZIP HAS SOMETHING TO SHOW ON =================
 // baby zombies / husks / drowned / piglins / zombified piglins, mobs wearing armour, the elytra on your back,
 // the end crystal's healing beam, and leads (lead animals around, tie them to fences: the knot shows).
