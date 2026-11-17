@@ -558,3 +558,92 @@ function mcSwampHut(world, S, g, bx, bz, hard, r) {
 }
 // the game's desert pyramid builder becomes Minecraft's
 { const _bp = buildPyramid; buildPyramid = function (S, g, cx, cz, hard, r, world) { return mcDesertPyramid(world || G.world, S, g, cx - 10, cz - 10, hard, r); }; }
+
+// ================= MINESHAFTS (Minecraft's MineshaftPieces, rebuilt in JS) =================
+// A dirt-floored room, then corridors (2-4 sections of 5 with fence-and-plank supports, rails 1 in 3, cobweb "spider"
+// corridors with a cave spider spawner 1 in 23, chest minecarts), crossings (1 in 4 two storeys tall) and dirt stairs
+// branching up to 8 deep and 80 blocks out, then the whole thing moved down under the sea level. Same start rule as
+// the game's old mineshafts; the layout is made once per start and stamped chunk by chunk.
+const MS = {
+  BOXES: { cor: null },
+  hit(P, b) { return P.find(p => MCJ.hit(p.box, b)); },
+  B(x0, y0, z0, x1, y1, z1, x, y, z) { return { x0: x + Math.min(x0, x1), y0: y + Math.min(y0, y1), z0: z + Math.min(z0, z1), x1: x + Math.max(x0, x1), y1: y + Math.max(y0, y1), z1: z + Math.max(z0, z1) }; },
+  gen(P, start, r, x, y, z, dir, depth) {
+    if (depth > 8) return null; if (Math.abs(x - start.box.x0) > 80 || Math.abs(z - start.box.z0) > 80) return null;
+    const i = r() * 100 | 0; let p = null, b;
+    if (i >= 80) { const h = (r() * 4 | 0) === 0 ? 6 : 2; b = MS.B(...{ north: [-1, 0, -4, 3, h, 0], south: [-1, 0, 0, 3, h, 4], west: [-4, 0, -1, 0, h, 3], east: [0, 0, -1, 4, h, 3] }[dir], x, y, z); if (!MS.hit(P, b)) p = { t: 'cross', box: b, dir, two: h > 2 }; }
+    else if (i >= 70) { b = MS.B(...{ north: [0, -5, -8, 2, 2, 0], south: [0, -5, 0, 2, 2, 8], west: [-8, -5, 0, 0, 2, 2], east: [0, -5, 0, 8, 2, 2] }[dir], x, y, z); if (!MS.hit(P, b)) p = { t: 'stairs', box: b, dir }; }
+    else { for (let n = (r() * 3 | 0) + 2; n > 0; n--) { const j = n * 5; b = MS.B(...{ north: [0, 0, -(j - 1), 2, 2, 0], south: [0, 0, 0, 2, 2, j - 1], west: [-(j - 1), 0, 0, 0, 2, 2], east: [0, 0, 0, j - 1, 2, 2] }[dir], x, y, z); if (!MS.hit(P, b)) break; b = null; }
+      if (b) { const rails = (r() * 3 | 0) === 0; p = { t: 'cor', box: b, dir, rails, spider: !rails && (r() * 23 | 0) === 0, n: ((dir === 'north' || dir === 'south') ? b.z1 - b.z0 + 1 : b.x1 - b.x0 + 1) / 5 }; } }
+    if (!p) return null; p.depth = depth + 1; P.push(p); MS.children(P, start, r, p); return p;
+  },
+  children(P, start, r, p) { const b = p.box, d = p.depth, G = (x, y, z, dir, dd = d) => MS.gen(P, start, r, x, y, z, dir, dd);
+    if (p.t === 'cor') { const j = r() * 4 | 0, y = () => b.y0 - 1 + (r() * 3 | 0);
+      if (p.dir === 'north') { if (j <= 1) G(b.x0, y(), b.z0 - 1, 'north'); else if (j === 2) G(b.x0 - 1, y(), b.z0, 'west'); else G(b.x1 + 1, y(), b.z0, 'east'); }
+      else if (p.dir === 'south') { if (j <= 1) G(b.x0, y(), b.z1 + 1, 'south'); else if (j === 2) G(b.x0 - 1, y(), b.z1 - 3, 'west'); else G(b.x1 + 1, y(), b.z1 - 3, 'east'); }
+      else if (p.dir === 'west') { if (j <= 1) G(b.x0 - 1, y(), b.z0, 'west'); else if (j === 2) G(b.x0, y(), b.z0 - 1, 'north'); else G(b.x0, y(), b.z1 + 1, 'south'); }
+      else { if (j <= 1) G(b.x1 + 1, y(), b.z0, 'east'); else if (j === 2) G(b.x1 - 3, y(), b.z0 - 1, 'north'); else G(b.x1 - 3, y(), b.z1 + 1, 'south'); }
+      if (d < 8) { if (p.dir === 'north' || p.dir === 'south') { for (let k = b.z0 + 3; k + 3 <= b.z1; k += 5) { const l = r() * 5 | 0; if (l === 0) G(b.x0 - 1, b.y0, k, 'west', d + 1); else if (l === 1) G(b.x1 + 1, b.y0, k, 'east', d + 1); } }
+        else for (let k = b.x0 + 3; k + 3 <= b.x1; k += 5) { const l = r() * 5 | 0; if (l === 0) G(k, b.y0, b.z0 - 1, 'north', d + 1); else if (l === 1) G(k, b.y0, b.z1 + 1, 'south', d + 1); } } }
+    else if (p.t === 'cross') { const D = p.dir;
+      if (D === 'north') { G(b.x0 + 1, b.y0, b.z0 - 1, 'north'); G(b.x0 - 1, b.y0, b.z0 + 1, 'west'); G(b.x1 + 1, b.y0, b.z0 + 1, 'east'); }
+      else if (D === 'south') { G(b.x0 + 1, b.y0, b.z1 + 1, 'south'); G(b.x0 - 1, b.y0, b.z0 + 1, 'west'); G(b.x1 + 1, b.y0, b.z0 + 1, 'east'); }
+      else if (D === 'west') { G(b.x0 + 1, b.y0, b.z0 - 1, 'north'); G(b.x0 + 1, b.y0, b.z1 + 1, 'south'); G(b.x0 - 1, b.y0, b.z0 + 1, 'west'); }
+      else { G(b.x0 + 1, b.y0, b.z0 - 1, 'north'); G(b.x0 + 1, b.y0, b.z1 + 1, 'south'); G(b.x1 + 1, b.y0, b.z0 + 1, 'east'); }
+      if (p.two) { if (r() < 0.5) G(b.x0 + 1, b.y0 + 4, b.z0 - 1, 'north'); if (r() < 0.5) G(b.x0 - 1, b.y0 + 4, b.z0 + 1, 'west'); if (r() < 0.5) G(b.x1 + 1, b.y0 + 4, b.z0 + 1, 'east'); if (r() < 0.5) G(b.x0 + 1, b.y0 + 4, b.z1 + 1, 'south'); } }
+    else if (p.t === 'stairs') { const D = p.dir; if (D === 'north') G(b.x0, b.y0, b.z0 - 1, 'north'); else if (D === 'south') G(b.x0, b.y0, b.z1 + 1, 'south'); else if (D === 'west') G(b.x0 - 1, b.y0, b.z0, 'west'); else G(b.x1 + 1, b.y0, b.z0, 'east'); }
+    else if (p.t === 'room') { const k = Math.max(1, b.y1 - b.y0 + 1 - 3 - 1); p.ent = [];
+      const side = (len, f) => { for (let j = 0; j < len; j += 4) { j += r() * len | 0; if (j + 3 > len) break; const c = f(j); if (c) p.ent.push(c.box); } };
+      side(b.x1 - b.x0 + 1, (j) => G(b.x0 + j, b.y0 + (r() * k | 0) + 1, b.z0 - 1, 'north', 0)); side(b.x1 - b.x0 + 1, (j) => G(b.x0 + j, b.y0 + (r() * k | 0) + 1, b.z1 + 1, 'south', 0));
+      side(b.z1 - b.z0 + 1, (j) => G(b.x0 - 1, b.y0 + (r() * k | 0) + 1, b.z0 + j, 'west', 0)); side(b.z1 - b.z0 + 1, (j) => G(b.x1 + 1, b.y0 + (r() * k | 0) + 1, b.z0 + j, 'east', 0)); } },
+  layout(world, sx, sz) {
+    world.mcjCache = world.mcjCache || new Map(); const key = 'ms:' + sx + ',' + sz; if (world.mcjCache.has(key)) return world.mcjCache.get(key);
+    const r = mulberry32(ihash(sx, sz, 7777, world.seed) >>> 0); const x = sx * 16 + 2, z = sz * 16 + 2;
+    const room = { t: 'room', box: { x0: x, y0: 50, z0: z, x1: x + 7 + (r() * 6 | 0), y1: 54 + (r() * 6 | 0), z1: z + 7 + (r() * 6 | 0) }, depth: 0 }; const P = [room]; MS.children(P, room, r, room);
+    // moveBelowSeaLevel(63, -64, random, 10), then into this game's heights (y + YOFF)
+    let mn = 1e9, mx = -1e9; for (const p of P) { mn = Math.min(mn, p.box.y0); mx = Math.max(mx, p.box.y1); }
+    let j = (mx - mn + 1) - 64 + 1; const i = 63 - 10; if (j < i) j += r() * (i - j) | 0; const k = j - mx + YOFF;
+    for (const p of P) { p.box.y0 += k; p.box.y1 += k; if (p.ent) for (const e of p.ent) { e.y0 += k; e.y1 += k; } }
+    const all = { x0: Math.min(...P.map(p => p.box.x0)), x1: Math.max(...P.map(p => p.box.x1)), z0: Math.min(...P.map(p => p.box.z0)), z1: Math.max(...P.map(p => p.box.z1)) };
+    const L = { pieces: P, all }; if (world.mcjCache.size > 300) world.mcjCache.clear(); world.mcjCache.set(key, L); return L; },
+  stamp(world, c, L) {
+    const bx = c.cx * 16, bz = c.cz * 16, d = c.d, seed = world.seed; const inC = (x, z) => x >= bx && x < bx + 16 && z >= bz && z < bz + 16;
+    const I = (x, y, z) => (y * 16 + (z - bz)) * 16 + (x - bx); const get = (x, y, z) => inC(x, z) && y >= 0 && y < WH ? d[I(x, y, z)] : -1;
+    const set = (x, y, z, id) => { if (!inC(x, z) || y < 1 || y >= WH) return; const j = I(x, y, z); if (d[j] === B.BEDROCK) return; d[j] = id; };
+    const rnd = (x, y, z, k) => rnd01(x * 3 + k, y, z, seed ^ 0x3a5f);
+    const PL = B.PLANKS, FN = B.OAK_FENCE, AIR = 0, WEB = B.COBWEB;
+    for (const p of L.pieces) { const b = p.box; if (b.x1 < bx - 1 || b.x0 > bx + 16 || b.z1 < bz - 1 || b.z0 > bz + 16) continue;
+      if (p.t === 'room') {
+        for (let x = b.x0; x <= b.x1; x++) for (let z = b.z0; z <= b.z1; z++) { if (get(x, b.y0, z) > 0) set(x, b.y0, z, B.DIRT); for (let y = b.y0 + 1; y <= Math.min(b.y0 + 3, b.y1); y++) set(x, y, z, AIR); }
+        for (const e of p.ent || []) for (let x = e.x0; x <= e.x1; x++) for (let z = Math.min(e.z0, b.z0); z <= Math.max(e.z1, b.z0); z++) for (let y = e.y1 - 2; y <= e.y1; y++) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1) set(x, y, z, AIR);
+        const fx = b.x1 - b.x0 + 1, fy = b.y1 - (b.y0 + 4) + 1, fz = b.z1 - b.z0 + 1, cx = b.x0 + fx / 2, cz = b.z0 + fz / 2;
+        for (let y = b.y0 + 4; y <= b.y1; y++) { const f5 = (y - b.y0 - 4) / fy; for (let x = b.x0; x <= b.x1; x++) { const f6 = (x - cx) / (fx * 0.5); for (let z = b.z0; z <= b.z1; z++) { const f7 = (z - cz) / (fz * 0.5); if (f6 * f6 + f5 * f5 + f7 * f7 <= 1.05) set(x, y, z, AIR); } } }
+        continue; }
+      if (p.t === 'cross') { const air = (x0, y0, z0, x1, y1, z1) => { for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) set(x, y, z, AIR); };
+        if (p.two) { air(b.x0 + 1, b.y0, b.z0, b.x1 - 1, b.y0 + 2, b.z1); air(b.x0, b.y0, b.z0 + 1, b.x1, b.y0 + 2, b.z1 - 1); air(b.x0 + 1, b.y1 - 2, b.z0, b.x1 - 1, b.y1, b.z1); air(b.x0, b.y1 - 2, b.z0 + 1, b.x1, b.y1, b.z1 - 1); air(b.x0 + 1, b.y0 + 3, b.z0 + 1, b.x1 - 1, b.y0 + 3, b.z1 - 1); }
+        else { air(b.x0 + 1, b.y0, b.z0, b.x1 - 1, b.y1, b.z1); air(b.x0, b.y0, b.z0 + 1, b.x1, b.y1, b.z1 - 1); }
+        for (const [x, z] of [[b.x0 + 1, b.z0 + 1], [b.x0 + 1, b.z1 - 1], [b.x1 - 1, b.z0 + 1], [b.x1 - 1, b.z1 - 1]]) for (let y = b.y0; y <= b.y1; y++) set(x, y, z, PL);
+        for (let x = b.x0; x <= b.x1; x++) for (let z = b.z0; z <= b.z1; z++) if (get(x, b.y0 - 1, z) === 0) set(x, b.y0 - 1, z, PL);
+        continue; }
+      // oriented pieces: local x across (0..2), z along, y up
+      const D = p.dir; const W = (x, z) => D === 'west' ? b.x1 - z : D === 'east' ? b.x0 + z : b.x0 + x, Zf = (x, z) => D === 'north' ? b.z1 - z : D === 'south' ? b.z0 + z : b.z0 + x;
+      const lset = (x, y, z, id) => set(W(x, z), b.y0 + y, Zf(x, z), id), lget = (x, y, z) => get(W(x, z), b.y0 + y, Zf(x, z));
+      const lbox = (x0, y0, z0, x1, y1, z1, id, chance, k) => { for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) if (chance == null || rnd(W(x, z), b.y0 + y, Zf(x, z), k) < chance) lset(x, y, z, id); };
+      if (p.t === 'stairs') { lbox(0, 5, 0, 2, 7, 1, AIR); lbox(0, 0, 7, 2, 2, 8, AIR); for (let i = 0; i < 5; i++) lbox(0, 5 - i - (i < 4 ? 1 : 0), 2 + i, 2, 7 - i, 2 + i, AIR); continue; }
+      // corridor
+      const len = p.n * 5 - 1; lbox(0, 0, 0, 2, 1, len, AIR); lbox(0, 2, 0, 2, 2, len, AIR, 0.8, 1);
+      if (p.spider) lbox(0, 0, 0, 2, 1, len, WEB, 0.6, 2);
+      for (let s = 0; s < p.n; s++) { const l = 2 + s * 5;
+        // support: fences on both sides, planks across (25%: only over the posts), a torch now and then
+        for (const x of [0, 2]) { lset(x, 0, l, FN); lset(x, 1, l, FN); }
+        if (rnd(W(1, l), b.y0, Zf(1, l), 3) < 0.25) { lset(0, 2, l, PL); lset(2, 2, l, PL); } else { lbox(0, 2, l, 2, 2, l, PL); if (rnd(W(1, l), b.y0, Zf(1, l), 4) < 0.05) lset(1, 2, l - 1, B.TORCH); if (rnd(W(1, l), b.y0, Zf(1, l), 5) < 0.05) lset(1, 2, l + 1, B.TORCH); }
+        for (const [x, z, ch] of [[0, l - 1, 0.1], [2, l - 1, 0.1], [0, l + 1, 0.1], [2, l + 1, 0.1], [0, l - 2, 0.05], [2, l - 2, 0.05], [0, l + 2, 0.05], [2, l + 2, 0.05]]) if (lget(x, 2, z) === 0 && rnd(W(x, z), b.y0 + 2, Zf(x, z), 6) < ch) lset(x, 2, z, WEB);
+        for (const [x, z, k] of [[2, l - 1, 7], [0, l + 1, 8]]) if (rnd(W(x, z), b.y0, Zf(x, z), k) < 0.01 && inC(W(x, z), Zf(x, z))) { const X = W(x, z), Z = Zf(x, z); set(X, b.y0, Z, D === 'north' || D === 'south' ? RAIL_ID.rail.ns[0] : RAIL_ID.rail.ew[0]); c.msCarts = c.msCarts || []; c.msCarts.push([X, b.y0, Z]); }
+        if (p.spider && !p.spawned) { const z = l - 1 + (rnd(W(1, l), b.y0, Zf(1, l), 9) * 3 | 0); const X = W(1, z), Z = Zf(1, z); if (inC(X, Z)) { set(X, b.y0, Z, B.SPAWNER); world.spawners.set(X + ',' + b.y0 + ',' + Z, 'cave_spider'); } p.spawned = true; } }
+      // planks where the floor is open, fence posts down to the ground under the ends
+      for (let x = 0; x <= 2; x++) for (let z = 0; z <= len; z++) if (lget(x, -1, z) === 0) lset(x, -1, z, PL);
+      for (const [x, z] of [[0, 2], [2, 2], [0, len - 2], [2, len - 2]]) { if (lget(x, -2, z) !== 0) continue; for (let y = -2; y > -40 && lget(x, y, z) === 0; y--) lset(x, y, z, FN); }
+      if (p.rails) for (let z = 0; z <= len; z++) { const f = lget(1, -1, z); if (f > 0 && SOLID[f] && lget(1, 0, z) === 0 && rnd(W(1, z), b.y0, Zf(1, z), 10) < 0.7) lset(1, 0, z, D === 'north' || D === 'south' ? RAIL_ID.rail.ns[0] : RAIL_ID.rail.ew[0]); }
+    } },
+};
+{ const _bm = buildMineshaftChunk; buildMineshaftChunk = function (world, c) { const starts = mineshaftStartsNear(world, c.cx, c.cz); for (const [sx, sz] of starts) { const L = MS.layout(world, sx, sz); if (L.all.x1 < c.cx * 16 - 1 || L.all.x0 > c.cx * 16 + 16 || L.all.z1 < c.cz * 16 - 1 || L.all.z0 > c.cz * 16 + 16) continue; MS.stamp(world, c, L); } }; }
