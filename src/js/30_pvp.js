@@ -73,10 +73,14 @@ function pvpReceive(m) {
     for (const av of MP.avatars.values()) {
       if (av.dim !== world.dim || av.dead || av.spec) continue;
       const t = rayAABB(eye, dir, new V3(av.pos.x - 0.425, av.pos.y - 0.125, av.pos.z - 0.425), new V3(av.pos.x + 0.425, av.pos.y + PVP_H(av) + 0.125, av.pos.z + 0.425)); if (t < 1.875 || t > 4.5) continue;
-      const av0 = av.prevPos || av.pos; const avv = av.pos.clone().sub(av0).divideScalar(Math.max(dt, 1e-3)); av.prevPos = av.pos.clone();
-      const speed = (pv.x - avv.x) * dir.x + (pv.z - avv.z) * dir.z; if (speed < 4.6) continue;
+      // their speed is the velocity they report over the network (it used to be worked out from a position that was only
+      // saved while they were inside the reach band, so someone walking in looked like they moved several blocks in one
+      // frame: a one-hit kill with a huge knockback)
+      const avv = av.nvel && performance.now() - (av.netT || 0) < 500 ? av.nvel : new V3();
+      const speed = (pv.x - avv.x) * dir.x + (pv.z - avv.z) * dir.z; if (speed < SPEAR.dmgSpeed) continue;
       const key = 'av:' + av.id; const last = C.hits.get(key); if (last != null && C.t - last < 0.5) continue; C.hits.set(key, C.t);
-      pvpHit(av, last == null ? Math.floor(sp.spear.mult * speed) : 0, (C.stage !== 'disengaged' && speed >= 5.1) ? 1 + (speed - 5.1) * 0.1 : 0); if (last == null) damageHeld(1);
+      const kb = (C.stage === 'engaged' || C.stage === 'tired') && speed >= SPEAR.kbSpeed ? Math.min(2.5, 0.6 + (speed - SPEAR.kbSpeed) * 0.12) : 0; // same as against mobs
+      pvpHit(av, last == null ? Math.floor(sp.spear.mult * speed) : 0, kb); if (last == null) damageHeld(1);
     }
     return r;
   }; }

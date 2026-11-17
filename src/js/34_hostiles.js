@@ -208,12 +208,31 @@ MOBS.breeze.tick = function (m, dt) {
   if (!m.onGround) { m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.vel.y = Math.max(m.vel.y - 28 * dt, -30); moveEntity(m, dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.colorize(); return true; }
   return false;
 };
+// A player's wind charge on a player, as in Minecraft (Java 1.21 explosion knockback): radius 1.2, so it reaches 2.4
+// blocks, measured to your FEET; strength = (1 - distance / 2.4) x 1.22 blocks per tick, less with Blast Protection;
+// pushed along the line from the burst to your EYES, and ADDED to the speed you already have (so throwing at the top of
+// a jump goes higher). Minecraft's tick physics (gravity 0.08, 2% air drag up, 9% sideways) are turned into this game's
+// so the height and distance come out the same: about 6 blocks thrown straight down, about 8 to 11 with a jump.
+function mcApex(v) { let y = 0, top = 0; for (let i = 0; i < 200 && v > 0; i++) { y += v; v = (v - 0.08) * 0.98; if (y > top) top = y; } return top; }
+function windKnockMC(P, p) {
+  const d = P.pos.distanceTo(p) / 2.4; if (d > 1) return false;
+  const eye = new V3(P.pos.x, P.pos.y + (P.eyeH || 1.62), P.pos.z); const dir = eye.sub(p); if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0); dir.normalize();
+  const resist = typeof blastKbResist === 'function' ? blastKbResist(P) : 0;
+  const k = (1 - d) * 1.22 * (1 - resist); // blocks per tick
+  const g = MODS.physics.gravity;
+  const vy = (P.onGround ? 0 : P.vel.y / 20) + dir.y * k; // Minecraft units
+  P.vel.y = vy > 0 ? Math.sqrt(2 * g * mcApex(vy)) : vy * 20;
+  P.vel.x += dir.x * k * 27.8; P.vel.z += dir.z * k * 27.8; // same sideways distance as Minecraft's 0.91 air drag
+  P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now();
+  return true;
+}
 // a wind burst: pushes everything nearby away; your own wind charges launch you (and spare you fall damage)
 function windBurst(p, power, src) {
   SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); (blkPlay('snd.entity.wind_charge.wind_burst', 0.8, p) || Sfx.at('vwoop', p, 0.9, 0.6));
   const R = power > 1 ? 2.4 : 2.5 + power * 0.5; // a player's wind charge reaches about 2.4 blocks (explosion radius 1.2); a breeze's is wider
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
-  const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
+  const P = player; if (power === 1.1) { if (!P.dead && !P.riding) windKnockMC(P, p); return; }
+  const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
   if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * (typeof WIND_UP === 'number' ? WIND_UP : 1)); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
 }
 { const _pi = projImpact; projImpact = function (a, mob) {

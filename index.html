@@ -11435,10 +11435,14 @@ function pvpReceive(m) {
     for (const av of MP.avatars.values()) {
       if (av.dim !== world.dim || av.dead || av.spec) continue;
       const t = rayAABB(eye, dir, new V3(av.pos.x - 0.425, av.pos.y - 0.125, av.pos.z - 0.425), new V3(av.pos.x + 0.425, av.pos.y + PVP_H(av) + 0.125, av.pos.z + 0.425)); if (t < 1.875 || t > 4.5) continue;
-      const av0 = av.prevPos || av.pos; const avv = av.pos.clone().sub(av0).divideScalar(Math.max(dt, 1e-3)); av.prevPos = av.pos.clone();
-      const speed = (pv.x - avv.x) * dir.x + (pv.z - avv.z) * dir.z; if (speed < 4.6) continue;
+      // their speed is the velocity they report over the network (it used to be worked out from a position that was only
+      // saved while they were inside the reach band, so someone walking in looked like they moved several blocks in one
+      // frame: a one-hit kill with a huge knockback)
+      const avv = av.nvel && performance.now() - (av.netT || 0) < 500 ? av.nvel : new V3();
+      const speed = (pv.x - avv.x) * dir.x + (pv.z - avv.z) * dir.z; if (speed < SPEAR.dmgSpeed) continue;
       const key = 'av:' + av.id; const last = C.hits.get(key); if (last != null && C.t - last < 0.5) continue; C.hits.set(key, C.t);
-      pvpHit(av, last == null ? Math.floor(sp.spear.mult * speed) : 0, (C.stage !== 'disengaged' && speed >= 5.1) ? 1 + (speed - 5.1) * 0.1 : 0); if (last == null) damageHeld(1);
+      const kb = (C.stage === 'engaged' || C.stage === 'tired') && speed >= SPEAR.kbSpeed ? Math.min(2.5, 0.6 + (speed - SPEAR.kbSpeed) * 0.12) : 0; // same as against mobs
+      pvpHit(av, last == null ? Math.floor(sp.spear.mult * speed) : 0, kb); if (last == null) damageHeld(1);
     }
     return r;
   }; }
@@ -12030,12 +12034,31 @@ MOBS.breeze.tick = function (m, dt) {
   if (!m.onGround) { m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.vel.y = Math.max(m.vel.y - 28 * dt, -30); moveEntity(m, dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.colorize(); return true; }
   return false;
 };
+// A player's wind charge on a player, as in Minecraft (Java 1.21 explosion knockback): radius 1.2, so it reaches 2.4
+// blocks, measured to your FEET; strength = (1 - distance / 2.4) x 1.22 blocks per tick, less with Blast Protection;
+// pushed along the line from the burst to your EYES, and ADDED to the speed you already have (so throwing at the top of
+// a jump goes higher). Minecraft's tick physics (gravity 0.08, 2% air drag up, 9% sideways) are turned into this game's
+// so the height and distance come out the same: about 6 blocks thrown straight down, about 8 to 11 with a jump.
+function mcApex(v) { let y = 0, top = 0; for (let i = 0; i < 200 && v > 0; i++) { y += v; v = (v - 0.08) * 0.98; if (y > top) top = y; } return top; }
+function windKnockMC(P, p) {
+  const d = P.pos.distanceTo(p) / 2.4; if (d > 1) return false;
+  const eye = new V3(P.pos.x, P.pos.y + (P.eyeH || 1.62), P.pos.z); const dir = eye.sub(p); if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0); dir.normalize();
+  const resist = typeof blastKbResist === 'function' ? blastKbResist(P) : 0;
+  const k = (1 - d) * 1.22 * (1 - resist); // blocks per tick
+  const g = MODS.physics.gravity;
+  const vy = (P.onGround ? 0 : P.vel.y / 20) + dir.y * k; // Minecraft units
+  P.vel.y = vy > 0 ? Math.sqrt(2 * g * mcApex(vy)) : vy * 20;
+  P.vel.x += dir.x * k * 27.8; P.vel.z += dir.z * k * 27.8; // same sideways distance as Minecraft's 0.91 air drag
+  P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now();
+  return true;
+}
 // a wind burst: pushes everything nearby away; your own wind charges launch you (and spare you fall damage)
 function windBurst(p, power, src) {
   SpriteFX.emit(power >= 1 ? 'gust' : 'small_gust', p.x, p.y, p.z, power >= 1 ? 5 : 3, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); (blkPlay('snd.entity.wind_charge.wind_burst', 0.8, p) || Sfx.at('vwoop', p, 0.9, 0.6));
   const R = power > 1 ? 2.4 : 2.5 + power * 0.5; // a player's wind charge reaches about 2.4 blocks (explosion radius 1.2); a breeze's is wider
   for (const m of G.mobs) { if (m.dead || m === src || m.type === 'breeze') continue; const c = m.pos.clone().add(new V3(0, m.h / 2, 0)); const d = c.distanceTo(p); if (d > R) continue; const k = (1 - d / R) * 10 * power; const dir = c.sub(p).normalize(); m.vel.x += dir.x * k; m.vel.z += dir.z * k; m.vel.y = Math.max(m.vel.y, Math.abs(dir.y) * k * 0.6 + k * 0.5); }
-  const P = player; const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
+  const P = player; if (power === 1.1) { if (!P.dead && !P.riding) windKnockMC(P, p); return; }
+  const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
   if (d < R && !P.dead) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); if (P.riding) return; P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * (typeof WIND_UP === 'number' ? WIND_UP : 1)); P.peak = null; P.windSafeT = 2; P.windFloorY = Math.min(P.windFloorY != null ? P.windFloorY : Infinity, P.pos.y); P.windT = performance.now(); }
 }
 { const _pi = projImpact; projImpact = function (a, mob) {
@@ -20361,7 +20384,7 @@ const isSpearId = (id) => !!(id && ITEMS[id] && ITEMS[id].kind === 'tool' && ITE
 
 // ================= THE MACE AND WIND CHARGES AGAINST PLAYERS =================
 // A mace smash on another player now gets its fall bonus (it was only counted against mobs), with the shockwave and
-// Wind Burst. Wind charges throw other players too, and launch you higher: one at your feet is worth about 8 blocks.
+// Wind Burst. Wind charges throw other players too. A player's wind charge uses Minecraft's own knockback (windKnockMC in 34_hostiles.js).
 var WIND_UP = 1.37;
 { const _mh = meleeHit; meleeHit = function (tool, mob) {
     if (!mob && typeof MP !== 'undefined' && MP.active) { const hit = avatarRay(player.eye(), lookDir(), S.mode === 'creative' ? 5 : 3); if (hit) mob = { type: 'player', isAvatar: true, pos: hit.av.pos, vel: new V3(), h: 1.8, hw: 0.3, hp: 20 }; }
@@ -20372,7 +20395,8 @@ var WIND_UP = 1.37;
     if (m.t === 'fx' && m.k === 'wind' && m.dim === world.dim && S.rules.pvp !== false) { const P = player; const p = new V3(m.x, m.y, m.z); const power = Math.min(2, m.p || 1); const R = power > 1 ? 2.4 : 2.5 + power * 0.5;
       SpriteFX.emit('gust', p.x, p.y, p.z, 5, { size: 2, spd: 1, life: 0.6, spread: 1.5, vary: false }) || Particles.emit(p.x, p.y, p.z, 30, [[0.85, 0.9, 1], [0.7, 0.8, 1]], 6, 0.6, 2, 1.2); Sfx.at('vwoop', p, 0.9, 0.6);
       const c = P.pos.clone().add(new V3(0, 0.9, 0)); const d = c.distanceTo(p);
-      if (d < R && !P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * WIND_UP); P.peak = null; } }
+      if (power === 1.1) { if (!P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) windKnockMC(P, p); } // a player's wind charge: Minecraft's numbers
+      else if (d < R && !P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * WIND_UP); P.peak = null; } }
     return _on(peer, m); }; }
 
 // ================= FIRST PERSON, CLOSER TO MINECRAFT =================
