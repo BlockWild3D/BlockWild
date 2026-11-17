@@ -28,3 +28,4 @@ Every other sound (bow, shield, portal, level-up and so on) is generated in code
 ## Libraries
 
 - [three.js](https://threejs.org) r128 (MIT)
+- Minecraft terrain engine (src/js/02e_mcterrain.js): density functions, noises, splines and material rules follow [deepslate](https://github.com/misode/deepslate) by Misode (MIT), which it was tested against; worldgen data from Minecraft 26.3 (data/minecraft/worldgen).
