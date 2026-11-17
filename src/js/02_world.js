@@ -673,6 +673,14 @@ class World {
       }
       if (def.render === 'boxes') { // small models made of boxes (anvils, stairs, fences...), textured like Minecraft's block models
         const s = Math.max(sky(x, y, z), sky(x, y + 1, z)); const b0 = litHere ? blk(x + 0.5, y + 0.5, z + 0.5) : 0; const sw = def.swapXZ;
+        // exact Minecraft block models (01zzz_mcmodels.js): faces with their own texture areas, tilted elements
+        const mq = typeof mcq === 'function' ? mcq(id) : null;
+        if (mq) { for (const q of mq) { if (q.c >= 0) { const N = FACES[q.c].n; if (OPAQUE[get(x + N[0], y + N[1], z + N[2])]) continue; }
+            const uv = TILE_UV[q.t]; const shd = q.s ? FACES[q.n].s : 1;
+            for (let k = 0; k < 4; k++) { vtmp[k * 3] = x + q.v[k * 3]; vtmp[k * 3 + 1] = y + q.v[k * 3 + 1]; vtmp[k * 3 + 2] = z + q.v[k * 3 + 2];
+              uvtmp[k * 2] = uv[0] + (uv[2] - uv[0]) * q.u[k * 2] / 16; uvtmp[k * 2 + 1] = uv[1] + (uv[3] - uv[1]) * (1 - q.u[k * 2 + 1] / 16); sh[k] = shd; bl[k] = b0; }
+            quad(def.translucent ? T : O, vtmp.slice(), uvtmp.slice(), q.c >= 0 ? sky(x + FACES[q.c].n[0], y + FACES[q.c].n[1], z + FACES[q.c].n[2]) : s, bl.slice(), sh.slice(), false, 0); }
+          if (FKIND[id] === 1) wlWater(x, y, z, id, b0); continue; }
         const boxes = SHAPED[id] ? shapeBoxes(id, x, y, z, get, 'r') : def.boxes;
         for (const bx of boxes) {
           const a0 = (sw ? bx[2] : bx[0]) / 16, y0 = bx[1] / 16, c0 = (sw ? bx[0] : bx[2]) / 16, a1 = (sw ? bx[5] : bx[3]) / 16, y1 = bx[4] / 16, c1 = (sw ? bx[3] : bx[5]) / 16;
