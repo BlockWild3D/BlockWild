@@ -22,7 +22,7 @@ Object.assign(STRUCT_NAMES, { end_city: 'end_city' });
 LOOT.end_city = [['diamond', 2, 7, 0.3], ['iron_ingot', 4, 8, 0.5], ['gold_ingot', 2, 7, 0.5], ['emerald', 2, 6, 0.3], ['diamond_sword', 1, 1, 0.1], ['diamond_chestplate', 1, 1, 0.08], ['diamond_pickaxe', 1, 1, 0.08], ['iron_sword', 1, 1, 0.1], ['saddle', 1, 1, 0.15], ['diamond_horse_armor', 1, 1, 0.08], ['enchanted_book', 1, 1, 0.25]];
 LOOT.end_ship = [['elytra', 1, 1, 1], ['diamond', 2, 5, 0.4], ['emerald', 2, 6, 0.3], ['enchanted_book', 1, 1, 0.3], ['iron_ingot', 2, 6, 0.4]];
 { const _es = endStructures; endStructures = function (world, cx, cz) {
-    const S = _es(world, cx, cz); if (S.endCity || Math.hypot(cx * 16, cz * 16) < 900) return S; S.endCity = true;
+    const S = _es(world, cx, cz); if (S.endCity || Math.hypot(cx * 16, cz * 16) < 900 || MCST_ON()) return S; S.endCity = true;
     const st = startNear(world, 'end_city', cx, cz, 0); if (!st) return S; const g = world.gen; const xc = cx * 16 + 8, zc = cz * 16 + 8; const base = g.column(xc, zc); if (!base.h) return S;
     const hard = (x, y, z, id) => { if (y > 0 && y < WH) S.hard.push(x, y, z, id); }; const r = mulberry32(st.seed); let y = base.h;
     const floors = 3 + (r() * 3 | 0);

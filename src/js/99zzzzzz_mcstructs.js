@@ -230,7 +230,8 @@ const MCJ = {
             if (id === B.TRIAL_SPAWNER) { const m = t.loc.split('/').pop(); const mob = { poison_skeleton: 'bogged', baby_zombie: 'zombie' }[m] || m; (c.trials = c.trials || []).push([x, y, z, typeof MOBS !== 'undefined' && MOBS[mob] ? mob : 'zombie']); }
             else if (id === B.VAULT) (c.vaults = c.vaults || []).push([x, y, z, /ominous/.test(t.loc) ? 'ominous_vault' : 'trial_vault']); },
           chest: (x, y, z, tbl) => { if (inC(x, z)) mcSetChest(world, x, tm ? MCJ.H(x, z, g) - 1 + (y - p.y) : y, z, tbl); },
-          entity: (type, x, y, z) => { if (inC(x, z) && S && typeof MOBS !== 'undefined' && MOBS[type]) S.mobs.push([type, x + 0.5, tm ? MCJ.H(x, z, g) + (y - p.y) - 1 : y, z + 0.5]); } });
+          entity: (type, x, y, z) => { if (inC(x, z) && S && typeof MOBS !== 'undefined' && MOBS[type]) S.mobs.push([type, x + 0.5, tm ? MCJ.H(x, z, g) + (y - p.y) - 1 : y, z + 0.5]); },
+          marker: L.marker ? ((k, x, y, z) => { if (inC(x, z)) L.marker(k, x, y, z, S, c); }) : null });
       }
     }
   },
@@ -276,3 +277,174 @@ function mcjChunk(world, c) {
 { const _a = buildAncientChunk; buildAncientChunk = function () { if (!MCST_ON()) return _a.apply(this, arguments); }; }
 { const _b = buildBastionChunk; buildBastionChunk = function (world, c) { if (!MCST_ON()) return _b.apply(this, arguments); try { mcjChunk(world, c); } catch (e) { console.error('bastion', e); } }; }
 { const _wc = worldgenCleanup; worldgenCleanup = function (world, c) { const r = _wc.apply(this, arguments); try { mcjChunk(world, c); } catch (e) { console.error('jigsaw', e); } return r; }; }
+
+// ================= END CITIES (Minecraft's EndCityPieces, rebuilt in JS) =================
+// The real pieces from the owner's templates, put together the way Minecraft's code does it: a house tower, then
+// towers, bridges, more house towers and fat towers recursively (8 deep), each batch thrown away if it hits an
+// earlier one, and sometimes an End ship 70 blocks out at the end of a bridge.
+const EC = {
+  piece(name, x, y, z, rot, ow) { const b = MCST.box('end_city/' + name, x, y, z, rot, 0, 0); return { name, x, y, z, rot, ow, box: b, gd: 0 }; },
+  add(prev, off, name, rot, ow) { const [a, b] = MCST.xf(off[0], off[2], prev.rot, 0, 0); return EC.piece(name, prev.x + a, prev.y + off[1], prev.z + b, rot, ow); },
+  TOWER_BRIDGES: [[0, [1, -1, 0]], [1, [6, -1, 1]], [3, [0, -1, 5]], [2, [5, -1, 6]]],
+  FAT_BRIDGES: [[0, [4, -1, 0]], [1, [12, -1, 4]], [3, [0, -1, 8]], [2, [8, -1, 12]]],
+  recurse(gen, depth, parent, pos, pieces, r, st) {
+    if (depth > 8) return false; const list = [];
+    if (EC[gen](depth, parent, pos, list, r, st)) { const i = (r() * 2147483647) | 0; let hit = false;
+      for (const p of list) { p.gd = i; const c = pieces.find(q => MCJ.hit(q.box, p.box)); if (c && c.gd !== parent.gd) { hit = true; break; } }
+      if (!hit) { pieces.push(...list); return true; } }
+    return false; },
+  tower(depth, parent, pos, L, r, st) {
+    const rot = parent.rot; let p = EC.add(parent, [3 + (r() * 2 | 0), -3, 3 + (r() * 2 | 0)], 'tower_base', rot, true); L.push(p);
+    p = EC.add(p, [0, 7, 0], 'tower_piece', rot, true); L.push(p); let floor = (r() * 3 | 0) === 0 ? p : null; const n = 1 + (r() * 3 | 0);
+    for (let j = 0; j < n; j++) { p = EC.add(p, [0, 4, 0], 'tower_piece', rot, true); L.push(p); if (j < n - 1 && r() < 0.5) floor = p; }
+    if (floor) { for (const [ro, off] of EC.TOWER_BRIDGES) if (r() < 0.5) { const b = EC.add(floor, off, 'bridge_end', (rot + ro) % 4, true); L.push(b); EC.recurse('bridge', depth + 1, b, null, L, r, st); }
+      L.push(EC.add(p, [-1, 4, -1], 'tower_top', rot, true)); }
+    else { if (depth !== 7) return EC.recurse('fat', depth + 1, p, null, L, r, st); L.push(EC.add(p, [-1, 4, -1], 'tower_top', rot, true)); }
+    return true; },
+  bridge(depth, parent, pos, L, r, st) {
+    const rot = parent.rot; const n = (r() * 4 | 0) + 1; let p = EC.add(parent, [0, 0, -4], 'bridge_piece', rot, true); p.gd = -1; L.push(p); let j = 0;
+    for (let k = 0; k < n; k++) { if (r() < 0.5) { p = EC.add(p, [0, j, -4], 'bridge_piece', rot, true); L.push(p); j = 0; }
+      else { p = r() < 0.5 ? EC.add(p, [0, j, -4], 'bridge_steep_stairs', rot, true) : EC.add(p, [0, j, -8], 'bridge_gentle_stairs', rot, true); L.push(p); j = 4; } }
+    if (!st.ship && (r() * (10 - depth) | 0) === 0) { L.push(EC.add(p, [-8 + (r() * 8 | 0), j, -70 + (r() * 10 | 0)], 'ship', rot, true)); st.ship = true; }
+    else if (!EC.recurse('house', depth + 1, p, [-3, j + 1, -11], L, r, st)) return false;
+    p = EC.add(p, [4, j, 0], 'bridge_end', (rot + 2) % 4, true); p.gd = -1; L.push(p); return true; },
+  house(depth, parent, pos, L, r, st) {
+    if (depth > 8) return false; const rot = parent.rot; let p = EC.add(parent, pos, 'base_floor', rot, true); L.push(p); const i = r() * 3 | 0;
+    if (i === 0) L.push(EC.add(p, [-1, 4, -1], 'base_roof', rot, true));
+    else if (i === 1) { p = EC.add(p, [-1, 0, -1], 'second_floor_2', rot, false); L.push(p); p = EC.add(p, [-1, 8, -1], 'second_roof', rot, false); L.push(p); EC.recurse('tower', depth + 1, p, null, L, r, st); }
+    else { p = EC.add(p, [-1, 0, -1], 'second_floor_2', rot, false); L.push(p); p = EC.add(p, [-1, 4, -1], 'third_floor_2', rot, false); L.push(p); p = EC.add(p, [-1, 8, -1], 'third_roof', rot, true); L.push(p); EC.recurse('tower', depth + 1, p, null, L, r, st); }
+    return true; },
+  fat(depth, parent, pos, L, r, st) {
+    const rot = parent.rot; let p = EC.add(parent, [-3, 4, -3], 'fat_tower_base', rot, true); L.push(p); p = EC.add(p, [0, 4, 0], 'fat_tower_middle', rot, true); L.push(p);
+    for (let i = 0; i < 2 && (r() * 3 | 0) !== 0; i++) { p = EC.add(p, [0, 8, 0], 'fat_tower_middle', rot, true); L.push(p);
+      for (const [ro, off] of EC.FAT_BRIDGES) if (r() < 0.5) { const b = EC.add(p, off, 'bridge_end', (rot + ro) % 4, true); L.push(b); EC.recurse('bridge', depth + 1, b, null, L, r, st); } }
+    L.push(EC.add(p, [-2, 8, -2], 'fat_tower_top', rot, true)); return true; },
+  layout(world, st) {
+    const g = world.gen; const r = mulberry32((st.seed ^ 0xec17) >>> 0); const rot = r() * 4 | 0; const x = st.cx * 16 + 7, z = st.cz * 16 + 7;
+    // Minecraft: the lowest of the 4 corners of a 5x5 square (turned with the city), at least y 60 there; this game's End
+    // islands sit lower (~y 55), so any solid island counts
+    const [ox, oz] = MCST.xf(5, 5, rot, 0, 0); let y = 1e9; for (const [a, b] of [[0, 0], [ox, 0], [0, oz], [ox, oz]]) y = Math.min(y, g.column(x + a, z + b).h || 0); if (y < 30) return null;
+    const pieces = []; const s = { ship: false }; let p = EC.piece('base_floor', x, y, z, rot, true); pieces.push(p);
+    p = EC.add(p, [-1, 0, -1], 'second_floor_1', rot, false); pieces.push(p); p = EC.add(p, [-1, 4, -1], 'third_floor_1', rot, false); pieces.push(p); p = EC.add(p, [-1, 8, -1], 'third_roof', rot, true); pieces.push(p);
+    EC.recurse('tower', 1, p, null, pieces, r, s);
+    const L = { pieces: pieces.map(q => ({ t: { loc: 'end_city/' + q.name, proj: 'rigid', legacy: !q.ow }, rot: q.rot, x: q.x, y: q.y, z: q.z, box: q.box })), adapt: 'none', seed: st.seed,
+      marker: (k, a, b, c, S, ch) => { if (k.startsWith('Chest')) { mcSetChest(world, a, b - 1, c, 'chests/end_city_treasure'); }
+        else if (k === 'Sentry') { if (S) S.mobs.push(['shulker', a + 0.5, b, c + 0.5]); }
+        else if (k === 'Elytra') { const j = (b * 16 + (c - ch.cz * 16)) * 16 + (a - ch.cx * 16); ch.d[j] = B.CHEST; world.chestLoot.set(a + ',' + b + ',' + c, 'end_ship'); } } };
+    L.all = { x0: Math.min(...L.pieces.map(q => q.box.x0)), x1: Math.max(...L.pieces.map(q => q.box.x1)), z0: Math.min(...L.pieces.map(q => q.box.z0)), z1: Math.max(...L.pieces.map(q => q.box.z1)) };
+    return L; },
+};
+// ================= WOODLAND MANSIONS (real pieces; the floor plan is generated here) =================
+// Minecraft's mansion code (WoodlandMansionPieces) is Java, not data, so the plan is this game's own: an 8 x 7 grid
+// of 8-block cells on two floors, corridors from the grand entrance hall, rooms (1x1, 1x2, 2x2 from the right
+// floor's sets; secret rooms where no corridor reaches) turned so their open side faces their door, indoor walls and
+// doors between them, outer walls with windows, a flat roof, cobblestone foundation. Vindicators, evokers, allays
+// and chests come from the room templates' own markers.
+const WM = {
+  W: 8, D: 7,
+  tplOpen(name) { WM._o = WM._o || {}; if (WM._o[name]) return WM._o[name]; const t = MCST.H.t['woodland_mansion/' + name]; const [sx, sy, sz] = t.s; const V = MCST.V, P = MCST.H.pal;
+    const air = (x, y, z) => { const v = V[t.o + (y * sz + z) * sx + x]; return v !== 0xFFFF && P[v][0] === 0; };
+    // openness of each side, per 8-block segment: e/w along z, s/n along x
+    const seg = (n) => Math.max(1, Math.round((n + 1) / 8)); const o = { e: new Array(seg(sz)).fill(0), w: new Array(seg(sz)).fill(0), s: new Array(seg(sx)).fill(0), n: new Array(seg(sx)).fill(0) };
+    for (let y = 1; y <= 3; y++) { for (let z = 0; z < sz; z++) { if (air(sx - 1, y, z)) o.e[z >> 3]++; if (air(0, y, z)) o.w[z >> 3]++; } for (let x = 0; x < sx; x++) { if (air(x, y, sz - 1)) o.s[x >> 3]++; if (air(x, y, 0)) o.n[x >> 3]++; } }
+    return (WM._o[name] = o); },
+  // pick the turn of a room template so its open side faces dir (n/e/s/w) at segment k of that side
+  turn(name, wCells, dCells, dir, k) { const t = MCST.H.t['woodland_mansion/' + name].s; const o = WM.tplOpen(name); let best = 0, bs = -1;
+    for (let r = 0; r < 4; r++) { const w = r & 1 ? t[2] : t[0], d = r & 1 ? t[0] : t[2]; if (Math.round((w + 1) / 8) !== wCells || Math.round((d + 1) / 8) !== dCells) continue;
+      // local side that ends up facing dir after r clockwise turns
+      const order = ['n', 'e', 's', 'w']; const ls = order[(order.indexOf(dir) - r + 4) % 4]; const arr = o[ls]; const n = arr.length;
+      // segment index flips when the turn reverses that axis
+      const flip = (dir === 'n' || dir === 's') ? (r === 1 || r === 2) : (r === 2 || r === 3); const kk = Math.min(n - 1, flip ? n - 1 - k : k);
+      const sc = arr[kk] * 10 + arr.reduce((a, b) => a + b, 0); if (sc > bs) { bs = sc; best = r; } }
+    return best; },
+  plan(r) {
+    const W = WM.W, D = WM.D; const ez = (D >> 1) - 1; const floors = [];
+    for (let f = 0; f < 2; f++) {
+      const g = []; for (let x = 0; x < W; x++) { g.push([]); for (let z = 0; z < D; z++) g[x].push(null); }
+      for (const [x, z] of [[W - 2, ez], [W - 1, ez], [W - 2, ez + 1], [W - 1, ez + 1]]) g[x][z] = 'E';
+      for (let x = 1; x < W; x++) g[x][ez - 1] = 'C'; for (let z = 1; z < D - 1; z++) g[1][z] = 'C'; for (let x = 1; x < W - 2; x++) g[x][ez + 2] = 'C';
+      // a random corridor branch or two
+      for (let b = 0; b < 2; b++) { const x = 2 + (r() * (W - 4) | 0); for (let z = 1; z < D - 1; z++) if (!g[x][z]) g[x][z] = r() < 0.7 ? 'C' : null; }
+      const rooms = []; const cells = []; for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) if (!g[x][z]) cells.push([x, z]);
+      cells.sort(() => r() - 0.5);
+      const free = (x, z) => x >= 0 && z >= 0 && x < W && z < D && g[x][z] === null;
+      for (const [x, z] of cells) { if (!free(x, z)) continue; let w = 1, d = 1; const q = r();
+        if (q < 0.35 && free(x + 1, z) && free(x, z + 1) && free(x + 1, z + 1)) { w = 2; d = 2; } else if (q < 0.7 && free(x + 1, z)) w = 2; else if (q < 0.85 && free(x, z + 1)) d = 2;
+        const R = { x, z, w, d, id: rooms.length }; for (let a = 0; a < w; a++) for (let b = 0; b < d; b++) g[x + a][z + b] = R; rooms.push(R); }
+      // doors: a room cell next to a corridor
+      for (const R of rooms) { const opts = []; for (let a = 0; a < R.w; a++) for (let b = 0; b < R.d; b++) for (const [dx, dz, dir] of [[0, -1, 'n'], [1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w']]) {
+          const nx = R.x + a + dx, nz = R.z + b + dz; if (nx >= 0 && nz >= 0 && nx < W && nz < D && g[nx][nz] === 'C') opts.push({ cx: R.x + a, cz: R.z + b, dir, k: dir === 'n' || dir === 's' ? a : b }); }
+        R.door = opts.length ? opts[r() * opts.length | 0] : null; }
+      floors.push({ g, rooms });
+    }
+    return { floors, ez };
+  },
+  layout(world, st) {
+    const g = world.gen; const r = mulberry32((st.seed ^ 0x3a7b) >>> 0); const R = r() * 4 | 0; const W = WM.W, D = WM.D;
+    const ox = st.cx * 16 + 8, oz = st.cz * 16 + 8; // local (0,0) = centre of the start chunk, grid centred on it
+    const L0x = -((W * 8) >> 1), L0z = -((D * 8) >> 1); const plan = WM.plan(r); const ez = plan.ez;
+    const toW = (lx, lz) => { const [a, b] = MCST.xf(lx, lz, R, 0, 0); return [ox + a, oz + b]; };
+    let ys = []; for (const [a, b] of [[L0x, L0z], [L0x + W * 8, L0z], [L0x, L0z + D * 8], [L0x + W * 8, L0z + D * 8], [0, 0]]) { const [x, z] = toW(a, b); ys.push(g.column(x, z).h); } ys.sort((a, b) => a - b); const y0 = ys[2];
+    const pieces = []; const P = (name, lx, ly, lz, lrot) => { const full = 'woodland_mansion/' + name; if (!MCST.H.t[full]) return; const rot = (lrot + R) % 4; const s = MCST.H.t[full].s; const w = lrot & 1 ? s[2] : s[0], d = lrot & 1 ? s[0] : s[2];
+        let mx = 1e9, mz = 1e9; for (const [a, b] of [[lx, lz], [lx + w - 1, lz], [lx, lz + d - 1], [lx + w - 1, lz + d - 1]]) { const [x, z] = toW(a, b); mx = Math.min(mx, x); mz = Math.min(mz, z); }
+        const b0 = MCST.box(full, 0, 0, 0, rot, 0, 0); const x = mx - b0.x0, z = mz - b0.z0; pieces.push({ t: { loc: full, proj: 'rigid', legacy: false }, rot, x, y: y0 + ly, z, box: MCST.box(full, x, y0 + ly, z, rot, 0, 0) }); };
+    const cx = (gx) => L0x + gx * 8 + 1, cz = (gz) => L0z + gz * 8 + 1; // cell interior min corner (local)
+    const house = (f, x, z) => x >= 0 && z >= 0 && x < W && z < D && plan.floors[f].g[x][z] != null;
+    const FY = [0, 8];
+    for (let f = 0; f < 2; f++) { const F = plan.floors[f]; const yb = FY[f];
+      // corridors
+      for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) if (F.g[x][z] === 'C') P('corridor_floor', cx(x), yb, cz(z), 0);
+      // rooms
+      const S1 = f ? ['1x1_b', 5] : ['1x1_a', 5], S1s = ['1x1_as', 4], S2side = f ? ['1x2_c', 4] : ['1x2_a', 9], S2front = f ? ['1x2_d', 5] : ['1x2_b', 5], S2s = f ? ['1x2_se', 1] : ['1x2_s', 2], S4 = f ? ['2x2_b', 5] : ['2x2_a', 4];
+      const pick = (s) => s[0] + (1 + (r() * s[1] | 0));
+      for (const Rm of F.rooms) { const dr = Rm.door; let name;
+        if (Rm.w === 2 && Rm.d === 2) name = dr ? pick(S4) : '2x2_s1'; else if (Rm.w * Rm.d === 2) name = dr ? pick(r() < 0.5 ? S2side : S2front) : pick(S2s); else name = dr ? pick(S1) : pick(S1s);
+        const rot = dr ? WM.turn(name, Rm.w, Rm.d, dr.dir, dr.k) : (r() * 4 | 0) & (Rm.w === Rm.d ? 3 : 2); P(name, cx(Rm.x), yb, cz(Rm.z), rot);
+        Rm.name = name; }
+      // indoor walls / doors on every boundary between different spaces inside the house
+      const wallN = f ? 'indoors_wall_2' : 'indoors_wall_1', doorN = f ? 'indoors_door_2' : 'indoors_door_1';
+      const same = (a, b) => a === b || (a === 'C' && b === 'C') || (a === 'E' && b === 'E');
+      for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const a = F.g[x][z]; if (a == null) continue;
+        // east boundary (x | x+1) and south boundary (z | z+1)
+        if (x + 1 < W && F.g[x + 1][z] != null) { const b = F.g[x + 1][z]; if (!same(a, b) && !(a === 'E' || b === 'E')) { const door = [a, b].some(q => q && q.door && ((q === a && q.door.cx === x && q.door.cz === z && q.door.dir === 'e') || (q === b && q.door.cx === x + 1 && q.door.cz === z && q.door.dir === 'w'))); P(door ? doorN : wallN, cx(x) + 7, yb, cz(z), 0); } }
+        if (z + 1 < D && F.g[x][z + 1] != null) { const b = F.g[x][z + 1]; if (!same(a, b) && !(a === 'E' || b === 'E')) { const door = [a, b].some(q => q && q.door && ((q === a && q.door.cx === x && q.door.cz === z && q.door.dir === 's') || (q === b && q.door.cx === x && q.door.cz === z + 1 && q.door.dir === 'n'))); P(door ? doorN : wallN, cx(x), yb, cz(z) + 7, 1); } } }
+      // outer walls (2 thick: wall + trim outside); floor 1 gets windows and a short wall on top
+      for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (!house(f, x, z)) continue; const ent = F.g[x][z] === 'E';
+        const wn = f ? 'wall_window' : 'wall_flat';
+        const put = (lx, lz, rot) => { P(wn, lx, yb, lz, rot); if (f) P('small_wall', lx, yb + 8, lz, rot); };
+        if (!house(f, x + 1, z) && !ent) put(cx(x) + 7, cz(z), 0);
+        if (!house(f, x - 1, z)) put(cx(x) - 2, cz(z) - 1, 2);
+        if (!house(f, x, z + 1)) put(cx(x) - 1, cz(z) + 7, 1);
+        if (!house(f, x, z - 1)) put(cx(x), cz(z) - 2, 3); }
+    }
+    // the grand entrance (both floors, opens east) and a flat roof over everything
+    P('entrance', cx(W - 2) - 1, 0, cz(ez), 0);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) if (house(1, x, z)) P('roof', cx(x) - 1, 19, cz(z) - 1, 0);
+    const bx = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 }; for (const p of pieces) { bx.x0 = Math.min(bx.x0, p.box.x0); bx.x1 = Math.max(bx.x1, p.box.x1); bx.z0 = Math.min(bx.z0, p.box.z0); bx.z1 = Math.max(bx.z1, p.box.z1); }
+    const MOB = { Warrior: 'vindicator', Mage: 'evoker', 'Group of Allays': 'allay' };
+    return { pieces, all: bx, y0, adapt: 'none', seed: st.seed, site: { x0: bx.x0 - 2, x1: bx.x1 + 2, z0: bx.z0 - 2, z1: bx.z1 + 2 },
+      marker: (k, a, b, c, S, ch) => { if (k.startsWith('Chest')) { const j = (b * 16 + (c - ch.cz * 16)) * 16 + (a - ch.cx * 16); ch.d[j] = B.CHEST; mcSetChest(world, a, b, c, 'chests/woodland_mansion'); }
+        else if (MOB[k] && S && typeof MOBS !== 'undefined' && MOBS[MOB[k]]) S.mobs.push([MOB[k], a + 0.5, b, c + 0.5]); } };
+  },
+};
+// clear the mansion site and lay the cobblestone foundation before the pieces go down
+function mcSitePrep(world, c, L) { if (!L.site) return; const g = world.gen; const bx = c.cx * 16, bz = c.cz * 16; const d = c.d;
+  for (let x = Math.max(L.site.x0, bx); x <= Math.min(L.site.x1, bx + 15); x++) for (let z = Math.max(L.site.z0, bz); z <= Math.min(L.site.z1, bz + 15); z++) {
+    const inner = x > L.site.x0 + 1 && x < L.site.x1 - 1 && z > L.site.z0 + 1 && z < L.site.z1 - 1; const h = g.column(x, z).h;
+    for (let y = L.y0; y < Math.min(WH, Math.max(h, L.y0) + 30); y++) d[(y * 16 + (z - bz)) * 16 + (x - bx)] = 0;
+    for (let y = Math.max(1, Math.min(h, L.y0) - 2); y < L.y0; y++) d[(y * 16 + (z - bz)) * 16 + (x - bx)] = inner ? B.COBBLESTONE : (y === L.y0 - 1 ? B.GRASS : B.DIRT); } }
+function mcBigChunk(world, c, kind) {
+  if (!MCST_ON()) return false; const S = world.hintsDone.has(c.key) ? null : structuresFor(world, c.cx, c.cz); let any = false;
+  const reach = kind === 'end_city' ? 9 : 5; const sp = PLACE[kind].spacing;
+  for (let rx = Math.floor((c.cx - reach) / sp); rx <= Math.floor((c.cx + reach) / sp); rx++) for (let rz = Math.floor((c.cz - reach) / sp); rz <= Math.floor((c.cz + reach) / sp); rz++) {
+    const st = regionStart(world, kind, rx, rz); if (!st || Math.max(Math.abs(st.cx - c.cx), Math.abs(st.cz - c.cz)) > reach) continue;
+    if (kind === 'end_city' && Math.hypot(st.cx * 16, st.cz * 16) < 900) continue;
+    world.mcjCache = world.mcjCache || new Map(); const key = kind + ':' + st.cx + ',' + st.cz; let L = world.mcjCache.get(key);
+    if (L === undefined) { L = kind === 'end_city' ? EC.layout(world, st) : WM.layout(world, st); world.mcjCache.set(key, L); }
+    if (!L || L.all.x1 < c.cx * 16 || L.all.x0 > c.cx * 16 + 15 || L.all.z1 < c.cz * 16 || L.all.z0 > c.cz * 16 + 15) continue;
+    mcSitePrep(world, c, L); MCJ.stamp(world, c, L, S); any = true; }
+  return any; }
+// the mansion goes down after trees and other structures (worldgenCleanup) so nothing grows inside it
+{ const _m = buildMansionChunk; buildMansionChunk = function (world, c) { if (!MCST_ON()) return _m.apply(this, arguments); }; }
+{ const _wc = worldgenCleanup; worldgenCleanup = function (world, c) { const r = _wc.apply(this, arguments); try { mcBigChunk(world, c, 'woodland_mansion'); } catch (e) { console.error('mansion', e); } return r; }; }
+{ const _e = genEndChunk; genEndChunk = function (world, c) { const r = _e.apply(this, arguments); try { mcBigChunk(world, c, 'end_city'); } catch (e) { console.error('end city', e); } return r; }; }
