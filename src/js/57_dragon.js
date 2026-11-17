@@ -11,12 +11,12 @@
     if (!this.perchStart) { this.perchStart = true; this.perchHp = this.hp; this.breaths = 0; this.perchT = 0; }
     // fly in, then settle on the portal
     if (d > 1.2 && this.perchT === 0) { const want = land.clone().sub(this.pos); const L = want.length(); want.multiplyScalar(Math.min(16, Math.max(5, L)) / Math.max(L, 0.01)); this.vel.lerp(want, Math.min(1, dt * 2)); this.pos.addScaledVector(this.vel, dt); }
-    else { if (this.perchT === 0) { Sfx.play('roar', 1, 0.8); for (let i = 0; i < 6; i++) explodeFx(this.pos.x + (Math.random() - 0.5) * 6, fy + 1, this.pos.z + (Math.random() - 0.5) * 6); }
+    else { if (this.perchT === 0) { Sfx.play('dragon_growl', 1, 0.8); for (let i = 0; i < 6; i++) explodeFx(this.pos.x + (Math.random() - 0.5) * 6, fy + 1, this.pos.z + (Math.random() - 0.5) * 6); }
       this.perchT += dt; this.vel.set(0, 0, 0); this.pos.lerp(land, Math.min(1, dt * 4));
       const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); let df = want - this.yaw; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; this.yaw += df * Math.min(1, dt * 1.5);
       this.shootCD -= dt; const active = isSurv() && !P.dead;
       if (this.shootCD <= 0 && active && P.pos.distanceTo(this.pos) < 40) { this.shootCD = 3.2; this.breaths++; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); for (let k = 0; k < 3; k++) spawnBreathCloud(this.pos.x + f.x * (7 + k * 3), fy + 2, this.pos.z + f.z * (7 + k * 3)); this.jawT = 1.2; Sfx.play('roar', 0.8, 1.2); if (this.headPos) for (let i = 0; i < 40; i++) Particles.emit(this.headPos.x + f.x * i * 0.25, this.headPos.y - i * 0.05, this.headPos.z + f.z * i * 0.25, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 2, 1, 2, 0.6); }
-      if (this.breaths >= 3 || this.perchT > 18 || this.hp < this.perchHp - this.maxHp * 0.25 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; this.perchStart = false; this.vel.set(0, 10, 0); Sfx.play('roar', 1); } }
+      if (this.breaths >= 3 || this.perchT > 18 || this.hp < this.perchHp - this.maxHp * 0.25 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; this.perchStart = false; this.vel.set(0, 10, 0); Sfx.play('dragon_growl', 1); } }
     this.pitch += (0 - this.pitch) * Math.min(1, dt * 3); this.root.position.copy(this.pos); this.root.rotation.set(this.pitch, this.yaw, 0); this.calcSpheres();
     this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.hurtCD -= dt; this.contactCD -= dt;
     let healer = null, hd = 70; for (const c of EndFight.crystals) { if (c.dead) continue; const dd = c.pos.distanceTo(this.pos); if (dd < hd) { hd = dd; healer = c; } } this.healer = healer; if (healer && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + dt * 1.2);

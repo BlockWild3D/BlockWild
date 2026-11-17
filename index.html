@@ -7512,8 +7512,8 @@ class Dragon {
   hitPoint(p) { for (const [c, r] of this.spheres) if (c.distanceToSquared(p) < r * r) return true; return false; }
   hurt(dmg, src, kb, force) {
     if (this.dying || this.dead) return; if (!force && this.hurtCD > 0) return; this.hurtCD = 0.25;
-    this.hp -= dmg; this.hurtT = 0.3; if (Math.random() < 0.4) Sfx.play('roar', 0.6);
-    if (this.hp <= 0) { this.hp = 0; this.dying = true; this.dyingT = 0; Sfx.play('roar', 1.5); show('bossbar', true); }
+    this.hp -= dmg; this.hurtT = 0.3; if (Math.random() < 0.4) Sfx.play('dragon_hit', 0.6);
+    if (this.hp <= 0) { this.hp = 0; this.dying = true; this.dyingT = 0; Sfx.play('dragon_end', 1.5); show('bossbar', true); }
   }
   update(dt) {
     const P = G.player; this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.hurtCD -= dt; this.contactCD -= dt;
@@ -7533,9 +7533,9 @@ class Dragon {
     this.stateT -= dt;
     switch (this.state) {
       case 'circle': this.ang += dt * 0.3 * this.dirSign; tgt = new V3(Math.cos(this.ang) * 50, fy + 24 + Math.sin(this.age * 0.6) * 6, Math.sin(this.ang) * 50);
-        if (this.stateT <= 0) { if (!active) { this.stateT = 6; break; } const q = Math.random(); if (q < 0.4) { this.state = 'strafe'; this.stateT = 10; this.shots = 0; } else if (q < 0.72) { this.state = 'charge'; this.stateT = 7; Sfx.play('roar', 1); } else { this.state = 'perch'; this.stateT = 18; this.perchT = 0; } if (Math.random() < 0.3) this.dirSign *= -1; } break;
+        if (this.stateT <= 0) { if (!active) { this.stateT = 6; break; } const q = Math.random(); if (q < 0.4) { this.state = 'strafe'; this.stateT = 10; this.shots = 0; } else if (q < 0.72) { this.state = 'charge'; this.stateT = 7; Sfx.play('dragon_growl', 1); } else { this.state = 'perch'; this.stateT = 18; this.perchT = 0; } if (Math.random() < 0.3) this.dirSign *= -1; } break;
       case 'strafe': { const away = new V3(P.pos.x, 0, P.pos.z).normalize(); if (!isFinite(away.x)) away.set(1, 0, 0); tgt = new V3(P.pos.x + away.x * 22, P.pos.y + 14, P.pos.z + away.z * 22); speed = 17; this.shootCD -= dt;
-        if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('roar', 0.6); this.jawT = 0.5; }
+        if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('dragon_growl', 0.6); this.jawT = 0.5; }
         if (this.shots >= 3 || this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8 + Math.random() * 6; } break; }
       case 'charge': tgt = pe.clone(); speed = 26; turn = 3;
         if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Ender Dragon', 3); this.state = 'circle'; this.stateT = 9; }
@@ -7543,7 +7543,7 @@ class Dragon {
       case 'perch': { const pp = new V3(0, fy + 6, 0); const d = this.pos.distanceTo(pp);
         if (d > 3 && this.perchT === 0) { tgt = pp; speed = Math.max(6, Math.min(16, d)); }
         else { this.perchT += dt; tgt = pp; speed = 0; this.vel.multiplyScalar(Math.exp(-dt * 3)); const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); let df = want - this.yaw; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; this.yaw += df * Math.min(1, dt * 2);
-          this.shootCD -= dt; if (this.shootCD <= 0 && active && dist < 30) { this.shootCD = 2.4; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); const at = new V3(this.pos.x + f.x * 9, fy, this.pos.z + f.z * 9); spawnBreathCloud(at.x, fy + 3, at.z); this.jawT = 1; Sfx.play('roar', 0.8); for (let i = 0; i < 30; i++) Particles.emit(this.headPos.x, this.headPos.y, this.headPos.z, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 5, 0.8, 4, 0.5); }
+          this.shootCD -= dt; if (this.shootCD <= 0 && active && dist < 30) { this.shootCD = 2.4; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); const at = new V3(this.pos.x + f.x * 9, fy, this.pos.z + f.z * 9); spawnBreathCloud(at.x, fy + 3, at.z); this.jawT = 1; Sfx.play('dragon_growl', 0.8); for (let i = 0; i < 30; i++) Particles.emit(this.headPos.x, this.headPos.y, this.headPos.z, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 5, 0.8, 4, 0.5); }
           if (this.perchT > 8 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; } } break; }
     }
     if (tgt) {
@@ -7559,7 +7559,7 @@ class Dragon {
     this.calcSpheres();
     if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Ender Dragon', 2.2); break; } }
     if (Math.random() < dt * 12) { const p = this.spheres[0][0]; Particles.emit(p.x + (Math.random() - 0.5) * 3, p.y, p.z + (Math.random() - 0.5) * 3, 1, [[0.35, 0.1, 0.55], [0.1, 0.05, 0.15]], 1, 1.2, -0.5, 1); }
-    this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('roar', Math.max(0.2, 1 - dist / 90)); }
+    this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('dragon_growl', Math.max(0.2, 1 - dist / 90)); }
     this.animate(dt, this.state === 'perch' && this.perchT > 0 ? 0.4 : 1); this.colorize(); this.updateBar();
   }
   animate(dt, flapK) {
@@ -14093,12 +14093,12 @@ swimPose = function (model, P, dt) {
     if (!this.perchStart) { this.perchStart = true; this.perchHp = this.hp; this.breaths = 0; this.perchT = 0; }
     // fly in, then settle on the portal
     if (d > 1.2 && this.perchT === 0) { const want = land.clone().sub(this.pos); const L = want.length(); want.multiplyScalar(Math.min(16, Math.max(5, L)) / Math.max(L, 0.01)); this.vel.lerp(want, Math.min(1, dt * 2)); this.pos.addScaledVector(this.vel, dt); }
-    else { if (this.perchT === 0) { Sfx.play('roar', 1, 0.8); for (let i = 0; i < 6; i++) explodeFx(this.pos.x + (Math.random() - 0.5) * 6, fy + 1, this.pos.z + (Math.random() - 0.5) * 6); }
+    else { if (this.perchT === 0) { Sfx.play('dragon_growl', 1, 0.8); for (let i = 0; i < 6; i++) explodeFx(this.pos.x + (Math.random() - 0.5) * 6, fy + 1, this.pos.z + (Math.random() - 0.5) * 6); }
       this.perchT += dt; this.vel.set(0, 0, 0); this.pos.lerp(land, Math.min(1, dt * 4));
       const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); let df = want - this.yaw; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; this.yaw += df * Math.min(1, dt * 1.5);
       this.shootCD -= dt; const active = isSurv() && !P.dead;
       if (this.shootCD <= 0 && active && P.pos.distanceTo(this.pos) < 40) { this.shootCD = 3.2; this.breaths++; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); for (let k = 0; k < 3; k++) spawnBreathCloud(this.pos.x + f.x * (7 + k * 3), fy + 2, this.pos.z + f.z * (7 + k * 3)); this.jawT = 1.2; Sfx.play('roar', 0.8, 1.2); if (this.headPos) for (let i = 0; i < 40; i++) Particles.emit(this.headPos.x + f.x * i * 0.25, this.headPos.y - i * 0.05, this.headPos.z + f.z * i * 0.25, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 2, 1, 2, 0.6); }
-      if (this.breaths >= 3 || this.perchT > 18 || this.hp < this.perchHp - this.maxHp * 0.25 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; this.perchStart = false; this.vel.set(0, 10, 0); Sfx.play('roar', 1); } }
+      if (this.breaths >= 3 || this.perchT > 18 || this.hp < this.perchHp - this.maxHp * 0.25 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; this.perchStart = false; this.vel.set(0, 10, 0); Sfx.play('dragon_growl', 1); } }
     this.pitch += (0 - this.pitch) * Math.min(1, dt * 3); this.root.position.copy(this.pos); this.root.rotation.set(this.pitch, this.yaw, 0); this.calcSpheres();
     this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.hurtCD -= dt; this.contactCD -= dt;
     let healer = null, hd = 70; for (const c of EndFight.crystals) { if (c.dead) continue; const dd = c.pos.distanceTo(this.pos); if (dd < hd) { hd = dd; healer = c; } } this.healer = healer; if (healer && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + dt * 1.2);
@@ -21226,6 +21226,57 @@ if (typeof Crystal !== 'undefined' && BB_MODELS['@crystal_beam']) {
   });
   { const _rm = Mob.prototype.remove; Mob.prototype.remove = function () { if (this.bbRope) { G.scene.remove(this.bbRope); this.bbRope = null; } return _rm.apply(this, arguments); }; }
 }
+
+// ================= OWNER MOB SOUNDS =================
+// The owner's recorded files win over everything else. Keys in SOUND_DATA (several files per key = random pick):
+//   mob.<type>.ambient / .hurt / .death      the mob's voice
+//   mob.<type>.angry                         ambient while angry (wolves growl, endermen scream...)
+//   mob.<type>.baby_ambient / _hurt / _death babies (otherwise babies play the adult sound pitched up)
+//   mob.<type>~<variant>.<kind>              sound variants (wolf: classic/angry/big/cute/grumpy/puglin/sad, ...),
+//                                            each mob rolls one when it first makes a sound and keeps it
+// A mob with no file for a sound keeps its old voice (68_voices.js / generic samples).
+// These files are NOT baked into index.html (1200+ files would triple its size): sounds/mobs.json lists them and
+// they stream from sounds/ - each key on first use, everything else in the background. Opened from a local file
+// (file://) the fetch fails and mobs keep their old voices.
+const MobSnd = {
+  index: null, loading: {}, queue: [],
+  start() {
+    if (this.index !== null) return; this.index = {};
+    fetch('sounds/mobs.json').then(r => r.ok ? r.json() : {}).then(ix => { this.index = ix; this.queue = Object.keys(ix); for (let i = 0; i < 6; i++) this.pump(); }).catch(() => { });
+  },
+  load(key) {
+    if (this.loading[key] || !this.index || !this.index[key] || !Sfx.ctx) return this.loading[key]; const files = this.index[key]; Sfx.samples[key] = Sfx.samples[key] || [];
+    return (this.loading[key] = Promise.all(files.map((f, i) => fetch('sounds/' + f).then(r => r.arrayBuffer()).then(b => Sfx.ctx.decodeAudioData(b)).then(ab => { Sfx.samples[key][i] = ab; }).catch(() => { }))));
+  },
+  pump() { const k = this.queue.shift(); if (!k) return; (this.load(k) || Promise.resolve()).then(() => setTimeout(() => this.pump(), 0)); },
+};
+{ const _ls = Sfx.loadSamples.bind(Sfx); Sfx.loadSamples = function () { _ls(); MobSnd.start(); }; }
+const MOB_SOUND_VARIANTS = { wolf: [['classic', 1], ['angry', 1], ['big', 1], ['cute', 1], ['grumpy', 1], ['puglin', 1], ['sad', 1]],
+  cow: [['', 3], ['moody', 1]], pig: [['', 2], ['big', 1], ['mini', 1]], chicken: [['', 3], ['picky', 1]], cat: [['', 3], ['royal', 1]],
+  goat: [['', 49], ['screaming', 1]] };
+function mobSoundVariant(m) {
+  if (m._sndVar !== undefined) return m._sndVar; const vs = MOB_SOUND_VARIANTS[m.type]; if (!vs) return (m._sndVar = '');
+  if (m.type === 'goat' && m.screaming) return (m._sndVar = '~screaming');
+  let r = Math.random() * vs.reduce((a, v) => a + v[1], 0); for (const [n, w] of vs) { r -= w; if (r <= 0) return (m._sndVar = n ? '~' + n : ''); }
+  return (m._sndVar = '');
+}
+{ const _mob = Sfx.mob.bind(Sfx); Sfx.mob = function (m, kind, v = 0.6) {
+    if (this.ctx) {
+      const k = kind || ((m.angry > 0 || m.aggro) ? 'angry' : 'ambient'); const base = 'mob.' + m.type, sv = base + mobSoundVariant(m);
+      const tries = [];
+      if (m.baby) tries.push([base + '.baby_' + k, 1], [base + '.baby_' + (kind || 'ambient'), 1]);
+      tries.push([sv + '.' + k, m.baby ? 1.4 : 1], [base + '.' + k, m.baby ? 1.4 : 1]);
+      if (!kind) tries.push([sv + '.ambient', m.baby ? 1.4 : 1], [base + '.ambient', m.baby ? 1.4 : 1]);
+      for (const [key] of tries) MobSnd.load(key);
+      for (const [key, p] of tries) if (this.has(key)) { this.at(key, m.pos, v * 1.4, p * (0.92 + Math.random() * 0.16)); return; }
+    }
+    return _mob(m, kind, v);
+  }; }
+// ender dragon: dragon_growl / dragon_hit / dragon_end stream like mob sounds; the old roar plays until they arrive
+{ const _play = Sfx.play.bind(Sfx); Sfx.play = function (name, v, rate) {
+    if (typeof name === 'string' && name.startsWith('dragon_')) { MobSnd.load(name); if (!this.has(name)) return _play('roar', v, rate); }
+    return _play(name, v, rate);
+  }; }
 
 </script>
 </body>

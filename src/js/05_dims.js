@@ -186,8 +186,8 @@ class Dragon {
   hitPoint(p) { for (const [c, r] of this.spheres) if (c.distanceToSquared(p) < r * r) return true; return false; }
   hurt(dmg, src, kb, force) {
     if (this.dying || this.dead) return; if (!force && this.hurtCD > 0) return; this.hurtCD = 0.25;
-    this.hp -= dmg; this.hurtT = 0.3; if (Math.random() < 0.4) Sfx.play('roar', 0.6);
-    if (this.hp <= 0) { this.hp = 0; this.dying = true; this.dyingT = 0; Sfx.play('roar', 1.5); show('bossbar', true); }
+    this.hp -= dmg; this.hurtT = 0.3; if (Math.random() < 0.4) Sfx.play('dragon_hit', 0.6);
+    if (this.hp <= 0) { this.hp = 0; this.dying = true; this.dyingT = 0; Sfx.play('dragon_end', 1.5); show('bossbar', true); }
   }
   update(dt) {
     const P = G.player; this.age += dt; this.hurtT = Math.max(0, this.hurtT - dt); this.hurtCD -= dt; this.contactCD -= dt;
@@ -207,9 +207,9 @@ class Dragon {
     this.stateT -= dt;
     switch (this.state) {
       case 'circle': this.ang += dt * 0.3 * this.dirSign; tgt = new V3(Math.cos(this.ang) * 50, fy + 24 + Math.sin(this.age * 0.6) * 6, Math.sin(this.ang) * 50);
-        if (this.stateT <= 0) { if (!active) { this.stateT = 6; break; } const q = Math.random(); if (q < 0.4) { this.state = 'strafe'; this.stateT = 10; this.shots = 0; } else if (q < 0.72) { this.state = 'charge'; this.stateT = 7; Sfx.play('roar', 1); } else { this.state = 'perch'; this.stateT = 18; this.perchT = 0; } if (Math.random() < 0.3) this.dirSign *= -1; } break;
+        if (this.stateT <= 0) { if (!active) { this.stateT = 6; break; } const q = Math.random(); if (q < 0.4) { this.state = 'strafe'; this.stateT = 10; this.shots = 0; } else if (q < 0.72) { this.state = 'charge'; this.stateT = 7; Sfx.play('dragon_growl', 1); } else { this.state = 'perch'; this.stateT = 18; this.perchT = 0; } if (Math.random() < 0.3) this.dirSign *= -1; } break;
       case 'strafe': { const away = new V3(P.pos.x, 0, P.pos.z).normalize(); if (!isFinite(away.x)) away.set(1, 0, 0); tgt = new V3(P.pos.x + away.x * 22, P.pos.y + 14, P.pos.z + away.z * 22); speed = 17; this.shootCD -= dt;
-        if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('roar', 0.6); this.jawT = 0.5; }
+        if (dist < 60 && this.shootCD <= 0 && this.headPos && lineOfSight(this.headPos, pe)) { this.shootCD = 2.0; this.shots++; fireAt('breath', this.headPos.clone(), pe, 20, 'mob', 5, this); Sfx.play('dragon_growl', 0.6); this.jawT = 0.5; }
         if (this.shots >= 3 || this.stateT <= 0 || !active) { this.state = 'circle'; this.stateT = 8 + Math.random() * 6; } break; }
       case 'charge': tgt = pe.clone(); speed = 26; turn = 3;
         if (this.headPos && this.headPos.distanceTo(pe) < 4.5) { P.hurtCD = 0; P.hurt(10, this.pos, 'the Ender Dragon', 3); this.state = 'circle'; this.stateT = 9; }
@@ -217,7 +217,7 @@ class Dragon {
       case 'perch': { const pp = new V3(0, fy + 6, 0); const d = this.pos.distanceTo(pp);
         if (d > 3 && this.perchT === 0) { tgt = pp; speed = Math.max(6, Math.min(16, d)); }
         else { this.perchT += dt; tgt = pp; speed = 0; this.vel.multiplyScalar(Math.exp(-dt * 3)); const want = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z); let df = want - this.yaw; while (df > Math.PI) df -= Math.PI * 2; while (df < -Math.PI) df += Math.PI * 2; this.yaw += df * Math.min(1, dt * 2);
-          this.shootCD -= dt; if (this.shootCD <= 0 && active && dist < 30) { this.shootCD = 2.4; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); const at = new V3(this.pos.x + f.x * 9, fy, this.pos.z + f.z * 9); spawnBreathCloud(at.x, fy + 3, at.z); this.jawT = 1; Sfx.play('roar', 0.8); for (let i = 0; i < 30; i++) Particles.emit(this.headPos.x, this.headPos.y, this.headPos.z, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 5, 0.8, 4, 0.5); }
+          this.shootCD -= dt; if (this.shootCD <= 0 && active && dist < 30) { this.shootCD = 2.4; const f = new V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); const at = new V3(this.pos.x + f.x * 9, fy, this.pos.z + f.z * 9); spawnBreathCloud(at.x, fy + 3, at.z); this.jawT = 1; Sfx.play('dragon_growl', 0.8); for (let i = 0; i < 30; i++) Particles.emit(this.headPos.x, this.headPos.y, this.headPos.z, 1, [[0.7, 0.2, 1], [0.4, 0.1, 0.7]], 5, 0.8, 4, 0.5); }
           if (this.perchT > 8 || !active) { this.state = 'circle'; this.stateT = 10; this.perchT = 0; } } break; }
     }
     if (tgt) {
@@ -233,7 +233,7 @@ class Dragon {
     this.calcSpheres();
     if (active && this.contactCD <= 0 && this.state !== 'charge') { for (const [c, r] of this.spheres) if (c.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < r + 0.8) { this.contactCD = 1.2; P.hurtCD = 0; P.hurt(5, c, 'the Ender Dragon', 2.2); break; } }
     if (Math.random() < dt * 12) { const p = this.spheres[0][0]; Particles.emit(p.x + (Math.random() - 0.5) * 3, p.y, p.z + (Math.random() - 0.5) * 3, 1, [[0.35, 0.1, 0.55], [0.1, 0.05, 0.15]], 1, 1.2, -0.5, 1); }
-    this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('roar', Math.max(0.2, 1 - dist / 90)); }
+    this.roarT -= dt; if (this.roarT <= 0) { this.roarT = 8 + Math.random() * 10; Sfx.play('dragon_growl', Math.max(0.2, 1 - dist / 90)); }
     this.animate(dt, this.state === 'perch' && this.perchT > 0 ? 0.4 : 1); this.colorize(); this.updateBar();
   }
   animate(dt, flapK) {

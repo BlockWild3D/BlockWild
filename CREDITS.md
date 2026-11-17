@@ -21,6 +21,8 @@ All recorded sounds in `sounds/` are free to use. Most are CC0 (public domain). 
 | Chickens | [Hens leaving coop](https://commons.wikimedia.org/wiki/File:Hens_leaving_coop.ogg) | alys | Public domain |
 | Pig | [Pig grunt - Erdie](https://commons.wikimedia.org/wiki/File:Pig_grunt_-_Erdie.ogg) | erdie | CC BY 3.0 |
 
+Mob voices (ambient, angry, hurt and death for every mob, baby and variant voices, ender dragon): recorded by the BlockWild owner, in `sounds/mob.*.mp3` and `sounds/dragon_*.mp3`, listed in `sounds/mobs.json`.
+
 Every other sound (bow, shield, portal, level-up and so on) is generated in code.
 
 ## Libraries
