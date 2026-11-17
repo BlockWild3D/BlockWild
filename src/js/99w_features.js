@@ -32,15 +32,12 @@ for (const k of BB_ARMOR_MOBS) bbGear(k, (m) => { const a = m.mobArmor || {}; fo
 if (typeof mobRecord !== 'undefined') { const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (r && m.mobArmor) r.ma = m.mobArmor; if (r && m.bbBabyHostile) r.bh = 1; return r; }; }
 if (typeof mobFromRecord !== 'undefined') { const _f = mobFromRecord; mobFromRecord = function (rec) { const m = _f.apply(this, arguments); if (m && rec) { m.mobArmor = rec.ma || null; if (rec.bh && typeof setBaby === 'function') { setBaby(m, true); m.growT = 1e12; m.bbBabyHostile = true; } } return m; }; }
 
-// ---------- the elytra on your back: the owner's elytra texture on each wing ----------
-if (typeof ensureWings !== 'undefined' && BB_MODELS['@elytra']) {
-  const img = new Image(); img.src = BB_MODELS['@elytra'].texture; const cache = {};
-  // Minecraft's elytra wing: box at (22,0), 10 wide, 20 tall, 2 deep, on a 64x32 sheet
-  const FACES = [[22, 2, 2, 20], [34, 2, 2, 20], [24, 0, 10, 2], [34, 0, 10, 2], [24, 2, 10, 20], [36, 2, 10, 20]];
-  const wingMats = (side) => cache[side] || (cache[side] = FACES.map(([fx, fy, fw, fh]) => { const cv = document.createElement('canvas'); cv.width = fw; cv.height = fh; const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter;
-    const draw = () => { const x = cv.getContext('2d'); x.save(); if (side < 0) { x.translate(fw, 0); x.scale(-1, 1); } x.drawImage(img, fx, fy, fw, fh, 0, 0, fw, fh); x.restore(); t.needsUpdate = true; };
-    if (img.complete) draw(); else img.addEventListener('load', draw); return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.1, side: THREE.DoubleSide }); }));
-  const _ew = ensureWings; ensureWings = function (model) { const had = !!model.wings; const W = _ew.apply(this, arguments); if (!had) W.forEach((g, i) => { const s = i === 0 ? -1 : 1; const [m, e] = g.children; if (m) m.material = wingMats(s); if (e) e.visible = false; }); return W; };
+// ---------- the elytra on your back: Minecraft's elytra model with the owner's texture, on the game's folding wing joints ----------
+if (typeof ensureWings !== 'undefined' && BB_MODELS['@elytra_model']) {
+  const _ew = ensureWings; ensureWings = function (model) { const had = !!model.wings; const W = _ew.apply(this, arguments);
+    if (!had) try { W.forEach((g, i) => { for (const c of g.children) c.visible = false; const o = bbObject('@elytra_model'); const part = o.parts[i === 0 ? 'left_wing' : 'right_wing'];
+      if (part) { bbPut(part, g, PX * 16); part.rotation.x = Math.PI; part.traverse(q => { if (q.isMesh) q.layers.enable(1); }); } }); } catch (e) { for (const g of W) for (const c of g.children) c.visible = true; }
+    return W; };
 }
 
 // ---------- end crystal healing beam: the owner's beam texture, stretched from crystal to dragon and scrolling ----------
