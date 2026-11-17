@@ -22181,7 +22181,7 @@ const MCJ = {
     const sh = S.start_height || {}; const hy = sh.absolute != null ? sh.absolute : (sh.min_inclusive ? sh.min_inclusive.absolute + Math.floor(r() * (sh.max_inclusive.absolute - sh.min_inclusive.absolute + 1)) : 0);
     if (S.start_jigsaw_name) { const J = MCJ.jigs(start.loc, rot, 0, 0, 0).find(j => j.name === S.start_jigsaw_name); if (J) { x -= J.x; z -= J.z; } }
     let box = MCST.box(start.loc, x, 0, z, rot, 0, 0);
-    if (S.project_start_to_heightmap) y = MCJ.H((box.x0 + box.x1) >> 1, (box.z0 + box.z1) >> 1, g) + hy - 1; else y = YOFF + hy;
+    if (S.project_start_to_heightmap) y = MCJ.H((box.x0 + box.x1) >> 1, (box.z0 + box.z1) >> 1, g) + hy - 1; else y = (world.dim === 'overworld' ? YOFF : 0) + hy;
     if (S.start_jigsaw_name) { const J = MCJ.jigs(start.loc, rot, 0, 0, 0).find(j => j.name === S.start_jigsaw_name); if (J) y -= J.y; }
     box = MCST.box(start.loc, x, y, z, rot, 0, 0);
     const md = S.max_distance_from_center || 80; const cx = (box.x0 + box.x1) >> 1, cz = (box.z0 + box.z1) >> 1;
@@ -22259,33 +22259,56 @@ const MCJ = {
           const h = g.column(x, z).h; if (L.adapt === 'beard_thin') { const fill = g.column(x, z).b === BIO.DESERT ? B.SAND : B.DIRT; for (let y = Math.max(1, h - 1); y < p.box.y0; y++) d[I(x, y, z)] = fill; }
           if (L.adapt === 'beard_thin') for (let y = p.box.y1 + 1; y < Math.min(WH, h); y++) d[I(x, y, z)] = 0; }
         MCST.place(t.loc, p.x, p.y, p.z, p.rot, { skipAir: t.legacy, proc: proc ? ((id, x, y, z) => proc(id, x, y, z)) : null,
-          set: (x, y, z, id) => { if (!inC(x, z)) return; if (tm) y = MCJ.H(x, z, g) - 1 + (y - p.y); if (y < 1 || y >= WH) return; d[I(x, y, z)] = id; },
+          set: (x, y, z, id) => { if (!inC(x, z)) return; if (tm) y = MCJ.H(x, z, g) - 1 + (y - p.y); if (y < 1 || y >= WH) return; const j = I(x, y, z); if (d[j] === B.BEDROCK) return; d[j] = id;
+            // trial spawners and vaults need their state registered like the game's own trial chambers
+            if (id === B.TRIAL_SPAWNER) { const m = t.loc.split('/').pop(); const mob = { poison_skeleton: 'bogged', baby_zombie: 'zombie' }[m] || m; (c.trials = c.trials || []).push([x, y, z, typeof MOBS !== 'undefined' && MOBS[mob] ? mob : 'zombie']); }
+            else if (id === B.VAULT) (c.vaults = c.vaults || []).push([x, y, z, /ominous/.test(t.loc) ? 'ominous_vault' : 'trial_vault']); },
           chest: (x, y, z, tbl) => { if (inC(x, z)) mcSetChest(world, x, tm ? MCJ.H(x, z, g) - 1 + (y - p.y) : y, z, tbl); },
           entity: (type, x, y, z) => { if (inC(x, z) && S && typeof MOBS !== 'undefined' && MOBS[type]) S.mobs.push([type, x + 0.5, tm ? MCJ.H(x, z, g) + (y - p.y) - 1 : y, z + 0.5]); } });
       }
     }
   },
 };
-// which Minecraft jigsaw structure a game start becomes
+// which Minecraft jigsaw structure a game start becomes (the game's own start grid and biome rules stay)
+const MCJ_CAMP = { [BIO.FOREST]: 'forest', [BIO.PLAINS]: 'meadow', [BIO.TAIGA]: 'taiga', [BIO.SNOWY]: 'snowy_taiga', [BIO.SAVANNA]: 'savanna', [BIO.JUNGLE]: 'sparse_jungle', [BIO.SWAMP]: 'swamp',
+  [BIO.CHERRY_GROVE]: 'cherry_grove', [BIO.PALE_GARDEN]: 'pale_garden', [BIO.DARK_FOREST]: 'forest', [BIO.MOUNTAINS]: 'windswept_forest', [BIO.MANGROVE_SWAMP]: 'swamp' };
 const MCJ_KINDS = {
   village: { reach: 6, pick: (col) => col.b === BIO.DESERT ? 'village_desert' : col.b === BIO.SNOWY ? 'village_snowy' : col.b === BIO.SAVANNA ? 'village_savanna' : col.b === BIO.TAIGA ? 'village_taiga' : 'village_plains' },
   outpost: { reach: 6, pick: () => 'pillager_outpost', mobs: [['pillager', 4]] },
+  abandoned_camp: { reach: 3, pick: (col) => { let n = MCJ_CAMP[col.b] || 'forest'; if (col.b === BIO.FOREST && typeof BV !== 'undefined') { if (col.v === BV.BIRCH_FOREST) n = 'birch_forest'; else if (col.v === BV.FLOWER_FOREST) n = 'flower_forest'; else if (col.v === BV.DAPPLED_FOREST) n = 'dappled_forest'; } if (BIO.BADLANDS != null && col.b === BIO.BADLANDS) n = 'wooded_badlands'; return MCST.H.structs['abandoned_camp_' + n] ? 'abandoned_camp_' + n : 'abandoned_camp_forest'; },
+    ok: (col) => col.h > SEA + 1 && !(typeof isRiver === 'function' && isRiver(col)) },
+  trail_ruins: { reach: 6, pick: () => 'trail_ruins', ok: (col) => col.h > SEA + 4 },
+  trial_chambers: { reach: 8, pick: () => 'trial_chambers', skip: (world, st) => mcjStarts(world, 'ancient_city', st.cx, st.cz).length > 0 }, // never on top of an ancient city
+  ancient_city: { reach: 8, pick: () => 'ancient_city' },
+  bastion: { dim: 'nether', reach: 6, pick: () => 'bastion_remnant',
+    starts: (world, cx, cz, R) => { const g = world.gen; const out = []; for (let rx = Math.floor((cx - R) / 27); rx <= Math.floor((cx + R) / 27); rx++) for (let rz = Math.floor((cz - R) / 27); rz <= Math.floor((cz + R) / 27); rz++) {
+      const b = g.bastion(rx, rz); if (b && Math.abs(b.ccx - cx) <= R && Math.abs(b.ccz - cz) <= R) out.push({ cx: b.ccx, cz: b.ccz, seed: b.seed, col: null }); } return out; } },
 };
 function mcjLayout(world, kind, st) {
   world.mcjCache = world.mcjCache || new Map(); const key = kind + ':' + st.cx + ',' + st.cz; if (world.mcjCache.has(key)) return world.mcjCache.get(key);
-  const sname = MCJ_KINDS[kind].pick(st.col); const L = MCST.H.structs[sname] ? MCJ.layout(world, sname, st.cx * 16, st.cz * 16, st.seed) : null;
+  const K = MCJ_KINDS[kind]; let L = null;
+  if ((!K.ok || (st.col && K.ok(st.col))) && !(K.skip && K.skip(world, st))) { const sname = K.pick(st.col); if (MCST.H.structs[sname]) L = MCJ.layout(world, sname, st.cx * 16, st.cz * 16, st.seed); }
   if (world.mcjCache.size > 300) world.mcjCache.clear(); world.mcjCache.set(key, L); return L;
 }
+function mcjStarts(world, kind, cx, cz) { const K = MCJ_KINDS[kind]; if (K.starts) return K.starts(world, cx, cz, K.reach); const out = []; const sp = PLACE[kind] && PLACE[kind].spacing; if (!sp) return out;
+  for (let rx = Math.floor((cx - K.reach) / sp); rx <= Math.floor((cx + K.reach) / sp); rx++) for (let rz = Math.floor((cz - K.reach) / sp); rz <= Math.floor((cz + K.reach) / sp); rz++) {
+    const st = regionStart(world, kind, rx, rz); if (st && Math.max(Math.abs(st.cx - cx), Math.abs(st.cz - cz)) <= K.reach) out.push(st); } return out; }
 function mcjChunk(world, c) {
-  if (!MCST_ON() || world.dim !== 'overworld') return; const S = world.hintsDone.has(c.key) ? null : structuresFor(world, c.cx, c.cz);
-  for (const kind in MCJ_KINDS) { const K = MCJ_KINDS[kind]; const sp = PLACE[kind].spacing;
-    for (let rx = Math.floor((c.cx - K.reach) / sp); rx <= Math.floor((c.cx + K.reach) / sp); rx++) for (let rz = Math.floor((c.cz - K.reach) / sp); rz <= Math.floor((c.cz + K.reach) / sp); rz++) {
-      const st = regionStart(world, kind, rx, rz); if (!st || Math.max(Math.abs(st.cx - c.cx), Math.abs(st.cz - c.cz)) > K.reach) continue;
+  if (!MCST_ON()) return; const S = world.hintsDone.has(c.key) ? null : structuresFor(world, c.cx, c.cz);
+  for (const kind in MCJ_KINDS) { const K = MCJ_KINDS[kind]; if ((K.dim || 'overworld') !== world.dim) continue;
+    for (const st of mcjStarts(world, kind, c.cx, c.cz)) {
       const L = mcjLayout(world, kind, st); if (!L) continue; if (L.all.x1 < c.cx * 16 || L.all.x0 > c.cx * 16 + 15 || L.all.z1 < c.cz * 16 || L.all.z0 > c.cz * 16 + 15) continue;
       MCJ.stamp(world, c, L, S);
-      if (S && K.mobs && st.cx === c.cx && st.cz === c.cz) for (const [t, n] of K.mobs) for (let i = 0; i < n; i++) { const p = L.pieces[0]; S.mobs.push([t, (p.box.x0 + p.box.x1) / 2 + i, p.box.y0 + 1, (p.box.z0 + p.box.z1) / 2]); }
+      if (S && st.cx === c.cx && st.cz === c.cz) { if (!S.kinds.some(k => k[0] === kind)) S.kinds.push([kind, st.cx * 16 + 8, st.cz * 16 + 8]);
+        if (K.mobs) for (const [t, n] of K.mobs) for (let i = 0; i < n; i++) { const p = L.pieces[0]; S.mobs.push([t, (p.box.x0 + p.box.x1) / 2 + i, p.box.y0 + 1, (p.box.z0 + p.box.z1) / 2]); } }
     } }
 }
+// the game's own versions step aside while the templates are loaded
+{ const _c = buildCamp; buildCamp = function (world, S, x0, z0) { if (!MCST_ON()) return _c.apply(this, arguments); }; }
+{ const _t = buildTrailRuins; buildTrailRuins = function (world, S, x0, z0) { if (!MCST_ON()) return _t.apply(this, arguments); }; }
+{ const _t = buildTrialChunk; buildTrialChunk = function () { if (!MCST_ON()) return _t.apply(this, arguments); }; }
+{ const _a = buildAncientChunk; buildAncientChunk = function () { if (!MCST_ON()) return _a.apply(this, arguments); }; }
+{ const _b = buildBastionChunk; buildBastionChunk = function (world, c) { if (!MCST_ON()) return _b.apply(this, arguments); try { mcjChunk(world, c); } catch (e) { console.error('bastion', e); } }; }
 { const _wc = worldgenCleanup; worldgenCleanup = function (world, c) { const r = _wc.apply(this, arguments); try { mcjChunk(world, c); } catch (e) { console.error('jigsaw', e); } return r; }; }
 
 </script>
