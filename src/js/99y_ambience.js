@@ -51,6 +51,11 @@ const Amb = {
       if (G.carts) { let near = 0; for (const c of G.carts) { const sp = Math.abs(c.v || 0); if (sp < 0.3 || c === rid) continue; const d = c.pos.distanceTo(P.pos); if (d < 16) near = Math.max(near, Math.min(1, sp / 8) * (1 - d / 16)); }
         if (near > 0.02) want['snd.minecart.base'] = near * 0.6;
         if (rid && G.carts.includes(rid) && Math.abs(rid.v || 0) > 0.3) want[wet ? 'snd.minecart.inside_underwater' : 'snd.minecart.inside'] = Math.min(0.6, Math.abs(rid.v) / 10 + 0.1); }
+      // ladders: climbing steps; air bubbles: one pop per bubble lost from the HUD
+      const atLadder = /^ladder/.test((BL[w.get(ex, Math.floor(P.pos.y + 0.2), ez)] || {}).key || '');
+      if (atLadder && Math.abs(P.vel.y) > 0.8) { this.ladT = (this.ladT || 0) - dt; if (this.ladT <= 0) { this.ladT = 0.45; this.shot('step.ladder', 0.3); } }
+      if (typeof P.air === 'number') { this.airMax = Math.max(this.airMax || 0, P.air); const per = this.airMax / 10; const nb = per > 0 ? Math.ceil(P.air / per) : 10;
+        if (this.bub != null && nb < this.bub) this.shot('snd.ui.hud.hud_bubble', 0.4); this.bub = nb; }
       // standing in a nether portal
       const inPortal = /nether_portal/.test((BL[w.get(ex, Math.floor(P.pos.y + 0.5), ez)] || {}).key || '');
       if (inPortal && !this.wasPortal) this.shot('snd.portal.trigger', 0.5); this.wasPortal = inPortal;

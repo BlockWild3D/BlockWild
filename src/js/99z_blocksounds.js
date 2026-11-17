@@ -50,7 +50,7 @@ const BLOCK_KIND = { break: [['break'], 0.8], place: [['place', 'break'], 0.8], 
 // basic materials (owner's dig folder): breaking and placing for every block without a group of its own
 function digGroupOf(id) {
   const d = BL[id]; if (!d) return null; if (d._dig !== undefined) return d._dig; const k = (d.key || '').split('#')[0];
-  const g = /coral/.test(k) ? 'coral' : /gravel|concrete_powder/.test(k) ? 'gravel' : /kelp|seagrass|sea_pickle/.test(k) ? 'wet_grass'
+  const g = /coral/.test(k) ? 'coral' : /gravel|concrete_powder/.test(k) ? 'gravel' : /kelp|seagrass|sea_pickle/.test(k) ? 'wet_grass' : /^ladder/.test(k) ? 'ladder' : /scaffolding/.test(k) ? 'scaffold'
     : { stone: 'stone', wood: 'wood', grass: 'grass', sand: 'sand', snow: 'snow', wool: 'cloth' }[d.snd] || null;
   return (d._dig = g);
 }
@@ -62,8 +62,10 @@ function blockSfx(kind, id, v = 1, pos) {
   if ((kind === 'place' || kind === 'break') && /^(wheat|carrots|potatoes|beetroots|pumpkin_stem|melon_stem|torchflower_crop|pitcher_crop)_\d/.test(bk) && BlkSnd.play(['snd.item.plant.crop'], v, 1, pos)) return true;
   if (kind === 'place' && /^nether_wart_\d/.test(bk) && BlkSnd.play(['snd.item.plant.netherwart'], v, 1, pos)) return true;
   if (g && BlkSnd.play(ks.map(k => 'blk.' + g + '.' + k), kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
-  // no step/hit recordings for basic materials yet: those keep the old sounds
-  const dg = (kind === 'break' || kind === 'place') && digGroupOf(id); if (dg && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
+  // basic materials: dig folder for breaking/placing, step folder for footsteps, mining hits (pitch 0.5) and landing
+  const dg = digGroupOf(id);
+  if (dg && (kind === 'break' || kind === 'place') && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
+  if (dg && (kind === 'step' || kind === 'hit' || kind === 'fall') && BlkSnd.play(['step.' + dg], kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
   return false;
 }
 // player damage (owner's damage folder): hit, small and big falls
@@ -79,7 +81,8 @@ function playerHurtSfx(dmg, cause) {
 function blkPlay(key, v = 1, pos) { return !!Sfx.ctx && BlkSnd.play([key], v, 1, pos); }
 // workstation outputs (24_animals panel take)
 function panelSfx(pn) {
-  const t = (pn && pn.title) || ''; const k = /Disenchant/.test(t) ? 'blk.grindstone.grindstone' : /Upgrade Gear|Smith/.test(t) ? 'blk.smithing_table.smithing_table' : /Fletch/.test(t) ? 'blk.fletching_table.fletching_table' : null;
+  const t = (pn && pn.title) || ''; const k = /Disenchant/.test(t) ? 'blk.grindstone.grindstone' : /Upgrade Gear|Smith/.test(t) ? 'blk.smithing_table.smithing_table' : /Fletch/.test(t) ? 'blk.fletching_table.fletching_table'
+    : /^Loom/.test(t) ? 'snd.ui.loom.take_result' : /Stonecutter/.test(t) ? 'snd.ui.stonecutter.cut' : /Cartograph/.test(t) ? 'snd.ui.cartography_table.drawmap' : null;
   return !!k && blkPlay(k, 0.8);
 }
 // ---- interactions ----

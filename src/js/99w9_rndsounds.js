@@ -7,7 +7,7 @@ const GENERIC_SND = {
   eat: 'snd.random.eat', fizz: 'snd.random.fizz', hiss: 'snd.random.fuse', glass: 'snd.random.glass', glass_break: 'snd.random.glass',
   levelup: 'snd.random.levelup', orb: 'snd.random.orb', pop: 'snd.random.pop', splash: 'snd.random.splash', boom: 'snd.random.explode',
   anvil: 'snd.random.anvil_use', door_open: 'snd.random.door_open', door_close: 'snd.random.door_close', trap_open: 'snd.random.door_open', trap_close: 'snd.random.door_close',
-  chest: 'snd.random.chestopen', portal: 'snd.portal.travel', sweep: 'snd.entity.player.attack.sweep', frame_remove: 'snd.entity.itemframe.remove_item',
+  chest: 'snd.random.chestopen', portal: 'snd.portal.travel', sweep: 'snd.entity.player.attack.sweep', frame_remove: 'snd.entity.itemframe.remove_item', piston_out: 'snd.tile.piston.out', piston_in: 'snd.tile.piston.in', loom: 'snd.ui.loom.select_pattern',
   // a melee hit landing: Minecraft's strong / crit hit sounds (crit while falling)
   thit_: () => { const P = G.player; return P && !P.onGround && P.vel && P.vel.y < -0.5 ? 'snd.entity.player.attack.crit' : 'snd.entity.player.attack.strong'; },
 };

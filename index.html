@@ -20276,7 +20276,7 @@ function advCheck() { if (!S.started || S.loading || player.dead || S.rules.aren
   for (const [id, title, desc, test] of ADVS) { if (META.adv[id]) continue; let ok2 = false; try { ok2 = test(); } catch (e) { } if (!ok2) continue; META.adv[id] = Date.now(); metaDirty = true; advToast(title); chatPrint(myName() + ' has made the advancement [' + title + ']', '#5f5'); if (CHAT.onSend) CHAT.onSend({ t: 'chat', raw: myName() + ' has made the advancement [' + title + ']', color: '#5f5' }); }
   try { const c = world.dim === 'overworld' && world.gen.column(Math.floor(player.pos.x), Math.floor(player.pos.z)); const nm = c ? (c.v && typeof VAR_NAME !== 'undefined' && VAR_NAME[c.v]) || BIO_NAME[c.b] : null; if (nm && !(META.biomes || (META.biomes = [])).includes(nm)) { META.biomes.push(nm); metaDirty = true; } } catch (e) { } }
 function advToast(title) { let el = $('advToast'); if (!el) { el = document.createElement('div'); el.id = 'advToast'; el.style.cssText = 'position:fixed;right:-340px;top:10px;width:300px;background:#202020;border:3px solid #555;box-shadow:inset 0 0 0 2px #000;color:#fff;padding:8px 12px;z-index:45;transition:right .35s;pointer-events:none'; el.innerHTML = '<div style="color:#ff5;font-size:16px">Advancement Made!</div><div id="advToastT" style="font-size:18px"></div>'; document.body.appendChild(el); }
-  $('advToastT').textContent = title; el.style.right = '10px'; clearTimeout(el._t); el._t = setTimeout(() => { el.style.right = '-340px'; }, 4000); Sfx.play('levelup', 0.4); }
+  $('advToastT').textContent = title; el.style.right = '10px'; clearTimeout(el._t); el._t = setTimeout(() => { el.style.right = '-340px'; }, 4000); (blkPlay('snd.ui.toast.in', 0.6) || Sfx.play('levelup', 0.4)); }
 function listPanel(id, title, rowsHtml) { let el = $(id); if (!el) { el = document.createElement('div'); el.id = id; el.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(0,0,0,.8);z-index:70;color:#fff'; el.innerHTML = '<div class="pt" style="font-size:30px;text-shadow:2px 2px 0 #333"></div><div class="pl" style="width:min(600px,92vw);max-height:62vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding:4px"></div><button class="mbtn">Done</button>'; document.body.appendChild(el); el.querySelector('button').addEventListener('click', () => { el.style.display = 'none'; }); }
   el.querySelector('.pt').textContent = title; el.querySelector('.pl').innerHTML = rowsHtml; el.style.display = 'flex'; }
 function openAdvancements() { const done = ADVS.filter(a => META.adv[a[0]]).length; listPanel('advPanel', 'Advancements (' + done + ' of ' + ADVS.length + ')', ADVS.map(([id, t, d]) => '<div style="background:rgba(0,0,0,.45);border:2px solid ' + (META.adv[id] ? '#5a5' : '#000') + ';padding:6px 10px;opacity:' + (META.adv[id] ? 1 : 0.55) + '"><div style="font-size:19px;color:' + (META.adv[id] ? '#ff5' : '#ddd') + '">' + t + '</div><div style="font-size:13px;color:#bbb">' + d + '</div></div>').join('')); }
@@ -21147,7 +21147,7 @@ const GENERIC_SND = {
   eat: 'snd.random.eat', fizz: 'snd.random.fizz', hiss: 'snd.random.fuse', glass: 'snd.random.glass', glass_break: 'snd.random.glass',
   levelup: 'snd.random.levelup', orb: 'snd.random.orb', pop: 'snd.random.pop', splash: 'snd.random.splash', boom: 'snd.random.explode',
   anvil: 'snd.random.anvil_use', door_open: 'snd.random.door_open', door_close: 'snd.random.door_close', trap_open: 'snd.random.door_open', trap_close: 'snd.random.door_close',
-  chest: 'snd.random.chestopen', portal: 'snd.portal.travel', sweep: 'snd.entity.player.attack.sweep', frame_remove: 'snd.entity.itemframe.remove_item',
+  chest: 'snd.random.chestopen', portal: 'snd.portal.travel', sweep: 'snd.entity.player.attack.sweep', frame_remove: 'snd.entity.itemframe.remove_item', piston_out: 'snd.tile.piston.out', piston_in: 'snd.tile.piston.in', loom: 'snd.ui.loom.select_pattern',
   // a melee hit landing: Minecraft's strong / crit hit sounds (crit while falling)
   thit_: () => { const P = G.player; return P && !P.onGround && P.vel && P.vel.y < -0.5 ? 'snd.entity.player.attack.crit' : 'snd.entity.player.attack.strong'; },
 };
@@ -21424,6 +21424,11 @@ const Amb = {
       if (G.carts) { let near = 0; for (const c of G.carts) { const sp = Math.abs(c.v || 0); if (sp < 0.3 || c === rid) continue; const d = c.pos.distanceTo(P.pos); if (d < 16) near = Math.max(near, Math.min(1, sp / 8) * (1 - d / 16)); }
         if (near > 0.02) want['snd.minecart.base'] = near * 0.6;
         if (rid && G.carts.includes(rid) && Math.abs(rid.v || 0) > 0.3) want[wet ? 'snd.minecart.inside_underwater' : 'snd.minecart.inside'] = Math.min(0.6, Math.abs(rid.v) / 10 + 0.1); }
+      // ladders: climbing steps; air bubbles: one pop per bubble lost from the HUD
+      const atLadder = /^ladder/.test((BL[w.get(ex, Math.floor(P.pos.y + 0.2), ez)] || {}).key || '');
+      if (atLadder && Math.abs(P.vel.y) > 0.8) { this.ladT = (this.ladT || 0) - dt; if (this.ladT <= 0) { this.ladT = 0.45; this.shot('step.ladder', 0.3); } }
+      if (typeof P.air === 'number') { this.airMax = Math.max(this.airMax || 0, P.air); const per = this.airMax / 10; const nb = per > 0 ? Math.ceil(P.air / per) : 10;
+        if (this.bub != null && nb < this.bub) this.shot('snd.ui.hud.hud_bubble', 0.4); this.bub = nb; }
       // standing in a nether portal
       const inPortal = /nether_portal/.test((BL[w.get(ex, Math.floor(P.pos.y + 0.5), ez)] || {}).key || '');
       if (inPortal && !this.wasPortal) this.shot('snd.portal.trigger', 0.5); this.wasPortal = inPortal;
@@ -21503,7 +21508,7 @@ const BLOCK_KIND = { break: [['break'], 0.8], place: [['place', 'break'], 0.8], 
 // basic materials (owner's dig folder): breaking and placing for every block without a group of its own
 function digGroupOf(id) {
   const d = BL[id]; if (!d) return null; if (d._dig !== undefined) return d._dig; const k = (d.key || '').split('#')[0];
-  const g = /coral/.test(k) ? 'coral' : /gravel|concrete_powder/.test(k) ? 'gravel' : /kelp|seagrass|sea_pickle/.test(k) ? 'wet_grass'
+  const g = /coral/.test(k) ? 'coral' : /gravel|concrete_powder/.test(k) ? 'gravel' : /kelp|seagrass|sea_pickle/.test(k) ? 'wet_grass' : /^ladder/.test(k) ? 'ladder' : /scaffolding/.test(k) ? 'scaffold'
     : { stone: 'stone', wood: 'wood', grass: 'grass', sand: 'sand', snow: 'snow', wool: 'cloth' }[d.snd] || null;
   return (d._dig = g);
 }
@@ -21515,8 +21520,10 @@ function blockSfx(kind, id, v = 1, pos) {
   if ((kind === 'place' || kind === 'break') && /^(wheat|carrots|potatoes|beetroots|pumpkin_stem|melon_stem|torchflower_crop|pitcher_crop)_\d/.test(bk) && BlkSnd.play(['snd.item.plant.crop'], v, 1, pos)) return true;
   if (kind === 'place' && /^nether_wart_\d/.test(bk) && BlkSnd.play(['snd.item.plant.netherwart'], v, 1, pos)) return true;
   if (g && BlkSnd.play(ks.map(k => 'blk.' + g + '.' + k), kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
-  // no step/hit recordings for basic materials yet: those keep the old sounds
-  const dg = (kind === 'break' || kind === 'place') && digGroupOf(id); if (dg && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
+  // basic materials: dig folder for breaking/placing, step folder for footsteps, mining hits (pitch 0.5) and landing
+  const dg = digGroupOf(id);
+  if (dg && (kind === 'break' || kind === 'place') && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
+  if (dg && (kind === 'step' || kind === 'hit' || kind === 'fall') && BlkSnd.play(['step.' + dg], kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
   return false;
 }
 // player damage (owner's damage folder): hit, small and big falls
@@ -21532,7 +21539,8 @@ function playerHurtSfx(dmg, cause) {
 function blkPlay(key, v = 1, pos) { return !!Sfx.ctx && BlkSnd.play([key], v, 1, pos); }
 // workstation outputs (24_animals panel take)
 function panelSfx(pn) {
-  const t = (pn && pn.title) || ''; const k = /Disenchant/.test(t) ? 'blk.grindstone.grindstone' : /Upgrade Gear|Smith/.test(t) ? 'blk.smithing_table.smithing_table' : /Fletch/.test(t) ? 'blk.fletching_table.fletching_table' : null;
+  const t = (pn && pn.title) || ''; const k = /Disenchant/.test(t) ? 'blk.grindstone.grindstone' : /Upgrade Gear|Smith/.test(t) ? 'blk.smithing_table.smithing_table' : /Fletch/.test(t) ? 'blk.fletching_table.fletching_table'
+    : /^Loom/.test(t) ? 'snd.ui.loom.take_result' : /Stonecutter/.test(t) ? 'snd.ui.stonecutter.cut' : /Cartograph/.test(t) ? 'snd.ui.cartography_table.drawmap' : null;
   return !!k && blkPlay(k, 0.8);
 }
 // ---- interactions ----
