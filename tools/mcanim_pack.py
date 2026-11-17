@@ -89,11 +89,31 @@ def geometry(path):
     return out
 
 
+# parts drawn from the owner's own skeleton (the game's models lay these out differently): bone name pattern + texture
+OWN = {'blaze': ('upperBodyParts', 'blaze.tga'), 'guardian': ('spike', 'guardian.png'), 'elder_guardian': ('spike', 'elder_guardian.png'), 'vex': ('Wing', 'vex.png')}
+
+
+def own_parts(folder, mob):
+    import re, base64, io
+    from PIL import Image
+    pat, texname = OWN[mob]
+    g = json.load(open(os.path.join(folder, mob + '.geo.json')))
+    geo = (g.get('minecraft:geometry') or [None])[0] or next(v for k, v in g.items() if k.startswith('geometry'))
+    d = geo.get('description', {})
+    tw = d.get('texture_width') or geo.get('texturewidth') or 64; th = d.get('texture_height') or geo.get('textureheight') or 64
+    uv = {}
+    for b in geo['bones']:
+        if re.search(pat, b['name']):
+            uv[b['name']] = [[c.get('uv', [0, 0]), 1 if c.get('mirror', b.get('mirror')) else 0] for c in b.get('cubes', [])]
+    im = Image.open(os.path.join(folder, texname)).convert('RGBA'); buf = io.BytesIO(); im.save(buf, 'PNG', optimize=True)
+    return {'re': pat, 'tw': tw, 'th': th, 'uv': uv, 'tex': 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()}
+
+
 LOOKS = ['look_at_target_default', 'look_at_target', 'wolf_look_at', 'look_at', 'creeper_head']
 MCA = {}
 for d in sorted(os.listdir(SRC)):
     p = os.path.join(SRC, d)
-    if not os.path.isdir(p) or d in ('player', 'ender_dragon'):  # not Mob models in the game (player model, dragon object)
+    if not os.path.isdir(p):
         continue
     ap = os.path.join(p, d + '.animation.json')
     entry = {}
@@ -131,6 +151,8 @@ for d in sorted(os.listdir(SRC)):
                     pack.setdefault(bone, {})[c] = flat(ks)
             clips[name] = [round(ln, 3) if isinstance(ln, (int, float)) else 0, 1 if loop is True else 0, pack]
     entry['c'] = clips
+    if d in OWN:
+        entry['own'] = own_parts(p, d)
     MCA[d] = entry
 
 js = ('// ================= THE OWNER\'S MOB ANIMATIONS (data) =================\n'
