@@ -108,7 +108,7 @@ function shapeSupported(x, y, z, id) {
     const fy = (hit.py !== undefined ? hit.py : hit.y + 0.5) - hit.y; const upper = hit.ny === -1 || (hit.ny === 0 && fy > 0.5);
     // slabs: a second slab on a single one makes a double slab
     if (kind === 'slab') {
-      const merge = (mx, my, mz) => { const dbl = famId(d.fam, { type: 'double', wl: 0 }); if (boxIntersectsBlock(player, mx, my, mz)) return false; world.set(mx, my, mz, dbl); Sfx.play(d.snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x: mx, y: my, z: mz, block: d.fam }); return true; };
+      const merge = (mx, my, mz) => { const dbl = famId(d.fam, { type: 'double', wl: 0 }); if (boxIntersectsBlock(player, mx, my, mz)) return false; world.set(mx, my, mz, dbl); blockSfx('place', dbl, 1) || Sfx.play(d.snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x: mx, y: my, z: mz, block: d.fam }); return true; };
       const hd = BL[hit.id];
       if (hd && hd.fam === d.fam && hd.st.type !== 'double' && (hd.st.type === 'bottom' ? (hit.ny === 1 || (hit.ny === 0 && fy > 0.5)) : (hit.ny === -1 || (hit.ny === 0 && fy <= 0.5)))) return merge(hit.x, hit.y, hit.z);
       const cd = BL[world.get(x, y, z)]; if (cd && cd.fam === d.fam && cd.st.type !== 'double') return merge(x, y, z);

@@ -87,7 +87,7 @@ for (const k of ['sword', 'axe', 'pick', 'shovel']) { const sw = TOOL_SWINGS[k];
     const p = S.swing > 0 ? 1 - S.swing : 1;
     if (kind === lastKind && lastP < sw.strike && p >= sw.strike && !player.blocking) {
       const mining = mouseL && target && S.mineT > 0 && !S.uiOpen;
-      if (mining) { Sfx.play(hitSnd(target.id), 0.34, 0.5); Sfx.play('tdig_' + kind, 0.42, toolRing(id) || 0.001); }
+      if (mining) { blockSfx('hit', target.id, 0.34) || Sfx.play(hitSnd(target.id), 0.34, 0.5); Sfx.play('tdig_' + kind, 0.42, toolRing(id) || 0.001); }
       else if (G.simT - (S.toolHitAt ?? -9) > 0.45) Sfx.play('swish_' + kind, 0.5, 0.94 + Math.random() * 0.12);
     }
     lastP = p; lastKind = kind; return r;

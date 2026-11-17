@@ -33,7 +33,7 @@ const BLAST_CAUSES = /Creeper|TNT|explosion|End Crystal|fireball|Ghast|Wither|be
 // Thorns: 15% per level to hit back an attacker for 1-4
 { const _h = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause, kb) {
     const r = _h.apply(this, arguments);
-    if (this === player && src && isSurv()) { let lv = 0; for (let i = 37; i <= 40; i++) lv += enchOf(player.inv[i], 'thorns'); if (lv && Math.random() < 0.15 * lv) { const m = G.mobs.find(o => o.pos === src || (o.pos && o.pos.distanceTo && o.pos.distanceTo(src) < 0.01)); if (m && !m.dead) { m.hurt(1 + Math.floor(Math.random() * 4), player.pos, 0.3); Sfx.at('hurt', m.pos, 0.4, 1.3); } for (let i = 37; i <= 40; i++) if (enchOf(player.inv[i], 'thorns')) damageSlot(i, 2); } }
+    if (this === player && src && isSurv()) { let lv = 0; for (let i = 37; i <= 40; i++) lv += enchOf(player.inv[i], 'thorns'); if (lv && Math.random() < 0.15 * lv) { const m = G.mobs.find(o => o.pos === src || (o.pos && o.pos.distanceTo && o.pos.distanceTo(src) < 0.01)); if (m && !m.dead) { m.hurt(1 + Math.floor(Math.random() * 4), player.pos, 0.3); (blkPlay('ench.thorns', 0.7, m.pos) || Sfx.at('hurt', m.pos, 0.4, 1.3)); } for (let i = 37; i <= 40; i++) if (enchOf(player.inv[i], 'thorns')) damageSlot(i, 2); } }
     return r; }; }
 // Respiration: each level gives an extra chance to keep your breath (and lets you see underwater a bit longer)
 { let last = 300; const _u = updatePlayer; updatePlayer = function (dt) { const a0 = player.air; const r = _u.apply(this, arguments); const lv = enchOf(player.inv[37], 'respiration'); if (lv && player.air < a0) player.air = a0 - (a0 - player.air) / (lv + 1); return r; }; }

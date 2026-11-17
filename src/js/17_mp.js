@@ -57,7 +57,7 @@ function applyBlocks(list, from) {
     for (let i = 0; i < list.length; i += 5) {
       const dim = list[i], x = list[i + 1], y = list[i + 2], z = list[i + 3], key = list[i + 4]; const id = key === 'air' ? 0 : B[String(key).toUpperCase()]; if (id === undefined) continue;
       const w = Dim.get(dim); const c = w.getChunk(x >> 4, z >> 4);
-      if (c) { const old = w.get(x, y, z); if (old === id) continue; if (w === world && old && !id && player.pos.distanceTo(new V3(x, y, z)) < 32) { Particles.blockBreak(x, y, z, old, 10); Sfx.at(BL[old].snd === 'glass' ? 'glass_break' : BL[old].snd, new V3(x, y, z), 0.7); } if (old) onBlockRemoved(x, y, z, old); w.set(x, y, z, id); }
+      if (c) { const old = w.get(x, y, z); if (old === id) continue; if (w === world && old && !id && player.pos.distanceTo(new V3(x, y, z)) < 32) { Particles.blockBreak(x, y, z, old, 10); blockSfx('break', old, 0.7, new V3(x, y, z)) || Sfx.at(BL[old].snd === 'glass' ? 'glass_break' : BL[old].snd, new V3(x, y, z), 0.7); } if (old) onBlockRemoved(x, y, z, old); w.set(x, y, z, id); }
       else { const k = ckey(x >> 4, z >> 4); let e = w.edits.get(k); if (!e) { e = new Map(); w.edits.set(k, e); } e.set((y * 16 + (z & 15)) * 16 + (x & 15), id); }
     }
   } finally { MP.applying = false; }

@@ -17,7 +17,7 @@ const dirFromNormal = (nx, ny, nz) => ny > 0 ? 0 : ny < 0 ? 1 : nz < 0 ? 2 : nz 
 { const _pb = placeBlock; placeBlock = function (hit, id) {
     const d = BL[id]; if (!d || !hit) return _pb.apply(this, arguments);
     let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz; const free = () => replaceableAt(x, y, z);
-    const put = (pid) => { if (!free()) return false; if (!shapeSupported(x, y, z, pid)) return false; world.set(x, y, z, pid); Sfx.play(BL[pid].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: d.key }); return true; };
+    const put = (pid) => { if (!free()) return false; if (!shapeSupported(x, y, z, pid)) return false; world.set(x, y, z, pid); blockSfx('place', pid, 1) || Sfx.play(BL[pid].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: d.key }); return true; };
     if (d.drip) { if (!hit.ny) return false; const pid = FAMILY.pointed_dripstone.ids[(hit.ny > 0 ? 'up' : 'down') + ',tip']; const sup = world.get(x, y - (hit.ny > 0 ? 1 : -1), z); if (!(SOLID[sup] || BL[sup].drip)) return false; if (!free()) return false; world.set(x, y, z, pid); fixDrip(x, y, z); Sfx.play('stone', 1, 0.9); return true; }
     if (d.lichenBase !== undefined) { const f = hit.ny > 0 ? 0 : hit.ny < 0 ? 1 : hit.nz > 0 ? 4 : hit.nz < 0 ? 2 : hit.nx > 0 ? 3 : 5; return put(d.lichenBase + f); }
     if (d.budBase !== undefined) return put(d.budBase + dirFromNormal(hit.nx, hit.ny, hit.nz));

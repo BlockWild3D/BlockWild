@@ -471,7 +471,7 @@ function openHorseUI(m) {
 { const _ca = contArr; contArr = function (c) { if (c === 'panel') return S.panel ? S.panel.slots : null; return _ca(c); };
   const _sc = slotClick; slotClick = function (cont, i, button, shift) {
     const pn = S.panel;
-    if (pn && cont === 'panel') { if (pn.output === i) { pn.take(shift); Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; } const c = S.cursor; if (c && !pn.accept(i, c)) return; if (pn.single && c && c.count > 1 && !pn.slots[i]) { pn.slots[i] = Object.assign({}, c, { count: 1 }); c.count--; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } const r = _sc(cont, i, button, shift); pn.changed(); return r; }
+    if (pn && cont === 'panel') { if (pn.output === i) { pn.take(shift); panelSfx(pn) || Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; } const c = S.cursor; if (c && !pn.accept(i, c)) return; if (pn.single && c && c.count > 1 && !pn.slots[i]) { pn.slots[i] = Object.assign({}, c, { count: 1 }); c.count--; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } const r = _sc(cont, i, button, shift); pn.changed(); return r; }
     if (pn && cont === 'inv' && shift) { const s = player.inv[i]; if (s) for (let k = 0; k < pn.slots.length; k++) if (k !== pn.output && !pn.slots[k] && pn.accept(k, s)) { const n = pn.single ? 1 : s.count; pn.slots[k] = Object.assign({}, s, { count: n }); s.count -= n; if (!s.count) player.inv[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); pn.changed(); return; } }
     return _sc(cont, i, button, shift);
   };

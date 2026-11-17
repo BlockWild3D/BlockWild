@@ -90,7 +90,7 @@ const CAVE_ROCK = new Set(); for (const k of ['stone', 'deepslate', 'tuff', 'gra
     const below = SOLID[world.get(x, y - 1, z)], above = SOLID[world.get(x, y + 1, z)]; let put = null;
     if (d.spike) put = hit.ny < 0 && above ? B['SULFUR_SPIKE#HANG'] : below ? B.SULFUR_SPIKE : above ? B['SULFUR_SPIKE#HANG'] : null;
     else if (d.icicle) put = above ? B.ICICLE : null; else put = below || above ? B.ICE_CRYSTAL : null;
-    if (put == null) return false; world.set(x, y, z, put); mpBlock(x, y, z, put); Sfx.play(d.snd === 'glass' ? 'glass' : 'stone', 0.8, 1.2); return true; }; }
+    if (put == null) return false; world.set(x, y, z, put); mpBlock(x, y, z, put); blockSfx('place', put, 0.8) || Sfx.play(d.snd === 'glass' ? 'glass' : 'stone', 0.8, 1.2); return true; }; }
 function supportNeed(id) { const d = BL[id]; if (!d) return null; if (d.spike === 'up') return 'below'; if (d.spike === 'down' || d.icicle) return 'above'; if (d.iceCrystal) return 'either'; return null; }
 { const _set = World.prototype.set; let busy = false; World.prototype.set = function (x, y, z, id) {
     const r = _set.apply(this, arguments); if (r === false || busy || this !== G.world || SOLID[id]) return r; busy = true;

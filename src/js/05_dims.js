@@ -76,7 +76,7 @@ function checkEndPortal(x, y, z) {
     let ok = true; for (let l = -1; l <= 1 && ok; l++) for (const [fx, fz] of [[cx + 2, cz + l], [cx - 2, cz + l], [cx + l, cz + 2], [cx + l, cz - 2]]) if (world.get(fx, y, fz) !== B.END_PORTAL_FRAME_EYE) { ok = false; break; }
     if (!ok) continue;
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) world.set(cx + i, y, cz + j, B.END_PORTAL);
-    Sfx.play('levelup', 1); Sfx.play('portal', 1); toast('The End Portal is open. Jump in to face the Ender Dragon.', 5);
+    blkPlay('blk.end_portal.endportal', 1) || (Sfx.play('levelup', 1), Sfx.play('portal', 1)); toast('The End Portal is open. Jump in to face the Ender Dragon.', 5);
     Particles.emit(cx + 0.5, y + 1, cz + 0.5, 60, [[0.3, 0.9, 0.7], [0.7, 0.4, 1]], 4, 1.2, -1, 3); return true;
   }
   return false;

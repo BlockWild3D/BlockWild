@@ -68,7 +68,7 @@ class Player {
     if (effLevel('fire_resistance') && (cause === 'lava' || cause === 'a magma block' || cause === 'fire')) return;
     if (src && cause !== 'fall damage') { if (S.difficulty === 'peaceful') dmg = 0; else if (S.difficulty === 'easy') dmg = Math.min(dmg, dmg / 2 + 1); else if (S.difficulty === 'hard') dmg *= 1.5; }
     dmg = armorReduce(dmg, cause); dmg *= Math.max(0, 1 - 0.2 * effLevel('resistance')); if (dmg <= 0) return;
-    this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; Sfx.play('hurt', 1);
+    this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; (playerHurtSfx(dmg, cause) || Sfx.play('hurt', 1));
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) applyKnockback(this, src, kb, typeof blastKbResist === 'function' ? blastKbResist(this) : 0);
     G.shake = Math.max(G.shake, 0.25); updateHearts();
@@ -419,7 +419,7 @@ function breakBlock(x, y, z) {
   if (MODS.hooks.blockBreak && modFire('blockBreak', { x, y, z, block: BL[id].key })) return;
   onBlockRemoved(x, y, z, id); world.set(x, y, z, 0); breakBedPair(x, y, z, id);
   { const hd0 = player.heldDef(); if (hd0 && maxDur(player.held().id) && BL[id].hardness > 0 && (hd0.kind === 'tool')) damageHeld(hd0.tool === 'sword' ? 2 : 1); }
-  Particles.blockBreak(x, y, z, id); Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
+  Particles.blockBreak(x, y, z, id); blockSfx('break', id, 1) || Sfx.play(BL[id].snd === 'glass' ? 'glass_break' : BL[id].snd, 1, 0.8);
   if (isSurv()) { const hd = player.heldDef(); let dr = blockDrop(id, hd && hd.kind === 'tool' ? hd : null); if (dr || (hd && hd.tool === 'pick')) { if (!(BL[id].tool === 'pick' && (!hd || hd.tool !== 'pick' || hd.tier < BL[id].tier))) dr = enchantedDrop(id, dr); } if (dr) { dropItem(dr[0], dr[1], x + 0.5, y + 0.4, z + 0.5); if (dr[0] !== id) oreXP(id, x, y, z); } if (BL[id].crop === 3) dropItem(IT.wheat_seeds, 1 + Math.floor(Math.random() * 3), x + 0.5, y + 0.4, z + 0.5); }
   for (let yy = y + 1; yy < WH; yy++) { const a = world.get(x, yy, z); if (PLANT[a] || a === B.TORCH || a === B.CACTUS) { onBlockRemoved(x, yy, z, a); world.set(x, yy, z, 0); Particles.blockBreak(x, yy, z, a, 8); if (isSurv()) { const dr = blockDrop(a); if (dr) dropItem(dr[0], dr[1], x + 0.5, yy + 0.4, z + 0.5); } if (!STACK_PLANT.test(BL[a].key || '')) break; } else break; }
 }
@@ -438,7 +438,7 @@ function placeBlock(hit, id) {
   if (id === B.CACTUS && !(below === B.SAND || below === B.CACTUS)) return false;
   if (SOLID[id]) { if (boxIntersectsBlock(player, x, y, z)) return false; for (const m of G.mobs) if (!m.dead && !m.isBoss && boxIntersectsBlock(m, x, y, z)) return false; }
   if (BL[id].fluid) { if (!placeFluid(x, y, z, id)) return true; } else world.set(x, y, z, id);
-  Sfx.play(BL[id].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
+  blockSfx('place', id, 1) || Sfx.play(BL[id].snd, 1, 0.8); if (MODS.hooks.blockPlace) modFire('blockPlace', { x, y, z, block: BL[id].key }); return true;
 }
 function pickBlock() { if (S.mode !== 'creative') return; const hit = raycast(player.eye(), lookDir(), 7); if (!hit) return; let id = hit.id; if (BL[id].hidden) id = id === B.END_PORTAL_FRAME_EYE ? B.END_PORTAL_FRAME : B.NETHER_PORTAL; for (let i = 0; i < 9; i++) if (player.inv[i] && player.inv[i].id === id) { selectSlot(i); return; } player.inv[player.sel] = { id, count: stackMax(id) }; invDirty(); selectSlot(player.sel); }
 function dropHeld(all) { const h = player.held(); if (!h) return; const n = all ? h.count : 1; const d = lookDir(); const e = player.eye(); const it = dropItem(h.id, n, e.x + d.x * 0.4, e.y - 0.3 + d.y * 0.4, e.z + d.z * 0.4, false, xtra(h)); it.vel.set(d.x * 6, d.y * 6 + 2, d.z * 6); it.pickDelay = 1.5; h.count -= n; if (h.count <= 0) player.inv[player.sel] = null; invDirty(); S.swing = 1; }
@@ -515,7 +515,7 @@ function useAction(eye, dir) {
     if (bd.use === 'furnace') { mouseR = false; const fk = target.x + ',' + target.y + ',' + target.z; getFurnace(fk).fast = bd.fast || null; openUI('furnace', fk); return; }
     if (bd.use === 'bed') { mouseR = false; useBed(target.x, target.y, target.z); return; }
     if (target.id === B.ENCHANTING_TABLE) { mouseR = false; openUI('enchant', target.x + ',' + target.y + ',' + target.z); return; }
-    if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
+    if (target.id === B.END_PORTAL_FRAME && hd && h.id === IT.eye_of_ender) { world.set(target.x, target.y, target.z, B.END_PORTAL_FRAME_EYE); useHeld(1); blkPlay('blk.end_portal.eyeplace', 0.8) || Sfx.play('portal', 0.6); Particles.emit(target.x + 0.5, target.y + 1.1, target.z + 0.5, 12, [[0.3, 0.9, 0.6]], 1.5, 0.6, -1, 0.5); checkEndPortal(target.x, target.y, target.z); S.swing = 1; return; }
   }
   if (!hd) return;
   if (hd.kind === 'food') return; // eating is a hold-to-use action (23_hunger.js)
@@ -703,7 +703,7 @@ function updatePlayer(dt) {
   if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
   if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
-  if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
+  if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) blockSfx('step', b, 0.3) || Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
   if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (isSurv()) { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
