@@ -161,8 +161,8 @@ function pressButton(x, y, z) { const id = world.get(x, y, z); const d = BL[id];
       const d = BL[target.id]; const { x, y, z } = target; const pos = new V3(x + 0.5, y + 0.5, z + 0.5);
       // buckets and waterloggable blocks
       if (hd && hd.kind === 'bucket' && d && d.shape && d.st && d.st.wl !== undefined && !(d.shape === 'slab' && d.st.type === 'double')) {
-        if (!hd.fluid && d.st.wl) { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 0 })); replaceHeld(IT.water_bucket); Sfx.play('splash', 0.6); S.swing = 1; return; }
-        if (hd.fluid === 'water' && !d.st.wl && world.dim !== 'nether') { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 1 })); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } Sfx.play('splash', 0.6); S.swing = 1; return; }
+        if (!hd.fluid && d.st.wl) { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 0 })); replaceHeld(IT.water_bucket); (blkPlay('snd.item.bucket.fill', 0.8) || Sfx.play('splash', 0.6)); S.swing = 1; return; }
+        if (hd.fluid === 'water' && !d.st.wl && world.dim !== 'nether') { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 1 })); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } (blkPlay('snd.item.bucket.empty', 0.8) || Sfx.play('splash', 0.6)); S.swing = 1; return; }
       }
       if (d && d.shape && !(kd('sneak') && h) && !isSpec()) {
         if ((d.shape === 'door' || d.shape === 'trapdoor') && !d.iron) { mouseR = false; const open = d.st.open ? 0 : 1; if (d.shape === 'door') setDoor(x, y, z, open); else world.set(x, y, z, withState(target.id, { open })); shapeSound(d, open, pos); S.swing = 1; return; }

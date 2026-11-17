@@ -36,7 +36,7 @@ function nearestTargetPos(m) { const P = G.player; return P && !P.dead && isSurv
 MOBS.drowned.tick = function (m, dt) {
   const w = G.world; const inW = inWater(m, 0.6); const P = nearestTargetPos(m);
   // throw the trident from range
-  if (m.hasTrident && P) { const d = m.pos.distanceTo(P.pos); m.throwT = (m.throwT || 2) - dt; if (d > 3.5 && d < 18 && m.throwT <= 0 && lineOfSight(new V3(m.pos.x, m.pos.y + 1.6, m.pos.z), P.eye())) { m.throwT = 3; const from = new V3(m.pos.x, m.pos.y + 1.6, m.pos.z); const tgt = P.eye().add(new V3(0, -0.4, 0)); const dir = tgt.clone().sub(from); const L = dir.length(); dir.normalize(); const v = dir.multiplyScalar(26); v.y += 0.5 * 20 * (L / 26); const p = spawnProj('trident', from, v, 'mob', 8, m); p.mobThrown = true; m.armSwing = 0.4; Sfx.at('bow', m.pos, 0.6, 0.7); } }
+  if (m.hasTrident && P) { const d = m.pos.distanceTo(P.pos); m.throwT = (m.throwT || 2) - dt; if (d > 3.5 && d < 18 && m.throwT <= 0 && lineOfSight(new V3(m.pos.x, m.pos.y + 1.6, m.pos.z), P.eye())) { m.throwT = 3; const from = new V3(m.pos.x, m.pos.y + 1.6, m.pos.z); const tgt = P.eye().add(new V3(0, -0.4, 0)); const dir = tgt.clone().sub(from); const L = dir.length(); dir.normalize(); const v = dir.multiplyScalar(26); v.y += 0.5 * 20 * (L / 26); const p = spawnProj('trident', from, v, 'mob', 8, m); p.mobThrown = true; m.armSwing = 0.4; (blkPlay('snd.item.trident.throw', 0.8, m.pos, 0.6) || Sfx.at('bow', m.pos, 0.6, 0.7)); } }
   if (!inW) return false; // on land: normal zombie behaviour
   const t = m.t; m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.atkCD -= dt; m.angry -= dt;
   m.lightT -= dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, w.lightAt(m.pos.x, m.pos.y + 1.4, m.pos.z, G.daylight)); }
@@ -103,7 +103,7 @@ function releaseTrident(h) {
   const P = player; const rip = enchOf(h, 'riptide'); const eye = P.eye(), dir = lookDir();
   if (rip) { // Riptide: only in water (or rain); launches you instead of throwing
     if (!inWater(P, 0.4) && !inWater(P, 1.2)) return;
-    const sp = 3 * (1 + rip) / 4 * 20 * 0.55; P.vel.copy(dir).multiplyScalar(sp); P.riptideT = 0.6 + 0.15 * rip; P.peak = null; damageHeld(1); Sfx.play('vwoop', 0.5, 0.7); S.swing = 1; return;
+    const sp = 3 * (1 + rip) / 4 * 20 * 0.55; P.vel.copy(dir).multiplyScalar(sp); P.riptideT = 0.6 + 0.15 * rip; P.peak = null; damageHeld(1); (blkPlay('snd.item.trident.riptide', 0.8) || Sfx.play('vwoop', 0.5, 0.7)); S.swing = 1; return;
   }
   const p = spawnProj('trident', eye.clone().addScaledVector(dir, 0.5), dir.clone().multiplyScalar(50), 'player', 8);
   p.item = Object.assign({}, h); p.slot = P.sel; p.life = 60; p.noPickup = S.mode === 'creative'; p.loyalty = enchOf(h, 'loyalty'); p.impaling = enchOf(h, 'impaling');

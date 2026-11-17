@@ -177,8 +177,8 @@ function glideUpdate(P, dt) {
 // a firework rocket: boost while gliding, otherwise a burst of colour where you aim
 { const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id];
     if (hd && hd.kind === 'firework') { mouseR = false;
-      if (player.gliding) { player.boostT = 1.1 + Math.random() * 0.4; if (S.mode !== 'creative') useHeld(1); Sfx.play('vwoop', 0.5, 0.5); S.swing = 1; return; }
-      if (target) { if (S.mode !== 'creative') useHeld(1); S.swing = 1; const x = target.x + 0.5, z = target.z + 0.5, y = target.y + 1; G.fireworks = G.fireworks || []; G.fireworks.push({ x, y, z, t: 0, hue: Math.random() }); Sfx.play('vwoop', 0.4, 0.6); }
+      if (player.gliding) { player.boostT = 1.1 + Math.random() * 0.4; if (S.mode !== 'creative') useHeld(1); (blkPlay('snd.fireworks.launch', 0.8) || Sfx.play('vwoop', 0.5, 0.5)); S.swing = 1; return; }
+      if (target) { if (S.mode !== 'creative') useHeld(1); S.swing = 1; const x = target.x + 0.5, z = target.z + 0.5, y = target.y + 1; G.fireworks = G.fireworks || []; G.fireworks.push({ x, y, z, t: 0, hue: Math.random() }); (blkPlay('snd.fireworks.launch', 0.8) || Sfx.play('vwoop', 0.4, 0.6)); }
       return; }
     return _ua(eye, dir); }; }
 function updateFireworks(dt) { if (!G.fireworks || !G.fireworks.length) return;

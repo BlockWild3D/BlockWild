@@ -6,7 +6,7 @@
 // ominous bottle. Sniffers sniff out torchflower seeds and pitcher pods from grass, dirt and moss, are bred with
 // torchflower seeds and lay sniffer eggs, which hatch faster on moss.
 Object.assign(EFFECTS, { bad_omen: 'Bad Omen', raid_omen: 'Raid Omen', hero_of_the_village: 'Hero of the Village', water_breathing: EFFECTS.water_breathing || 'Water Breathing', conduit_power: 'Conduit Power', glowing: 'Glowing' });
-{ const _oe = onEatItem; onEatItem = function (id) { _oe.apply(this, arguments); if (id === IT.ominous_bottle) { giveEffect('bad_omen', 6000, 0); Sfx.play('omen', 1); toast('Bad Omen', 2); } }; }
+{ const _oe = onEatItem; onEatItem = function (id) { _oe.apply(this, arguments); if (id === IT.ominous_bottle) { giveEffect('bad_omen', 6000, 0); (blkPlay('snd.event.mob_effects.bad_omen', 0.8) || Sfx.play('omen', 1)); toast('Bad Omen', 2); } }; }
 // ---- captains ----
 function makeCaptain(m) { m.captain = true; if (!m.root) return; const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), new THREE.MeshLambertMaterial({ color: 0x6a4a2a })); pole.position.set(0, m.h + 0.3, -0.18); g.add(pole);
   const c = document.createElement('canvas'); c.width = 20; c.height = 40; const x = c.getContext('2d'); x.fillStyle = '#eee'; x.fillRect(0, 0, 20, 40); x.fillStyle = '#2a8a8a'; x.fillRect(0, 24, 20, 6); x.fillStyle = '#222'; x.fillRect(6, 6, 8, 12); x.fillStyle = '#888'; x.fillRect(7, 18, 6, 4); x.fillStyle = '#444'; x.fillRect(0, 34, 20, 6);

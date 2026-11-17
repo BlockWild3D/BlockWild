@@ -6444,7 +6444,7 @@ function slotClick(cont, i, button, shift) {
   if (cont === 'inv' && i >= 37 && c && !(ITEMS[c.id].kind === 'armor' && ARMOR_SLOT[ITEMS[c.id].slot] === i)) return;
   if (shift && s) {
     let tgt, order;
-    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
+    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; equipSfx(s.id) || Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
     if (cont !== 'inv') { tgt = player.inv; order = [...Array(9).keys()].concat([...Array(27).keys()].map(k => k + 9)); }
     else if (chestArr) { tgt = chestArr; order = [...Array(chestArr.length).keys()]; }
     else if (furnState) { tgt = furnState.s; order = FUEL[s.id] && !SMELT[s.id] ? [1] : [0]; }
@@ -6789,7 +6789,7 @@ function useAction(eye, dir) {
   if (hd && hd.kind === 'boat' && !(target && BL[target.id].use && !sneaking)) { mouseR = false; placeBoatItem(eye, dir); return; }
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
   if (hd && hd.kind === 'bed' && target && !(BL[target.id].use && !sneaking)) { mouseR = false; if (placeBed(target)) useHeld(1); S.swing = 1; return; }
-  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[handSlot()] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
+  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[handSlot()] = cur; equipSfx(h.id) || Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
     const bd = BL[target.id];
@@ -6814,7 +6814,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -6987,7 +6987,7 @@ function updatePlayer(dt) {
   if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) blockSfx('step', b, 0.3) || Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
-  if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
+  if (water && !P.wasWater && P.vel.y < -3) { blkPlay(P.vel.y < -14 ? 'snd.liquid.heavy_splash' : 'snd.liquid.splash', 0.8) || Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (isSurv()) { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
   // healing comes from food now (23_hunger.js)
@@ -8689,7 +8689,7 @@ function farmUse(h, hd) {
   const above = world.get(target.x, target.y + 1, target.z);
   if (hd.tool === 'hoe' && (target.id === B.GRASS || target.id === B.DIRT || target.id === B.DIRT_PATH || target.id === B.SNOWY_GRASS) && (!above || PLANT[above]) && target.ny >= 0) {
     if (above) world.set(target.x, target.y + 1, target.z, 0);
-    world.set(target.x, target.y, target.z, B.FARMLAND); damageHeld(1); Sfx.play('grass', 0.9); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
+    world.set(target.x, target.y, target.z, B.FARMLAND); damageHeld(1); (blkPlay('snd.item.hoe.till', 0.8) || Sfx.play('grass', 0.9)); S.swing = 1; S.useCD = 0.25; mpBlock(target.x, target.y, target.z, B.FARMLAND); return true;
   }
   if ((hd.kind === 'seed' || hd.crop) && target.id === B.FARMLAND && !above && target.ny > 0) {
     const id = B[hd.crop.toUpperCase()]; world.set(target.x, target.y + 1, target.z, id); useHeld(1); Sfx.play('grass', 0.7); S.swing = 1; S.useCD = 0.2; mpBlock(target.x, target.y + 1, target.z, id); return true;
@@ -11043,7 +11043,7 @@ function nearestTargetPos(m) { const P = G.player; return P && !P.dead && isSurv
 MOBS.drowned.tick = function (m, dt) {
   const w = G.world; const inW = inWater(m, 0.6); const P = nearestTargetPos(m);
   // throw the trident from range
-  if (m.hasTrident && P) { const d = m.pos.distanceTo(P.pos); m.throwT = (m.throwT || 2) - dt; if (d > 3.5 && d < 18 && m.throwT <= 0 && lineOfSight(new V3(m.pos.x, m.pos.y + 1.6, m.pos.z), P.eye())) { m.throwT = 3; const from = new V3(m.pos.x, m.pos.y + 1.6, m.pos.z); const tgt = P.eye().add(new V3(0, -0.4, 0)); const dir = tgt.clone().sub(from); const L = dir.length(); dir.normalize(); const v = dir.multiplyScalar(26); v.y += 0.5 * 20 * (L / 26); const p = spawnProj('trident', from, v, 'mob', 8, m); p.mobThrown = true; m.armSwing = 0.4; Sfx.at('bow', m.pos, 0.6, 0.7); } }
+  if (m.hasTrident && P) { const d = m.pos.distanceTo(P.pos); m.throwT = (m.throwT || 2) - dt; if (d > 3.5 && d < 18 && m.throwT <= 0 && lineOfSight(new V3(m.pos.x, m.pos.y + 1.6, m.pos.z), P.eye())) { m.throwT = 3; const from = new V3(m.pos.x, m.pos.y + 1.6, m.pos.z); const tgt = P.eye().add(new V3(0, -0.4, 0)); const dir = tgt.clone().sub(from); const L = dir.length(); dir.normalize(); const v = dir.multiplyScalar(26); v.y += 0.5 * 20 * (L / 26); const p = spawnProj('trident', from, v, 'mob', 8, m); p.mobThrown = true; m.armSwing = 0.4; (blkPlay('snd.item.trident.throw', 0.8, m.pos, 0.6) || Sfx.at('bow', m.pos, 0.6, 0.7)); } }
   if (!inW) return false; // on land: normal zombie behaviour
   const t = m.t; m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.atkCD -= dt; m.angry -= dt;
   m.lightT -= dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, w.lightAt(m.pos.x, m.pos.y + 1.4, m.pos.z, G.daylight)); }
@@ -11110,7 +11110,7 @@ function releaseTrident(h) {
   const P = player; const rip = enchOf(h, 'riptide'); const eye = P.eye(), dir = lookDir();
   if (rip) { // Riptide: only in water (or rain); launches you instead of throwing
     if (!inWater(P, 0.4) && !inWater(P, 1.2)) return;
-    const sp = 3 * (1 + rip) / 4 * 20 * 0.55; P.vel.copy(dir).multiplyScalar(sp); P.riptideT = 0.6 + 0.15 * rip; P.peak = null; damageHeld(1); Sfx.play('vwoop', 0.5, 0.7); S.swing = 1; return;
+    const sp = 3 * (1 + rip) / 4 * 20 * 0.55; P.vel.copy(dir).multiplyScalar(sp); P.riptideT = 0.6 + 0.15 * rip; P.peak = null; damageHeld(1); (blkPlay('snd.item.trident.riptide', 0.8) || Sfx.play('vwoop', 0.5, 0.7)); S.swing = 1; return;
   }
   const p = spawnProj('trident', eye.clone().addScaledVector(dir, 0.5), dir.clone().multiplyScalar(50), 'player', 8);
   p.item = Object.assign({}, h); p.slot = P.sel; p.life = 60; p.noPickup = S.mode === 'creative'; p.loyalty = enchOf(h, 'loyalty'); p.impaling = enchOf(h, 'impaling');
@@ -12601,8 +12601,8 @@ function glideUpdate(P, dt) {
 // a firework rocket: boost while gliding, otherwise a burst of colour where you aim
 { const _ua = useAction; useAction = function (eye, dir) { const h = player.held(); const hd = h && ITEMS[h.id];
     if (hd && hd.kind === 'firework') { mouseR = false;
-      if (player.gliding) { player.boostT = 1.1 + Math.random() * 0.4; if (S.mode !== 'creative') useHeld(1); Sfx.play('vwoop', 0.5, 0.5); S.swing = 1; return; }
-      if (target) { if (S.mode !== 'creative') useHeld(1); S.swing = 1; const x = target.x + 0.5, z = target.z + 0.5, y = target.y + 1; G.fireworks = G.fireworks || []; G.fireworks.push({ x, y, z, t: 0, hue: Math.random() }); Sfx.play('vwoop', 0.4, 0.6); }
+      if (player.gliding) { player.boostT = 1.1 + Math.random() * 0.4; if (S.mode !== 'creative') useHeld(1); (blkPlay('snd.fireworks.launch', 0.8) || Sfx.play('vwoop', 0.5, 0.5)); S.swing = 1; return; }
+      if (target) { if (S.mode !== 'creative') useHeld(1); S.swing = 1; const x = target.x + 0.5, z = target.z + 0.5, y = target.y + 1; G.fireworks = G.fireworks || []; G.fireworks.push({ x, y, z, t: 0, hue: Math.random() }); (blkPlay('snd.fireworks.launch', 0.8) || Sfx.play('vwoop', 0.4, 0.6)); }
       return; }
     return _ua(eye, dir); }; }
 function updateFireworks(dt) { if (!G.fireworks || !G.fireworks.length) return;
@@ -13228,8 +13228,8 @@ PROJ.potion = { grav: 20, size: 0.24, color: 0x6070e0, trail: [[0.7, 0.7, 1]] };
       useHeld(1); Sfx.play('bow', 0.4, 0.7); S.swing = 1; S.useCD = 0.4; return; }
     if (hd && hd.id === IT.glass_bottle) { // fill from water, or collect dragon's breath
       const near = (G.clouds || []).find(c => c.life > 0 && Math.hypot(c.x - eye.x, c.z - eye.z) < c.r + 2 && Math.abs(c.y - eye.y) < 4);
-      if (near) { mouseR = false; giveBottle(IT.dragon_breath, null); near.r = Math.max(0.5, near.r - 0.5); Sfx.play('pop', 0.5, 1.2); return; }
-      const ft = raycast(eye, dir, 5, true); if (ft && isWaterId(ft.id)) { mouseR = false; giveBottle(IT.potion, 'water'); Sfx.play('splash', 0.4, 1.4); return; } }
+      if (near) { mouseR = false; giveBottle(IT.dragon_breath, null); near.r = Math.max(0.5, near.r - 0.5); (blkPlay('snd.item.bottle.fill_dragonbreath', 0.8) || Sfx.play('pop', 0.5, 1.2)); return; }
+      const ft = raycast(eye, dir, 5, true); if (ft && isWaterId(ft.id)) { mouseR = false; giveBottle(IT.potion, 'water'); (blkPlay('snd.item.bottle.fill', 0.8) || Sfx.play('splash', 0.4, 1.4)); return; } }
     if (hd && hd.id === IT.nether_wart && target && target.id === B.SOUL_SAND && target.ny > 0 && !world.get(target.x, target.y + 1, target.z)) { mouseR = false; world.set(target.x, target.y + 1, target.z, B.NETHER_WART_0); mpBlock(target.x, target.y + 1, target.z, B.NETHER_WART_0); useHeld(1); Sfx.play('step', 0.5); S.swing = 1; return; }
     if (hd && hd.id === IT.end_crystal && target && (target.id === B.OBSIDIAN || target.id === B.BEDROCK) && target.ny > 0) { mouseR = false; if (placeEndCrystal(target.x, target.y + 1, target.z)) { useHeld(1); S.swing = 1; } return; }
     if (target && !sneaking && BL[target.id].use === 'brew') { mouseR = false; openBrewing(target.x + ',' + target.y + ',' + target.z); return; }
@@ -15406,8 +15406,8 @@ function pressButton(x, y, z) { const id = world.get(x, y, z); const d = BL[id];
       const d = BL[target.id]; const { x, y, z } = target; const pos = new V3(x + 0.5, y + 0.5, z + 0.5);
       // buckets and waterloggable blocks
       if (hd && hd.kind === 'bucket' && d && d.shape && d.st && d.st.wl !== undefined && !(d.shape === 'slab' && d.st.type === 'double')) {
-        if (!hd.fluid && d.st.wl) { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 0 })); replaceHeld(IT.water_bucket); Sfx.play('splash', 0.6); S.swing = 1; return; }
-        if (hd.fluid === 'water' && !d.st.wl && world.dim !== 'nether') { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 1 })); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } Sfx.play('splash', 0.6); S.swing = 1; return; }
+        if (!hd.fluid && d.st.wl) { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 0 })); replaceHeld(IT.water_bucket); (blkPlay('snd.item.bucket.fill', 0.8) || Sfx.play('splash', 0.6)); S.swing = 1; return; }
+        if (hd.fluid === 'water' && !d.st.wl && world.dim !== 'nether') { mouseR = false; world.set(x, y, z, withState(target.id, { wl: 1 })); if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } (blkPlay('snd.item.bucket.empty', 0.8) || Sfx.play('splash', 0.6)); S.swing = 1; return; }
       }
       if (d && d.shape && !(kd('sneak') && h) && !isSpec()) {
         if ((d.shape === 'door' || d.shape === 'trapdoor') && !d.iron) { mouseR = false; const open = d.st.open ? 0 : 1; if (d.shape === 'door') setDoor(x, y, z, open); else world.set(x, y, z, withState(target.id, { open })); shapeSound(d, open, pos); S.swing = 1; return; }
@@ -15578,7 +15578,7 @@ function saplingTick(x, y, z, id) { if (Math.random() < 0.25) trySapling(x, y, z
 { const _ua = useAction; useAction = function (eye, dir) {
     const h = player.held(); const hd = h && ITEMS[h.id];
     if (target && !targetMob && hd && hd.kind === 'tool' && hd.tool === 'axe' && !isSpec()) { const d = BL[target.id]; const base = d && d.fam && FAMILY[d.fam] ? BL[FAMILY[d.fam].base] : null;
-      if (base && base.stripTo && FAMILY[base.stripTo]) { mouseR = false; world.set(target.x, target.y, target.z, famId(base.stripTo, { axis: d.st.axis })); Sfx.play('wood', 1, 0.7); damageHeld(1); S.swing = 1; return; } }
+      if (base && base.stripTo && FAMILY[base.stripTo]) { mouseR = false; world.set(target.x, target.y, target.z, famId(base.stripTo, { axis: d.st.axis })); (blkPlay('snd.item.axe.strip', 0.8) || Sfx.play('wood', 1, 0.7)); damageHeld(1); S.swing = 1; return; } }
     return _ua.apply(this, arguments); }; }
 
 // ---- new biomes ----
@@ -15670,9 +15670,9 @@ const CU_NEXT = new Uint16Array(ITEM_BASE), CU_PREV = new Uint16Array(ITEM_BASE)
       const changeBoth = (nid) => { const d = BL[id]; world.set(x, y, z, nid); if (d.shape === 'door') { const oy = d.st.half === 'upper' ? y - 1 : y + 1; const o = world.get(x, oy, z); const map = arguments.length; const other = (CU_UNWAX[nid] === id || CU_WAX[id] === nid) ? (CU_WAX[o] || CU_UNWAX[o]) : (CU_PREV[o] || 0); if (other) world.set(x, oy, z, other); } };
       if (hd.kind === 'tool' && hd.tool === 'axe' && (CU_UNWAX[id] || CU_PREV[id])) { mouseR = false; const d = BL[id]; const nid = CU_UNWAX[id] || CU_PREV[id];
         world.set(x, y, z, nid); if (d.shape === 'door') { const oy = d.st.half === 'upper' ? y - 1 : y + 1; const o = world.get(x, oy, z); const n2 = CU_UNWAX[id] ? CU_UNWAX[o] : CU_PREV[o]; if (n2) world.set(x, oy, z, n2); }
-        SpriteFX.emit('glint', x + 0.5, y + 0.5, z + 0.5, 10, { size: 0.22, spd: 1.2, life: 0.7, spread: 0.9, tint: CU_UNWAX[id] ? [[1, 0.85, 0.4]] : [[0.6, 0.9, 0.8]] }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, CU_UNWAX[id] ? [[1, 0.85, 0.4]] : [[0.6, 0.9, 0.8]], 1.5, 0.6, -1, 0.6); Sfx.play('wood', 1, 1.3); damageHeld(1); S.swing = 1; return; }
+        SpriteFX.emit('glint', x + 0.5, y + 0.5, z + 0.5, 10, { size: 0.22, spd: 1.2, life: 0.7, spread: 0.9, tint: CU_UNWAX[id] ? [[1, 0.85, 0.4]] : [[0.6, 0.9, 0.8]] }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, CU_UNWAX[id] ? [[1, 0.85, 0.4]] : [[0.6, 0.9, 0.8]], 1.5, 0.6, -1, 0.6); (blkPlay(CU_UNWAX[id] ? 'snd.item.axe.wax_off' : 'snd.item.axe.scrape', 0.9) || Sfx.play('wood', 1, 1.3)); damageHeld(1); S.swing = 1; return; }
       if (h.id === IT.honeycomb && CU_WAX[id]) { mouseR = false; const d = BL[id]; world.set(x, y, z, CU_WAX[id]); if (d.shape === 'door') { const oy = d.st.half === 'upper' ? y - 1 : y + 1; const o = world.get(x, oy, z); if (CU_WAX[o]) world.set(x, oy, z, CU_WAX[o]); }
-        SpriteFX.emit('glint', x + 0.5, y + 0.5, z + 0.5, 10, { size: 0.22, spd: 1.2, life: 0.7, spread: 0.9, tint: [[1, 0.75, 0.2]] }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, [[1, 0.75, 0.2]], 1.5, 0.6, -1, 0.6); Sfx.play('click', 1); useHeld(1); S.swing = 1; return; }
+        SpriteFX.emit('glint', x + 0.5, y + 0.5, z + 0.5, 10, { size: 0.22, spd: 1.2, life: 0.7, spread: 0.9, tint: [[1, 0.75, 0.2]] }) || Particles.emit(x + 0.5, y + 0.5, z + 0.5, 10, [[1, 0.75, 0.2]], 1.5, 0.6, -1, 0.6); (blkPlay('snd.item.honeycomb.wax_on', 0.9) || Sfx.play('click', 1)); useHeld(1); S.swing = 1; return; }
     }
     return _ua.apply(this, arguments); }; }
 
@@ -15841,8 +15841,8 @@ const dirFromNormal = (nx, ny, nz) => ny > 0 ? 0 : ny < 0 ? 1 : nz < 0 ? 2 : nz 
     if (target && !targetMob && !isSpec()) { const { x, y, z } = target; const d = BL[target.id];
       if (h && h.id === IT.cocoa_beans && target.ny === 0 && /^jungle_log|^jungle_wood|^stripped_jungle/.test(d.key)) { const cx = x + target.nx, cz = z + target.nz; if (replaceableAt(cx, y, cz)) { const f = dirOf(-target.nx, -target.nz); world.set(cx, y, cz, B[(f ? 'cocoa#0_' + f : 'cocoa').toUpperCase()]); useHeld(1); Sfx.play('wood', 1, 1.1); S.swing = 1; mouseR = false; return; } }
       if (h && h.id === IT.sweet_berries && target.ny > 0 && [B.GRASS, B.DIRT, B.PODZOL, B.COARSE_DIRT, B.FARMLAND, B.MOSS_BLOCK].includes(target.id) && replaceableAt(x, y + 1, z)) { world.set(x, y + 1, z, B.SWEET_BERRY_BUSH); useHeld(1); Sfx.play('grass', 1); S.swing = 1; mouseR = false; return; }
-      if (d.berry >= 2 && !(hd && hd.kind === 'bonemeal')) { dropItem(IT.sweet_berries, d.berry === 3 ? 2 + (Math.random() * 2 | 0) : 1 + (Math.random() * 2 | 0), x + 0.5, y + 0.6, z + 0.5); world.set(x, y, z, B['SWEET_BERRY_BUSH#1']); Sfx.play('grass', 1, 1.2); S.swing = 1; mouseR = false; return; }
-      if (d.glowBerries && !(hd && hd.kind === 'bonemeal')) { dropItem(IT.glow_berries, 1, x + 0.5, y + 0.4, z + 0.5); world.set(x, y, z, B.CAVE_VINES); Sfx.play('grass', 1, 1.2); S.swing = 1; mouseR = false; return; }
+      if (d.berry >= 2 && !(hd && hd.kind === 'bonemeal')) { dropItem(IT.sweet_berries, d.berry === 3 ? 2 + (Math.random() * 2 | 0) : 1 + (Math.random() * 2 | 0), x + 0.5, y + 0.6, z + 0.5); world.set(x, y, z, B['SWEET_BERRY_BUSH#1']); (blkPlay('snd.item.sweet_berries.pick_from_bush', 0.8) || Sfx.play('grass', 1, 1.2)); S.swing = 1; mouseR = false; return; }
+      if (d.glowBerries && !(hd && hd.kind === 'bonemeal')) { dropItem(IT.glow_berries, 1, x + 0.5, y + 0.4, z + 0.5); world.set(x, y, z, B.CAVE_VINES); (blkPlay('snd.item.sweet_berries.pick_from_bush', 0.8) || Sfx.play('grass', 1, 1.2)); S.swing = 1; mouseR = false; return; }
       if (hd && hd.kind === 'bonemeal') { const fx = () => { useHeld(1); S.swing = 1; S.useCD = 0.2; SpriteFX.emit('glitter', x + 0.5, y + 0.6, z + 0.5, 10, { size: 0.25, grav: -0.5, spd: 0.8, life: 0.9, spread: 0.9, tint: [[0.4, 0.9, 0.4]] }) || Particles.emit(x + 0.5, y + 0.6, z + 0.5, 10, [[0.4, 0.9, 0.4]], 1.5, 0.8, -1, 0.8); mouseR = false; };
         if (d.berry !== undefined && d.berry < 3) { world.set(x, y, z, B['SWEET_BERRY_BUSH#' + (d.berry + 1)]); fx(); return; }
         if (target.id === B.CAVE_VINES) { world.set(x, y, z, B['CAVE_VINES#LIT']); fx(); return; }
@@ -16142,8 +16142,8 @@ function dispenseFrom(x, y, z, d) { const c = contAt(x, y, z); if (!c) return; c
   if (key === 'snowball' && PROJ.snowball) { proj('snowball', 22, 0); return; }
   if (key === 'egg' && PROJ.egg) { proj('egg', 22, 0); return; }
   if (key === 'fire_charge' && PROJ.smallfire) { proj('smallfire', 14, 5); Sfx.at('fireball', pos, 0.7); return; }
-  if (key === 'water_bucket' || key === 'lava_bucket') { if (replaceableAt(fx, fy, fz) && !(key === 'water_bucket' && world.dim === 'nether')) { const fl = key === 'water_bucket' ? B.WATER : B.LAVA; if (typeof placeFluid === 'function') placeFluid(fx, fy, fz, fl); else rsSet(fx, fy, fz, fl); c.arr[s] = { id: IT.bucket, count: 1 }; contChanged(c); Sfx.at('splash', pos, 0.6); return; } throwItem(); return; }
-  if (key === 'bucket') { const t = rget(fx, fy, fz); if (BL[t] && BL[t].fluid && FLEVEL[t] === 0) { rsSet(fx, fy, fz, 0); const full2 = { id: t === B.WATER ? IT.water_bucket : IT.lava_bucket, count: 1 }; take(); if (!contInsert(c, full2, 0)) dropItem(full2.id, 1, out.x, out.y, out.z, false); Sfx.at('splash', pos, 0.6); return; } throwItem(); return; }
+  if (key === 'water_bucket' || key === 'lava_bucket') { if (replaceableAt(fx, fy, fz) && !(key === 'water_bucket' && world.dim === 'nether')) { const fl = key === 'water_bucket' ? B.WATER : B.LAVA; if (typeof placeFluid === 'function') placeFluid(fx, fy, fz, fl); else rsSet(fx, fy, fz, fl); c.arr[s] = { id: IT.bucket, count: 1 }; contChanged(c); (blkPlay('snd.item.bucket.empty', 0.8, pos) || Sfx.at('splash', pos, 0.6)); return; } throwItem(); return; }
+  if (key === 'bucket') { const t = rget(fx, fy, fz); if (BL[t] && BL[t].fluid && FLEVEL[t] === 0) { rsSet(fx, fy, fz, 0); const full2 = { id: t === B.WATER ? IT.water_bucket : IT.lava_bucket, count: 1 }; take(); if (!contInsert(c, full2, 0)) dropItem(full2.id, 1, out.x, out.y, out.z, false); (blkPlay('snd.item.bucket.fill', 0.8, pos) || Sfx.at('splash', pos, 0.6)); return; } throwItem(); return; }
   if (BL[it.id] && /^(carved_pumpkin|jack_o_lantern)$/.test(BL[it.id].fam || BL[it.id].key)) { if (replaceableAt(fx, fy, fz)) { const fam = BL[it.id].fam || BL[it.id].key; const fc = v[2] < 0 ? 0 : v[0] > 0 ? 1 : v[0] < 0 ? 3 : 2; rsSet(fx, fy, fz, carvedId(fam, fc) || it.id); take(); Sfx.at('dispense', pos, 0.8); } else Sfx.at('dispense_fail', pos, 0.7); return; }
   if (it.id === B.TNT) { if (replaceableAt(fx, fy, fz)) { primeTNT(fx, fy, fz, 4); take(); return; } }
   if (key === 'bone_meal') { if (dispenserBoneMeal(fx, fy, fz)) { take(); Sfx.at('dispense', pos, 0.8); } else Sfx.at('dispense_fail', pos, 0.7); return; }
@@ -16895,11 +16895,11 @@ function wolfArmorMesh(m) { if (!m.root) return; if (m.wolfArmorMesh) { m.wolfAr
     if (player.riding && player.riding.mobRide && hd && hd.kind === 'steer' && hd.steer === player.riding.type) { mouseR = false; if ((player.riding.boostT || 0) <= 0) { player.riding.boostT = 2.5; if (S.mode !== 'creative') { h.dmg = (h.dmg || 0) + 7; if (h.dmg >= (hd.dur || 25)) { player.inv[handSlot()] = { id: IT.fishing_rod, count: 1 }; Sfx.play('break', 0.8); } invDirty(); } } return; }
     // wolf armor
     if (m && m.type === 'wolf' && !m.dead && m.tamed && (typeof isOwner !== 'function' || isOwner(m))) {
-      if (h && h.id === IT.wolf_armor && !m.wolfArmor && !m.baby) { m.wolfArmor = { dmg: h.dmg || 0 }; wolfArmorMesh(m); useHeld(1); Sfx.at('armor', m.pos, 0.8); S.swing = 1; mouseR = false; return; }
+      if (h && h.id === IT.wolf_armor && !m.wolfArmor && !m.baby) { m.wolfArmor = { dmg: h.dmg || 0 }; wolfArmorMesh(m); useHeld(1); (blkPlay('snd.item.armor.equip_wolf', 0.8, m.pos) || Sfx.at('armor', m.pos, 0.8)); S.swing = 1; mouseR = false; return; }
       if (h && h.id === IT.shears && m.wolfArmor) { dropItem(IT.wolf_armor, 1, m.pos.x, m.pos.y + 0.6, m.pos.z, true, m.wolfArmor.dmg ? { dmg: m.wolfArmor.dmg } : null); m.wolfArmor = null; wolfArmorMesh(m); if (typeof damageHeld === 'function') damageHeld(1); Sfx.at('shear', m.pos, 0.8); S.swing = 1; mouseR = false; return; } }
     return _ua.apply(this, arguments); }; }
 // wolf armor soaks up damage (64 points) until it breaks
-{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, noAnger) { if (this.type === 'wolf' && this.wolfArmor && dmg > 0) { this.wolfArmor.dmg += dmg; Sfx.at('armor', this.pos, 0.5); if (this.wolfArmor.dmg >= 64) { this.wolfArmor = null; wolfArmorMesh(this); Sfx.at('break', this.pos, 0.9); } this.hurtT = 0.3; return false; } return _h.apply(this, arguments); }; }
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, noAnger) { if (this.type === 'wolf' && this.wolfArmor && dmg > 0) { this.wolfArmor.dmg += dmg; (blkPlay('snd.item.armor.crack_wolf', 0.8, this.pos) || Sfx.at('armor', this.pos, 0.5)); if (this.wolfArmor.dmg >= 64) { this.wolfArmor = null; wolfArmorMesh(this); (blkPlay('snd.item.armor.break_wolf', 0.8, this.pos) || Sfx.at('break', this.pos, 0.9)); } this.hurtT = 0.3; return false; } return _h.apply(this, arguments); }; }
 // a dead pig or strider drops its saddle
 { const _h2 = Mob.prototype.hurt; Mob.prototype.hurt = function () { const was = this.dead; const r = _h2.apply(this, arguments); if (this.dead && !was) { if (this.saddled) dropItem(IT.saddle, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); if (this.wolfArmor) dropItem(IT.wolf_armor, 1, this.pos.x, this.pos.y + 0.5, this.pos.z); if (player.riding === this) mobDismount(); } return r; }; }
 { const _r = mobRecord; mobRecord = function (m) { const r = _r.apply(this, arguments); if (m.saddled) r.sa = 1; if (m.wolfArmor) r.wa = m.wolfArmor.dmg || 0; return r; }; }
@@ -17003,7 +17003,7 @@ if (MOBS.pillager) MOBS.pillager.drops = (MOBS.pillager.drops || []).concat([['s
 // ominous bottle. Sniffers sniff out torchflower seeds and pitcher pods from grass, dirt and moss, are bred with
 // torchflower seeds and lay sniffer eggs, which hatch faster on moss.
 Object.assign(EFFECTS, { bad_omen: 'Bad Omen', raid_omen: 'Raid Omen', hero_of_the_village: 'Hero of the Village', water_breathing: EFFECTS.water_breathing || 'Water Breathing', conduit_power: 'Conduit Power', glowing: 'Glowing' });
-{ const _oe = onEatItem; onEatItem = function (id) { _oe.apply(this, arguments); if (id === IT.ominous_bottle) { giveEffect('bad_omen', 6000, 0); Sfx.play('omen', 1); toast('Bad Omen', 2); } }; }
+{ const _oe = onEatItem; onEatItem = function (id) { _oe.apply(this, arguments); if (id === IT.ominous_bottle) { giveEffect('bad_omen', 6000, 0); (blkPlay('snd.event.mob_effects.bad_omen', 0.8) || Sfx.play('omen', 1)); toast('Bad Omen', 2); } }; }
 // ---- captains ----
 function makeCaptain(m) { m.captain = true; if (!m.root) return; const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), new THREE.MeshLambertMaterial({ color: 0x6a4a2a })); pole.position.set(0, m.h + 0.3, -0.18); g.add(pole);
   const c = document.createElement('canvas'); c.width = 20; c.height = 40; const x = c.getContext('2d'); x.fillStyle = '#eee'; x.fillRect(0, 0, 20, 40); x.fillStyle = '#2a8a8a'; x.fillRect(0, 24, 20, 6); x.fillStyle = '#222'; x.fillRect(6, 6, 8, 12); x.fillStyle = '#888'; x.fillRect(7, 18, 6, 4); x.fillStyle = '#444'; x.fillRect(0, 34, 20, 6);
@@ -17825,9 +17825,9 @@ function cubeAbsorb(m, id) { if (m.size < 2 || m.absorbed || !isCubeItem(id)) re
       if (h && hd && hd.kind === 'block' && isCubeItem(h.id) && m.size >= 2 && !m.absorbed) { if (cubeAbsorb(m, h.id)) { if (S.mode !== 'creative') useHeld(1); done(); return; } }
       if (h && h.id === IT.slime_ball && m.size === 1) { m.growT *= 0.9; useHeld(1); Particles.emit(m.pos.x, m.pos.y + 0.6, m.pos.z, 6, [[0.5, 0.9, 0.4]], 1, 0.6, -1, 0.3); done(); return; }
       if (h && IT.golden_dandelion !== undefined && h.id === IT.golden_dandelion && m.size === 1) { m.noGrow = !m.noGrow; useHeld(1); done(); return; }
-      if (h && h.id === IT.bucket && m.size === 1) { m.dead = true; m.gone = true; if (m.remove) m.remove(); G.mobs = G.mobs.filter(x => x !== m); if (S.mode !== 'creative') { if (h.count > 1) { h.count--; giveOrDrop(IT.sulfur_cube_bucket, 1); } else player.inv[handSlot()] = { id: IT.sulfur_cube_bucket, count: 1 }; invDirty(); } else giveOrDrop(IT.sulfur_cube_bucket, 1); Sfx.play('squish', 0.8); done(); return; }
+      if (h && h.id === IT.bucket && m.size === 1) { m.dead = true; m.gone = true; if (m.remove) m.remove(); G.mobs = G.mobs.filter(x => x !== m); if (S.mode !== 'creative') { if (h.count > 1) { h.count--; giveOrDrop(IT.sulfur_cube_bucket, 1); } else player.inv[handSlot()] = { id: IT.sulfur_cube_bucket, count: 1 }; invDirty(); } else giveOrDrop(IT.sulfur_cube_bucket, 1); (blkPlay('snd.item.bucket.fillsulfurcube', 0.8) || Sfx.play('squish', 0.8)); done(); return; }
     }
-    if (hd && hd.kind === 'cubebucket' && target && !targetMob) { const x = target.x + target.nx, y = target.y + target.ny, z = target.z + target.nz; if (replaceableAt(x, y, z)) { const c = spawnMob('sulfur_cube', x + 0.5, y + 0.05, z + 0.5, { size: 1 }); if (c) c.persistent = true; if (S.mode !== 'creative') player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); Sfx.play('squish', 0.8); mouseR = false; S.swing = 1; } return; }
+    if (hd && hd.kind === 'cubebucket' && target && !targetMob) { const x = target.x + target.nx, y = target.y + target.ny, z = target.z + target.nz; if (replaceableAt(x, y, z)) { const c = spawnMob('sulfur_cube', x + 0.5, y + 0.05, z + 0.5, { size: 1 }); if (c) c.persistent = true; if (S.mode !== 'creative') player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); (blkPlay('snd.item.bucket.emptysulfurcube', 0.8) || Sfx.play('squish', 0.8)); mouseR = false; S.swing = 1; } return; }
     if (hd && hd.kind === 'ice_ball' && !(target && !kd('sneak') && BL[target.id].use)) { mouseR = false; useHeld(1); const v = dir.clone().multiplyScalar(26); v.x += player.vel.x; v.z += player.vel.z; spawnProj('ice_ball', eye.clone().addScaledVector(dir, 0.5), v, 'player', 2); Sfx.play('ice_throw', 0.6, 1.2); S.useCD = 0.4; S.swing = 1; return; }
     return _ua.apply(this, arguments); }; }
 // sulfur cubes spawn in the dark of sulfur caves, like monsters (but they're harmless)
@@ -21387,6 +21387,11 @@ const Amb = {
         if ((this.t.add -= dt) <= 0) { this.t.add = 8 + Math.random() * 12; this.shot('amb.water.add', 0.35); }
         if ((this.t.rare -= dt) <= 0) { this.t.rare = 60 + Math.random() * 90; this.shot('amb.water.rare', 0.4); }
       }
+      // elytra wind while gliding; swim strokes while moving in water
+      const spd = Math.hypot(P.vel.x, P.vel.y, P.vel.z);
+      if (P.gliding) want['snd.item.elytra.elytra_loop'] = Math.max(0.1, Math.min(0.6, spd / 40));
+      const feetWet = isWaterId(w.get(ex, Math.floor(P.pos.y + 0.3), ez));
+      if ((wet || feetWet) && Math.hypot(P.vel.x, P.vel.z) > 1) { this.swimD = (this.swimD || 0) + Math.hypot(P.vel.x, P.vel.z) * dt; if (this.swimD > 2.4) { this.swimD = 0; this.shot('snd.liquid.swim', 0.25); } }
       if (dim === 'nether' && w.gen && w.gen.biome) {
         const b = w.gen.biome(P.pos.x, P.pos.z) | 0; want['amb.n' + b + '.loop'] = wet ? 0.15 : 0.5;
         if ((this.t.nmood -= dt) <= 0) { this.t.nmood = 30 + Math.random() * 60; this.shot('amb.n' + b + '.mood', 0.5); }
@@ -21469,6 +21474,11 @@ function digGroupOf(id) {
 }
 function blockSfx(kind, id, v = 1, pos) {
   if (!Sfx.ctx) return false; const g = BlkSnd.groupOf(id); const [ks, rate] = BLOCK_KIND[kind] || [[kind], 1];
+  const bd = BL[id], bk = bd && bd.key ? bd.key.split('#')[0] : '';
+  // buckets: placing water / lava; crops: Minecraft plays the crop sound for planting and breaking them
+  if (kind === 'place' && bd && bd.fluid && BlkSnd.play([isLavaId(id) ? 'snd.item.bucket.empty_lava' : 'snd.item.bucket.empty'], v, 1, pos)) return true;
+  if ((kind === 'place' || kind === 'break') && /^(wheat|carrots|potatoes|beetroots|pumpkin_stem|melon_stem|torchflower_crop|pitcher_crop)_\d/.test(bk) && BlkSnd.play(['snd.item.plant.crop'], v, 1, pos)) return true;
+  if (kind === 'place' && /^nether_wart_\d/.test(bk) && BlkSnd.play(['snd.item.plant.netherwart'], v, 1, pos)) return true;
   if (g && BlkSnd.play(ks.map(k => 'blk.' + g + '.' + k), kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
   // no step/hit recordings for basic materials yet: those keep the old sounds
   const dg = (kind === 'break' || kind === 'place') && digGroupOf(id); if (dg && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
@@ -21561,24 +21571,88 @@ const BLOCK_AMBIENT = [
   [/^beacon$/, 'blk.beacon.ambient', 0.3, 0.4], [/^conduit$/, 'blk.conduit.ambient', 0.3, 0.4], [/^respawn_anchor/, 'blk.respawn_anchor.ambient', 0.3, 0.4, (d) => d.st && d.st.charges > 0],
   [/creaking_heart/, 'blk.creaking_heart.idle', 0.2, 0.4, () => G.daylight < 0.4], [/dried_ghast/, 'blk.dried_ghast.ambient', 0.2, 0.4], [/potent_sulfur/, 'blk.potent_sulfur.noxious_gas_ambient', 0.1, 0.35],
   [/^(beehive|bee_nest)/, 'blk.beehive.work', 0.15, 0.35],
+  [/^fire$|^soul_fire$/, 'snd.fire.fire', 0.5, 0.5], [/^lava(_\d)?$/, 'LAVA', 0.1, 0.5], [/^water_[1-8]$/, 'snd.liquid.water', 0.04, 0.4],
 ];
 const DEADBUSH_VARIANTS = ['bushrustle', 'creakysand', 'crickets', 'howlingwind', 'insect', 'leaves', 'movingsand'];
 BlkSnd.cool = new Map();
 setInterval(() => { try {
   const P = G.player, w = G.world; if (!P || !w || P.dead || S.paused || !Sfx.ctx || !MobSnd.index) return;
   const px = Math.floor(P.pos.x), py = Math.floor(P.pos.y), pz = Math.floor(P.pos.z); const now = performance.now();
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 400; i++) {
     const x = px + ((Math.random() * 25) | 0) - 12, y = py + ((Math.random() * 17) | 0) - 8, z = pz + ((Math.random() * 25) | 0) - 12;
-    const id = w.get(x, y, z); if (!id) continue; const d = BL[id]; if (!d || !d.key || d.fluid) continue;
+    const id = w.get(x, y, z); if (!id) continue; const d = BL[id]; if (!d || !d.key) continue;
     for (const [rx, key0, ch, v, cond] of BLOCK_AMBIENT) {
       if (!rx.test(d.key)) continue; if (Math.random() > ch || (cond && !cond(d, x, y, z))) break;
       const ck = x + ',' + y + ',' + z; if ((BlkSnd.cool.get(ck) || 0) > now) break; BlkSnd.cool.set(ck, now + 4000);
-      const key = key0.endsWith('_X') ? key0.slice(0, -1) + DEADBUSH_VARIANTS[Math.random() * 7 | 0] : key0;
+      const key = key0 === 'LAVA' ? (Math.random() < 0.3 ? 'snd.liquid.lava' : 'snd.liquid.lavapop') : key0.endsWith('_X') ? key0.slice(0, -1) + DEADBUSH_VARIANTS[Math.random() * 7 | 0] : key0;
       blkPlay(key, v, new V3(x + 0.5, y + 0.5, z + 0.5)); break;
     }
   }
   if (BlkSnd.cool.size > 500) for (const [k, t] of BlkSnd.cool) if (t < now) BlkSnd.cool.delete(k);
 } catch (e) { } }, 500);
+
+// ================= OWNER ITEM / LIQUID / FIRE / FIREWORK / EVENT SOUNDS =================
+// Keys snd.<owner folder path>.<name> (e.g. snd.item.armor.equip_iron, snd.liquid.swim, snd.fireworks.blast), streamed
+// like every other owner sound. Direct call sites use blkPlay(key) || old sound (buckets, bottles, hoe, axe, copper wax,
+// berries, wolf armor, riptide, firework launch, bad omen, water entry); this file adds:
+//   equipSfx(itemId)       armour equip sound by material (04_game inventory and right-click equip)
+//   ITEM_NAME_SND          game sounds with their own names (ignite, shield, raid horn, goat horn, spyglass, spear, brush...)
+//   ITEM_CTX_SND           old sounds swapped while a function runs (trident, crossbow, mace, fireworks, brushing)
+//   ITEM_USE_SND           old sounds swapped during a right-click by held item (bone meal, shovel paths, dyes, ink sacs, honeycomb)
+//   elytra loop + swim strokes (in the Amb tick, 99y_ambience.js)
+function equipSfx(id) {
+  const k = (ITEMS[id] && ITEMS[id].key) || ''; if (!Sfx.ctx) return false;
+  const m = /^leather_/.test(k) ? 'leather' : /^chainmail_/.test(k) ? 'chain' : /^iron_/.test(k) ? 'iron' : /^golden_/.test(k) ? 'gold' : /^diamond_/.test(k) ? 'diamond' : /^netherite_/.test(k) ? 'netherite' : /^copper_/.test(k) ? 'copper' : 'generic';
+  return BlkSnd.play(['snd.item.armor.equip_' + m, 'snd.item.armor.equip_generic'], 0.8, 1);
+}
+const heldKey = () => { try { const h = player.held(); return h && ITEMS[h.id] ? ITEMS[h.id].key : ''; } catch (e) { return ''; } };
+const targetKey = () => (typeof target !== 'undefined' && target && BL[target.id] ? BL[target.id].key || '' : '');
+const ITEM_NAME_SND = {
+  ignite: 'snd.fire.ignite', shield: 'snd.item.shield.block', raid_horn: 'snd.event.raid.raidhorn_', goat_horn: 'snd.item.goat_horn.call', spyglass: 'snd.item.spyglass.use',
+  swish_spear: () => /wooden_spear/.test(heldKey()) ? 'snd.item.spear.wood.attack' : 'snd.item.spear.attack',
+  thit_spear: () => /wooden_spear/.test(heldKey()) ? 'snd.item.spear.wood.hit' : 'snd.item.spear.hit',
+  brush: () => /gravel/.test(targetKey()) ? 'snd.item.brush.brushing_gravel' : /sand/.test(targetKey()) ? 'snd.item.brush.brushing_sand' : 'snd.item.brush.brushing_generic',
+  brush_done: () => /gravel/.test(targetKey()) ? 'snd.item.brush.brushing_gravel_complete' : 'snd.item.brush.brush_sand_complete',
+};
+const ITEM_CTX_SND = {
+  trident: { vwoop: 'snd.item.trident.riptide', bow: 'snd.item.trident.throw' },
+  crossbow_fire: { bow: 'snd.item.crossbow.shoot' }, crossbow_load: { click: 'snd.item.crossbow.loading_end' },
+  mace: { boom: 'snd.item.mace.smash_ground', levelup: 'snd.item.mace.smash_ground_heavy' },
+  brush: { spyglass: 'snd.item.brush.brushing_generic' },
+  firework: { boom: (pos) => { const far = pos && G.player && G.player.pos.distanceTo(pos) > 16; const big = Math.random() < 0.3;
+    setTimeout(() => { if (Math.random() < 0.5) blkPlay(far ? 'snd.fireworks.twinkle_far' : 'snd.fireworks.twinkle', 0.6, pos); }, 500);
+    return 'snd.fireworks.' + (big ? 'largeblast' : 'blast') + (far ? '_far' : ''); } },
+};
+function itemUseSnd(name) {
+  const hk = heldKey(), tk = targetKey();
+  if (hk === 'bone_meal') return 'snd.item.bonemeal.bonemeal';
+  if (/_dye$/.test(hk)) return 'snd.item.dye.dye';
+  if (/ink_sac$/.test(hk)) return 'snd.item.ink_sac.ink_sac';
+  if (hk === 'honeycomb') return 'snd.item.honeycomb.wax_on';
+  if (/_shovel$/.test(hk) && name === 'grass' && /grass|dirt|podzol|mycelium/.test(tk)) return 'snd.item.shovel.flatten';
+  if (/_hoe$/.test(hk) && name === 'grass') return 'snd.item.hoe.till';
+  return null;
+}
+const ItemSnd = { ctx: null, use: false };
+function withItemCtx(c, fn, self, args) { const p = ItemSnd.ctx; ItemSnd.ctx = c; try { return fn.apply(self, args); } finally { ItemSnd.ctx = p; } }
+function itemSndSwap(name, pos, v) {
+  if (MobSnd.busy || !Sfx.ctx || typeof name !== 'string') return false;
+  let k = null;
+  if (ItemSnd.ctx && ITEM_CTX_SND[ItemSnd.ctx] && ITEM_CTX_SND[ItemSnd.ctx][name]) { k = ITEM_CTX_SND[ItemSnd.ctx][name]; if (typeof k === 'function') k = k(pos); }
+  if (!k && ItemSnd.use) k = itemUseSnd(name);
+  if (!k && ITEM_NAME_SND[name]) { k = ITEM_NAME_SND[name]; if (typeof k === 'function') k = k(); }
+  return !!k && BlkSnd.play([k], Math.min(1, Math.max(0.5, v || 1)), 1, pos);
+}
+{ const _p = Sfx.play.bind(Sfx); Sfx.play = function (name, v = 1, rate) { if (itemSndSwap(name, null, v)) return; return _p(name, v, rate); }; }
+{ const _a = Sfx.at.bind(Sfx); Sfx.at = function (name, pos, v = 1, rate) { if (itemSndSwap(name, pos, v)) return; return _a(name, pos, v, rate); }; }
+{ const _u = useAction; useAction = function () { const p = ItemSnd.use; ItemSnd.use = true; try { return _u.apply(this, arguments); } finally { ItemSnd.use = p; } }; }
+{ const _r = releaseTrident; releaseTrident = function () { return withItemCtx('trident', _r, this, arguments); }; }
+{ const _f = fireCrossbow; fireCrossbow = function () { return withItemCtx('crossbow_fire', _f, this, arguments); }; }
+{ const _l = loadCrossbow; loadCrossbow = function () { return withItemCtx('crossbow_load', _l, this, arguments); }; }
+{ const _m = maceBonus; maceBonus = function () { return withItemCtx('mace', _m, this, arguments); }; }
+{ const _b = brushLoot; brushLoot = function () { return withItemCtx('brush', _b, this, arguments); }; }
+{ const _w = updateFireworks; updateFireworks = function () { return withItemCtx('firework', _w, this, arguments); }; }
+// firework bursts play at the burst: Sfx.at with the burst position goes through itemSndSwap above (ctx 'firework')
 
 </script>
 </body>

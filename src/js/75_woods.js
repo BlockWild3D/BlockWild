@@ -84,7 +84,7 @@ function saplingTick(x, y, z, id) { if (Math.random() < 0.25) trySapling(x, y, z
 { const _ua = useAction; useAction = function (eye, dir) {
     const h = player.held(); const hd = h && ITEMS[h.id];
     if (target && !targetMob && hd && hd.kind === 'tool' && hd.tool === 'axe' && !isSpec()) { const d = BL[target.id]; const base = d && d.fam && FAMILY[d.fam] ? BL[FAMILY[d.fam].base] : null;
-      if (base && base.stripTo && FAMILY[base.stripTo]) { mouseR = false; world.set(target.x, target.y, target.z, famId(base.stripTo, { axis: d.st.axis })); Sfx.play('wood', 1, 0.7); damageHeld(1); S.swing = 1; return; } }
+      if (base && base.stripTo && FAMILY[base.stripTo]) { mouseR = false; world.set(target.x, target.y, target.z, famId(base.stripTo, { axis: d.st.axis })); (blkPlay('snd.item.axe.strip', 0.8) || Sfx.play('wood', 1, 0.7)); damageHeld(1); S.swing = 1; return; } }
     return _ua.apply(this, arguments); }; }
 
 // ---- new biomes ----

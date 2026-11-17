@@ -161,7 +161,7 @@ function slotClick(cont, i, button, shift) {
   if (cont === 'inv' && i >= 37 && c && !(ITEMS[c.id].kind === 'armor' && ARMOR_SLOT[ITEMS[c.id].slot] === i)) return;
   if (shift && s) {
     let tgt, order;
-    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
+    if (cont === 'inv' && i < 37 && ITEMS[s.id].kind === 'armor' && !player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] && !chestArr && !furnState && !(typeof enchState !== 'undefined' && enchState)) { player.inv[ARMOR_SLOT[ITEMS[s.id].slot]] = s; arr[i] = null; equipSfx(s.id) || Sfx.play('click', 0.5); invDirty(); renderInvUI(); return; }
     if (cont !== 'inv') { tgt = player.inv; order = [...Array(9).keys()].concat([...Array(27).keys()].map(k => k + 9)); }
     else if (chestArr) { tgt = chestArr; order = [...Array(chestArr.length).keys()]; }
     else if (furnState) { tgt = furnState.s; order = FUEL[s.id] && !SMELT[s.id] ? [1] : [0]; }
@@ -506,7 +506,7 @@ function useAction(eye, dir) {
   if (hd && hd.kind === 'boat' && !(target && BL[target.id].use && !sneaking)) { mouseR = false; placeBoatItem(eye, dir); return; }
   if (!(target && !sneaking && BL[target.id].use) && farmUse(h, hd)) return;
   if (hd && hd.kind === 'bed' && target && !(BL[target.id].use && !sneaking)) { mouseR = false; if (placeBed(target)) useHeld(1); S.swing = 1; return; }
-  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[handSlot()] = cur; Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
+  if (hd && hd.kind === 'armor' && !(target && !sneaking && BL[target.id].use)) { const k = ARMOR_SLOT[hd.slot]; const cur = player.inv[k]; player.inv[k] = h; player.inv[handSlot()] = cur; equipSfx(h.id) || Sfx.play('armor', 0.8); invDirty(); mouseR = false; return; }
   if (targetMob && targetMob.type === 'piglin' && hd && h.id === IT.gold_ingot && !(targetMob.angry > 0)) { targetMob.admireT = 3; useHeld(1); Sfx.at('snort', targetMob.pos, 1); S.swing = 1; return; }
   if (target && !sneaking) {
     const bd = BL[target.id];
@@ -531,7 +531,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -704,7 +704,7 @@ function updatePlayer(dt) {
   if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) blockSfx('step', b, 0.3) || Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
-  if (water && !P.wasWater && P.vel.y < -3) { Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
+  if (water && !P.wasWater && P.vel.y < -3) { blkPlay(P.vel.y < -14 ? 'snd.liquid.heavy_splash' : 'snd.liquid.splash', 0.8) || Sfx.play('splash', 0.7); SpriteFX.emit('splash', P.pos.x, P.pos.y + 0.5, P.pos.z, 20, { size: 0.3, grav: 10, spd: 3, life: 0.7, spread: 0.6 }) || Particles.emit(P.pos.x, P.pos.y + 0.5, P.pos.z, 20, [0.6, 0.75, 1], 3, 0.7, 12, 0.6); } P.wasWater = water;
   if (isSurv()) { for (const [ax, az] of [[P.hw + 0.05, 0], [-P.hw - 0.05, 0], [0, P.hw + 0.05], [0, -P.hw - 0.05]]) if (world.get(Math.floor(P.pos.x + ax), Math.floor(P.pos.y + 0.5), Math.floor(P.pos.z + az)) === B.CACTUS) { P.hurt(1, null, 'a cactus', 0.3); break; } }
   } // end of on-foot movement
   // healing comes from food now (23_hunger.js)

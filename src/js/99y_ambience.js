@@ -38,6 +38,11 @@ const Amb = {
         if ((this.t.add -= dt) <= 0) { this.t.add = 8 + Math.random() * 12; this.shot('amb.water.add', 0.35); }
         if ((this.t.rare -= dt) <= 0) { this.t.rare = 60 + Math.random() * 90; this.shot('amb.water.rare', 0.4); }
       }
+      // elytra wind while gliding; swim strokes while moving in water
+      const spd = Math.hypot(P.vel.x, P.vel.y, P.vel.z);
+      if (P.gliding) want['snd.item.elytra.elytra_loop'] = Math.max(0.1, Math.min(0.6, spd / 40));
+      const feetWet = isWaterId(w.get(ex, Math.floor(P.pos.y + 0.3), ez));
+      if ((wet || feetWet) && Math.hypot(P.vel.x, P.vel.z) > 1) { this.swimD = (this.swimD || 0) + Math.hypot(P.vel.x, P.vel.z) * dt; if (this.swimD > 2.4) { this.swimD = 0; this.shot('snd.liquid.swim', 0.25); } }
       if (dim === 'nether' && w.gen && w.gen.biome) {
         const b = w.gen.biome(P.pos.x, P.pos.z) | 0; want['amb.n' + b + '.loop'] = wet ? 0.15 : 0.5;
         if ((this.t.nmood -= dt) <= 0) { this.t.nmood = 30 + Math.random() * 60; this.shot('amb.n' + b + '.mood', 0.5); }

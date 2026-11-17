@@ -56,6 +56,11 @@ function digGroupOf(id) {
 }
 function blockSfx(kind, id, v = 1, pos) {
   if (!Sfx.ctx) return false; const g = BlkSnd.groupOf(id); const [ks, rate] = BLOCK_KIND[kind] || [[kind], 1];
+  const bd = BL[id], bk = bd && bd.key ? bd.key.split('#')[0] : '';
+  // buckets: placing water / lava; crops: Minecraft plays the crop sound for planting and breaking them
+  if (kind === 'place' && bd && bd.fluid && BlkSnd.play([isLavaId(id) ? 'snd.item.bucket.empty_lava' : 'snd.item.bucket.empty'], v, 1, pos)) return true;
+  if ((kind === 'place' || kind === 'break') && /^(wheat|carrots|potatoes|beetroots|pumpkin_stem|melon_stem|torchflower_crop|pitcher_crop)_\d/.test(bk) && BlkSnd.play(['snd.item.plant.crop'], v, 1, pos)) return true;
+  if (kind === 'place' && /^nether_wart_\d/.test(bk) && BlkSnd.play(['snd.item.plant.netherwart'], v, 1, pos)) return true;
   if (g && BlkSnd.play(ks.map(k => 'blk.' + g + '.' + k), kind === 'step' ? v * 0.8 : v, rate, pos)) return true;
   // no step/hit recordings for basic materials yet: those keep the old sounds
   const dg = (kind === 'break' || kind === 'place') && digGroupOf(id); if (dg && BlkSnd.play(['dig.' + dg], v, 0.8, pos)) return true;
@@ -148,19 +153,20 @@ const BLOCK_AMBIENT = [
   [/^beacon$/, 'blk.beacon.ambient', 0.3, 0.4], [/^conduit$/, 'blk.conduit.ambient', 0.3, 0.4], [/^respawn_anchor/, 'blk.respawn_anchor.ambient', 0.3, 0.4, (d) => d.st && d.st.charges > 0],
   [/creaking_heart/, 'blk.creaking_heart.idle', 0.2, 0.4, () => G.daylight < 0.4], [/dried_ghast/, 'blk.dried_ghast.ambient', 0.2, 0.4], [/potent_sulfur/, 'blk.potent_sulfur.noxious_gas_ambient', 0.1, 0.35],
   [/^(beehive|bee_nest)/, 'blk.beehive.work', 0.15, 0.35],
+  [/^fire$|^soul_fire$/, 'snd.fire.fire', 0.5, 0.5], [/^lava(_\d)?$/, 'LAVA', 0.1, 0.5], [/^water_[1-8]$/, 'snd.liquid.water', 0.04, 0.4],
 ];
 const DEADBUSH_VARIANTS = ['bushrustle', 'creakysand', 'crickets', 'howlingwind', 'insect', 'leaves', 'movingsand'];
 BlkSnd.cool = new Map();
 setInterval(() => { try {
   const P = G.player, w = G.world; if (!P || !w || P.dead || S.paused || !Sfx.ctx || !MobSnd.index) return;
   const px = Math.floor(P.pos.x), py = Math.floor(P.pos.y), pz = Math.floor(P.pos.z); const now = performance.now();
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 400; i++) {
     const x = px + ((Math.random() * 25) | 0) - 12, y = py + ((Math.random() * 17) | 0) - 8, z = pz + ((Math.random() * 25) | 0) - 12;
-    const id = w.get(x, y, z); if (!id) continue; const d = BL[id]; if (!d || !d.key || d.fluid) continue;
+    const id = w.get(x, y, z); if (!id) continue; const d = BL[id]; if (!d || !d.key) continue;
     for (const [rx, key0, ch, v, cond] of BLOCK_AMBIENT) {
       if (!rx.test(d.key)) continue; if (Math.random() > ch || (cond && !cond(d, x, y, z))) break;
       const ck = x + ',' + y + ',' + z; if ((BlkSnd.cool.get(ck) || 0) > now) break; BlkSnd.cool.set(ck, now + 4000);
-      const key = key0.endsWith('_X') ? key0.slice(0, -1) + DEADBUSH_VARIANTS[Math.random() * 7 | 0] : key0;
+      const key = key0 === 'LAVA' ? (Math.random() < 0.3 ? 'snd.liquid.lava' : 'snd.liquid.lavapop') : key0.endsWith('_X') ? key0.slice(0, -1) + DEADBUSH_VARIANTS[Math.random() * 7 | 0] : key0;
       blkPlay(key, v, new V3(x + 0.5, y + 0.5, z + 0.5)); break;
     }
   }

@@ -113,8 +113,8 @@ PROJ.potion = { grav: 20, size: 0.24, color: 0x6070e0, trail: [[0.7, 0.7, 1]] };
       useHeld(1); Sfx.play('bow', 0.4, 0.7); S.swing = 1; S.useCD = 0.4; return; }
     if (hd && hd.id === IT.glass_bottle) { // fill from water, or collect dragon's breath
       const near = (G.clouds || []).find(c => c.life > 0 && Math.hypot(c.x - eye.x, c.z - eye.z) < c.r + 2 && Math.abs(c.y - eye.y) < 4);
-      if (near) { mouseR = false; giveBottle(IT.dragon_breath, null); near.r = Math.max(0.5, near.r - 0.5); Sfx.play('pop', 0.5, 1.2); return; }
-      const ft = raycast(eye, dir, 5, true); if (ft && isWaterId(ft.id)) { mouseR = false; giveBottle(IT.potion, 'water'); Sfx.play('splash', 0.4, 1.4); return; } }
+      if (near) { mouseR = false; giveBottle(IT.dragon_breath, null); near.r = Math.max(0.5, near.r - 0.5); (blkPlay('snd.item.bottle.fill_dragonbreath', 0.8) || Sfx.play('pop', 0.5, 1.2)); return; }
+      const ft = raycast(eye, dir, 5, true); if (ft && isWaterId(ft.id)) { mouseR = false; giveBottle(IT.potion, 'water'); (blkPlay('snd.item.bottle.fill', 0.8) || Sfx.play('splash', 0.4, 1.4)); return; } }
     if (hd && hd.id === IT.nether_wart && target && target.id === B.SOUL_SAND && target.ny > 0 && !world.get(target.x, target.y + 1, target.z)) { mouseR = false; world.set(target.x, target.y + 1, target.z, B.NETHER_WART_0); mpBlock(target.x, target.y + 1, target.z, B.NETHER_WART_0); useHeld(1); Sfx.play('step', 0.5); S.swing = 1; return; }
     if (hd && hd.id === IT.end_crystal && target && (target.id === B.OBSIDIAN || target.id === B.BEDROCK) && target.ny > 0) { mouseR = false; if (placeEndCrystal(target.x, target.y + 1, target.z)) { useHeld(1); S.swing = 1; } return; }
     if (target && !sneaking && BL[target.id].use === 'brew') { mouseR = false; openBrewing(target.x + ',' + target.y + ',' + target.z); return; }
