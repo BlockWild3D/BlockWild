@@ -507,14 +507,14 @@ function mctFactory() { // a plain function so 99zzzzzzzz_mcterrain.js can start
           for (let dz = 0; dz < 4; dz++) for (let dx = 0; dx < 4; dx++) { const x = X0 + dx, z = Z0 + dz; out[o + (icz * 4 + dz) * 16 + icx * 4 + dx] = aq(x, y, z, root.c(x, y, z)); } }
         for (const n of gn) n.cell2 = false;
       }
-      const top = new Int16Array(256), floor = new Int16Array(256), bio = new Uint8Array(256), cold = new Uint8Array(256), mask = new Uint8Array(out.length >> 3);
+      const top = new Int16Array(256), floor = new Int16Array(256), bio = new Uint8Array(256), cold = new Uint8Array(256), surf = new Uint8Array(256), mask = new Uint8Array(out.length >> 3);
       this.surface(cx, cz, out, top, oreCells);
       for (const n of gn) { n.grid = null; n.lx = NaN; }
-      for (let j = 0; j < 256; j++) { let t = minY - 1, f = minY - 1; for (let y = this.maxY; y >= minY; y--) { const c = out[(y - minY) * 256 + j]; if (c === 0) continue; if (t < minY) t = y; if (c !== 2 && c !== 3) { f = y; break; } } top[j] = t; floor[j] = f; bio[j] = this.biomeAt(bx + (j & 15), Math.max(t, f) + 1, bz + (j >> 4));
+      for (let j = 0; j < 256; j++) { let t = minY - 1, f = minY - 1; for (let y = this.maxY; y >= minY; y--) { const c = out[(y - minY) * 256 + j]; if (c === 0) continue; if (t < minY) t = y; if (c !== 2 && c !== 3) { f = y; break; } } top[j] = t; floor[j] = f; surf[j] = f >= minY ? out[(f - minY) * 256 + j] : 1; bio[j] = this.biomeAt(bx + (j & 15), Math.max(t, f) + 1, bz + (j >> 4));
         cold[j] = this.temperature(bio[j], bx + (j & 15), Math.max(t, f) + 1, bz + (j >> 4)) < 0.15 ? 1 : 0; }
       for (let i = 0; i < out.length; i++) { const c = out[i]; if (c === 0 || c === 2 || c === 3) mask[i >> 3] |= 1 << (i & 7); }
       this.fillCount++;
-      return { codes: out, top, floor, bio, cold, mask, cx, cz };
+      return { codes: out, top, floor, bio, cold, surf, mask, cx, cz };
     }
     surface(cx, cz, out, top, oreCells) {
       const bx = cx * 16, bz = cz * 16, minY = this.minY, G = this; const rule = this.rule;

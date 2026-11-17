@@ -36,17 +36,17 @@ let MC_GROUND = null; function mcGround() { if (MC_GROUND) return MC_GROUND; MC_
 class MCWorld {
   constructor(world, preset) {
     this.w = world; this.preset = preset; this.seed = world.seed; this.G = null; this.ids = null;
-    this.codes = new Map(); this.sum = new Map(); this.masks = new Map(); this.req = new Map(); this.workers = []; this.inflight = 0; this.syncFills = 0; this.workerFills = 0;
+    this.est = 0; this.codes = new Map(); this.sum = new Map(); this.masks = new Map(); this.req = new Map(); this.workers = []; this.inflight = 0; this.syncFills = 0; this.workerFills = 0;
     this.startWorkers();
   }
   gen() { if (!this.G) { this.G = new MCT.Generator(this.seed, this.preset, MCT_DATA); this.palIds(this.G.palette); } return this.G; }
-  palIds(pal) { if (this.ids) return; const ids = new Uint16Array(4 + pal.length); ids[0] = 0; ids[1] = B.STONE; ids[2] = B.WATER; ids[3] = B.LAVA; pal.forEach((n, i) => ids[4 + i] = mcBlockId(n)); this.ids = ids; this.pal = pal.join(','); }
+  palIds(pal) { if (this.ids) return; const ids = new Uint16Array(4 + pal.length); ids[0] = 0; ids[1] = B.STONE; ids[2] = B.WATER; ids[3] = B.LAVA; pal.forEach((n, i) => ids[4 + i] = mcBlockId(n)); this.ids = ids; this.pal = pal.join(','); this.names = ['air', 'stone', 'water', 'lava'].concat(pal); }
   startWorkers() {
     if (typeof Worker === 'undefined' || typeof Blob === 'undefined') return;
     try {
       if (!MCWorld.url) { const src = 'const MCT_DATA=' + JSON.stringify(MCT_DATA) + ';\n' + mctFactory.toString() + '\nconst MCT = mctFactory(); let G = null;\n' +
         'onmessage = (e) => { const m = e.data; if (m.init) { G = new MCT.Generator(m.seed, m.preset, MCT_DATA); postMessage({ ready: 1, pal: G.palette }); return; }\n' +
-        '  try { const r = G.fill(m.cx, m.cz); postMessage(r, [r.codes.buffer, r.top.buffer, r.floor.buffer, r.bio.buffer, r.cold.buffer, r.mask.buffer]); } catch (err) { postMessage({ err: String(err), cx: m.cx, cz: m.cz }); } };';
+        '  try { const r = G.fill(m.cx, m.cz); postMessage(r, [r.codes.buffer, r.top.buffer, r.floor.buffer, r.bio.buffer, r.cold.buffer, r.surf.buffer, r.mask.buffer]); } catch (err) { postMessage({ err: String(err), cx: m.cx, cz: m.cz }); } };';
         MCWorld.url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })); }
       const n = Math.max(2, Math.min(4, ((navigator.hardwareConcurrency || 4) - 1)));
       for (let i = 0; i < n; i++) { const wk = new Worker(MCWorld.url); const W = { wk, ready: false, busy: 0 };
@@ -62,7 +62,7 @@ class MCWorld {
     if (m.err) { console.warn('Minecraft terrain worker error', m.err); return; }
     this.workerFills++; this.store(m);
   }
-  store(r) { const k = ckey(r.cx, r.cz); if (!this.w.chunks.has(k)) this.codes.set(k, r.codes); this.masks.set(k, r.mask); this.sum.set(k, { top: r.top, floor: r.floor, bio: r.bio, cold: r.cold, cols: null, cx: r.cx, cz: r.cz });
+  store(r) { const k = ckey(r.cx, r.cz); if (!this.w.chunks.has(k)) this.codes.set(k, r.codes); this.masks.set(k, r.mask); this.sum.set(k, { top: r.top, floor: r.floor, bio: r.bio, cold: r.cold, surf: r.surf, cols: null, cx: r.cx, cz: r.cz });
     if (this.sum.size > 2500) { const it = this.sum.keys(); for (let i = 0; i < 500; i++) this.sum.delete(it.next().value); }
     if (this.masks.size > 500) { const it = this.masks.keys(); for (let i = 0; i < 100; i++) this.masks.delete(it.next().value); }
     if (this.codes.size > 400) { const it = this.codes.keys(); for (let i = 0; i < 80; i++) this.codes.delete(it.next().value); } }
@@ -75,7 +75,12 @@ class MCWorld {
     let best = null; for (const W of this.workers) if (W.ready && (!best || W.busy < best.busy)) best = W; if (!best || best.busy >= 3) return false;
     best.busy++; this.req.set(k, best); best.wk.postMessage({ cx, cz }); return true; }
   pump(list) { if (!this.workers.length) return; for (const [cx, cz] of list) { if (this.w.chunks.has(ckey(cx, cz)) && this.sum.has(ckey(cx, cz))) continue; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (!this.ask(cx + dx, cz + dz)) return; } }
+  // the column Minecraft's structure placement would see: noise biome at the preliminary surface (no chunk fill)
+  estCol(x, z) { const k = (x >> 2) * 1048576 + (z >> 2); const E = this.estCache || (this.estCache = new Map()); let c = E.get(k); if (c) return c;
+    const G = this.gen(); const s = Math.floor(G.A ? G.A.surf.c(x, 0, z) : 64); const name = MCT_DATA_BIOMES()[G.noiseBiome(x >> 2, (Math.max(s, G.sea) + 1) >> 2, z >> 2)]; const mp = MCB[name] || ['PLAINS', ''];
+    c = { h: s + YOFF + 1, b: BIO[mp[0]], v: mp[1] ? BV[mp[1]] || 0 : 0, mc: name, v2: 1, v3: 1, est: true }; if (E.size > 50000) E.clear(); E.set(k, c); return c; }
   column(x, z) {
+    if (this.est > 0) return this.estCol(x, z);
     const s = this.summary(x >> 4, z >> 4); if (!s.cols) { const cols = new Array(256); const names = MCT_DATA_BIOMES();
       for (let j = 0; j < 256; j++) { const name = names[s.bio[j]], mp = MCB[name] || ['PLAINS', '']; cols[j] = { h: s.floor[j] + YOFF + 1, b: BIO[mp[0]], v: mp[1] ? BV[mp[1]] || 0 : 0, mc: name, v2: 1, v3: 1, top: s.top[j] + YOFF }; }
       s.cols = cols; }
@@ -107,23 +112,6 @@ function mcGenOverworld(world, c) {
     if (biomes && !biomes.some(n => BIO_NAME[cols[136].b].toLowerCase().includes(String(n).toLowerCase()))) continue;
     for (let i = 0; i < cnt; i++) { const q = shape === 'tri' ? (r() + r()) / 2 : shape === 'low' ? Math.min(r(), r()) : r(); let x = r() * 16 | 0, y = mnY + (q * (mxY - mnY) | 0), z = r() * 16 | 0;
       for (let k = 0; k < sz; k++) { if (x >= 0 && x < 16 && z >= 0 && z < 16 && y > 0 && y < WH - 1) { const j = (y * 16 + z) * 16 + x; if (d[j] === repId) d[j] = id; } const q2 = r() * 6 | 0; if (q2 === 0) x++; else if (q2 === 1) x--; else if (q2 === 2) y++; else if (q2 === 3) y--; else if (q2 === 4) z++; else z--; } } }
-  // small plants, as the classic generator places them
-  for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
-    const col = cols[z * 16 + x]; const y = col.h; if (y >= WH - 4 || y < 1) continue;
-    const below = d[((y - 1) * 16 + z) * 16 + x], here = d[(y * 16 + z) * 16 + x]; if (here) continue;
-    const wx = bx + x, wz = bz + z; const q = rnd01(wx, 7, wz, seed);
-    if ((below === B.GRASS || below === B.SAND || below === B.DIRT) && x > 0 && x < 15 && z > 0 && z < 15 && q > 0.82 && q < 0.9) {
-      const j = (y - 1) * 256 + z * 16 + x; if (d[j - 1] === B.WATER || d[j + 1] === B.WATER || d[j - 16] === B.WATER || d[j + 16] === B.WATER) {
-        const H = 1 + (rnd01(wx, 9, wz, seed) * 3 | 0); for (let k = 0; k < H && y + k < WH - 1; k++) d[((y + k) * 16 + z) * 16 + x] = B.SUGAR_CANE; continue; } }
-    if (below === B.GRASS) {
-      if (col.b === BIO.PLAINS) { if (q < 0.14) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.165) d[(y * 16 + z) * 16 + x] = q < 0.152 ? B.ROSE : B.DANDELION; }
-      else if (col.b === BIO.FOREST) { if (q < 0.1) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS; else if (q < 0.11) d[(y * 16 + z) * 16 + x] = B.ROSE; }
-      else if (q < 0.05) d[(y * 16 + z) * 16 + x] = B.TALL_GRASS;
-    } else if ((below === B.SAND || below === B.RED_SAND) && (col.b === BIO.DESERT || col.b === BIO.BADLANDS)) {
-      if (q < 0.006 && x > 0 && x < 15 && z > 0 && z < 15) { const H = 1 + (rnd01(wx, 8, wz, seed) * 3 | 0); for (let k = 0; k < H; k++) d[((y + k) * 16 + z) * 16 + x] = B.CACTUS; }
-      else if (q < 0.014) d[(y * 16 + z) * 16 + x] = B.DEAD_BUSH;
-    }
-  }
   return cols;
 }
 // snow and ice last (Minecraft's freeze_top_layer): on the top block that blocks motion, where it is cold enough at that height
@@ -184,3 +172,12 @@ function _colInit(g) { const mc = g.mc; g.mc = null; Gen.prototype.column.call(g
     const opts = [['minecraft', 'Minecraft'], ['minecraft:amplified', 'Minecraft Amplified'], ['minecraft:large_biomes', 'Minecraft Large Biomes']];
     for (const [v, t] of opts.reverse()) { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.insertBefore(o, sel.firstChild); }
     sel.value = 'minecraft'; NEWWORLD.type = 'minecraft'; sel.title = 'Minecraft: terrain, caves, water and biomes made by Minecraft 26.3\'s own generator. Classic: BlockWild\'s original terrain.'; } }
+
+// structure starts are decided from the estimate (as Minecraft does, from the noise biome), so they never fill far chunks;
+// the start's own column is exact when the structure is built
+{ const _rs = regionStart; regionStart = function (world, kind, rx, rz) {
+    const m = world.gen && world.gen.mc; if (!m) return _rs.apply(this, arguments);
+    m.est++; let res; try { res = _rs.apply(this, arguments); } finally { m.est--; }
+    if (res && !res._lazy) { const x = res.cx * 16 + 8, z = res.cz * 16 + 8; res._lazy = true; Object.defineProperty(res, 'col', { get: () => world.gen.column(x, z), configurable: true, enumerable: true }); }
+    return res; }; }
+{ const _ms = mineshaftStartsNear; mineshaftStartsNear = function (world) { const m = world.gen && world.gen.mc; if (!m) return _ms.apply(this, arguments); m.est++; try { return _ms.apply(this, arguments); } finally { m.est--; } }; }
