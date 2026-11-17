@@ -154,6 +154,11 @@ function structuresFor(world, cx, cz) {
     if (q >= p) continue;
     if (g.cave(wx, col.h - 1, wz)) continue;
     const y0 = col.h;
+    { // Minecraft's tree shapes (mcTree in 99zzzzzz_mcstructs.js, configs from the owner's worldgen/feature files)
+      const tr = mulberry32(ihash(wx, wz, 4041, seed) >>> 0); const put = (x, y, z, id, isLog) => (isLog ? hard : soft)(x, y, z, id); let k;
+      if (col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && t < 0.6)) k = t < 0.3 ? 'pine' : 'spruce';
+      else { const birch = col.b === BIO.FOREST && (t < 0.3 || col.v === BV.BIRCH_FOREST || col.v === BV.OLD_BIRCH); k = birch ? (col.v === BV.OLD_BIRCH ? 'super_birch' : 'birch') : (tr() < 0.1 ? 'fancy_oak' : 'oak'); }
+      mcTree(k, put, wx, y0, wz, tr); continue; }
     if (col.b === BIO.SNOWY || (col.b === BIO.MOUNTAINS && t < 0.6)) {
       const H = 6 + (hh * 4 | 0);
       for (let y = 0; y < H; y++) soft(wx, y0 + y, wz, B.SPRUCE_LOG);
@@ -896,8 +901,16 @@ const ORE_FEATURES = [
   ['lapis_buried', 'lapis_ore', 'deepslate_lapis_ore', 4, 7, 'uni', -64, 64, 1],
   ['copper', 'copper_ore', 'deepslate_copper_ore', 16, 10, 'tri', -16, 112, 0],
   ['emerald', 'emerald_ore', 'deepslate_emerald_ore', 100, 3, 'tri', -16, 480, 0, 'mountains'],
+  // biome-only ores from the owner's Minecraft worldgen files (placed_feature/ore_*.json)
+  ['gold_extra', 'gold_ore', 'deepslate_gold_ore', 50, 9, 'uni', 32, 256, 0, 'badlands'],
+  ['infested', 'infested_stone', 'infested_deepslate', 14, 9, 'uni', -64, 63, 0, 'mountains'],
+  ['copper_large', 'copper_ore', 'deepslate_copper_ore', 16, 20, 'tri', -16, 112, 0, 'dripstone'],
+  ['clay', 'clay', null, 46, 33, 'uni', -64, 256, 0, 'lush'],
 ];
 let ORE_IDS = null;
+function oreBiomeOk(world, b, x, z) { const g = world.gen, col = g.column(x, z);
+  if (b === 'mountains') return col.b === BIO.MOUNTAINS; if (b === 'badlands') return BIO.BADLANDS != null && col.b === BIO.BADLANDS;
+  if (b === 'dripstone' || b === 'lush') { if (typeof caveFlags !== 'function') return false; const f = caveFlags(g, (x >> 4) * 16, (z >> 4) * 16); return b === 'lush' ? !!f.lush : (!!f.drip && !f.lush); } return true; }
 function oreIds() {
   if (ORE_IDS) return ORE_IDS;
   ORE_IDS = ORE_FEATURES.map(([name, ore, deep, n, size, shape, lo, hi, air, biome], k) => ({ name, o: B[ore.toUpperCase()], dp: deep ? B[deep.toUpperCase()] : 0, ore: !!deep, n, size, shape, lo: lo + YOFF, hi: hi + YOFF, air, biome, salt: 7919 * (k + 1) + 13 }));
@@ -926,7 +939,7 @@ function placeOres(world, c, cols) {
   for (const F of oreIds()) for (let ncx = c.cx - 1; ncx <= c.cx + 1; ncx++) for (let ncz = c.cz - 1; ncz <= c.cz + 1; ncz++) {
     const nbx = ncx * 16, nbz = ncz * 16; const rnd = mulberry32(ihash(ncx, ncz, F.salt, seed));
     let tries = Math.floor(F.n); if (rnd() < F.n - tries) tries++;
-    if (!tries || (F.biome === 'mountains' && world.gen.column(nbx + 8, nbz + 8).b !== BIO.MOUNTAINS)) continue;
+    if (!tries || (F.biome && !oreBiomeOk(world, F.biome, nbx + 8, nbz + 8))) continue;
     const reach = F.size / 8 + F.size / 16 + 1.5;
     for (let t = 0; t < tries; t++) {
       const ox = nbx + (rnd() * 16 | 0), oz = nbz + (rnd() * 16 | 0); const q = F.shape === 'tri' ? (rnd() + rnd()) / 2 : rnd(); const oy = Math.floor(F.lo + q * (F.hi - F.lo));

@@ -811,3 +811,71 @@ function mcMonumentDraw(world, c, p) {
       if (dir === 'north' || dir === 'south') p.box = orientBox(st.cx * 16 + 8 - 29, YOFF + 39, st.cz * 16 + 8 - 29 + (dir === 'north' ? 57 : 0), 0, 0, 0, 58, 23, 58, dir); else p.box = orientBox(st.cx * 16 + 8 - 29 + (dir === 'west' ? 57 : 0), YOFF + 39, st.cz * 16 + 8 - 29, 0, 0, 0, 58, 23, 58, dir);
       if (p.box.x1 < c.cx * 16 || p.box.x0 > c.cx * 16 + 15 || p.box.z1 < c.cz * 16 || p.box.z0 > c.cz * 16 + 15) continue;
       mcMonumentDraw(world, c, p); const mx = st.cx * 16 + 8, mz = st.cz * 16 + 8; if (mx >> 4 === c.cx && mz >> 4 === c.cz) c.monument = [mx, YOFF + 50, mz]; } }; }
+
+// ================= TREES (Minecraft's TreeFeature trunk + foliage placers, configs from the owner's worldgen) =================
+// The same put(x, y, z, id, isLog) interface as the game's TREES, so every place that grows a tree gets Minecraft's shape.
+const MCT_CFG = {
+  oak: ['straight', 4, 2, 0, 'blob', { r: 2, o: 0, h: 3 }, 'log', 'leaves'], birch: ['straight', 5, 2, 0, 'blob', { r: 2, o: 0, h: 3 }, 'birch_log', 'birch_leaves'],
+  super_birch: ['straight', 5, 2, 6, 'blob', { r: 2, o: 0, h: 3 }, 'birch_log', 'birch_leaves'], swamp_oak: ['straight', 5, 3, 0, 'blob', { r: 3, o: 0, h: 3, vines: 0.25 }, 'log', 'leaves'],
+  spruce: ['straight', 5, 2, 1, 'spruce', { r: [2, 3], o: [0, 2], th: [1, 2] }, 'spruce_log', 'spruce_leaves'], pine: ['straight', 6, 4, 0, 'pine', { r: 1, o: 1, h: [3, 4] }, 'spruce_log', 'spruce_leaves'],
+  acacia: ['forking', 5, 2, 2, 'acacia', { r: 2, o: 0 }, 'acacia_log', 'acacia_leaves'], dark_oak: ['dark_oak', 6, 2, 1, 'dark_oak', { r: 0, o: 0 }, 'dark_oak_log', 'dark_oak_leaves'],
+  pale_oak: ['dark_oak', 6, 2, 1, 'dark_oak', { r: 0, o: 0 }, 'pale_oak_log', 'pale_oak_leaves'], fancy_oak: ['fancy', 3, 11, 0, 'fancy', { r: 2, o: 4, h: 4 }, 'log', 'leaves'],
+  mega_spruce: ['giant', 13, 2, 14, 'mega_pine', { r: 0, o: 0, ch: [13, 17] }, 'spruce_log', 'spruce_leaves'], mega_pine: ['giant', 13, 2, 14, 'mega_pine', { r: 0, o: 0, ch: [3, 7] }, 'spruce_log', 'spruce_leaves'],
+  jungle: ['straight', 4, 8, 0, 'blob', { r: 2, o: 0, h: 3, vines: 0.25, tvines: true, cocoa: 0.2 }, 'jungle_log', 'jungle_leaves'], mega_jungle: ['mega_jungle', 10, 2, 19, 'jungle', { r: 2, o: 0, h: 2, vines: 0.25, tvines: true }, 'jungle_log', 'jungle_leaves'],
+};
+function mcTree(kind, put, X, Y, Z, r) {
+  const C = MCT_CFG[kind]; const [tp, bh, ra, rb, fp, F] = C; const LOG = B[C[6].toUpperCase()], LV = B[C[7].toUpperCase()]; const ri = (n) => (r() * n) | 0; const uni = (v) => Array.isArray(v) ? v[0] + ri(v[1] - v[0] + 1) : v;
+  const logs = [], leaves = new Set(); const log = (x, y, z) => { put(x, y, z, LOG, true); logs.push([x, y, z]); }; const leaf = (x, y, z) => { const k = x + ',' + y + ',' + z; if (leaves.has(k)) return; leaves.add(k); put(x, y, z, LV, false); };
+  const height = bh + ri(ra + 1) + ri(rb + 1); const att = []; const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  // ---- trunk ----
+  if (tp === 'straight') { for (let i = 0; i < height; i++) log(X, Y + i, Z); att.push([X, Y + height, Z, 0, false]); }
+  else if (tp === 'giant' || tp === 'mega_jungle') { for (let i = 0; i < height; i++) { log(X, Y + i, Z); if (i < height - 1) { log(X + 1, Y + i, Z); log(X + 1, Y + i, Z + 1); log(X, Y + i, Z + 1); } } att.push([X, Y + height, Z, 0, true]);
+    if (tp === 'mega_jungle') for (let i = height - 2 - ri(4); i > height / 2; i -= 2 + ri(4)) { const f = r() * Math.PI * 2; let j = 0, k = 0; for (let l = 0; l < 5; l++) { j = (1.5 + Math.cos(f) * l) | 0; k = (1.5 + Math.sin(f) * l) | 0; log(X + j, Y + i - 3 + (l >> 1), Z + k); } att.push([X + j, Y + i, Z + k, -2, false]); } }
+  else if (tp === 'forking') { const i0 = height - ri(4) - 1; let j = 3 - ri(3); const d = DIRS[ri(4)]; let k = X, l = Z, top = null;
+    for (let i1 = 0; i1 < height; i1++) { if (i1 >= i0 && j > 0) { k += d[0]; l += d[1]; j--; } log(k, Y + i1, l); top = Y + i1 + 1; } att.push([k, top, l, 1, false]);
+    k = X; l = Z; const d2 = DIRS[ri(4)]; if (d2 !== d) { const k2 = i0 - ri(2) - 1; let l1 = 1 + ri(3); top = null; for (let i2 = k2; i2 < height && l1 > 0; i2++, l1--) if (i2 >= 1) { k += d2[0]; l += d2[1]; log(k, Y + i2, l); top = Y + i2 + 1; } if (top != null) att.push([k, top, l, 0, false]); } }
+  else if (tp === 'dark_oak') { const d = DIRS[ri(4)]; const i0 = height - ri(4); let j = 2 - ri(3); let j1 = X, k1 = Z; const l1 = Y + height - 1;
+    for (let i2 = 0; i2 < height; i2++) { if (i2 >= i0 && j > 0) { j1 += d[0]; k1 += d[1]; j--; } const yy = Y + i2; log(j1, yy, k1); log(j1 + 1, yy, k1); log(j1, yy, k1 + 1); log(j1 + 1, yy, k1 + 1); }
+    att.push([j1, l1, k1, 0, true]);
+    for (let a = -1; a <= 2; a++) for (let b = -1; b <= 2; b++) if ((a < 0 || a > 1 || b < 0 || b > 1) && ri(3) <= 0) { const n = ri(3) + 2; for (let k2 = 0; k2 < n; k2++) log(X + a, l1 - k2 - 1, Z + b); att.push([X + a, l1, Z + b, 0, false]); } }
+  else if (tp === 'fancy') { const j = height + 2, k = Math.floor(j * 0.618); const l = Math.min(1, Math.floor(1.382 + Math.pow(j / 13, 2))); const i1 = Y + k; const fc = [[X, Y + j - 5, Z, i1]];
+    const shape = (h, y) => { if (y < h * 0.3) return -1; const f = h / 2, f1 = f - y; let f2 = Math.sqrt(f * f - f1 * f1); if (f1 === 0) f2 = f; else if (Math.abs(f1) >= f) return 0; return f2 * 0.5; };
+    const limb = (a, b, place) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2]; const n = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)); if (!n) { if (place) log(a[0], a[1], a[2]); return true; } for (let s = 0; s <= n; s++) { const p = [Math.floor(a[0] + 0.5 + s * dx / n), Math.floor(a[1] + 0.5 + s * dy / n), Math.floor(a[2] + 0.5 + s * dz / n)]; if (place) log(p[0], p[1], p[2]); } return true; };
+    for (let j1 = j - 5; j1 >= 0; j1--) { const f = shape(j, j1); if (f < 0) continue; for (let k1 = 0; k1 < l; k1++) { const d1 = f * (r() + 0.328), d2 = r() * 2 * Math.PI; const p = [X + Math.floor(d1 * Math.sin(d2) + 0.5), Y + j1 - 1, Z + Math.floor(d1 * Math.cos(d2) + 0.5)];
+        const l1 = X - p[0], i2 = Z - p[2]; const d5 = p[1] - Math.sqrt(l1 * l1 + i2 * i2) * 0.381; const j2 = d5 > i1 ? i1 : Math.floor(d5); fc.push([p[0], p[1], p[2], j2]); } }
+    limb([X, Y, Z], [X, Y + k, Z], true);
+    for (const f of fc) { if (f[3] - Y >= j * 0.2) { if (!(f[0] === X && f[3] === f[1] && f[2] === Z)) limb([X, f[3], Z], [f[0], f[1], f[2]], true); att.push([f[0], f[1], f[2], 0, false]); } } }
+  // ---- foliage ----
+  const fh = fp === 'spruce' ? Math.max(4, height - uni(F.th)) : fp === 'pine' ? uni(F.h) : fp === 'mega_pine' ? uni(F.ch) : fp === 'dark_oak' ? 4 : fp === 'acacia' ? 0 : F.h;
+  const frad = fp === 'pine' ? F.r + ri(Math.max(F.r + 1, 1)) : uni(F.r); const off = uni(F.o);
+  const skip = (dx, y, dz, rg, dbl) => {
+    switch (fp) { case 'blob': case 'jungle_blob': return dx === rg && dz === rg && (r() < 0.5 || y === 0);
+      case 'spruce': case 'pine': return dx === rg && dz === rg && rg > 0;
+      case 'acacia': return y === 0 ? ((dx > 1 || dz > 1) && dx !== 0 && dz !== 0) : (dx === rg && dz === rg && rg > 0);
+      case 'fancy': return (dx + 0.5) * (dx + 0.5) + (dz + 0.5) * (dz + 0.5) > rg * rg;
+      case 'mega_pine': case 'jungle': return dx + dz >= 7 || dx * dx + dz * dz > rg * rg;
+      case 'dark_oak': return y === -1 && !dbl ? (dx === rg && dz === rg) : y === 1 ? dx + dz > rg * 2 - 2 : false; } return false; };
+  const row = (cx, cy, cz, rg, y, dbl) => { const e = dbl ? 1 : 0; for (let dx = -rg; dx <= rg + e; dx++) for (let dz = -rg; dz <= rg + e; dz++) {
+      if (fp === 'dark_oak' && y === 0 && dbl && (dx === -rg || dx >= rg) && (dz === -rg || dz >= rg)) continue;
+      const ax = dbl ? Math.min(Math.abs(dx), Math.abs(dx - 1)) : Math.abs(dx), az = dbl ? Math.min(Math.abs(dz), Math.abs(dz - 1)) : Math.abs(dz); if (!skip(ax, y, az, rg, dbl)) leaf(cx + dx, cy + y, cz + dz); } };
+  for (const [ax, ay, az, ro, dbl] of att) {
+    if (fp === 'blob') for (let i = off; i >= off - fh; i--) row(ax, ay, az, Math.max(frad + ro - 1 - Math.floor(i / 2), 0), i, dbl);
+    else if (fp === 'fancy') for (let i = off; i >= off - fh; i--) row(ax, ay, az, frad + (i !== off && i !== off - fh ? 1 : 0), i, dbl);
+    else if (fp === 'spruce') { let i = ri(2), j = 1, k = 0; for (let l = off; l >= -fh; l--) { row(ax, ay, az, i, l, dbl); if (i >= j) { i = k; k = 1; j = Math.min(j + 1, frad + ro); } else i++; } }
+    else if (fp === 'pine') { let i = 0; for (let j = off; j >= off - fh; j--) { row(ax, ay, az, i, j, dbl); if (i >= 1 && j === off - fh + 1) i--; else if (i < frad + ro) i++; } }
+    else if (fp === 'acacia') { const py = ay + off; row(ax, py, az, frad + ro, -1 - fh, dbl); row(ax, py, az, frad - 1, -fh, dbl); row(ax, py, az, frad + ro - 1, 0, dbl); }
+    else if (fp === 'dark_oak') { const py = ay + off; if (dbl) { row(ax, py, az, frad + 2, -1, true); row(ax, py, az, frad + 3, 0, true); row(ax, py, az, frad + 2, 1, true); if (r() < 0.5) row(ax, py, az, frad, 2, true); } else { row(ax, py, az, frad + 2, -1, false); row(ax, py, az, frad + 1, 0, false); } }
+    else if (fp === 'mega_pine') { let i = 0; for (let j = ay - fh + off; j <= ay + off; j++) { const k = ay - j; const l = frad + ro + Math.floor(k / fh * 3.5); const i1 = k > 0 && l === i && (j & 1) === 0 ? l + 1 : l; row(ax, j, az, i1, 0, dbl); i = l; } }
+    else if (fp === 'jungle') { const n = dbl ? fh : 1 + ri(2); for (let j = off; j >= off - n; j--) row(ax, ay, az, frad + ro + 1 - j, j, dbl); }
+  }
+  // ---- decorators: vines on the trunk and hanging from leaves, cocoa ----
+  const V = B.VINE; if (V && (F.tvines || F.vines)) {
+    if (F.tvines) for (const [x, y, z] of logs) for (const [dx, dz] of DIRS) if (ri(3) > 0) put(x + dx, y, z + dz, V, false);
+    if (F.vines) for (const k of leaves) { const [x, y, z] = k.split(',').map(Number); for (const [dx, dz] of DIRS) if (r() < F.vines && !leaves.has((x + dx) + ',' + y + ',' + (z + dz))) for (let h = 0; h < 4; h++) put(x + dx, y - h, z + dz, V, false); } }
+  if (F.cocoa && B.COCOA_0 && r() < F.cocoa) for (let i = 0; i < Math.min(height, 4); i++) { const [dx, dz] = DIRS[ri(4)]; if (r() < 0.25) put(X + dx, Y + i, Z + dz, B.COCOA_0 || B.COCOA, false); }
+}
+// the game's tree builders become Minecraft's (cherry, mangrove, azalea, poplar, fungi keep the game's own: Minecraft's
+// cherry / upwards branching / bending / poplar placers aren't in here)
+for (const k of ['oak', 'birch', 'spruce', 'acacia', 'dark_oak', 'pale_oak', 'mega_spruce', 'jungle', 'mega_jungle']) if (TREES[k]) { const _o = TREES[k]; TREES[k] = function (put, x, y, z, r) { try { return mcTree(k, put, x, y, z, r); } catch (e) { return _o.apply(this, arguments); } }; }
+Object.assign(TREES, { fancy_oak: (put, x, y, z, r) => mcTree('fancy_oak', put, x, y, z, r), pine: (put, x, y, z, r) => mcTree('pine', put, x, y, z, r), mega_pine: (put, x, y, z, r) => mcTree('mega_pine', put, x, y, z, r),
+  super_birch: (put, x, y, z, r) => mcTree('super_birch', put, x, y, z, r), swamp_oak: (put, x, y, z, r) => mcTree('swamp_oak', put, x, y, z, r) });
