@@ -78,6 +78,7 @@ function buildBBModel(m, root, key, opt) {
     // layers sit exactly on the body, so pull them toward the camera a touch to win the depth test
     if (!L.translucent) { lm.polygonOffset = true; lm.polygonOffsetFactor = -1 - i; lm.polygonOffsetUnits = -4 - 4 * i; }
     bbBuildInto(L, lm, holder, parts, true); if (L.translucent && L.scroll !== false) { lm.map.wrapS = THREE.RepeatWrapping; m.bbScroll = lm.map; } });
+  for (const [nm, lm] of Object.entries(m.bbLayer)) { const L = (M.layers || []).find((l, i) => (l.name || 'L' + i) === nm); if (L && L.hidden) { lm.visible = false; lm.userData.now = nm + '=false'; } }
   for (const nm in (opt.layers || {})) bbSetSkin(m, nm, opt.layers[nm]);
   holder.updateMatrixWorld(true);
   for (const n of BB_HIDE.concat(BB_HIDE_MOB[base] || [])) if (parts[n]) parts[n].visible = false;
@@ -120,4 +121,7 @@ function buildBBModel(m, root, key, opt) {
 // models with their own motion (breeze wind) update whenever the mob is drawn
 if (typeof Mob !== 'undefined') { const _bbc = Mob.prototype.colorize; Mob.prototype.colorize = function () { if (this.bbAnim) this.bbAnim(this.age || 0); return _bbc.apply(this, arguments); }; }
 // replace the built-in look of every mob that has a model
-for (const key in BB_MODELS) if (typeof MOBS !== 'undefined' && MOBS[key]) { MOBS[key].bbOrigBuild = MOBS[key].build; MOBS[key].build = function (m, r) { buildBBModel(m, r, key); }; }
+// the game's own build still runs, hidden, first: it sets up gameplay bits (horse genes, saddles, chests, extra heads)
+for (const key in BB_MODELS) if (typeof MOBS !== 'undefined' && MOBS[key]) { const orig = MOBS[key].bbOrigBuild = MOBS[key].build;
+  MOBS[key].build = function (m, r) { const tmp = new THREE.Group(); tmp.visible = false; r.add(tmp); const n0 = m.mats.length; try { orig(m, tmp); } catch (e) { } m.mats.length = n0; m.bbOld = tmp;
+    m.head = m.legs = m.arms = m.wings = m.tail = undefined; buildBBModel(m, r, key); }; }

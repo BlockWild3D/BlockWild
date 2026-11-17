@@ -118,8 +118,7 @@ bbVariantMob('tropical_fish', (m) => 'tropical_fish:' + ((m.var || 0) % 6), (m) 
 
 // ---- horses: coat + markings from the horse's genes; saddle and armour stay from the old model ----
 const BB_COAT = ['white', 'creamy', 'chestnut', 'brown', 'black', 'gray', 'darkbrown'], BB_MARK = [false, 'white', 'whitefield', 'whitedots', 'blackdots'];
-bbVariantMob('horse', (m) => 'horse:' + BB_COAT[((m.hg && m.hg.c) || 0) % 7], (m) => bbSetSkin(m, 'markings', BB_MARK[((m.hg && m.hg.mk) || 0) % 5]),
-  (m) => [].concat(m.saddleParts || [], m.reins || [], m.armorParts || []));
+bbVariantMob('horse', (m) => 'horse:' + BB_COAT[((m.hg && m.hg.c) || 0) % 7], (m) => bbSetSkin(m, 'markings', BB_MARK[((m.hg && m.hg.mk) || 0) % 5]));
 
 // ---- villagers: body + biome outfit + job outfit + level badge ----
 const BB_VTYPE = ['plains', 'desert', 'jungle', 'savanna', 'snow', 'swamp', 'taiga'], BB_VLV = ['stone', 'iron', 'gold', 'emerald', 'diamond'];
@@ -148,3 +147,19 @@ bbOnFrame('wither', (m) => { bbSetSkin(m, null, m.spawnT > 0 ? 'invulnerable' : 
 
 // ---- copper golems: skin and glowing eyes follow how weathered they are ----
 bbVariantMob('copper_golem', (m) => 'copper_golem:' + Math.max(0, Math.min(3, m.cgAge || 0)));
+
+// ================= GEAR: saddles, horse/wolf/nautilus armour, harnesses, trader llama decor (owner's equipment folder) =================
+const BB_LEATHER = BB_TINT([160, 101, 64]);
+function bbGear(type, fn) { const t = MOBS[type]; if (!t) return; const prev = t.bbFrame; t.bbFrame = (m) => { if (prev) prev(m); fn(m); }; }
+// horses and their kin: saddle and armour follow the horse's genes (the old gear pieces stay hidden with the old model)
+for (const k of ['horse', 'donkey', 'mule', 'skeleton_horse', 'zombie_horse']) bbGear(k, (m) => { const g = m.hg || {}; bbSetSkin(m, 'saddle', !!g.saddle && !m.baby);
+  const a = !m.baby && g.armor >= 0 && typeof HORSE_ARMOR !== 'undefined' ? HORSE_ARMOR[g.armor] : false; bbSetSkin(m, 'armor', a || false);
+  const am = m.bbLayer && m.bbLayer.armor; if (am && a && am.userData.tint !== a) { am.userData.tint = a; bbTint(m, am, a === 'leather' ? BB_LEATHER : WHITE_C); } });
+for (const k of ['pig', 'strider', 'camel', 'camel_husk', 'nautilus', 'zombie_nautilus']) bbGear(k, (m) => bbSetSkin(m, 'saddle', !!m.saddled && !m.baby));
+for (const k of ['nautilus', 'zombie_nautilus']) bbGear(k, (m) => { const a = m.nautArmor; let mat = false; if (a) { const key = (ITEMS[a.id] && ITEMS[a.id].key) || ''; mat = ['netherite', 'diamond', 'gold', 'copper', 'iron'].find(x => key.includes(x)) || 'iron'; } bbSetSkin(m, 'armor', mat); });
+bbGear('wolf', (m) => { bbSetSkin(m, 'armor', !!m.wolfArmor); bbSetSkin(m, 'armor_overlay', !!m.wolfArmor); });
+bbGear('happy_ghast', (m) => { const it = m.harnessed && ITEMS[m.harnessed]; bbSetSkin(m, 'harness', it ? (it.key || '').replace(/_harness$/, '') || 'red' : false); });
+bbGear('trader_llama', (m) => bbSetSkin(m, 'decor', !m.baby));
+// the old placeholder saddle and wolf armour boxes are drawn on the mob's root; hide them when the model has its own
+if (typeof saddleMesh !== 'undefined') { const _sm = saddleMesh; saddleMesh = function (m) { const r = _sm.apply(this, arguments); if (m && m.bbLayer && m.bbLayer.saddle && m.saddleMesh) m.saddleMesh.visible = false; return r; }; }
+if (typeof wolfArmorMesh !== 'undefined') { const _wm = wolfArmorMesh; wolfArmorMesh = function (m) { const r = _wm.apply(this, arguments); if (m && m.bbLayer && m.bbLayer.armor && m.wolfArmorMesh) m.wolfArmorMesh.visible = false; return r; }; }
