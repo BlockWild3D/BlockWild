@@ -6542,26 +6542,36 @@ class Mob {
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
     let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
-    if (hostileNow && canTarget && dist < (this.type === 'enderman' ? 40 : 18)) {
+    maiPreUpdate(this); const pathing = maiCanPath(this); // Minecraft-style pathfinding and goals: 99zzzzzzzzzzzz_mobai.js
+    if (maiTargetsPlayer(this, dt, hostileNow && canTarget, dist)) {
       tyaw = Math.atan2(dx, dz); move = 1;
       if (t.ranged) {
         const see = dist < 16 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.6, this.pos.z), P.eye());
-        if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
+        if (pathing) { const r = maiRanged(this, P, dist, see, dt); move = r.move; if (r.yaw != null) tyaw = r.yaw; }
+        else if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
         if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); if (t.shoot) t.shoot(this, P, dist); else shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
       } else if (t.creeper) {
-        if (dist < 2.8 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; move = 0; }
-        else if (this.fuse > 0) { this.fuse = dist > 5 ? 0 : Math.max(0, this.fuse - dt * 0.5); }
+        // SwellGoal: starts within 3 blocks, swells while you are within 7 and in sight, otherwise shrinks back
+        if (this.swelling || dist < 3) { this.swelling = true; move = 0; maiStop(this);
+          if (dist > 7 || !lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { this.fuse = Math.max(0, this.fuse - dt); if (dist >= 3) this.swelling = false; }
+          else { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; } }
+        else { this.fuse = Math.max(0, this.fuse - dt); if (pathing) { const y = maiChase(this, P.pos, 'chase', 0, { range: 16, maxFall: maiMaxFall(this, true) }); if (y != null) tyaw = y; } }
         if (this.fuse > 1.5) { this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 3.2, this, { cause: 'a creeper' }); return; }
       } else {
         if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0 && meleeSees(this, P)) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
         if (dist < 0.9) move = 0;
+        else if (pathing) { const y = maiChase(this, P.pos, 'chase', 0, { range: MAI_RANGE[this.type] || 16, maxFall: maiMaxFall(this, true) }); if (y != null) tyaw = y; }
         if (this.type === 'enderman' && dist > 12 && Math.random() < dt * 0.6) this.teleport(P.pos);
       }
       if (t.climbs && this.hitH) this.vel.y = 3.2;
       this.chasing = true;
     } else {
-      this.chasing = false; this.fuse = Math.max(0, this.fuse - dt);
-      if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9; }
+      this.chasing = false; this.fuse = Math.max(0, this.fuse - dt); this.swelling = false;
+      if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9;
+        if (pathing) { const from = this.fleeFrom ? this.fleeFrom.pos : t.kind === 'passive' ? null : P.pos; const y = maiFlee(this, dt, from); if (y != null) tyaw = y; else if (!from) { tyaw = this.yaw; move = this.navOn ? 1 : 0; } } }
+      else if (pathing) { this.wT -= dt; if (this.wT <= 0) maiStroll(this, dt, dist); move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
+        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; } }
       else {
         this.wT -= dt; if (this.wT <= 0) { if (Math.random() < 0.45) { this.wMove = 0; this.wT = 2 + Math.random() * 4; } else { this.wMove = 1; this.wYaw = Math.random() * Math.PI * 2; this.wT = 1.5 + Math.random() * 3; } }
         move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
@@ -6575,6 +6585,7 @@ class Mob {
       if (this.hitH && hs0 < speed * 0.4) this.stuckT = (this.stuckT || 0) + dt; else this.stuckT = Math.max(0, (this.stuckT || 0) - dt);
       if (this.stuckT > 0.7 && !(this.detourT > 0)) { this.detourT = 0.8 + Math.random() * 0.8; this.detour = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 0.6); this.stuckT = 0; }
     }
+    if (this.navOn) this.detourT = 0;
     if (this.detourT > 0) { this.detourT -= dt; tyaw += this.detour; if (move === 0) move = 1; }
     if (t.burns && w.dim === 'overworld' && G.daylight > 0.62 && !water && w.skyAt(Math.floor(this.pos.x), Math.floor(this.pos.y + this.h), Math.floor(this.pos.z)) >= 1) {
       this.burnT += dt; if (Math.random() < dt * 20) SpriteFX.emit('flame', this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.6, 0.6, -2, 0.6);
@@ -6582,12 +6593,15 @@ class Mob {
     }
     if (t.fireproof && (lava || this.type === 'strider') && Math.random() < dt * 2) SpriteFX.emit('lava', this.pos.x, this.pos.y + 0.3, this.pos.z, 1, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 1, [[1, 0.5, 0.1]], 0.4, 0.5, -1, 0.5);
     let diff = tyaw - this.yaw; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2; this.yaw += diff * Math.min(1, dt * 7);
-    const tx = Math.sin(this.yaw) * speed * move, tz = Math.cos(this.yaw) * speed * move;
+    let tx = Math.sin(this.yaw) * speed * move, tz = Math.cos(this.yaw) * speed * move;
+    if (pathing && this.strafe && move) { const [f, r] = this.strafe; const sx = (Math.sin(this.yaw) * f + Math.cos(this.yaw) * r) * speed, sz = (Math.cos(this.yaw) * f - Math.sin(this.yaw) * r) * speed;
+      if (maiSafe(this, sx, sz, 3)) { tx = sx; tz = sz; } } // MoveControl.strafe: walk forward instead where the strafe would step off
+    if (pathing && (tx || tz) && !maiSafe(this, tx, tz, maiMaxFall(this, this.chasing))) { tx = 0; tz = 0; }
     const k = this.onGround ? Math.min(1, dt * 10) : Math.min(1, dt * 2);
     this.vel.x += (tx - this.vel.x) * k; this.vel.z += (tz - this.vel.z) * k;
     if (water || (lava && !this.lavaWalk)) { this.vel.y = Math.min(this.vel.y + (lava ? 24 : 34) * dt, lava ? 1.2 : 2.2); this.vel.x *= 0.95; this.vel.z *= 0.95; } else this.vel.y = Math.max(this.vel.y - 28 * dt, -50);
     moveEntity(this, dt);
-    if (this.hitH && (this.onGround || water) && move !== 0) this.vel.y = water ? 5 : 8.2;
+    if ((this.hitH || this.navJump) && (this.onGround || water) && move !== 0 && (tx || tz)) this.vel.y = water ? 5 : 8.2;
     if (this.pos.y < -10) { this.gone = true; return; }
     this.animate(dt);
   }
@@ -7020,7 +7034,7 @@ class Player {
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; (playerHurtSfx(dmg, cause) || Sfx.play('hurt', 1));
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) applyKnockback(this, src, kb, typeof blastKbResist === 'function' ? blastKbResist(this) : 0);
-    G.shake = Math.max(G.shake, 0.25); updateHearts();
+    mcHurtTilt(this, src); updateHearts();
     if (this.health <= 0) this.die(cause);
   }
   die(cause) {
@@ -7426,7 +7440,8 @@ function updateInteraction(dt) {
   const hb = player.heldDef(); const sneak = kd('sneak');
   const blockUse = target && !sneak && (BL[target.id].use === 'chest' || target.id === B.CRAFTING_TABLE || BL[target.id].use === 'furnace' || (target.id === B.END_PORTAL_FRAME && hb && hb.kind === 'eye'));
   const offShield = player.inv[36] && player.inv[36].id === IT.shield; const mk = hb ? hb.kind : null;
-  const canShield = mk === 'shield' || (offShield && (!mk || mk === 'tool' || mk === 'mat'));
+  const spearInHand = mk === 'tool' && player.heldDef() && player.heldDef().tool === 'spear'; // using a spear (charging it) comes first, so no blocking with it in your main hand
+  const canShield = mk === 'shield' || (offShield && !spearInHand && (!mk || mk === 'tool' || mk === 'mat'));
   if (canShield && !(S.shieldCD > 0) && mouseR && !blockUse && !(typeof interactTargetNow === 'function' && interactTargetNow()) && !(targetMob && targetMob.type === 'piglin' && hb && player.held().id === IT.gold_ingot)) { S.blockT = (S.blockT || 0) + dt; player.blocking = S.blockT > 0.25; /* Minecraft: a shield takes 5 ticks to come up */ return; }
   S.blockT = 0; player.blocking = false;
   // bow: hold to draw, release to shoot
@@ -7721,7 +7736,7 @@ function updateHand(dt, light) {
     handGroup.add(handMesh);
   }
   S.swing = Math.max(0, S.swing - dt * 4); const dy = player.yaw - (S.lastYaw ?? player.yaw), dp = player.pitch - (S.lastPitch ?? player.pitch); S.lastYaw = player.yaw; S.lastPitch = player.pitch; S.lagX = clamp(((S.lagX || 0) + dy * 0.6) * Math.exp(-dt * 10), -0.25, 0.25); S.lagY = clamp(((S.lagY || 0) + dp * 0.6) * Math.exp(-dt * 10), -0.25, 0.25);
-  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 1.8;
+  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 0.6 * Math.PI; // Minecraft's walkDist: 0.6 per block, the bob phase is walkDist * pi
   handGroup.position.set(0.48 + Math.cos(S.bob) * 0.012 * bob / 4 - sw * 0.15, -0.42 + Math.abs(Math.sin(S.bob)) * 0.02 * bob / 4 - sw * 0.1, -0.7 - sw * 0.12);
   handGroup.rotation.set(-sw * 0.8 + S.lagY, sw * 0.4 + S.lagX, 0); handGroup.position.x -= S.lagX * 0.3; handGroup.position.y -= S.lagY * 0.3;
   // bow draw pose: bring the bow to the centre, swap to pulled frames, tremble at full draw
@@ -7960,13 +7975,12 @@ function tick(dt) {
   if (typeof mpTick === 'function') mpTick(dt);
   Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
-  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;
-    const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }
+  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
-  camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
+  camera.rotation.set(P.pitch, P.yaw, 0); mcCameraFx(P, dt); // view bobbing and the hurt tilt as Minecraft does them: 99zzzzzzzzzzzzz_mccamera.js
   applyPov(P, dt);
   updateCaveCulling(world, camera.position);
-  const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (S.fov + (sprinting ? 8 : 0)) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
+  const tf = mcFov(P, dt); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = FKIND[eb] === 1 ? B.WATER : FKIND[eb] === 2 ? B.LAVA : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
   updateSky(eyeFluid); if (!S.loading && !S.paused) updateAir(dt, eyeFluid);
@@ -9343,7 +9357,10 @@ function applyPov(P, dt) {
   if (!third) return false;
   const eye = P.eye(); const d = lookDir(); const back = S.pov === 1 ? -1 : 1;
   const dir = d.clone().multiplyScalar(back); let dist = 4;
-  for (let t = 0.2; t <= 4; t += 0.2) { const q = _camTmp.copy(eye).addScaledVector(dir, t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.max(0.2, t - 0.35); break; } }
+  // Minecraft (Camera.getMaxZoom): 4 blocks back, cut short where any of 8 rays from the corners of a 0.2 block cube
+  // around the eye hits a block, at the distance of that hit
+  for (let c = 0; c < 8; c++) { const ox = (c & 1 ? 1 : -1) * 0.1, oy = (c & 2 ? 1 : -1) * 0.1, oz = (c & 4 ? 1 : -1) * 0.1;
+    for (let t = 0; t <= dist; t += 0.05) { const q = _camTmp.set(eye.x + ox + dir.x * t, eye.y + oy + dir.y * t, eye.z + oz + dir.z * t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.min(dist, t); break; } } }
   if (myModel) myModel.root.visible = dist > 0.9;
   camera.position.copy(eye).addScaledVector(dir, dist);
   if (S.pov === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.rotation.set(-P.pitch, P.yaw + Math.PI, 0);
@@ -19068,7 +19085,7 @@ function lightningAt(x, y, z, o = {}) {
   for (const m of G.mobs.slice()) { if (m.dead || Math.hypot(m.pos.x - x - 0.5, m.pos.z - z - 0.5) > 3.5 || Math.abs(m.pos.y - y) > 4) continue;
     const swap = { pig: 'zombified_piglin', villager: 'witch' }[m.type];
     if (swap && MOBS[swap] && !isClientMP()) { const n = spawnMob(swap, m.pos.x, m.pos.y, m.pos.z); if (n) { n.yaw = m.yaw; n.persistent = m.persistent; } m.dead = true; m.gone = true; if (m.remove) m.remove(); continue; }
-    if (m.type === 'creeper') { m.charged = true; if (m.root) m.root.traverse(o2 => { if (o2.material && o2.material.emissive) o2.material.emissive.setRGB(0.15, 0.3, 0.6); }); }
+    if (m.type === 'creeper') m.charged = true; // drawn with the energy swirl: 99zzzzzzzzzzzzzz_mclayers.js
     if (m.type === 'mooshroom') m.brown = !m.brown;
     m.hurt(5, new V3(x, y, z), 0.5); }
 }
@@ -24850,6 +24867,547 @@ if (typeof Dragon === 'function') { const _an = Dragon.prototype.animate; Dragon
       if (this.legs) this.legs.forEach((g, i) => { const a = ang(i < 2 ? (i ? 'frontleg1' : 'frontleg') : (i === 2 ? 'rearleg' : 'rearleg1')); if (a && g) g.rotation.set(a[0], a[1], a[2]); });
       const j = ang('jaw'); if (j && this.jaw && !(this.jawT > 0)) { const x = ((j[0] % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); this.jaw.rotation.x = (x > Math.PI ? x - Math.PI * 2 : x) + Math.sin(this.age * 2) * 0.05; }
     } catch (e) { } return r; }; }
+
+// ================= MOB AI: Minecraft Java pathfinding and goals, rewritten for this engine =================
+// Before this, a mob turned to face what it wanted and walked straight at it, hopping or veering at random when a wall
+// was in the way, and wandered by picking a random direction. Now ground mobs work the way Minecraft Java's do:
+//
+// PATHFINDING (WalkNodeEvaluator + PathFinder): an A* search over block cells sized to the mob (a 0.6 wide, 1.95 tall
+// zombie fills 1x2x1 cells, an iron golem 2x3x2). From a cell a mob can step to the 8 cells around it, jump up one
+// block (no higher than 1.125 above its floor, so never onto fences or walls), or drop down as far as it is willing
+// to fall: 3 blocks normally, more when chasing something at high health (3 + health - a third of max health,
+// minus 4 per difficulty step below Hard). Every cell gets a type with a cost: lava, cactus, berry bushes, powder snow,
+// leaves, fences, walls and closed doors are off limits; water costs 8, standing next to water, fire, lava or cactus
+// costs 8, fire and magma cost 16. Diagonal steps need both side cells open. A search visits at most 16 cells per block
+// of follow range and walks no farther than that range; if it can't reach the goal it goes to the closest cell it found.
+// PATH FOLLOWING (PathNavigation, MoveControl): a mob counts a cell as reached within max(width/2, 0.75 - width/2)
+// blocks, cuts corners the way Minecraft does, jumps when the next cell is higher, gives up a path when it hasn't made
+// progress in 5 seconds or takes 3 times too long to reach the next cell. Any ground mob, whatever is moving it, also
+// refuses to walk off a drop deeper than it is willing to fall, or into lava, fire, cactus or powder snow.
+// GOALS:
+//  - Wandering (WaterAvoidingRandomStrollGoal): on average every 6 seconds a mob picks the best of 10 random spots
+//    within 10 blocks across and 7 up or down that it could stand on (not in water), and walks there. Animals prefer
+//    grass and light, monsters prefer the dark. Monsters more than 32 blocks from you stop wandering, like Minecraft.
+//  - Panic (PanicGoal): a hurt animal runs to random spots within 5 blocks for 2 seconds, then finishes the last run.
+//  - Keeping away (AvoidEntityGoal): a mob that is fleeing from something heads for a spot up to 16 blocks away from it.
+//  - Targeting (NearestAttackableTargetGoal, HurtByTargetGoal): a monster has to SEE you to notice you, within its
+//    follow range (16 blocks; zombies, husks, drowned and zombie villagers 35). It forgets you after 3 seconds out of
+//    sight; one that is angry at you (hit by you) keeps after you for 15 seconds out of sight. Hitting a zombie (or husk,
+//    drowned, zombie villager) brings every zombie within 35 blocks that has nothing better to do.
+//  - Chasing (MeleeAttackGoal): monsters path to you, recomputing every 0.2-0.5 seconds as you move (slower when far).
+//  - Skeletons, strays, bogged, parched and illusioners (RangedBowAttackGoal): close in until they've seen you for a
+//    second within 15 blocks, then stop and strafe, switching direction now and then, backing off inside 7.5 blocks.
+//    Pillagers (RangedCrossbowAttackGoal) stop within 8 blocks and shoot.
+//  - Creepers (SwellGoal): start to swell within 3 blocks, keep swelling while you are within 7 and in sight, and
+//    de-swell at the same rate otherwise.
+//  - Spiders (LeapAtTargetGoal) leap at you from 2 to 4 blocks away.
+//  - Mob against mob: zombies go after villagers, wandering traders and iron golems; skeletons, and spiders in the
+//    dark, go after iron golems; wither skeletons after piglins and piglins after wither skeletons; any monster hit by
+//    a mob fights back. Wild wolves also hunt sheep and foxes (they already hunted skeletons and rabbits), foxes hunt
+//    chickens and rabbits, cats hunt rabbits and ocelots hunt chickens.
+// Mob-specific brains (villagers, piglins, the warden...) keep their own logic but walk along these paths too, since
+// everything that steers a mob toward something (steerTo) now pathfinds.
+
+// ---------- cell types ----------
+const PT_OPEN = 0, PT_BLOCKED = 1, PT_WATER = 2, PT_LAVA = 3, PT_FIRE = 4, PT_DAMAGING = 5, PT_POWDER = 6, PT_FENCE = 7, PT_LEAVES = 8,
+  PT_DOOR_C = 9, PT_DOOR_O = 10, PT_TRAPDOOR = 11, PT_CAUTIOUS = 12, PT_HONEY = 13, PT_WALKABLE = 14, PT_WATER_BORDER = 15, PT_FIRE_N = 16, PT_DAMAGING_N = 17;
+//                 OPEN BLK WAT LAVA FIRE DMG POW FEN LEAF DOORC DOORO TRAP CAUT HONEY WALK WBORD FIREN DMGN
+const PT_MALUS = [0, -1, 8, -1, 16, -1, -1, -1, -1, -1, 0, 0, 0, 8, 0, 8, 8, 8];
+// per block id: bits 0-4 raw type, bit 5 "has collision taller than 1/4 block", bits 6-10 collision top in 1/16
+const PT_INFO = new Int16Array(ITEM_BASE).fill(-1);
+function ptInfo(id) {
+  let v = PT_INFO[id]; if (v >= 0) return v;
+  const d = BL[id]; let raw = PT_OPEN, top = 0;
+  if (id && d) {
+    const k = (d.key || '').split('#')[0];
+    if (SHAPED[id]) { if (!d.noCollide) { try { for (const b of shapeBoxes(id, 0, 64, 0, () => 0, 'c')) top = Math.max(top, b[4] / 16); } catch (e) { top = 1; } } }
+    else if (SOLID[id]) top = 1;
+    if (FKIND[id] === 2) raw = PT_LAVA;
+    else if (/^(soul_)?fire$|^magma_block$|^(soul_)?campfire/.test(k)) raw = PT_FIRE;
+    else if (/^cactus$|^sweet_berry_bush/.test(k)) raw = PT_DAMAGING;
+    else if (k === 'powder_snow') raw = PT_POWDER;
+    else if (/^wither_rose$|^pointed_dripstone/.test(k)) raw = PT_CAUTIOUS;
+    else if (k === 'honey_block') raw = PT_HONEY;
+    else if (d.shape === 'door') raw = d.st && d.st.open ? PT_DOOR_O : PT_DOOR_C;
+    else if (d.shape === 'trapdoor' || k === 'lily_pad') raw = PT_TRAPDOOR;
+    else if (/leaves$/.test(k)) raw = PT_LEAVES;
+    else if (d.shape === 'fence' || d.shape === 'wall' || (d.shape === 'gate' && !(d.st && d.st.open))) raw = PT_FENCE;
+    else if (top > 0.25) raw = PT_BLOCKED;
+    else if (FKIND[id] === 1) raw = PT_WATER;
+  }
+  v = raw | (top > 0.25 ? 32 : 0) | (Math.min(31, Math.round(top * 16)) << 6); PT_INFO[id] = v; return v;
+}
+// block id at a cell, with the last chunk remembered (most lookups are next to the previous one)
+let MAI_lcx = 1e9, MAI_lcz = 1e9, MAI_lc = null, MAI_lw = null;
+function maiId(x, y, z) {
+  if (y < 0) return B.BEDROCK; if (y >= WH) return 0; const w = G.world; const cx = x >> 4, cz = z >> 4;
+  if (cx !== MAI_lcx || cz !== MAI_lcz || w !== MAI_lw) { MAI_lcx = cx; MAI_lcz = cz; MAI_lw = w; MAI_lc = w.chunks.get(ckey(cx, cz)); }
+  return MAI_lc ? MAI_lc.d[(y * 16 + (z & 15)) * 16 + (x & 15)] : -1;
+}
+function maiCell(x, y, z) { const id = maiId(x, y, z); return id < 0 ? (PT_BLOCKED | 32 | (16 << 6)) : ptInfo(id); }
+const maiTop = (c) => ((c >> 6) & 31) / 16;
+function maiResetCache() { MAI_lcx = 1e9; MAI_lw = null; }
+
+// ---------- one search's view of the world (WalkNodeEvaluator) ----------
+const MAI = { budget: 0, frame: -1, stats: { searches: 0, nodes: 0 } };
+function maiStand(S, x, y, z) { // the type of a cell for a mob whose feet are in it (getPathTypeStatic)
+  const k = ((x - S.ox) * 2048 + (z - S.oz)) * 1024 + y; let t = S.stand.get(k); if (t !== undefined) return t;
+  const c = maiCell(x, y, z); const raw = c & 31;
+  if (c & 32) t = PT_MALUS[raw] < 0 ? raw : PT_BLOCKED;
+  else if (raw !== PT_OPEN) t = raw;
+  else {
+    const b = maiCell(x, y - 1, z), braw = b & 31;
+    if (!(b & 32) && !(maiTop(c) > 0)) t = PT_OPEN;
+    else if (braw === PT_FIRE) t = PT_FIRE; else if (braw === PT_DAMAGING) t = PT_DAMAGING; else if (braw === PT_HONEY) t = PT_HONEY;
+    else if (braw === PT_TRAPDOOR || braw === PT_FENCE) t = PT_WALKABLE;
+    else {
+      t = PT_WALKABLE;
+      scan: for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dz === 0) continue; const r = maiCell(x + dx, y + dy, z + dz) & 31;
+        if (r === PT_DAMAGING) { t = PT_DAMAGING_N; break scan; } if (r === PT_FIRE || r === PT_LAVA) { t = PT_FIRE_N; break scan; }
+        if (r === PT_WATER) { t = PT_WATER_BORDER; break scan; } if (r === PT_CAUTIOUS) { t = PT_CAUTIOUS; break scan; }
+      }
+    }
+  }
+  S.stand.set(k, t); return t;
+}
+function maiMal(S, t) { if (S.fireproof && (t === PT_FIRE || t === PT_FIRE_N)) return 0; return PT_MALUS[t]; }
+function maiMobType(S, x, y, z) { // the type for the whole mob standing with its lowest corner at x,y,z (getPathTypeOfMob)
+  const k = ((x - S.ox) * 2048 + (z - S.oz)) * 1024 + y; let t = S.mob.get(k); if (t !== undefined) return t;
+  let allOpen = true, best = -1, bm = -2;
+  out: for (let dy = 0; dy < S.H; dy++) for (let dx = 0; dx < S.W; dx++) for (let dz = 0; dz < S.W; dz++) {
+    let tt;
+    if (dy === 0) tt = maiStand(S, x + dx, y, z + dz);
+    else { const c = maiCell(x + dx, y + dy, z + dz); const r = c & 31; tt = (c & 32) ? (PT_MALUS[r] < 0 ? r : PT_BLOCKED) : (r === PT_WATER || r === PT_FIRE || PT_MALUS[r] < 0 ? r : PT_OPEN); }
+    const m = maiMal(S, tt); if (m < 0) { best = tt; bm = m; break out; }
+    if (dy === 0 && tt !== PT_OPEN) allOpen = false;
+    if (tt !== PT_OPEN && m > bm) { bm = m; best = tt; }
+  }
+  if (bm < 0 && best >= 0) t = best; else if (allOpen) t = PT_OPEN; else t = best < 0 ? PT_WALKABLE : best;
+  S.mob.set(k, t); return t;
+}
+function maiFloor(S, x, y, z) { // height the mob would stand at (getFloorLevel)
+  const c = maiCell(x, y, z); if (S.canFloat && (c & 31) === PT_WATER) return y + 0.5;
+  const b = maiCell(x, y - 1, z); return Math.max(y - 1 + ((b & 32) || (b & 31) !== PT_OPEN ? maiTop(b) : 0), y + ((c & 32) ? 0 : maiTop(c)));
+}
+function maiNode(S, x, y, z, t, mal) {
+  const k = ((x - S.ox) * 2048 + (z - S.oz)) * 1024 + y; let n = S.nodes.get(k);
+  if (!n) { n = { x, y, z, k, t, mal, g: 0, h: 0, f: 0, walked: 0, prev: null, closed: false, hi: -1 }; S.nodes.set(k, n); }
+  else if (mal > n.mal) { n.mal = mal; n.t = t; }
+  return n;
+}
+function maiClear(S, x, y, z) { for (let dx = 0; dx < S.W; dx++) for (let dz = 0; dz < S.W; dz++) { const c = maiCell(x + dx, y, z + dz); if ((c & 32) || PT_MALUS[c & 31] < 0) return false; } return true; }
+function maiGround(S, x, y, z) { // tryFindFirstGroundNodeBelow
+  for (let cy = y - 1; cy >= 0; cy--) { if (y - cy > S.maxFall) return null; const t = maiMobType(S, x, cy, z);
+    if (t !== PT_OPEN) { const m = maiMal(S, t); return m >= 0 ? maiNode(S, x, cy, z, t, m) : null; } }
+  return null;
+}
+function maiAccept(S, x, y, z, jump, F, from) { // findAcceptedNode
+  if (maiFloor(S, x, y, z) - F > 1.125) return null;
+  const t = maiMobType(S, x, y, z); const m = maiMal(S, t); let best = m >= 0 ? maiNode(S, x, y, z, t, m) : null;
+  if (t === PT_WALKABLE || t === PT_WATER) return best;
+  if (!best && jump > 0 && t !== PT_FENCE && t !== PT_TRAPDOOR && t !== PT_POWDER) { if (maiClear(S, from.x, from.y + S.H, from.z)) best = maiAccept(S, x, y + 1, z, jump - 1, F, from); }
+  else if (t === PT_OPEN) best = maiGround(S, x, y, z);
+  return best;
+}
+const MAI_DIRS = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // south, west, north, east; the next one is clockwise
+function maiNeighbors(S, n, out) {
+  let p = 0; const F = maiFloor(S, n.x, n.y, n.z); const nb = S.nb;
+  for (let d = 0; d < 4; d++) { const o = maiAccept(S, n.x + MAI_DIRS[d][0], n.y, n.z + MAI_DIRS[d][1], 1, F, n); nb[d] = o; if (o && !o.closed && o.mal >= 0) out[p++] = o; }
+  for (let d = 0; d < 4; d++) { const d2 = (d + 1) & 3; const a = nb[d], b = nb[d2];
+    if (!a || !b || a.y > n.y || b.y > n.y || a.t === PT_DOOR_O || b.t === PT_DOOR_O) continue;
+    if (S.W > 1 && (a.mal > 0 || b.mal > 0)) continue;
+    const o = maiAccept(S, n.x + MAI_DIRS[d][0] + MAI_DIRS[d2][0], n.y, n.z + MAI_DIRS[d][1] + MAI_DIRS[d2][1], 1, F, n);
+    if (o && !o.closed && o.mal >= 0 && o.t !== PT_DOOR_O) out[p++] = o; }
+  return p;
+}
+// binary heap on f
+function heapPush(H, n) { n.hi = H.length; H.push(n); heapUp(H, n.hi); }
+function heapUp(H, i) { const n = H[i]; while (i > 0) { const p = (i - 1) >> 1; if (H[p].f <= n.f) break; H[i] = H[p]; H[i].hi = i; i = p; } H[i] = n; n.hi = i; }
+function heapPop(H) { const top = H[0]; const last = H.pop(); if (H.length) { let i = 0; const L = H.length; for (;;) { let c = 2 * i + 1; if (c >= L) break; if (c + 1 < L && H[c + 1].f < H[c].f) c++; if (H[c].f >= last.f) break; H[i] = H[c]; H[i].hi = i; i = c; } H[i] = last; last.hi = i; } top.hi = -1; return top; }
+const maiDist = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+// the mob's search setup: size, fall distance, follow range
+function maiSetup(m, range, maxFall) {
+  const w = m.hw * 2; return { W: Math.max(1, Math.min(3, Math.floor(w + 1))), H: Math.max(1, Math.min(4, Math.floor(m.h + 1))), w, canFloat: true, fireproof: !!m.t.fireproof,
+    maxFall: maxFall == null ? 3 : maxFall, range, ox: Math.floor(m.pos.x) - 1000, oz: Math.floor(m.pos.z) - 1000, stand: new Map(), mob: new Map(), nodes: new Map(), nb: [null, null, null, null] };
+}
+function maiStart(S, m) { // getStart
+  const bx = Math.floor(m.pos.x), bz = Math.floor(m.pos.z); let y;
+  if (inWater(m, 0.1)) { y = Math.floor(m.pos.y); while ((maiCell(bx, y + 1, bz) & 31) === PT_WATER && y < WH) y++; }
+  else if (m.onGround) y = Math.floor(m.pos.y + 0.5);
+  else { y = Math.floor(m.pos.y + 1); while (y > 0) { const c = maiCell(bx, y - 1, bz); if ((c & 32) || (c & 31) !== PT_OPEN) break; y--; } }
+  const ok = (x, z) => { const t = maiMobType(S, x, y, z); return t !== PT_OPEN && maiMal(S, t) >= 0; };
+  let sx = bx, sz = bz;
+  if (!ok(bx, bz)) for (const [x, z] of [[m.pos.x - m.hw, m.pos.z - m.hw], [m.pos.x - m.hw, m.pos.z + m.hw], [m.pos.x + m.hw, m.pos.z - m.hw], [m.pos.x + m.hw, m.pos.z + m.hw]]) if (ok(Math.floor(x), Math.floor(z))) { sx = Math.floor(x); sz = Math.floor(z); break; }
+  // a mob wider than a block keeps its lowest corner, not its middle, on the cell
+  if (S.W > 1) { sx = Math.floor(m.pos.x - S.W / 2 + 0.5); sz = Math.floor(m.pos.z - S.W / 2 + 0.5); }
+  const t = maiMobType(S, sx, y, sz); return maiNode(S, sx, y, sz, t, Math.max(0, maiMal(S, t)));
+}
+// A* (PathFinder.findPath): returns { n: [[x, y, z, floor], ...], reached, tgt }
+function maiFindPath(m, tx, ty, tz, reach, opts) {
+  const S = maiSetup(m, opts.range || 16, opts.maxFall); maiResetCache();
+  const maxNodes = Math.floor(Math.max(16, S.range) * 16 * (opts.mult || 1)); const maxLen = Math.max(16, S.range);
+  const T = { x: Math.floor(tx), y: Math.floor(ty), z: Math.floor(tz) }; if (S.W > 1) { T.x = Math.floor(tx - S.W / 2 + 0.5); T.z = Math.floor(tz - S.W / 2 + 0.5); }
+  const from = maiStart(S, m); if (!from) return null;
+  from.g = 0; from.h = maiDist(from, T); from.f = from.h; let best = from, bestH = from.h; const H = []; heapPush(H, from);
+  const out = new Array(16); let count = 0, reached = null;
+  while (H.length) {
+    if (++count >= maxNodes) break;
+    const cur = heapPop(H); cur.closed = true;
+    if (Math.abs(cur.x - T.x) + Math.abs(cur.y - T.y) + Math.abs(cur.z - T.z) <= reach) { reached = cur; break; }
+    if (maiDist(cur, from) >= maxLen) continue;
+    const nN = maiNeighbors(S, cur, out);
+    for (let i = 0; i < nN; i++) { const nb = out[i]; const d = maiDist(cur, nb); const walked = cur.walked + d; const g = cur.g + d + nb.mal;
+      if (walked < maxLen && (nb.hi < 0 || g < nb.g)) { nb.prev = cur; nb.g = g; nb.walked = walked; const dh = maiDist(nb, T); if (dh < bestH) { bestH = dh; best = nb; } nb.h = dh * 1.5;
+        if (nb.hi >= 0) { nb.f = nb.g + nb.h; heapUp(H, nb.hi); } else { nb.f = nb.g + nb.h; heapPush(H, nb); } } }
+  }
+  MAI.budget -= count; MAI.stats.searches++; MAI.stats.nodes += count;
+  const end = reached || best; const n = []; for (let c = end; c; c = c.prev) n.push([c.x, c.y, c.z, maiFloor(S, c.x, c.y, c.z)]); n.reverse();
+  return { n, reached: !!reached, tgt: [Math.floor(tx), Math.floor(ty), Math.floor(tz)], W: S.W };
+}
+
+// ---------- navigation (PathNavigation + MoveControl) ----------
+const MAI_NOPATH = new Set(['strider', 'cod', 'salmon', 'tropical_fish', 'pufferfish', 'squid', 'glow_squid', 'dolphin', 'guardian', 'elder_guardian', 'tadpole', 'ender_dragon', 'shulker']);
+function maiCanPath(m) { const t = m.t; return !!t && !t.fly && t.ai !== 'magma' && !m.lavaWalk && !MAI_NOPATH.has(m.type) && !m.mountOf && !m.vSleep; }
+function maiNav(m) { return m.nav || (m.nav = { p: null, i: 0, owner: null, rT: 0, last: null, chkT: 0, chkPos: null, nodeT: 0, nodeLim: 0, nodeI: -1 }); }
+function maiStop(m) { if (m.nav) { m.nav.p = null; m.nav.owner = null; } }
+function maiBudgetOK() { const f = G.simT; if (f !== MAI.frame) { MAI.frame = f; MAI.budget = 2400; } return MAI.budget > 0; }
+// set a path to a spot; keeps the current one if it already leads to the same block (Minecraft's createPath does too)
+function maiMoveTo(m, x, y, z, owner, reach, opts = {}) {
+  const N = maiNav(m); const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+  if (!opts.force && N.p && N.owner === owner && N.i < N.p.n.length && N.p.tgt[0] === bx && N.p.tgt[1] === by && N.p.tgt[2] === bz) return true;
+  if (!maiBudgetOK()) return !!(N.p && N.owner === owner && N.i < N.p.n.length);
+  const p = maiFindPath(m, x, y, z, reach, opts);
+  N.p = p && p.n.length > 1 ? p : null; N.i = 0; N.owner = owner; N.chkT = 0; N.chkPos = m.pos.clone(); N.nodeI = -1;
+  return !!N.p;
+}
+// steer along the path: returns the heading to walk, or null when there is no path or it is finished
+function maiStep(N, k) { const now = G.simT || 0; const d = N[k] == null ? 1 / 30 : Math.min(0.1, Math.max(0, now - N[k])); N[k] = now; return d; }
+function maiFollow(m) {
+  const N = m.nav; m.navJump = false; if (!N || !N.p) return null; const dt = maiStep(N, 'tlF'); const p = N.p; const W = p.W || 1;
+  const w = m.hw * 2; const md = w > 0.75 ? w / 2 : 0.75 - w / 2;
+  for (let guard = 0; guard < 3 && N.i < p.n.length; guard++) {
+    const nd = p.n[N.i]; const cx = nd[0] + W * 0.5, cz = nd[2] + W * 0.5;
+    if (Math.abs(m.pos.x - cx) < md && Math.abs(m.pos.z - cz) < md && Math.abs(m.pos.y - nd[3]) < 1) { N.i++; continue; }
+    // cut the corner when the next cell is already the better aim (shouldTargetNextNodeInDirection)
+    if (N.i + 1 < p.n.length) { const nx = p.n[N.i + 1]; const ax = cx - m.pos.x, az = cz - m.pos.z, bx = nx[0] + W * 0.5 - m.pos.x, bz = nx[2] + W * 0.5 - m.pos.z;
+      const a2 = ax * ax + az * az, b2 = bx * bx + bz * bz;
+      if (a2 < 4 && nd[1] === nx[1] && (b2 < a2 || a2 < 0.5) && ax * bx + az * bz < 0) { N.i++; continue; } }
+    break;
+  }
+  if (N.i >= p.n.length) { N.p = null; return null; }
+  const nd = p.n[N.i]; const tx = nd[0] + W * 0.5, tz = nd[2] + W * 0.5; const dx = tx - m.pos.x, dz = tz - m.pos.z;
+  if (nd[3] - m.pos.y > 0.6 && dx * dx + dz * dz < Math.max(1, w)) m.navJump = true;
+  // stuck: little progress in 5 seconds, or far too long on one cell (doStuckDetection)
+  const sp = Math.max(0.5, (m.t.speed || 1) * 0.6 * (m.spMul || 1));
+  N.chkT += dt; if (N.chkT > 5) { N.chkT = 0; if (N.chkPos && m.pos.distanceTo(N.chkPos) < 1.25) { N.p = null; N.failT = G.simT; return null; } N.chkPos = m.pos.clone(); }
+  if (N.nodeI !== N.i) { N.nodeI = N.i; N.nodeT = 0; N.nodeLim = Math.hypot(dx, dz, nd[3] - m.pos.y) / sp; } else { N.nodeT += dt; if (N.nodeLim > 0 && N.nodeT > N.nodeLim * 3 + 1) { N.p = null; N.failT = G.simT; return null; } }
+  m.navOn = true; return Math.atan2(dx, dz);
+}
+// head for a moving thing the way MeleeAttackGoal does: re-plan every 0.2-0.5 s if it moved a block (or 5% of the
+// time anyway), less often when it is far, and wait longer after a failed plan
+function maiChase(m, pos, owner, reach, opts) {
+  const N = maiNav(m); const dt = maiStep(N, 'tlC'); N.rT -= dt; if (N.owner !== owner) N.rT = 0;
+  if (N.rT <= 0 && (!N.last || N.owner !== owner || pos.distanceToSquared(N.last) >= 1 || Math.random() < 0.05)) {
+    const d2 = pos.distanceToSquared(m.pos); N.rT = (4 + Math.random() * 7) / 20 + (d2 > 1024 ? 0.5 : d2 > 256 ? 0.25 : 0);
+    N.last = pos.clone(); if (!maiMoveTo(m, pos.x, pos.y + 0.01, pos.z, owner, reach || 0, opts)) N.rT += 0.75;
+  }
+  return N.owner === owner ? maiFollow(m) : null;
+}
+// how far a mob will drop: 3 blocks, more for one chasing something at good health (Mob.getMaxFallDistance)
+function maiMaxFall(m, chasing) {
+  if (!chasing) return 3; const diff = { peaceful: 0, easy: 1, normal: 2, hard: 3 }[S.difficulty] ?? 2;
+  return 3 + Math.max(0, Math.floor(m.hp - (m.maxHp || m.t.hp) * 0.33) - (3 - diff) * 4);
+}
+// is a step this way safe? false at a drop deeper than the mob will fall, or into lava, fire, cactus or powder snow
+function maiSafe(m, vx, vz, maxFall) {
+  if (!m.onGround || inWater(m, 0.1)) return true; const sp = Math.hypot(vx, vz); if (sp < 1e-3) return true;
+  const look = m.hw + 0.3 + sp * 0.06; const x = Math.floor(m.pos.x + vx / sp * look), z = Math.floor(m.pos.z + vz / sp * look), y0 = Math.floor(m.pos.y + 0.05);
+  maiResetCache(); const fp = !!m.t.fireproof;
+  for (let dy = 0; dy < Math.max(1, Math.ceil(m.h)); dy++) { const r = maiCell(x, y0 + dy, z) & 31; if (r === PT_LAVA || r === PT_DAMAGING || r === PT_POWDER || (r === PT_FIRE && !fp)) return false; }
+  if (maiCell(x, y0, z) & 32) return true; // a wall or a step: the collision code deals with it
+  for (let d = 1; d <= maxFall + 1; d++) { const c = maiCell(x, y0 - d, z); const r = c & 31;
+    if (r === PT_LAVA || r === PT_DAMAGING || (r === PT_FIRE && !fp && !(c & 32))) return false;
+    if ((c & 32) || r === PT_WATER || maiTop(c) > 0) return true; }
+  return false;
+}
+// ---------- random spots (RandomPos, LandRandomPos, DefaultRandomPos) ----------
+function maiStable(x, y, z) { const b = maiCell(x, y - 1, z); return !!(b & 32) && maiTop(b) >= 1 && (b & 31) !== PT_LEAVES; }
+function maiWeight(m, x, y, z) {
+  const k = m.t.kind; if (k === 'hostile') return 0.5 - G.world.lightAt(x + 0.5, y + 0.5, z + 0.5, G.daylight);
+  if (k === 'passive') return maiId(x, y - 1, z) === B.GRASS ? 10 : G.world.lightAt(x + 0.5, y + 0.5, z + 0.5, G.daylight) - 0.5;
+  return 0;
+}
+// mode 'land': move up out of solid ground, no water (LandRandomPos); 'plain': exact spot (DefaultRandomPos)
+function maiRandomPos(m, h, v, mode, away) {
+  maiResetCache(); let best = null, bw = -1e9; const S = maiSetup(m, 16, 3);
+  for (let i = 0; i < 10; i++) {
+    let dx, dz, dy = Math.floor(Math.random() * (2 * v + 1)) - v;
+    if (away) { const a = Math.atan2(away.z, away.x) - Math.PI / 2 + (2 * Math.random() - 1) * Math.PI / 2; const dist = Math.sqrt(Math.random()) * h * Math.SQRT2;
+      dx = -dist * Math.sin(a); dz = dist * Math.cos(a); if (Math.abs(dx) > h || Math.abs(dz) > h) continue; }
+    else { dx = Math.floor(Math.random() * (2 * h + 1)) - h; dz = Math.floor(Math.random() * (2 * h + 1)) - h; }
+    const x = Math.floor(m.pos.x + dx), z = Math.floor(m.pos.z + dz); let y = Math.floor(m.pos.y + dy);
+    if (y < 1 || y >= WH - 2 || maiId(x, y, z) < 0) continue;
+    if (mode === 'land') { let n = 0; while ((maiCell(x, y, z) & 32) && y < WH - 2 && n++ < 24) y++; if ((maiCell(x, y, z) & 31) === PT_WATER) continue; }
+    if (!maiStable(x, y, z)) continue;
+    const t = maiStand(S, x, y, z); if (PT_MALUS[t] !== 0 || t === PT_OPEN) continue;
+    const wgt = maiWeight(m, x, y, z); if (wgt > bw) { bw = wgt; best = new V3(x + 0.5, y, z + 0.5); }
+  }
+  return best;
+}
+
+// ---------- goals ----------
+// wandering: WaterAvoidingRandomStrollGoal (interval 120 ticks, speed 1.0)
+function maiStroll(m, dt, distP) {
+  const N = maiNav(m);
+  if (N.owner === 'stroll' && N.p) { const y = maiFollow(m); if (y != null) { m.wYaw = y; m.wMove = 1; return; } maiStop(m); m.wMove = 0; return; }
+  if (N.owner === 'stroll') N.owner = null;
+  m.wMove = 0;
+  if (m.t.kind === 'hostile' && !m.persistent && distP > 32) return; // noActionTime: idle when nobody is near
+  if (Math.random() < dt / 6) { const wet = inWater(m, 0.4); const p = maiRandomPos(m, wet ? 15 : 10, 7, 'land');
+    if (p && maiMoveTo(m, p.x, p.y, p.z, 'stroll', 1, { range: 16 })) { const y = maiFollow(m); if (y != null) { m.wYaw = y; m.wMove = 1; } } }
+}
+// running scared: PanicGoal (random spots within 5 blocks) or AvoidEntityGoal (a spot up to 16 blocks away)
+function maiFlee(m, dt, from) {
+  const N = maiNav(m); const own = from ? 'avoid' : 'panic';
+  if (N.owner === own && N.p) { const y = maiFollow(m); if (y != null) return y; }
+  N.pT = (N.pT || 0) - dt; if (N.pT > 0) return null; N.pT = 0.25;
+  const away = from ? { x: m.pos.x - from.x, z: m.pos.z - from.z } : null;
+  const p = from ? maiRandomPos(m, 16, 7, 'plain', away.x || away.z ? away : { x: Math.random() - 0.5, z: Math.random() - 0.5 }) : maiRandomPos(m, 5, 4, 'plain');
+  if (!p) return null; if (from && p.distanceToSquared(from) < m.pos.distanceToSquared(from)) return null;
+  if (maiMoveTo(m, p.x, p.y, p.z, own, 0, { range: 16, force: true })) return maiFollow(m);
+  return null;
+}
+// who a monster is after: it has to see you first, then forgets you 3 s out of sight (15 s when angry at you)
+const MAI_RANGE = { zombie: 35, husk: 35, drowned: 35, zombie_villager: 35, enderman: 40 };
+const ZOMBIE_KIN = new Set(['zombie', 'husk', 'drowned', 'zombie_villager']);
+function maiEyes(m) { return new V3(m.pos.x, m.pos.y + (m.h || 1.8) * 0.85, m.pos.z); }
+function maiSees(m, o) { const e = o === G.player ? o.eye() : new V3(o.pos.x, o.pos.y + (o.h || 1) * 0.85, o.pos.z); return lineOfSight(maiEyes(m), e); }
+function maiTargetsPlayer(m, dt, can, dist) {
+  if (!can || !maiCanPath(m)) { m.tgtP = false; return can && dist < (m.type === 'enderman' ? 40 : 18); }
+  const R = MAI_RANGE[m.type] || 16; if (dist > R) { m.tgtP = false; return false; }
+  const angry = m.angry > 0 || (m.alertT || 0) > G.simT;
+  if (m.tgtP) { m.seeT = (m.seeT || 0) - dt; if (m.seeT <= 0) { m.seeT = 0.25; if (maiSees(m, G.player)) m.unseen = 0; else m.unseen = (m.unseen || 0) + 0.25; }
+    if (m.unseen > (angry ? 15 : 3)) m.tgtP = false; return m.tgtP; }
+  m.acqT = (m.acqT || 0) - dt; if (m.acqT > 0) return false; m.acqT = 0.1 + Math.random() * 0.4;
+  if (angry || maiSees(m, G.player)) { m.tgtP = true; m.unseen = 0; m.mtgt = null; return true; }
+  return false;
+}
+// skeletons strafe, pillagers hold their ground (RangedBowAttackGoal / RangedCrossbowAttackGoal)
+function maiRanged(m, tgt, dist, see, dt) {
+  const xbow = m.type === 'pillager'; const R = xbow ? 8 : 15;
+  if (see !== (m.seeTime > 0)) m.seeTime = 0; m.seeTime = (m.seeTime || 0) + (see ? dt : -dt);
+  if (dist <= R && m.seeTime >= (xbow ? 0.25 : 1)) {
+    maiStop(m); if (xbow) { m.strafe = null; return { move: 0 }; }
+    if (m.strafeT == null || m.strafeT < 0) m.strafeT = 0; m.strafeT += dt;
+    if (m.strafeT >= 1) { if (Math.random() < 0.3) m.strafeCW = !m.strafeCW; if (Math.random() < 0.3) m.strafeBack = !m.strafeBack; m.strafeT = 0; }
+    if (dist > R * 0.866) m.strafeBack = false; else if (dist < R * 0.5) m.strafeBack = true;
+    m.strafe = [m.strafeBack ? -0.5 : 0.5, m.strafeCW ? 0.5 : -0.5]; return { move: 1 };
+  }
+  m.strafeT = -1; m.strafe = null; const y = maiChase(m, tgt.pos, 'chase', 0, { range: MAI_RANGE[m.type] || 16, maxFall: maiMaxFall(m, true) });
+  return { move: 1, yaw: y };
+}
+// ---------- hooks used by Mob.update (03_entities.js) ----------
+function maiPreUpdate(m) { m.navOn = false; m.navJump = false; m.strafe = null; }
+
+// everything that steers a mob toward something now walks a path there
+{ const _st = steerTo; steerTo = function (m, pos, stopAt) {
+    const d = _st(m, pos, stopAt); if (!maiCanPath(m) || isClientMP() || m.rider != null) return d;
+    const dy = pos.y - m.pos.y; if (d <= stopAt || (d < 2 && Math.abs(dy) < 1)) return d;
+    const y = maiChase(m, pos, 'steer', Math.max(0, Math.floor(stopAt) - 1), { range: Math.max(16, Math.min(40, d + 8)) });
+    if (y != null) m.wYaw = y; return d; }; }
+
+// ---------- mob against mob ----------
+const MAI_PREY = {
+  zombie: [['villager', 0], ['wandering_trader', 0], ['iron_golem', 1]], husk: [['villager', 0], ['wandering_trader', 0], ['iron_golem', 1]],
+  zombie_villager: [['villager', 0], ['wandering_trader', 0], ['iron_golem', 1]],
+  skeleton: [['iron_golem', 1]], stray: [['iron_golem', 1]], bogged: [['iron_golem', 1]], parched: [['iron_golem', 1]],
+  spider: [['iron_golem', 1, 'dark']], cave_spider: [['iron_golem', 1, 'dark']],
+  wither_skeleton: [['piglin', 1], ['piglin_brute', 1], ['iron_golem', 1]], piglin: [['wither_skeleton', 1]],
+};
+const MAI_HUNT = { fox: ['chicken', 'rabbit'], cat: ['rabbit'], ocelot: ['chicken'] };
+const MAI_RANGED = new Set(['skeleton', 'stray', 'bogged', 'parched', 'illusioner']);
+function maiValidPrey(m, o, R) { return o && !o.dead && !o.gone && o !== m && !o.tamed && o.pos.distanceTo(m.pos) < R; }
+function maiPickPrey(m, list, R) {
+  let best = null, bd = R * R;
+  for (const o of G.mobs) { if (o.dead || o.gone || o === m) continue; const e = list.find(p => p[0] === o.type); if (!e) continue;
+    if (e[2] === 'dark' && m.realLight != null && m.realLight >= 0.5) continue; if (o.baby && m.type !== 'fox') { }
+    const d = o.pos.distanceToSquared(m.pos); if (d < bd && Math.abs(o.pos.y - m.pos.y) < R && maiSees(m, o)) { bd = d; best = o; } }
+  return best;
+}
+function maiFight(m, o, dt) { // walk up (or stand off and shoot) and hit
+  const d = m.pos.distanceTo(o.pos), reach = 1.5 + m.hw + o.hw;
+  if (MAI_RANGED.has(m.type)) {
+    if (d > 12 || !maiSees(m, o)) steerTo(m, o.pos, 10); else { m.wMove = 0; m.wT = 0.3; m.wYaw = Math.atan2(o.pos.x - m.pos.x, o.pos.z - m.pos.z); }
+    if (d < 16 && m.atkCD <= 0 && maiSees(m, o)) { m.atkCD = 2 + Math.random(); const n0 = G.projectiles.length;
+      shootArrow(new V3(m.pos.x, m.pos.y + 1.5, m.pos.z), new V3(o.pos.x, o.pos.y + o.h * 0.6, o.pos.z), 'mob', 3);
+      for (let i = n0; i < G.projectiles.length; i++) { G.projectiles[i].mobTarget = o; G.projectiles[i].shooter = m; } }
+  } else {
+    steerTo(m, o.pos, reach * 0.6);
+    if (d < reach && Math.abs(o.pos.y - m.pos.y) < 2 && m.atkCD <= 0 && maiSees(m, o)) { m.atkCD = 1; o.hurt(m.t.dmg || 2, m.pos, m.t.kb || 1); m.armSwing = 0.3; }
+  }
+}
+// who hit me: remember a mob attacker (src is the attacker's position)
+{ const _h = Mob.prototype.hurt; Mob.prototype.hurt = function (dmg, src, kb, na) {
+    const wasFlee = this.flee; const r = _h.apply(this, arguments);
+    if (src && G.player && src !== G.player.pos) { const a = G.mobs.find(o => o.pos === src); if (a && a !== this) { this.hurtBy = a; this.hurtByT = G.simT; } }
+    if (src && G.player && src === G.player.pos && ZOMBIE_KIN.has(this.type) && !this.dead) {
+      for (const o of G.mobs) if (o !== this && ZOMBIE_KIN.has(o.type) && !o.dead && !o.tgtP && Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z) < 35 && Math.abs(o.pos.y - this.pos.y) < 10) { o.tgtP = true; o.unseen = 0; o.alertT = G.simT + 15; o.mtgt = null; }
+      this.alertT = G.simT + 15; }
+    // Minecraft's panic lasts 2 seconds after the hit (then the last run is finished)
+    if (this.t && this.t.kind === 'passive' && this.flee === 5 && wasFlee !== 5) this.flee = 2;
+    return r; }; }
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    if (this.dead || isClientMP() || !maiCanPath(this) || !this.t) return _u.call(this, dt);
+    const t = this.t;
+    // hostiles: villagers, golems, nemeses, and whoever hit them
+    if (t.kind === 'hostile' || MAI_PREY[this.type]) {
+      if (this.hurtBy && (this.hurtBy.dead || this.hurtBy.gone || G.simT - this.hurtByT > 15)) this.hurtBy = null;
+      if (this.mtgt && !maiValidPrey(this, this.mtgt, 24)) this.mtgt = null;
+      if (!this.tgtP) {
+        if (this.hurtBy && !RAIDERS_SAFE(this, this.hurtBy)) this.mtgt = this.hurtBy;
+        else if (!this.mtgt && MAI_PREY[this.type]) { this.preyScan = (this.preyScan || 0) - dt; if (this.preyScan <= 0) { this.preyScan = 0.3 + Math.random() * 0.4; this.mtgt = maiPickPrey(this, MAI_PREY[this.type], MAI_RANGE[this.type] || 16); } }
+        if (this.mtgt && !(this.type === 'creeper')) { maiFight(this, this.mtgt, dt); const sp = this.spMul; this.spMul = (sp || 1) / 0.6; try { return _u.call(this, dt); } finally { this.spMul = sp; } }
+      } else this.mtgt = null;
+    }
+    // hunters among the animals
+    const H = MAI_HUNT[this.type]; if (H && !this.tamed && !this.baby && !(this.flee > 0)) {
+      if (this.prey && !maiValidPrey(this, this.prey, 16)) this.prey = null;
+      if (!this.prey && Math.random() < dt) this.prey = maiPickPrey(this, H.map(k => [k, 1]), 12);
+      if (this.prey) { const o = this.prey; const d = this.pos.distanceTo(o.pos); steerTo(this, o.pos, 0.8 + o.hw); this.goalBoost = true;
+        if (d < 1.4 + o.hw && (this.atkCD || 0) <= 0) { this.atkCD = 1; o.hurt(this.type === 'fox' ? 2 : 3, this.pos, 0.5); }
+        if (this.onGround && d > 1.5 && d < 3 && Math.random() < dt * 2) { const dx = o.pos.x - this.pos.x, dz = o.pos.z - this.pos.z, L = Math.hypot(dx, dz) || 1; this.vel.x = dx / L * 6; this.vel.z = dz / L * 6; this.vel.y = 6; } }
+    }
+    // spiders leap at you from 2-4 blocks (LeapAtTargetGoal)
+    if ((this.type === 'spider' || this.type === 'cave_spider') && this.tgtP && this.onGround && G.player) { const P = G.player; const dx = P.pos.x - this.pos.x, dz = P.pos.z - this.pos.z, d2 = dx * dx + dz * dz;
+      if (d2 >= 4 && d2 <= 16 && Math.random() < dt * 5) { const L = Math.sqrt(d2) || 1; this.vel.x = dx / L * 8 + this.vel.x * 0.2; this.vel.z = dz / L * 8 + this.vel.z * 0.2; this.vel.y = 7.8; this.onGround = false; } }
+    return _u.call(this, dt);
+  }; }
+// raiders and illagers are each other's friends; nobody fights back at its own kind
+function RAIDERS_SAFE(m, o) { if (o.type === m.type) return true; if (typeof ILLAGER_KIN !== 'undefined' && ILLAGER_KIN.has(m.type) && ILLAGER_KIN.has(o.type)) return true; return false; }
+// wild wolves hunt sheep and foxes too
+if (MOBS.wolf && MOBS.wolf.tick) { const _wt = MOBS.wolf.tick; MOBS.wolf.tick = function (m, dt) {
+    if (!m.tamed && !m.baby && !m.prey && Math.random() < dt && !isClientMP()) { const s = maiPickPrey(m, [['sheep', 1], ['fox', 1], ['bogged', 1], ['parched', 1], ['wither_skeleton', 1]], 12); if (s) m.prey = s; }
+    return _wt(m, dt); }; }
+// skeletons keep away from wolves (AvoidEntityGoal, 6 blocks)
+const MAI_WOLF_SHY = new Set(['skeleton', 'stray', 'bogged', 'parched', 'wither_skeleton']);
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) {
+    if (!this.dead && MAI_WOLF_SHY.has(this.type) && !isClientMP()) { this.wolfChk = (this.wolfChk || 0) - dt; if (this.wolfChk <= 0) { this.wolfChk = 0.5;
+        const w = G.mobs.find(o => o.type === 'wolf' && !o.dead && !o.tamed && o.pos.distanceTo(this.pos) < 6); if (w) { this.flee = Math.max(this.flee, 1); this.fleeFrom = w; } } }
+    if (this.fleeFrom && (this.flee <= 0 || this.fleeFrom.dead)) this.fleeFrom = null;
+    return _u.call(this, dt); }; }
+
+// ================= CAMERA EFFECTS, as Minecraft Java's Camera and GameRenderer do them =================
+// Field of view (Camera.calculateFov + AbstractClientPlayer.getFieldOfViewModifier): your FOV setting times a modifier
+// that eases halfway to its target every tick. The modifier is (movement speed / walking speed + 1) / 2, so sprinting
+// (+30% speed) widens the view by 15%, Speed and Slowness change it too; flying multiplies it by 1.1; drawing a bow
+// narrows it by up to 15% (draw time squared, full at 1 second); looking through a spyglass sets it to 0.1. With your
+// eyes under water the view is 6/7 as wide.
+// View bobbing (GameRenderer.bobView): "bob" eases 40% per tick toward your ground speed per tick (capped at 0.1 block)
+// and is zero in the air or swimming; the view shifts sideways by sin(phase) * bob / 2 and down by |cos(phase)| * bob,
+// rolls by sin(phase) * bob * 3 degrees and nods by |cos(phase - 0.2)| * bob * 5 degrees, where the phase is pi times
+// 0.6 per block walked.
+// Getting hurt (GameRenderer.bobHurt): no shake; the view tilts by up to 14 degrees toward the side the hit came from,
+// sin(t^4 * pi) over the half second of hurt time (t running from 1 down to 0).
+const MCCAM = { fovMod: 1, bob: 0, q: new THREE.Quaternion(), qa: new THREE.Quaternion(), qb: new THREE.Quaternion(), v: new V3(), X: new V3(1, 0, 0), Y: new V3(0, 1, 0), Z: new V3(0, 0, 1) };
+function mcFov(P, dt) {
+  let mod;
+  if (S.spyglass) mod = 0.1;
+  else {
+    mod = 1; if (P.flying) mod *= 1.1;
+    let spd = (1 + 0.2 * effLevel('speed')) * Math.max(0, 1 - 0.15 * effLevel('slowness')); if (P.sprinting) spd *= 1.3;
+    mod *= (spd + 1) / 2;
+    if (S.bowDraw >= 0) { const t = clamp(S.bowDraw, 0, 1); mod *= 1 - t * t * 0.15; }
+  }
+  const k = 1 - Math.pow(0.5, dt * 20); MCCAM.fovMod = clamp(MCCAM.fovMod + (mod - MCCAM.fovMod) * k, 0.1, 1.5);
+  if (S.spyglass) MCCAM.fovMod = 0.1; // the spyglass snaps in
+  const e = P.eye(); const wet = FKIND[world.get(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z))] === 1;
+  return S.fov * MCCAM.fovMod * (wet ? 6 / 7 : 1);
+}
+function mcHurtTilt(P, src) {
+  P.hurtTiltAt = performance.now() / 1000;
+  if (!src) { P.hurtDir = Math.random() < 0.5 ? 0 : 180; return; }
+  const f = lookDir(); f.y = 0; if (f.lengthSq() < 1e-6) f.set(0, 0, -1); f.normalize();
+  const dx = src.x - P.pos.x, dz = src.z - P.pos.z; const left = { x: f.z, z: -f.x };
+  const rel = Math.atan2(dx * left.x + dz * left.z, dx * f.x + dz * f.z) * 180 / Math.PI; P.hurtDir = 90 - rel;
+}
+function mcCameraFx(P, dt) {
+  // bob eases toward the ground speed per tick
+  const per = P.onGround && !P.dead && !P.swimming && !P.flying ? Math.min(0.1, Math.hypot(P.vel.x, P.vel.z) / 20) : 0;
+  MCCAM.bob += (per - MCCAM.bob) * (1 - Math.pow(0.6, dt * 20));
+  const ph = -(S.bob || 0), b = MCCAM.bob, D = Math.PI / 180;
+  const roll = Math.sin(ph) * b * 3 * D, nod = Math.abs(Math.cos(ph - 0.2) * b) * 5 * D;
+  const tx = Math.sin(ph) * b * 0.5, ty = -Math.abs(Math.cos(ph) * b);
+  // hurt tilt: 10 ticks of hurt time
+  let tilt = 0; const ht = (performance.now() / 1000 - (P.hurtTiltAt || -9)) / 0.5;
+  if (ht >= 0 && ht < 1 && !P.dead) { const h = 1 - ht; tilt = -Math.sin(h * h * h * h * Math.PI) * 14 * D; }
+  if (!b && !tilt) return;
+  // the effects sit between the camera and the projection: camera = camera * (hurt * bobTranslate * bobRoll * bobNod)^-1
+  const q = MCCAM.q.copy(camera.quaternion);
+  const R = MCCAM.qa.setFromAxisAngle(MCCAM.Z, roll).multiply(MCCAM.qb.setFromAxisAngle(MCCAM.X, nod)); const Ri = R.clone().invert();
+  camera.position.add(MCCAM.v.set(-tx, -ty, 0).applyQuaternion(Ri).applyQuaternion(q));
+  q.multiply(Ri);
+  if (tilt) { const rr = (P.hurtDir || 0) * D; const H = new THREE.Quaternion().setFromAxisAngle(MCCAM.Y, -rr).multiply(new THREE.Quaternion().setFromAxisAngle(MCCAM.Z, tilt)).multiply(new THREE.Quaternion().setFromAxisAngle(MCCAM.Y, rr)); q.multiply(H.invert()); }
+  camera.quaternion.copy(q);
+}
+
+// ================= RENDER LAYERS from Minecraft Java that the game didn't have yet =================
+// Charged creeper (CreeperPowerLayer / EnergySwirlLayer): a second copy of the creeper, 2 pixels bigger on every side,
+// drawn additively at half brightness with a blue swirl texture that scrolls 0.01 of the texture per tick in both
+// directions. (Lightning used to just tint the creeper blue.)
+// Arrows stuck in you (ArrowLayer / StuckInBodyLayer, seen in third person): each arrow that hits you stays in a random
+// spot inside a random body part, pointing a random way; one falls out every (30 - number stuck) seconds.
+
+// ---------- charged creeper swirl ----------
+const SWIRL_TEX = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 32; const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 64, 32); const r = mulberry32(4242);
+  for (let i = 0; i < 12; i++) { const y0 = r() * 48 - 8, w = 1 + r() * 1.5, b = 150 + r() * 105; x.strokeStyle = `rgb(${b * 0.3 | 0},${b * 0.65 | 0},${b | 0})`; x.lineWidth = w;
+    x.beginPath(); for (let k = -1; k <= 2; k++) { x.moveTo(-8 + k * 0, y0 - 8 + k * 32); x.lineTo(72, y0 + 24 + k * 32); } x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; return t; })();
+const SWIRL_MAT = new THREE.MeshBasicMaterial({ map: SWIRL_TEX, color: new THREE.Color(0.5, 0.5, 0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+function swirlAttach(m) {
+  const add = []; m.root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.root.matrixWorld).invert(); const rel = new THREE.Matrix4();
+  m.root.traverse(o => { if (!o.isMesh || o.userData.swirl || o.userData.hasSwirl || !o.geometry || !o.visible) return; add.push(o); });
+  for (const o of add) {
+    const g = o.geometry; g.computeBoundingBox(); const bb = g.boundingBox; const sz = new V3(); bb.getSize(sz); const c = new V3(); bb.getCenter(c);
+    const k = rel.multiplyMatrices(inv, o.matrixWorld).getMaxScaleOnAxis() || 1; const inf = 2 / 16 / k; // 2 pixels on every side, in the mesh's own units
+    const s = new V3(sz.x > 1e-4 ? (sz.x + inf * 2) / sz.x : 1, sz.y > 1e-4 ? (sz.y + inf * 2) / sz.y : 1, sz.z > 1e-4 ? (sz.z + inf * 2) / sz.z : 1);
+    const sw = new THREE.Mesh(g, SWIRL_MAT); sw.scale.copy(s); sw.position.set(c.x * (1 - s.x), c.y * (1 - s.y), c.z * (1 - s.z)); sw.userData.swirl = true; sw.renderOrder = 2;
+    o.add(sw); o.userData.hasSwirl = true;
+  }
+}
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.apply(this, arguments);
+    if (this.charged && this.root && !this.dead) { this.swirlChk = (this.swirlChk || 0) - dt; if (this.swirlChk <= 0) { this.swirlChk = 1; swirlAttach(this); } }
+    return r; }; }
+{ let t0 = performance.now(); const _ub = updateBoats; updateBoats = function (dt) { const r = _ub.apply(this, arguments); const t = (performance.now() - t0) / 50; SWIRL_TEX.offset.set((t * 0.01) % 1, (t * 0.01) % 1); return r; }; }
+
+// ---------- arrows stuck in you ----------
+function stuckArrowMesh() {
+  const g = new THREE.Group(); const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.5), new THREE.MeshLambertMaterial({ color: 0x6b5232 }));
+  shaft.position.z = -0.25; g.add(shaft);
+  const fl = new THREE.MeshLambertMaterial({ color: 0xe8e8e8, side: THREE.DoubleSide });
+  for (const rz of [0, Math.PI / 2]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.14), fl); f.rotation.set(0, Math.PI / 2, rz); f.position.z = -0.42; g.add(f); }
+  g.traverse(o => { if (o.layers) o.layers.enable(1); }); return g;
+}
+// a part's box, in pixels, relative to its pivot (see makePlayerModel)
+const STUCK_PARTS = [['head', [-4, 0, -4], [4, 8, 4]], ['torso', [-4, 0, -2], [4, 12, 2]], ['armR', [-2, -10, -2], [2, 2, 2]], ['armL', [-2, -10, -2], [2, 2, 2]], ['legR', [-2, -12, -2], [2, 0, 2]], ['legL', [-2, -12, -2], [2, 0, 2]]];
+function placeStuckArrows(model, n) {
+  const A = model.stuck || (model.stuck = []);
+  while (A.length < n) {
+    const r = mulberry32(9001 + A.length * 7919); const pt = STUCK_PARTS[Math.floor(r() * STUCK_PARTS.length)]; const P = model.P[pt[0]]; if (!P) break;
+    const a = stuckArrowMesh(); const lo = pt[1], hi = pt[2];
+    a.position.set((lo[0] + (hi[0] - lo[0]) * r()) * PX, (lo[1] + (hi[1] - lo[1]) * r()) * PX, (lo[2] + (hi[2] - lo[2]) * r()) * PX);
+    const dx = -(r() * 2 - 1), dy = -(r() * 2 - 1), dz = -(r() * 2 - 1); a.lookAt(a.position.x + dx, a.position.y + dy, a.position.z + dz); a.rotateY(Math.PI); // the shaft sticks out the back
+    P.add(a); A.push(a);
+  }
+  A.forEach((a, i) => { a.visible = i < n; });
+}
+{ const _h = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause) { const h0 = this.health; const r = _h.apply(this, arguments);
+    if (cause === 'an arrow' && this.health < h0) this.arrowsIn = Math.min(30, (this.arrowsIn || 0) + 1); return r; }; }
+{ const _ap = applyPov; applyPov = function (P, dt) {
+    const n = P.dead ? 0 : (P.arrowsIn || 0);
+    if (n > 0) { P.arrowT = (P.arrowT == null || P.arrowT <= 0 ? 30 - n : P.arrowT) - dt; if (P.arrowT <= 0) { P.arrowsIn = n - 1; P.arrowT = null; } }
+    const r = _ap.apply(this, arguments); if (typeof myModel !== 'undefined' && myModel) placeStuckArrows(myModel, P.arrowsIn || 0); return r; }; }
 
 // ================= MINECRAFT JAVA MOB MODELS AND ANIMATIONS =================
 // Mobs are drawn with Minecraft Java 1.21.11's own model layouts (02j_javamodels_data.js: every part, pivot, starting

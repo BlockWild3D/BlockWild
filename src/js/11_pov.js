@@ -71,7 +71,10 @@ function applyPov(P, dt) {
   if (!third) return false;
   const eye = P.eye(); const d = lookDir(); const back = S.pov === 1 ? -1 : 1;
   const dir = d.clone().multiplyScalar(back); let dist = 4;
-  for (let t = 0.2; t <= 4; t += 0.2) { const q = _camTmp.copy(eye).addScaledVector(dir, t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.max(0.2, t - 0.35); break; } }
+  // Minecraft (Camera.getMaxZoom): 4 blocks back, cut short where any of 8 rays from the corners of a 0.2 block cube
+  // around the eye hits a block, at the distance of that hit
+  for (let c = 0; c < 8; c++) { const ox = (c & 1 ? 1 : -1) * 0.1, oy = (c & 2 ? 1 : -1) * 0.1, oz = (c & 4 ? 1 : -1) * 0.1;
+    for (let t = 0; t <= dist; t += 0.05) { const q = _camTmp.set(eye.x + ox + dir.x * t, eye.y + oy + dir.y * t, eye.z + oz + dir.z * t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.min(dist, t); break; } } }
   if (myModel) myModel.root.visible = dist > 0.9;
   camera.position.copy(eye).addScaledVector(dir, dist);
   if (S.pov === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.rotation.set(-P.pitch, P.yaw + Math.PI, 0);
