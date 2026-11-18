@@ -65,6 +65,20 @@ process.on('SIGINT', stop); process.on('SIGTERM', stop);
 // a fresh start every 12 hours keeps browser memory in check
 setInterval(() => { log('scheduled restart'); restarts = 0; (async () => { try { await page.evaluate(() => saveGame(false)); await new Promise((r) => setTimeout(r, 3000)); } catch (e) { } restart(); })(); }, 12 * 3600 * 1000);
 
+// Watchdog: once a minute, ask the game if it is alive and still has its join code listed. A browser page can freeze
+// or quietly stop without crashing; after three failed checks in a row the browser is restarted.
+let bad = 0;
+setInterval(async () => {
+  if (!page || restarting || stopping) return;
+  try {
+    const s = await Promise.race([
+      page.evaluate(() => ({ started: typeof SRV !== 'undefined' && !!SRV.started, open: typeof MP !== 'undefined' && !!MP.active, renew: typeof SRV !== 'undefined' && SRV.renewOk ? Date.now() - SRV.renewOk : null })),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('the game did not answer within 30 s')), 30000))]);
+    if (s.started && (!s.open || (s.renew != null && s.renew > 150000))) { bad++; log('watchdog: world ' + (s.open ? 'open but the code was last renewed ' + Math.round(s.renew / 1000) + ' s ago' : 'not open')); } else bad = 0;
+  } catch (e) { bad++; log('watchdog: ' + e.message); }
+  if (bad >= 3) { bad = 0; log('the game stopped responding, restarting it'); restart(); }
+}, 60000);
+
 readline.createInterface({ input: process.stdin }).on('line', async (line) => {
   line = line.trim(); if (!line || !page) return;
   if (line === 'stop') return stop();
