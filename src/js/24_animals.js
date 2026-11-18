@@ -323,9 +323,17 @@ Mob.prototype.update = function (dt) {
 function horseAnim(m, dt) {
   if (!m.head) return; const hs = Math.hypot(m.vel.x, m.vel.z); if (m.stepOff) m.root.position.y -= m.stepOff;
   const ridden = m.rider != null || !!m.riderPeer || !!m.takenBy;
-  const tgt = ridden ? (hs > 6 ? 0.35 : 0.1) + Math.sin(m.walk) * 0.08 * Math.min(1, hs / 4) : m.grazeT > 0 ? 1.9 : null;
+  // grazing as Minecraft's horse model does it (AbstractEquineModel): an eat amount that eases in and out over a few
+  // ticks swings the neck down to 125 degrees and lowers its base by 7 pixels, so the muzzle reaches the grass instead of
+  // hanging in the air, with a slight chewing bob; the head stops turning while it eats
+  { const on = !ridden && m.grazeT > 0, k = Math.min(3, dt * 20); m.eatA = m.eatA || 0;
+    m.eatA = on ? Math.min(1, m.eatA + ((1 - m.eatA) * 0.4 + 0.05) * k) : Math.max(0, m.eatA - (m.eatA * 0.4 + 0.05) * k);
+    const neck = m.head.parent; if (neck) { if (neck.userData.y0 == null) neck.userData.y0 = neck.position.y; neck.position.y = neck.userData.y0 - m.eatA * 7 / 16; }
+    if (!ridden && (m.eatA > 0 || m.wasEat)) { m.head.rotation.x = m.eatA * (2.1816616 - 0.5235988 + Math.sin(m.age * 20) * 0.05); m.head.rotation.y *= 1 - m.eatA; m.hpx = m.head.rotation.x; }
+    m.wasEat = m.eatA > 0; }
+  const tgt = ridden ? (hs > 6 ? 0.35 : 0.1) + Math.sin(m.walk) * 0.08 * Math.min(1, hs / 4) : null;
   if (m.hpx == null) m.hpx = m.head.rotation.x;
-  if (tgt != null) { m.hpx += (tgt - m.hpx) * Math.min(1, dt * 5); m.head.rotation.x = m.hpx; if (ridden) m.head.rotation.y *= 0.8; } else m.hpx = m.head.rotation.x;
+  if (tgt != null) { m.hpx += (tgt - m.hpx) * Math.min(1, dt * 5); m.head.rotation.x = m.hpx; m.head.rotation.y *= 0.8; } else if (!m.wasEat) m.hpx = m.head.rotation.x;
   if (m.tail) m.tail.rotation.x = 0.55 + Math.min(0.6, hs * 0.05) + Math.sin(m.age * 1.3) * 0.05;
   m.rearT = Math.max(0, (m.rearT || 0) - dt);
   const rear = m.rearT > 0 ? Math.sin(Math.min(1, (1.2 - m.rearT) / 0.3) * Math.PI / 2) * (m.rearT < 0.3 ? m.rearT / 0.3 : 1) : 0;

@@ -402,6 +402,8 @@ const SOUND_DATA = {"stone":["SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAA
 //   TURN relays for strict networks, and (with googleClientId) accounts. Without it the game falls back to public brokers.
 // mqttBrokers: public MQTT-over-WebSocket brokers, only used for join codes when serverUrl is empty.
 // iceServers: STUN servers for peer-to-peer connections. Add a TURN server here if friends behind strict networks can't connect.
+// ?server=1 runs this page as a dedicated server (tools/server/, see SERVER_SETUP.md): no drawing, world runs for everyone
+const BW_SERVER = typeof location !== 'undefined' && /[?&]server=1(&|$)/.test(location.search);
 const CONFIG = {
   // Google only allows sign-in from these sites (the client ID's authorized JavaScript origins).
   signInOrigins: ['https://blockwild3d.github.io'],
@@ -6570,12 +6572,12 @@ class Mob {
       if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9;
         if (pathing) { const from = this.fleeFrom ? this.fleeFrom.pos : t.kind === 'passive' ? null : P.pos; const y = maiFlee(this, dt, from); if (y != null) tyaw = y; else if (!from) { tyaw = this.yaw; move = this.navOn ? 1 : 0; } } }
       else if (pathing) { this.wT -= dt; if (this.wT <= 0) maiStroll(this, dt, dist); move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
-        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.head && dist < 6 && this.wMove === 0) { let hr = Math.atan2(dx, dz) - this.yaw; while (hr > Math.PI) hr -= Math.PI * 2; while (hr < -Math.PI) hr += Math.PI * 2; this.head.rotation.y += (clamp(hr, -1, 1) * 0.6 - this.head.rotation.y) * Math.min(1, dt * 8); }
         if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; } }
       else {
         this.wT -= dt; if (this.wT <= 0) { if (Math.random() < 0.45) { this.wMove = 0; this.wT = 2 + Math.random() * 4; } else { this.wMove = 1; this.wYaw = Math.random() * Math.PI * 2; this.wT = 1.5 + Math.random() * 3; } }
         move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
-        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.head && dist < 6 && this.wMove === 0) { let hr = Math.atan2(dx, dz) - this.yaw; while (hr > Math.PI) hr -= Math.PI * 2; while (hr < -Math.PI) hr += Math.PI * 2; this.head.rotation.y += (clamp(hr, -1, 1) * 0.6 - this.head.rotation.y) * Math.min(1, dt * 8); }
         if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; }
       }
     }
@@ -7345,6 +7347,7 @@ function raycast(o, d, max, fluids) {
   for (let i = 0; i < 64; i++) {
     const id = world.get(x, y, z);
     if (id && SHAPED[id]) { const h = rayShape(o, d, x, y, z, id, max); if (h) return h; }
+    else if (id && fluids === 'source' && BL[id].fluid && FLEVEL[id] !== 0) { } // Minecraft's bucket looks through flowing water to the source
     else if (id && (!BL[id].noTarget || (fluids && BL[id].fluid))) return { x, y, z, id, nx, ny, nz, dist: t, px: o.x + d.x * t, py: o.y + d.y * t, pz: o.z + d.z * t };
     if (tx < ty && tx < tz) { if (tx > max) break; x += sx; t = tx; tx += tdx; nx = -sx; ny = 0; nz = 0; }
     else if (ty < tz) { if (ty > max) break; y += sy; t = ty; ty += tdy; nx = 0; ny = -sy; nz = 0; }
@@ -7495,7 +7498,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, 'source'); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -7662,7 +7665,10 @@ function updatePlayer(dt) {
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;
   if (S.mode !== 'creative') P.flying = false;
-  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
+  // Minecraft resets the fall the moment any part of you is in water, so a water bucket placed just before landing (an "MLG")
+  // saves you. The water check above was made before this frame's move, so check again where you ended up.
+  const wLand = water || inWater(P, 0.02) || inWater(P, 0.9);
+  if (P.onGround || wLand || lava || P.flying) { if (P.onGround && P.peak !== null && !wLand && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); P.fireT = Math.max(P.fireT || 0, 15); if (!(P.lavaCD > 0)) { P.lavaCD = 0.5; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } } // Minecraft: lava burns at once (4, then every half second while you stay in) and sets you on fire for 15 seconds
@@ -7940,7 +7946,7 @@ function finishLoading() {
 // ---- main loop ----
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0, hudT = 0, errShown = false;
 function frame(now) {
-  requestAnimationFrame(frame);
+  if (!BW_SERVER) requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   try { tick(dt); } catch (e) { console.error(e); if (S.loading) $('loadTxt').textContent = 'Something went wrong while loading: ' + e.message; if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
 }
@@ -7997,10 +8003,11 @@ function tick(dt) {
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : world.dim === 'sift' ? 'The Sift' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
+  if (BW_SERVER) return; // a dedicated server draws nothing
   renderFrame(); updateModHuds(dt);
   if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
-requestAnimationFrame(frame);
+if (BW_SERVER) setInterval(() => frame(performance.now()), 33); else requestAnimationFrame(frame);
 addEventListener('beforeunload', () => { if (S.started && !S.loading) saveGame(false); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && S.started && !S.loading) saveGame(false); });
 window.__game = { input(l, r) { mouseL = l; mouseR = r; }, keys, primeTNT, structuresFor, findStruct(kind, R = 60) { const p = player.pos; const pcx = Math.floor(p.x / 16), pcz = Math.floor(p.z / 16); let best = null, bd = 1e9; for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const st = structuresFor(world, pcx + dx, pcz + dz); for (const k of st.kinds) if (k[0] === kind) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = k; } } } return best; },
@@ -10861,9 +10868,17 @@ Mob.prototype.update = function (dt) {
 function horseAnim(m, dt) {
   if (!m.head) return; const hs = Math.hypot(m.vel.x, m.vel.z); if (m.stepOff) m.root.position.y -= m.stepOff;
   const ridden = m.rider != null || !!m.riderPeer || !!m.takenBy;
-  const tgt = ridden ? (hs > 6 ? 0.35 : 0.1) + Math.sin(m.walk) * 0.08 * Math.min(1, hs / 4) : m.grazeT > 0 ? 1.9 : null;
+  // grazing as Minecraft's horse model does it (AbstractEquineModel): an eat amount that eases in and out over a few
+  // ticks swings the neck down to 125 degrees and lowers its base by 7 pixels, so the muzzle reaches the grass instead of
+  // hanging in the air, with a slight chewing bob; the head stops turning while it eats
+  { const on = !ridden && m.grazeT > 0, k = Math.min(3, dt * 20); m.eatA = m.eatA || 0;
+    m.eatA = on ? Math.min(1, m.eatA + ((1 - m.eatA) * 0.4 + 0.05) * k) : Math.max(0, m.eatA - (m.eatA * 0.4 + 0.05) * k);
+    const neck = m.head.parent; if (neck) { if (neck.userData.y0 == null) neck.userData.y0 = neck.position.y; neck.position.y = neck.userData.y0 - m.eatA * 7 / 16; }
+    if (!ridden && (m.eatA > 0 || m.wasEat)) { m.head.rotation.x = m.eatA * (2.1816616 - 0.5235988 + Math.sin(m.age * 20) * 0.05); m.head.rotation.y *= 1 - m.eatA; m.hpx = m.head.rotation.x; }
+    m.wasEat = m.eatA > 0; }
+  const tgt = ridden ? (hs > 6 ? 0.35 : 0.1) + Math.sin(m.walk) * 0.08 * Math.min(1, hs / 4) : null;
   if (m.hpx == null) m.hpx = m.head.rotation.x;
-  if (tgt != null) { m.hpx += (tgt - m.hpx) * Math.min(1, dt * 5); m.head.rotation.x = m.hpx; if (ridden) m.head.rotation.y *= 0.8; } else m.hpx = m.head.rotation.x;
+  if (tgt != null) { m.hpx += (tgt - m.hpx) * Math.min(1, dt * 5); m.head.rotation.x = m.hpx; m.head.rotation.y *= 0.8; } else if (!m.wasEat) m.hpx = m.head.rotation.x;
   if (m.tail) m.tail.rotation.x = 0.55 + Math.min(0.6, hs * 0.05) + Math.sin(m.age * 1.3) * 0.05;
   m.rearT = Math.max(0, (m.rearT || 0) - dt);
   const rear = m.rearT > 0 ? Math.sin(Math.min(1, (1.2 - m.rearT) / 0.3) * Math.PI / 2) * (m.rearT < 0.3 ? m.rearT / 0.3 : 1) : 0;
@@ -25649,8 +25664,15 @@ function jmLookTick(m, dt) { // LookAtPlayerGoal + RandomLookAroundGoal, as head
   if (m.chasing && P) { L.kind = 'player'; L.t = Math.max(L.t, 0.1); }
   if (L.kind === 'player' && P) { const e = P.eye(); const dx = e.x - m.pos.x, dz = e.z - m.pos.z, dy = e.y - (m.pos.y + m.h * 0.85); ty = Math.atan2(dx, dz); tp = -Math.atan2(dy, Math.hypot(dx, dz)); }
   else if (L.kind === 'random') { ty = L.ry; tp = 0; } else { ty = m.yaw; tp = 0; }
-  let rel = ty - m.yaw; while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2; rel = jmth.clamp(rel, -75 * JM_D2R, 75 * JM_D2R);
-  const k = 1 - Math.pow(0.5, dt * 20); L.yaw += (rel - L.yaw) * k; L.pitch += (jmth.clamp(tp, -40 * JM_D2R, 40 * JM_D2R) - L.pitch) * k;
+  // Minecraft's LookControl: the head has its own direction in the world and turns toward what it looks at by at most
+  // 10 degrees a tick (back toward the body the same way when it looks at nothing), then is kept within 75 degrees of
+  // the body. The head used to be eased relative to the body, so every small turn of the body while walking or being
+  // pushed shook the head with it.
+  const wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+  if (L.wy == null) L.wy = m.yaw + L.yaw;
+  const step = 10 * JM_D2R * dt * 20; L.wy += jmth.clamp(wrap(ty - L.wy), -step, step);
+  const rel = jmth.clamp(wrap(L.wy - m.yaw), -75 * JM_D2R, 75 * JM_D2R); L.wy = m.yaw + rel; L.yaw = rel;
+  const ps = 40 * JM_D2R * dt * 20; L.pitch += jmth.clamp(jmth.clamp(tp, -40 * JM_D2R, 40 * JM_D2R) - L.pitch, -ps, ps);
 }
 function jmState(m, dt) {
   const S = m.jm.S, t = m.t;
@@ -25880,6 +25902,72 @@ JM.bee = { anim(P, S) { P.stinger.visible = S.stinger !== false;
     if (ty === 'turtle') { S.onLand = !inWater(m, 0.3); S.egg = !!m.hasEgg; }
     if (ty === 'bee') { S.onGround = !!m.onGround && S.ws < 0.05; S.angry = (m.angry || 0) > 0; S.stinger = !m.stung; S.roll = 0; }
     if (ty === 'goat') { if (S.attack > 0) S.ram = 0.87266463; else S.ram = 0; } }; }
+
+// ================= DEDICATED SERVER MODE (?server=1) =================
+// Opened by tools/server/server.js in a hidden browser on a rented machine. The page loads (or creates) one world,
+// opens it with a fixed join code and keeps it running for everyone, without drawing anything. Nobody plays as the
+// host: the host "player" is an invisible spectator that rides along with the first player who joined, so the world
+// around them (mobs, redstone, furnaces, crops) is simulated on the server instead of on someone's laptop.
+// URL options: code=ABC123 (fixed join code), world=Name, seed=text (new worlds), mode=survival|creative|adventure
+// (what joining players get), difficulty=peaceful|easy|normal|hard, cheats=1, max=10 (players), rd=6 (chunks kept loaded).
+const SRV = { on: BW_SERVER, follow: null, sleepT: 0, log: [] };
+if (BW_SERVER) {
+  const q = new URLSearchParams(location.search);
+  const say = (t) => { try { console.log('[server] ' + t); } catch (e) { } };
+  SRV.say = say;
+  // chat and join/leave lines go to the server console
+  { const _cp = chatPrint; chatPrint = function (text, color, html) { say('chat: ' + String(text).replace(/<[^>]+>/g, '')); return _cp.apply(this, arguments); }; }
+  // the server is not a player: invisible to everyone and can't be hit
+  { const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); s.spec = 1; s.held = 0; s.armor = {}; s.swing = 0; return s; }; }
+  const until = (f, ms = 250) => new Promise((res) => { const t = setInterval(() => { try { if (f()) { clearInterval(t); res(); } } catch (e) { } }, ms); });
+  SRV.start = async function () {
+    if (SRV.started) return; SRV.started = true;
+    try { if (typeof PROFILE !== 'undefined') PROFILE.name = 'Server'; } catch (e) { }
+    S.renderDist = Math.max(3, Math.min(10, +q.get('rd') || 6)); S.simDist = Math.min(S.simDist || 5, S.renderDist - 1);
+    MP.maxPlayers = Math.max(2, Math.min(20, +q.get('max') || 10)) + 1;
+    say('waiting for saves'); await until(() => typeof Saves !== 'undefined' && Saves.ready, 300);
+    const name = (q.get('world') || 'Server World').slice(0, 32);
+    const meta = [...Saves.metas.values()].find((m) => m.name === name);
+    if (meta) { say('loading world "' + name + '"'); await playWorld(meta.id); }
+    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
+    await until(() => S.started && !S.loading, 300);
+    if (q.get('difficulty')) S.difficulty = q.get('difficulty');
+    if (q.has('cheats')) S.cheats = q.get('cheats') === '1';
+    SRV.host();
+    const code = (q.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    if (code.length === 6) { const _nr = newRoomCode; newRoomCode = () => code; await openToFriends(); newRoomCode = _nr; } else await openToFriends();
+    MP.joinMode = ['survival', 'creative', 'adventure', 'spectator'].includes(q.get('mode')) ? q.get('mode') : 'survival';
+    if (!MP.active) { say('FAILED to open the world (see messages above). Retrying in 20 s'); setTimeout(() => location.reload(), 20000); return; }
+    say('READY code=' + MP.code + ' world="' + S.worldName + '" mode=' + MP.joinMode);
+  };
+  // the host player: creative (so mobs ignore it) and "paused" (so it never moves on its own, picks up items or uses portals)
+  SRV.host = function () { S.mode = 'creative'; G.mode = 'creative'; S.paused = true; player.flying = true; player.vel.set(0, 0, 0); };
+  SRV.tick = function (dt) {
+    if (!S.started || S.loading || !world) return;
+    SRV.host();
+    const joined = [...MP.peers.values()].filter((p) => p.joined);
+    // ride along with the first player who joined (and is still here); if they changed dimension, follow them there
+    let av = null; for (const p of joined) { const a = MP.avatars.get(p.id); if (a && a.dim && !a.dead && a.seen && a.netBuf && a.netBuf.length && a.pos.y > -50) { av = a; break; } }
+    if (av) {
+      if (av.dim !== world.dim) { say('following ' + av.name + ' to ' + av.dim); travelTo(av.dim, { type: 'bed', pos: { x: av.pos.x, y: av.pos.y, z: av.pos.z }, x: Math.floor(av.pos.x), z: Math.floor(av.pos.z) }); return; }
+      player.pos.copy(av.pos);
+    }
+    // night is skipped once everyone in the world is in bed (the host never sleeps)
+    if (joined.length && joined.every((p) => p.sleeping) && timeTicks() >= 12541 && timeTicks() <= 23458) { SRV.sleepT += dt; if (SRV.sleepT > 2.6) { SRV.sleepT = 0; S.time = 0; S.day++; if (MP.timeChanged) MP.timeChanged(); say('night skipped, day ' + S.day); } }
+    else SRV.sleepT = 0;
+    // dropped items normally expire inside the player update, which the server skips
+    if (G.items.length) G.items = G.items.filter((i) => { if (i.gone) return false; if (i.age >= 300) { i.remove(); return false; } return true; });
+  };
+  { const _mt = mpTick; mpTick = function (dt) { try { SRV.tick(dt); } catch (e) { console.error(e); } return _mt.apply(this, arguments); }; }
+  // XP orbs would fly into the invisible host
+  { const _uo = updateOrbs; updateOrbs = function () { const d = player.dead; player.dead = true; try { return _uo.apply(this, arguments); } finally { player.dead = d; } }; }
+  // typed into the server console: "/command" runs as the server (cheats allowed), anything else is said in chat
+  SRV.command = function (line) { line = String(line || '').trim(); if (!line) return; if (line.startsWith('/')) runCommand(line.slice(1), { player, local: true }); else submitChat(line); };
+  SRV.status = () => ({ code: MP.code, world: S.worldName, day: S.day, dim: world && world.dim, players: [...MP.peers.values()].filter((p) => p.joined).map((p) => p.name), mobs: G.mobs.length, chunks: world ? world.chunks.size : 0 });
+  setInterval(() => { try { if (S.started && !S.loading) saveGame(false); } catch (e) { } }, 120000);
+  addEventListener('load', () => setTimeout(SRV.start, 500));
+  if (document.readyState === 'complete') setTimeout(SRV.start, 500);
+}
 
 </script>
 </body>

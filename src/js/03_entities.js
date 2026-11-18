@@ -513,12 +513,12 @@ class Mob {
       if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9;
         if (pathing) { const from = this.fleeFrom ? this.fleeFrom.pos : t.kind === 'passive' ? null : P.pos; const y = maiFlee(this, dt, from); if (y != null) tyaw = y; else if (!from) { tyaw = this.yaw; move = this.navOn ? 1 : 0; } } }
       else if (pathing) { this.wT -= dt; if (this.wT <= 0) maiStroll(this, dt, dist); move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
-        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.head && dist < 6 && this.wMove === 0) { let hr = Math.atan2(dx, dz) - this.yaw; while (hr > Math.PI) hr -= Math.PI * 2; while (hr < -Math.PI) hr += Math.PI * 2; this.head.rotation.y += (clamp(hr, -1, 1) * 0.6 - this.head.rotation.y) * Math.min(1, dt * 8); }
         if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; } }
       else {
         this.wT -= dt; if (this.wT <= 0) { if (Math.random() < 0.45) { this.wMove = 0; this.wT = 2 + Math.random() * 4; } else { this.wMove = 1; this.wYaw = Math.random() * Math.PI * 2; this.wT = 1.5 + Math.random() * 3; } }
         move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
-        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.head && dist < 6 && this.wMove === 0) { let hr = Math.atan2(dx, dz) - this.yaw; while (hr > Math.PI) hr -= Math.PI * 2; while (hr < -Math.PI) hr += Math.PI * 2; this.head.rotation.y += (clamp(hr, -1, 1) * 0.6 - this.head.rotation.y) * Math.min(1, dt * 8); }
         if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; }
       }
     }

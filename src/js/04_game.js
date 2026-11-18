@@ -382,6 +382,7 @@ function raycast(o, d, max, fluids) {
   for (let i = 0; i < 64; i++) {
     const id = world.get(x, y, z);
     if (id && SHAPED[id]) { const h = rayShape(o, d, x, y, z, id, max); if (h) return h; }
+    else if (id && fluids === 'source' && BL[id].fluid && FLEVEL[id] !== 0) { } // Minecraft's bucket looks through flowing water to the source
     else if (id && (!BL[id].noTarget || (fluids && BL[id].fluid))) return { x, y, z, id, nx, ny, nz, dist: t, px: o.x + d.x * t, py: o.y + d.y * t, pz: o.z + d.z * t };
     if (tx < ty && tx < tz) { if (tx > max) break; x += sx; t = tx; tx += tdx; nx = -sx; ny = 0; nz = 0; }
     else if (ty < tz) { if (ty > max) break; y += sy; t = ty; ty += tdy; nx = 0; ny = -sy; nz = 0; }
@@ -532,7 +533,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, 'source'); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -699,7 +700,10 @@ function updatePlayer(dt) {
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;
   if (S.mode !== 'creative') P.flying = false;
-  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
+  // Minecraft resets the fall the moment any part of you is in water, so a water bucket placed just before landing (an "MLG")
+  // saves you. The water check above was made before this frame's move, so check again where you ended up.
+  const wLand = water || inWater(P, 0.02) || inWater(P, 0.9);
+  if (P.onGround || wLand || lava || P.flying) { if (P.onGround && P.peak !== null && !wLand && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); P.fireT = Math.max(P.fireT || 0, 15); if (!(P.lavaCD > 0)) { P.lavaCD = 0.5; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } } // Minecraft: lava burns at once (4, then every half second while you stay in) and sets you on fire for 15 seconds
@@ -977,7 +981,7 @@ function finishLoading() {
 // ---- main loop ----
 let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0, hudT = 0, errShown = false;
 function frame(now) {
-  requestAnimationFrame(frame);
+  if (!BW_SERVER) requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   try { tick(dt); } catch (e) { console.error(e); if (S.loading) $('loadTxt').textContent = 'Something went wrong while loading: ' + e.message; if (!errShown) { errShown = true; toast('Error: ' + e.message, 8); } }
 }
@@ -1034,10 +1038,11 @@ function tick(dt) {
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : world.dim === 'sift' ? 'The Sift' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
+  if (BW_SERVER) return; // a dedicated server draws nothing
   renderFrame(); updateModHuds(dt);
   if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
-requestAnimationFrame(frame);
+if (BW_SERVER) setInterval(() => frame(performance.now()), 33); else requestAnimationFrame(frame);
 addEventListener('beforeunload', () => { if (S.started && !S.loading) saveGame(false); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && S.started && !S.loading) saveGame(false); });
 window.__game = { input(l, r) { mouseL = l; mouseR = r; }, keys, primeTNT, structuresFor, findStruct(kind, R = 60) { const p = player.pos; const pcx = Math.floor(p.x / 16), pcz = Math.floor(p.z / 16); let best = null, bd = 1e9; for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const st = structuresFor(world, pcx + dx, pcz + dz); for (const k of st.kinds) if (k[0] === kind) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = k; } } } return best; },
