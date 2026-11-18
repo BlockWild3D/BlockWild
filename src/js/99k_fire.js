@@ -25,13 +25,13 @@ function fireScan(w) { const F = fires(w); F.clear(); for (const [ck, m] of w.ed
     S.useCD = 0.25; return r; }; }
 let fireT = 0, fireHurtT = 0, fireSnd = 0;
 function fireTick(dt) {
-  const w = world; if (!w || !w.fires) return; const F = w.fires; const P = player;
+  const w = world; if (!w) return; const F = fires(w); const P = player; // (burning used to stop counting down in worlds where no fire block had ever been lit)
   // you and the mobs
   const inFire = (e) => { const x = Math.floor(e.pos.x), z = Math.floor(e.pos.z); return w.get(x, Math.floor(e.pos.y + 0.1), z) === B.FIRE || w.get(x, Math.floor(e.pos.y + 1), z) === B.FIRE; };
   if (F.size && !P.dead && isSurv() && inFire(P)) P.fireT = 4;
   if (P.fireT > 0) { if (inWater(P, 0.4) || P.dead || !isSurv() || (typeof weatherWet === 'function' && weatherWet(P.pos))) { if (P.fireT > 0 && !P.dead && isSurv()) Sfx.play('fizz', 0.5); P.fireT = 0; }
     else { P.fireT -= dt; fireHurtT -= dt; if (Math.random() < dt * 14) SpriteFX.emit('flame', P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, [[1, 0.7, 0.15], [1, 0.4, 0.05]], 0.4, 0.5, -2.5, 0.5);
-      if (fireHurtT <= 0) { fireHurtT = 1; if (!effLevel('fire_resistance')) { P.hurtCD = 0; P.hurt(1, null, 'fire', 0); } } } }
+      if (fireHurtT <= 0) { fireHurtT = 1; if (!effLevel('fire_resistance') && !inLava(P, 0.3)) { P.hurtCD = 0; P.hurt(1, null, 'fire', 0); } } } }
   const ov = $('fireOv'); if (ov) ov.style.opacity = P.fireT > 0 && !(S.pov > 0) ? 0.55 + 0.1 * Math.sin(performance.now() / 90) : 0;
   fireT += dt; if (fireT < 0.5) return; fireT = 0; if (!F.size) return;
   for (const m of G.mobs) if (!m.dead && !m.isBoss && m.vel && !(m.t && m.t.fireproof) && inFire(m)) { m.hurt(1, null, 0); SpriteFX.emit('flame', m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, { size: 0.22, grav: -1, spd: 0.5, life: 0.5, spread: 0.4 }) || Particles.emit(m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.8, 0.6, -2, 0.6); }
