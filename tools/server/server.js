@@ -35,7 +35,7 @@ const log = (t) => console.log(stamp() + '  ' + t);
 
 let ctx = null, page = null, stopping = false, restarts = 0;
 async function launch() {
-  log('starting ' + url);
+  log('starting ' + url); startedAt = Date.now();
   ctx = await chromium.launchPersistentContext(dataDir, {
     headless: true,
     args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
@@ -62,8 +62,14 @@ async function stop() {
   try { await ctx.close(); } catch (e) { } process.exit(0);
 }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
-// a fresh start every 12 hours keeps browser memory in check
-setInterval(() => { log('scheduled restart'); restarts = 0; (async () => { try { await page.evaluate(() => saveGame(false)); await new Promise((r) => setTimeout(r, 3000)); } catch (e) { } restart(); })(); }, 12 * 3600 * 1000);
+// A fresh browser every few hours keeps memory in check: after 3 hours as soon as nobody is playing, after 12 hours anyway.
+let startedAt = Date.now();
+setInterval(async () => {
+  if (!page || restarting || stopping) return; const up = Date.now() - startedAt; if (up < 3 * 3600 * 1000) return;
+  let players = 1; try { players = await Promise.race([page.evaluate(() => SRV.status().players.length), new Promise((r) => setTimeout(() => r(1), 20000))]); } catch (e) { }
+  if (players > 0 && up < 12 * 3600 * 1000) return;
+  log('scheduled restart'); restarts = 0; try { await page.evaluate(() => saveGame(false)); await new Promise((r) => setTimeout(r, 3000)); } catch (e) { } restart();
+}, 10 * 60 * 1000);
 
 // Watchdog: once a minute, ask the game if it is alive and still has its join code listed. A browser page can freeze
 // or quietly stop without crashing; after three failed checks in a row the browser is restarted.
