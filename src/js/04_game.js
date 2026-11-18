@@ -1042,7 +1042,7 @@ function tick(dt) {
   renderFrame(); updateModHuds(dt);
   if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }
-if (BW_SERVER) setInterval(() => frame(performance.now()), 33); else requestAnimationFrame(frame);
+if (BW_SERVER) setInterval(() => frame(performance.now()), 50); else requestAnimationFrame(frame);
 addEventListener('beforeunload', () => { if (S.started && !S.loading) saveGame(false); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && S.started && !S.loading) saveGame(false); });
 window.__game = { input(l, r) { mouseL = l; mouseR = r; }, keys, primeTNT, structuresFor, findStruct(kind, R = 60) { const p = player.pos; const pcx = Math.floor(p.x / 16), pcz = Math.floor(p.z / 16); let best = null, bd = 1e9; for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const st = structuresFor(world, pcx + dx, pcz + dz); for (const k of st.kinds) if (k[0] === kind) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = k; } } } return best; },
