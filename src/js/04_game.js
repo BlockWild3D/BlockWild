@@ -1015,7 +1015,9 @@ function tick(dt) {
     S.saveT += dt; if (S.saveT > 30) { S.saveT = 0; saveGame(false); }
   }
   if (typeof mpTick === 'function') mpTick(dt);
-  Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
+  Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt);
+  if (BW_SERVER) { updateSky(0); return; } // a dedicated server only needs the daylight level from the sky; the rest of the frame is camera, hand, HUD and drawing
+  animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
   { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
@@ -1038,7 +1040,6 @@ function tick(dt) {
     $('info').innerHTML = (world.dim === 'overworld' ? 'Day ' + S.day + ' · ' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') : world.dim === 'nether' ? 'The Nether' : world.dim === 'sift' ? 'The Sift' : 'The End') + '<br><span style="color:#cfe8b0">' + bname + '</span>' + (S.mode === 'creative' ? '<br><span style="color:#ffd27a">Creative</span>' : '') + (S.rules.showCoordinates ? '<br>XYZ ' + P.pos.x.toFixed(0) + ' ' + (P.pos.y - world.yOff).toFixed(0) + ' ' + P.pos.z.toFixed(0) : '');
     if (S.debug) $('debug').textContent = 'Blockwild  ' + fps + ' fps\nXYZ ' + P.pos.x.toFixed(1) + ' / ' + (P.pos.y - world.yOff).toFixed(1) + ' / ' + P.pos.z.toFixed(1) + '  (' + world.dim + ')\nChunk ' + (Math.floor(P.pos.x) >> 4) + ', ' + (Math.floor(P.pos.z) >> 4) + '   loaded ' + world.chunks.size + '\nBiome ' + bname + '  seed ' + world.seed + '\nMobs ' + G.mobs.length + '  items ' + G.items.length + '  particles ' + Particles.n + '\nLight ' + light.toFixed(2) + '  daylight ' + G.daylight.toFixed(2) + '\nDraw calls ' + renderer.info.render.calls + '  tris ' + renderer.info.render.triangles + (target ? '\nLooking at ' + BL[target.id].name + ' ' + target.x + ',' + (target.y - world.yOff) + ',' + target.z : '');
   }
-  if (BW_SERVER) return; // a dedicated server draws nothing
   renderFrame(); updateModHuds(dt);
   if (!P.dead && !S.pov) { renderer.clearDepth(); renderer.render(handScene, handCam); }
 }

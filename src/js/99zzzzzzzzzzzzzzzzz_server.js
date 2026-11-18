@@ -62,6 +62,8 @@ if (BW_SERVER) {
   // Nothing is drawn, so chunks never need their 3D shapes built (the most expensive part of loading terrain), and the
   // cave culling that hides them has nothing to do. A chunk just counts as ready once it has its blocks.
   World.prototype.buildMesh = function (c) { c.dirty = false; };
+  // no sound: with nobody listening, a hidden browser's audio clock can stand still and keep every sound ever played in memory
+  Sfx.init = function () { }; Sfx.ctx = null;
   if (typeof updateCaveCulling === 'function') updateCaveCulling = function () { };
   // ask the matchmaking server for join requests every 2.5 s instead of 1.2 s: a server is open all day, and the faster
   // rate alone would use most of the free daily request allowance of the Cloudflare Worker
