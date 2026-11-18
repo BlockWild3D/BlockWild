@@ -60,6 +60,17 @@ if (BW_SERVER) {
   SRV.command = function (line) { line = String(line || '').trim(); if (!line) return; if (line.startsWith('/')) runCommand(line.slice(1), { player, local: true }); else submitChat(line); };
   SRV.status = () => ({ code: MP.code, world: S.worldName, day: S.day, dim: world && world.dim, players: [...MP.peers.values()].filter((p) => p.joined).map((p) => p.name), mobs: G.mobs.length, chunks: world ? world.chunks.size : 0 });
   setInterval(() => { try { if (S.started && !S.loading) saveGame(false); } catch (e) { } }, 120000);
+  // keep the join code listed: renew it every 30 s (the matchmaking server forgets a code 3 minutes after the last
+  // renewal) and log a heartbeat, so the console shows if the world stops answering
+  SRV.fr = { n: 0, ms: 0, max: 0 };
+  { const _tk = tick; tick = function (dt) { const t0 = performance.now(); try { return _tk.apply(this, arguments); } finally { const d = performance.now() - t0; SRV.fr.n++; SRV.fr.ms += d; SRV.fr.max = Math.max(SRV.fr.max, d); } }; }
+  SRV.renew = async function () { if (!MP.active || MP.role !== 'host' || !MP.code || typeof SERVER !== 'function' || !SERVER()) return;
+    try { const r = await fetch(SERVER() + '/room/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: MP.code, host: myName() }) }); SRV.renewOk = r.ok ? Date.now() : SRV.renewOk; if (!r.ok) say('code renewal refused: ' + r.status); }
+    catch (e) { say('code renewal failed: ' + e.message); } };
+  setInterval(SRV.renew, 30000);
+  setInterval(() => { const f = SRV.fr; SRV.fr = { n: 0, ms: 0, max: 0 };
+    say('alive: ' + (f.n / 60).toFixed(1) + ' ticks/s, avg ' + (f.n ? f.ms / f.n : 0).toFixed(0) + ' ms, worst ' + f.max.toFixed(0) + ' ms | open ' + !!MP.active + ' code ' + MP.code + ' | players ' + [...MP.peers.values()].filter((p) => p.joined).length + ' | renewed ' + (SRV.renewOk ? Math.round((Date.now() - SRV.renewOk) / 1000) + ' s ago' : 'never') + (MP.sig && MP.sig.lastError ? ' | signal error: ' + MP.sig.lastError.message : ''));
+    if (!MP.active && SRV.started && S.started && !S.loading) { say('world closed, reopening'); location.reload(); } }, 60000);
   addEventListener('load', () => setTimeout(SRV.start, 500));
   if (document.readyState === 'complete') setTimeout(SRV.start, 500);
 }
