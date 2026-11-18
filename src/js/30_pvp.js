@@ -15,21 +15,23 @@ function avatarRay(eye, dir, maxT) {
   return best ? { av: best, dist: bt } : null;
 }
 // send a hit to another player (through the host if we are a client)
-function pvpHit(av, dmg, kb, cause) {
+function pvpHit(av, dmg, kb, cause, fire) {
   if (!S.rules.pvp) { toast('PvP is off in this world (/gamerule pvp true)', 1.5); return; }
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName() };
+  if (fire > 0) m.fire = fire; // seconds of burning (Fire Aspect, Flame)
   if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
   av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6);
   SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 }
 function pvpDeliver(m) { // host: route a hit to its target
   if (m.to === MP.myId || m.to === 'host') return pvpReceive(m);
-  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause });
+  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0 });
 }
 function pvpReceive(m) {
   if (player.dead || !S.rules.pvp) return;
   const d = S.difficulty; S.difficulty = 'normal'; // players hit as hard on every difficulty
   try { player.hurt(m.dmg, m.src ? new V3(m.src[0], m.src[1], m.src[2]) : null, m.cause, m.kb); } finally { S.difficulty = d; }
+  if (m.fire > 0 && isSurv() && !player.dead) player.fireT = Math.max(player.fireT || 0, Math.min(15, +m.fire));
 }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
     if (m.t === 'pvp') { if (MP.role === 'host') pvpDeliver(m); return; }
@@ -46,7 +48,7 @@ function pvpReceive(m) {
     if (mobT < hit.dist) return _ui.apply(this, arguments);
     if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } if (typeof spearLunge === 'function') spearLunge(dir); } } // a jab at a player lunges too
     else if (meleeReady()) {
-      const tool = player.heldDef(); const h = meleeHit(tool, null); pvpHit(hit.av, h.dmg, h.kb);
+      const tool = player.heldDef(); const h = meleeHit(tool, null); const fa = heldEnch('fire_aspect'); pvpHit(hit.av, h.dmg, h.kb, undefined, fa ? 4 * fa : 0);
       if (h.crit) SpriteFX.emit('critical_hit', hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, { size: 0.28, grav: 4, spd: 4, life: 0.5, spread: 0.6 }) || Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
       if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
     }
@@ -58,7 +60,7 @@ function pvpReceive(m) {
       if (a.done || a.owner !== 'player' || a.kind === 'pearl') continue;
       for (const av of MP.avatars.values()) { if (av.dim !== world.dim || av.dead || av.spec) continue;
         if (Math.abs(a.pos.x - av.pos.x) < 0.4 && Math.abs(a.pos.z - av.pos.z) < 0.4 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + PVP_H(av)) {
-          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow"); a.done = true; }
+          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0); a.done = true; }
           else if (a.kind === 'egg') { pvpHit(av, 0, 0.3); a.done = true; }
           break; }
       }
@@ -84,3 +86,11 @@ function pvpReceive(m) {
     }
     return r;
   }; }
+
+// other players show when they're burning (in lava, fire, or hit by Fire Aspect / Flame)
+{ const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); if ((player.fireT > 0 || inLava(player, 0.3)) && !player.dead) s.fire = 1; return s; }; }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m.t === 'p') { const av = MP.avatars.get(MP.role === 'host' ? peer.id : m.id); if (av) av.fire = !!m.fire; } return _on(peer, m); }; }
+{ const _ua = updateAvatars; updateAvatars = function (dt) { const r = _ua.apply(this, arguments);
+    for (const av of MP.avatars.values()) { if (!av.fire || av.dead || av.spec || av.dim !== world.dim) continue;
+      if (Math.random() < dt * 18) { const x = av.pos.x + (Math.random() - 0.5) * 0.6, y = av.pos.y + Math.random() * 1.7, z = av.pos.z + (Math.random() - 0.5) * 0.6; SpriteFX.emit('flame', x, y, z, 1, { size: 0.3, grav: -1.2, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(x, y, z, 1, [[1, 0.6, 0.1], [1, 0.85, 0.3]], 0.5, 0.5, -1, 0.3); } }
+    return r; }; }

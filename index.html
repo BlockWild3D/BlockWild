@@ -7671,7 +7671,8 @@ function updatePlayer(dt) {
   if (P.onGround || wLand || lava || P.flying) { if (P.onGround && P.peak !== null && !wLand && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
-  if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
+  if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); P.fireT = Math.max(P.fireT || 0, 15); if (!(P.lavaCD > 0)) { P.lavaCD = 0.5; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } } // Minecraft: lava burns at once (4, then every half second while you stay in) and sets you on fire for 15 seconds
+  P.lavaCD = Math.max(0, (P.lavaCD || 0) - dt);
   if (under === B.MAGMA_BLOCK && P.onGround && !down && isSurv()) { P.lavaT += dt; if (P.lavaT > 1) { P.lavaT = 0; P.hurt(1, null, 'a magma block', 0); } }
   show('lavafx', lava && isLavaId(world.get(Math.floor(P.pos.x), Math.floor(P.pos.y + 1.62), Math.floor(P.pos.z))));
   if (P.onGround) { P.stepD += Math.hypot(P.pos.x - ox, P.pos.z - oz); if (P.stepD > 1.9) { P.stepD = 0; const b = world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.2), Math.floor(P.pos.z)); if (b) blockSfx('step', b, 0.3) || Sfx.play(BL[b].snd === 'stone' ? 'step' : BL[b].snd, 0.25); } }
@@ -11446,21 +11447,23 @@ function avatarRay(eye, dir, maxT) {
   return best ? { av: best, dist: bt } : null;
 }
 // send a hit to another player (through the host if we are a client)
-function pvpHit(av, dmg, kb, cause) {
+function pvpHit(av, dmg, kb, cause, fire) {
   if (!S.rules.pvp) { toast('PvP is off in this world (/gamerule pvp true)', 1.5); return; }
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName() };
+  if (fire > 0) m.fire = fire; // seconds of burning (Fire Aspect, Flame)
   if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
   av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6);
   SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 }
 function pvpDeliver(m) { // host: route a hit to its target
   if (m.to === MP.myId || m.to === 'host') return pvpReceive(m);
-  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause });
+  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0 });
 }
 function pvpReceive(m) {
   if (player.dead || !S.rules.pvp) return;
   const d = S.difficulty; S.difficulty = 'normal'; // players hit as hard on every difficulty
   try { player.hurt(m.dmg, m.src ? new V3(m.src[0], m.src[1], m.src[2]) : null, m.cause, m.kb); } finally { S.difficulty = d; }
+  if (m.fire > 0 && isSurv() && !player.dead) player.fireT = Math.max(player.fireT || 0, Math.min(15, +m.fire));
 }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
     if (m.t === 'pvp') { if (MP.role === 'host') pvpDeliver(m); return; }
@@ -11477,7 +11480,7 @@ function pvpReceive(m) {
     if (mobT < hit.dist) return _ui.apply(this, arguments);
     if (sp) { if (S.jabCD <= 0) { S.jabCD = sp.cool; S.jabT = 1; if (hit.dist >= 2 - 0.125) { const eb = meleeBonus({ type: 'player' }); pvpHit(hit.av, Math.max(0, sp.dmg + eb.dmg), 0.7 * eb.kb); damageHeld(1); } if (typeof spearLunge === 'function') spearLunge(dir); } } // a jab at a player lunges too
     else if (meleeReady()) {
-      const tool = player.heldDef(); const h = meleeHit(tool, null); pvpHit(hit.av, h.dmg, h.kb);
+      const tool = player.heldDef(); const h = meleeHit(tool, null); const fa = heldEnch('fire_aspect'); pvpHit(hit.av, h.dmg, h.kb, undefined, fa ? 4 * fa : 0);
       if (h.crit) SpriteFX.emit('critical_hit', hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, { size: 0.28, grav: 4, spd: 4, life: 0.5, spread: 0.6 }) || Particles.emit(hit.av.pos.x, hit.av.pos.y + 1.3, hit.av.pos.z, 10, [1, 1, 0.7], 3, 0.5, 4, 0.6);
       if (tool && (tool.kind === 'tool' || tool.melee)) damageHeld(tool.tool === 'sword' || tool.melee ? 1 : 2);
     }
@@ -11489,7 +11492,7 @@ function pvpReceive(m) {
       if (a.done || a.owner !== 'player' || a.kind === 'pearl') continue;
       for (const av of MP.avatars.values()) { if (av.dim !== world.dim || av.dead || av.spec) continue;
         if (Math.abs(a.pos.x - av.pos.x) < 0.4 && Math.abs(a.pos.z - av.pos.z) < 0.4 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + PVP_H(av)) {
-          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow"); a.done = true; }
+          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0); a.done = true; }
           else if (a.kind === 'egg') { pvpHit(av, 0, 0.3); a.done = true; }
           break; }
       }
@@ -11515,6 +11518,14 @@ function pvpReceive(m) {
     }
     return r;
   }; }
+
+// other players show when they're burning (in lava, fire, or hit by Fire Aspect / Flame)
+{ const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); if ((player.fireT > 0 || inLava(player, 0.3)) && !player.dead) s.fire = 1; return s; }; }
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m.t === 'p') { const av = MP.avatars.get(MP.role === 'host' ? peer.id : m.id); if (av) av.fire = !!m.fire; } return _on(peer, m); }; }
+{ const _ua = updateAvatars; updateAvatars = function (dt) { const r = _ua.apply(this, arguments);
+    for (const av of MP.avatars.values()) { if (!av.fire || av.dead || av.spec || av.dim !== world.dim) continue;
+      if (Math.random() < dt * 18) { const x = av.pos.x + (Math.random() - 0.5) * 0.6, y = av.pos.y + Math.random() * 1.7, z = av.pos.z + (Math.random() - 0.5) * 0.6; SpriteFX.emit('flame', x, y, z, 1, { size: 0.3, grav: -1.2, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(x, y, z, 1, [[1, 0.6, 0.1], [1, 0.85, 0.3]], 0.5, 0.5, -1, 0.3); } }
+    return r; }; }
 
 // ================= ENTITY COLLISION (Minecraft-style pushing) =================
 // Mobs and players whose boxes overlap push each other apart, harder the deeper they overlap (Minecraft adds
@@ -20774,13 +20785,13 @@ function fireScan(w) { const F = fires(w); F.clear(); for (const [ck, m] of w.ed
     S.useCD = 0.25; return r; }; }
 let fireT = 0, fireHurtT = 0, fireSnd = 0;
 function fireTick(dt) {
-  const w = world; if (!w || !w.fires) return; const F = w.fires; const P = player;
+  const w = world; if (!w) return; const F = fires(w); const P = player; // (burning used to stop counting down in worlds where no fire block had ever been lit)
   // you and the mobs
   const inFire = (e) => { const x = Math.floor(e.pos.x), z = Math.floor(e.pos.z); return w.get(x, Math.floor(e.pos.y + 0.1), z) === B.FIRE || w.get(x, Math.floor(e.pos.y + 1), z) === B.FIRE; };
   if (F.size && !P.dead && isSurv() && inFire(P)) P.fireT = 4;
   if (P.fireT > 0) { if (inWater(P, 0.4) || P.dead || !isSurv() || (typeof weatherWet === 'function' && weatherWet(P.pos))) { if (P.fireT > 0 && !P.dead && isSurv()) Sfx.play('fizz', 0.5); P.fireT = 0; }
     else { P.fireT -= dt; fireHurtT -= dt; if (Math.random() < dt * 14) SpriteFX.emit('flame', P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(P.pos.x + (Math.random() - 0.5) * 0.5, P.pos.y + Math.random() * 1.6, P.pos.z + (Math.random() - 0.5) * 0.5, 1, [[1, 0.7, 0.15], [1, 0.4, 0.05]], 0.4, 0.5, -2.5, 0.5);
-      if (fireHurtT <= 0) { fireHurtT = 1; if (!effLevel('fire_resistance')) { P.hurtCD = 0; P.hurt(1, null, 'fire', 0); } } } }
+      if (fireHurtT <= 0) { fireHurtT = 1; if (!effLevel('fire_resistance') && !inLava(P, 0.3)) { P.hurtCD = 0; P.hurt(1, null, 'fire', 0); } } } }
   const ov = $('fireOv'); if (ov) ov.style.opacity = P.fireT > 0 && !(S.pov > 0) ? 0.55 + 0.1 * Math.sin(performance.now() / 90) : 0;
   fireT += dt; if (fireT < 0.5) return; fireT = 0; if (!F.size) return;
   for (const m of G.mobs) if (!m.dead && !m.isBoss && m.vel && !(m.t && m.t.fireproof) && inFire(m)) { m.hurt(1, null, 0); SpriteFX.emit('flame', m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, { size: 0.22, grav: -1, spd: 0.5, life: 0.5, spread: 0.4 }) || Particles.emit(m.pos.x, m.pos.y + (m.h || 1) * 0.5, m.pos.z, 4, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.8, 0.6, -2, 0.6); }
