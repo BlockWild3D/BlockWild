@@ -485,26 +485,36 @@ class Mob {
     if (t.fly) { this.updateFly(dt, hostileNow && canTarget, dist, dx, dy, dz); return; }
     if (t.ai === 'magma') { this.updateMagma(dt, hostileNow && canTarget, dist, dx, dz, water || lava); return; }
     let move = 0, tyaw = this.yaw, speed = t.speed * (this.spMul || 1);
-    if (hostileNow && canTarget && dist < (this.type === 'enderman' ? 40 : 18)) {
+    maiPreUpdate(this); const pathing = maiCanPath(this); // Minecraft-style pathfinding and goals: 99zzzzzzzzzzzz_mobai.js
+    if (maiTargetsPlayer(this, dt, hostileNow && canTarget, dist)) {
       tyaw = Math.atan2(dx, dz); move = 1;
       if (t.ranged) {
         const see = dist < 16 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.6, this.pos.z), P.eye());
-        if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
+        if (pathing) { const r = maiRanged(this, P, dist, see, dt); move = r.move; if (r.yaw != null) tyaw = r.yaw; }
+        else if (see) { if (dist < 6) move = -0.8; else if (dist < 10) move = 0; }
         if (see && this.atkCD <= 0 && dist < 16) { this.atkCD = 1.8 + Math.random(); if (t.shoot) t.shoot(this, P, dist); else shootArrow(new V3(this.pos.x, this.pos.y + 1.5, this.pos.z), P.eye().add(new V3(0, -0.3, 0)), 'mob', 3); }
       } else if (t.creeper) {
-        if (dist < 2.8 && lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; move = 0; }
-        else if (this.fuse > 0) { this.fuse = dist > 5 ? 0 : Math.max(0, this.fuse - dt * 0.5); }
+        // SwellGoal: starts within 3 blocks, swells while you are within 7 and in sight, otherwise shrinks back
+        if (this.swelling || dist < 3) { this.swelling = true; move = 0; maiStop(this);
+          if (dist > 7 || !lineOfSight(new V3(this.pos.x, this.pos.y + 1.2, this.pos.z), P.eye())) { this.fuse = Math.max(0, this.fuse - dt); if (dist >= 3) this.swelling = false; }
+          else { if (this.fuse === 0) Sfx.at('hiss', this.pos, 1); this.fuse += dt; } }
+        else { this.fuse = Math.max(0, this.fuse - dt); if (pathing) { const y = maiChase(this, P.pos, 'chase', 0, { range: 16, maxFall: maiMaxFall(this, true) }); if (y != null) tyaw = y; } }
         if (this.fuse > 1.5) { this.dead = true; this.gone = true; explode(this.pos.x, this.pos.y + 0.8, this.pos.z, 3.2, this, { cause: 'a creeper' }); return; }
       } else {
         if (dist < 1.5 + this.hw && Math.abs(dy) < 1.6 + (this.h > 2 ? 1 : 0) && this.atkCD <= 0 && meleeSees(this, P)) { this.atkCD = 1; P.hurt(t.dmg, this.pos, 'a ' + t.name, t.kb || 1); this.armSwing = 0.3; if (t.onHit) t.onHit(this, P); }
         if (dist < 0.9) move = 0;
+        else if (pathing) { const y = maiChase(this, P.pos, 'chase', 0, { range: MAI_RANGE[this.type] || 16, maxFall: maiMaxFall(this, true) }); if (y != null) tyaw = y; }
         if (this.type === 'enderman' && dist > 12 && Math.random() < dt * 0.6) this.teleport(P.pos);
       }
       if (t.climbs && this.hitH) this.vel.y = 3.2;
       this.chasing = true;
     } else {
-      this.chasing = false; this.fuse = Math.max(0, this.fuse - dt);
-      if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9; }
+      this.chasing = false; this.fuse = Math.max(0, this.fuse - dt); this.swelling = false;
+      if (this.flee > 0) { tyaw = Math.atan2(-dx, -dz) + Math.sin(this.age * 2) * 0.5; move = 1; speed *= 1.9;
+        if (pathing) { const from = this.fleeFrom ? this.fleeFrom.pos : t.kind === 'passive' ? null : P.pos; const y = maiFlee(this, dt, from); if (y != null) tyaw = y; else if (!from) { tyaw = this.yaw; move = this.navOn ? 1 : 0; } } }
+      else if (pathing) { this.wT -= dt; if (this.wT <= 0) maiStroll(this, dt, dist); move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
+        if (this.head && dist < 6 && this.wMove === 0) { this.head.rotation.y = clamp(Math.atan2(dx, dz) - this.yaw, -1, 1) * 0.6; }
+        if (this.type === 'piglin' && playerHoldsGold() && dist < 8) { tyaw = Math.atan2(dx, dz); move = dist > 2.5 ? 1 : 0; } }
       else {
         this.wT -= dt; if (this.wT <= 0) { if (Math.random() < 0.45) { this.wMove = 0; this.wT = 2 + Math.random() * 4; } else { this.wMove = 1; this.wYaw = Math.random() * Math.PI * 2; this.wT = 1.5 + Math.random() * 3; } }
         move = this.wMove; tyaw = this.wYaw; speed *= 0.6;
@@ -518,6 +528,7 @@ class Mob {
       if (this.hitH && hs0 < speed * 0.4) this.stuckT = (this.stuckT || 0) + dt; else this.stuckT = Math.max(0, (this.stuckT || 0) - dt);
       if (this.stuckT > 0.7 && !(this.detourT > 0)) { this.detourT = 0.8 + Math.random() * 0.8; this.detour = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 0.6); this.stuckT = 0; }
     }
+    if (this.navOn) this.detourT = 0;
     if (this.detourT > 0) { this.detourT -= dt; tyaw += this.detour; if (move === 0) move = 1; }
     if (t.burns && w.dim === 'overworld' && G.daylight > 0.62 && !water && w.skyAt(Math.floor(this.pos.x), Math.floor(this.pos.y + this.h), Math.floor(this.pos.z)) >= 1) {
       this.burnT += dt; if (Math.random() < dt * 20) SpriteFX.emit('flame', this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, { size: 0.22, grav: -1, spd: 0.3, life: 0.5, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + Math.random() * this.h, this.pos.z, 1, [[1, 0.6, 0.1], [1, 0.3, 0.05]], 0.6, 0.6, -2, 0.6);
@@ -525,12 +536,15 @@ class Mob {
     }
     if (t.fireproof && (lava || this.type === 'strider') && Math.random() < dt * 2) SpriteFX.emit('lava', this.pos.x, this.pos.y + 0.3, this.pos.z, 1, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.3 }) || Particles.emit(this.pos.x, this.pos.y + 0.3, this.pos.z, 1, [[1, 0.5, 0.1]], 0.4, 0.5, -1, 0.5);
     let diff = tyaw - this.yaw; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2; this.yaw += diff * Math.min(1, dt * 7);
-    const tx = Math.sin(this.yaw) * speed * move, tz = Math.cos(this.yaw) * speed * move;
+    let tx = Math.sin(this.yaw) * speed * move, tz = Math.cos(this.yaw) * speed * move;
+    if (pathing && this.strafe && move) { const [f, r] = this.strafe; const sx = (Math.sin(this.yaw) * f + Math.cos(this.yaw) * r) * speed, sz = (Math.cos(this.yaw) * f - Math.sin(this.yaw) * r) * speed;
+      if (maiSafe(this, sx, sz, 3)) { tx = sx; tz = sz; } } // MoveControl.strafe: walk forward instead where the strafe would step off
+    if (pathing && (tx || tz) && !maiSafe(this, tx, tz, maiMaxFall(this, this.chasing))) { tx = 0; tz = 0; }
     const k = this.onGround ? Math.min(1, dt * 10) : Math.min(1, dt * 2);
     this.vel.x += (tx - this.vel.x) * k; this.vel.z += (tz - this.vel.z) * k;
     if (water || (lava && !this.lavaWalk)) { this.vel.y = Math.min(this.vel.y + (lava ? 24 : 34) * dt, lava ? 1.2 : 2.2); this.vel.x *= 0.95; this.vel.z *= 0.95; } else this.vel.y = Math.max(this.vel.y - 28 * dt, -50);
     moveEntity(this, dt);
-    if (this.hitH && (this.onGround || water) && move !== 0) this.vel.y = water ? 5 : 8.2;
+    if ((this.hitH || this.navJump) && (this.onGround || water) && move !== 0 && (tx || tz)) this.vel.y = water ? 5 : 8.2;
     if (this.pos.y < -10) { this.gone = true; return; }
     this.animate(dt);
   }
