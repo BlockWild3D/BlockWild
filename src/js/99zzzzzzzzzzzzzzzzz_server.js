@@ -1,0 +1,65 @@
+// ================= DEDICATED SERVER MODE (?server=1) =================
+// Opened by tools/server/server.js in a hidden browser on a rented machine. The page loads (or creates) one world,
+// opens it with a fixed join code and keeps it running for everyone, without drawing anything. Nobody plays as the
+// host: the host "player" is an invisible spectator that rides along with the first player who joined, so the world
+// around them (mobs, redstone, furnaces, crops) is simulated on the server instead of on someone's laptop.
+// URL options: code=ABC123 (fixed join code), world=Name, seed=text (new worlds), mode=survival|creative|adventure
+// (what joining players get), difficulty=peaceful|easy|normal|hard, cheats=1, max=10 (players), rd=6 (chunks kept loaded).
+const SRV = { on: BW_SERVER, follow: null, sleepT: 0, log: [] };
+if (BW_SERVER) {
+  const q = new URLSearchParams(location.search);
+  const say = (t) => { try { console.log('[server] ' + t); } catch (e) { } };
+  SRV.say = say;
+  // chat and join/leave lines go to the server console
+  { const _cp = chatPrint; chatPrint = function (text, color, html) { say('chat: ' + String(text).replace(/<[^>]+>/g, '')); return _cp.apply(this, arguments); }; }
+  // the server is not a player: invisible to everyone and can't be hit
+  { const _ms = myState; myState = function () { const s = _ms.apply(this, arguments); s.spec = 1; s.held = 0; s.armor = {}; s.swing = 0; return s; }; }
+  const until = (f, ms = 250) => new Promise((res) => { const t = setInterval(() => { try { if (f()) { clearInterval(t); res(); } } catch (e) { } }, ms); });
+  SRV.start = async function () {
+    if (SRV.started) return; SRV.started = true;
+    try { if (typeof PROFILE !== 'undefined') PROFILE.name = 'Server'; } catch (e) { }
+    S.renderDist = Math.max(3, Math.min(10, +q.get('rd') || 6)); S.simDist = Math.min(S.simDist || 5, S.renderDist - 1);
+    MP.maxPlayers = Math.max(2, Math.min(20, +q.get('max') || 10)) + 1;
+    say('waiting for saves'); await until(() => typeof Saves !== 'undefined' && Saves.ready, 300);
+    const name = (q.get('world') || 'Server World').slice(0, 32);
+    const meta = [...Saves.metas.values()].find((m) => m.name === name);
+    if (meta) { say('loading world "' + name + '"'); await playWorld(meta.id); }
+    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
+    await until(() => S.started && !S.loading, 300);
+    if (q.get('difficulty')) S.difficulty = q.get('difficulty');
+    if (q.has('cheats')) S.cheats = q.get('cheats') === '1';
+    SRV.host();
+    const code = (q.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    if (code.length === 6) { const _nr = newRoomCode; newRoomCode = () => code; await openToFriends(); newRoomCode = _nr; } else await openToFriends();
+    MP.joinMode = ['survival', 'creative', 'adventure', 'spectator'].includes(q.get('mode')) ? q.get('mode') : 'survival';
+    if (!MP.active) { say('FAILED to open the world (see messages above). Retrying in 20 s'); setTimeout(() => location.reload(), 20000); return; }
+    say('READY code=' + MP.code + ' world="' + S.worldName + '" mode=' + MP.joinMode);
+  };
+  // the host player: creative (so mobs ignore it) and "paused" (so it never moves on its own, picks up items or uses portals)
+  SRV.host = function () { S.mode = 'creative'; G.mode = 'creative'; S.paused = true; player.flying = true; player.vel.set(0, 0, 0); };
+  SRV.tick = function (dt) {
+    if (!S.started || S.loading || !world) return;
+    SRV.host();
+    const joined = [...MP.peers.values()].filter((p) => p.joined);
+    // ride along with the first player who joined (and is still here); if they changed dimension, follow them there
+    let av = null; for (const p of joined) { const a = MP.avatars.get(p.id); if (a && a.dim && !a.dead && a.seen && a.netBuf && a.netBuf.length && a.pos.y > -50) { av = a; break; } }
+    if (av) {
+      if (av.dim !== world.dim) { say('following ' + av.name + ' to ' + av.dim); travelTo(av.dim, { type: 'bed', pos: { x: av.pos.x, y: av.pos.y, z: av.pos.z }, x: Math.floor(av.pos.x), z: Math.floor(av.pos.z) }); return; }
+      player.pos.copy(av.pos);
+    }
+    // night is skipped once everyone in the world is in bed (the host never sleeps)
+    if (joined.length && joined.every((p) => p.sleeping) && timeTicks() >= 12541 && timeTicks() <= 23458) { SRV.sleepT += dt; if (SRV.sleepT > 2.6) { SRV.sleepT = 0; S.time = 0; S.day++; if (MP.timeChanged) MP.timeChanged(); say('night skipped, day ' + S.day); } }
+    else SRV.sleepT = 0;
+    // dropped items normally expire inside the player update, which the server skips
+    if (G.items.length) G.items = G.items.filter((i) => { if (i.gone) return false; if (i.age >= 300) { i.remove(); return false; } return true; });
+  };
+  { const _mt = mpTick; mpTick = function (dt) { try { SRV.tick(dt); } catch (e) { console.error(e); } return _mt.apply(this, arguments); }; }
+  // XP orbs would fly into the invisible host
+  { const _uo = updateOrbs; updateOrbs = function () { const d = player.dead; player.dead = true; try { return _uo.apply(this, arguments); } finally { player.dead = d; } }; }
+  // typed into the server console: "/command" runs as the server (cheats allowed), anything else is said in chat
+  SRV.command = function (line) { line = String(line || '').trim(); if (!line) return; if (line.startsWith('/')) runCommand(line.slice(1), { player, local: true }); else submitChat(line); };
+  SRV.status = () => ({ code: MP.code, world: S.worldName, day: S.day, dim: world && world.dim, players: [...MP.peers.values()].filter((p) => p.joined).map((p) => p.name), mobs: G.mobs.length, chunks: world ? world.chunks.size : 0 });
+  setInterval(() => { try { if (S.started && !S.loading) saveGame(false); } catch (e) { } }, 120000);
+  addEventListener('load', () => setTimeout(SRV.start, 500));
+  if (document.readyState === 'complete') setTimeout(SRV.start, 500);
+}
