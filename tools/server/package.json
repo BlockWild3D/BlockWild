@@ -1,0 +1,9 @@
+{
+  "name": "blockwild-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BlockWild dedicated server (runs the game headless)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "playwright": "^1.48.0" }
+}

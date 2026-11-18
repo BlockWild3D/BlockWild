@@ -5,6 +5,8 @@
 //   TURN relays for strict networks, and (with googleClientId) accounts. Without it the game falls back to public brokers.
 // mqttBrokers: public MQTT-over-WebSocket brokers, only used for join codes when serverUrl is empty.
 // iceServers: STUN servers for peer-to-peer connections. Add a TURN server here if friends behind strict networks can't connect.
+// ?server=1 runs this page as a dedicated server (tools/server/, see SERVER_SETUP.md): no drawing, world runs for everyone
+const BW_SERVER = typeof location !== 'undefined' && /[?&]server=1(&|$)/.test(location.search);
 const CONFIG = {
   // Google only allows sign-in from these sites (the client ID's authorized JavaScript origins).
   signInOrigins: ['https://blockwild3d.github.io'],
