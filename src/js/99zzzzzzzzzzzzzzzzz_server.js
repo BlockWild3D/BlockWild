@@ -18,7 +18,7 @@ if (BW_SERVER) {
   SRV.start = async function () {
     if (SRV.started) return; SRV.started = true;
     try { if (typeof PROFILE !== 'undefined') PROFILE.name = 'Server'; } catch (e) { }
-    S.renderDist = Math.max(3, Math.min(10, +q.get('rd') || 6)); S.simDist = Math.min(S.simDist || 5, S.renderDist - 1);
+    S.renderDist = Math.max(3, Math.min(10, +q.get('rd') || 4)); S.simDist = Math.min(S.simDist || 5, S.renderDist - 1);
     MP.maxPlayers = Math.max(2, Math.min(20, +q.get('max') || 10)) + 1;
     say('waiting for saves'); await until(() => typeof Saves !== 'undefined' && Saves.ready, 300);
     const name = (q.get('world') || 'Server World').slice(0, 32);
@@ -59,7 +59,15 @@ if (BW_SERVER) {
   // typed into the server console: "/command" runs as the server (cheats allowed), anything else is said in chat
   SRV.command = function (line) { line = String(line || '').trim(); if (!line) return; if (line.startsWith('/')) runCommand(line.slice(1), { player, local: true }); else submitChat(line); };
   SRV.status = () => ({ code: MP.code, world: S.worldName, day: S.day, dim: world && world.dim, players: [...MP.peers.values()].filter((p) => p.joined).map((p) => p.name), mobs: G.mobs.length, chunks: world ? world.chunks.size : 0 });
-  setInterval(() => { try { if (S.started && !S.loading) saveGame(false); } catch (e) { } }, 120000);
+  // Nothing is drawn, so chunks never need their 3D shapes built (the most expensive part of loading terrain), and the
+  // cave culling that hides them has nothing to do. A chunk just counts as ready once it has its blocks.
+  World.prototype.buildMesh = function (c) { c.dirty = false; };
+  if (typeof updateCaveCulling === 'function') updateCaveCulling = function () { };
+  // ask the matchmaking server for join requests every 2.5 s instead of 1.2 s: a server is open all day, and the faster
+  // rate alone would use most of the free daily request allowance of the Cloudflare Worker
+  { const _li = WorkerSignal.prototype.listen; WorkerSignal.prototype.listen = function (fn, ms) { return _li.call(this, fn, Math.max(ms || 0, 2500)); }; }
+  // report slow saves (they run on the same thread as everything else)
+  { const _sg = saveGame; saveGame = function () { const t0 = performance.now(); try { return _sg.apply(this, arguments); } finally { const d = performance.now() - t0; if (d > 500) say('save took ' + Math.round(d) + ' ms'); } }; }
   // keep the join code listed: renew it every 30 s (the matchmaking server forgets a code 3 minutes after the last
   // renewal) and log a heartbeat, so the console shows if the world stops answering
   SRV.fr = { n: 0, ms: 0, max: 0 };
