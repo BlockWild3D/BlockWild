@@ -24,7 +24,7 @@ function removeAvatar(id) { const av = MP.avatars.get(id); if (!av) return; if (
 MP.remotePlayers = () => [...MP.avatars.values()].filter(a => a.dim === (world && world.dim)).map(a => ({ kind: 'player', name: a.name, pos: a.pos, ref: a, local: false, id: a.id }));
 function updateAvatars(dt) {
   for (const av of MP.avatars.values()) {
-    const prev = av.pos.clone(); av.pos.lerp(av.tgt, Math.min(1, dt * (MP.lerpK || 12))); const sp = prev.distanceTo(av.pos) / Math.max(dt, 1e-3);
+    const prev = av.pos.clone(); if (!netInterp(av)) av.pos.lerp(av.tgt, Math.min(1, dt * (MP.lerpK || 12))); const sp = Math.hypot(av.pos.x - prev.x, av.pos.z - prev.z) / Math.max(dt, 1e-3);
     av.swing = Math.max(0, av.swing - dt * 4); av.hurtT -= dt;
     if (!av.model) continue; const vis = av.dim === world.dim && !(av.spec && S.mode !== 'spectator'); av.model.root.visible = vis; if (av.label) av.label.visible = vis; if (!vis) continue;
     av.model.root.position.copy(av.pos); av.model.root.rotation.y = av.yaw + Math.PI; av.model.setHeld(av.held ? IT[av.held] : 0); av.model.setArmor(av.armor || {});
@@ -40,7 +40,7 @@ function updateAvatars(dt) {
 function mpSendAll(m, fast, except) { for (const p of MP.peers.values()) if (p.id !== except && p.joined) p.link.send(m, fast); }
 function mpToHost(m, fast) { const p = MP.peers.get('host'); if (p) p.link.send(m, fast); }
 function mpSend(m, fast) { if (MP.role === 'host') mpSendAll(m, fast); else mpToHost(m, fast); }
-function myState() { const P = player; const h = P.held(); return { glide: P.gliding ? 1 : 0, ely: P.inv[38] && P.inv[38].id === IT.elytra ? 1 : 0, t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
+function myState() { const P = player; const h = P.held(); return { ts: Math.round(performance.now()), glide: P.gliding ? 1 : 0, ely: P.inv[38] && P.inv[38].id === IT.elytra ? 1 : 0, t: 'p', id: MP.myId, x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), dim: world.dim, held: h ? ITEMS[h.id].key : 0, sneak: !!player.sneaking, swing: S.swing > 0.6 ? 1 : 0, swim: !!P.swimming, sleep: !!S.sleeping, armor: armorMats(P.inv), dead: !!P.dead, ride: P.riding ? (P.riding.hg ? 3 : 1 + (P.riding.rowing ? 1 : 0)) : 0 }; }
 function mySaveState() { const P = player; return { t: 'state', name: myName(), pos: P.pos.toArray(), yaw: P.yaw, pitch: P.pitch, health: P.health, food: P.food, sat: P.sat, dim: world.dim, inv: P.inv.map(slotOut), xp: [XP.level, XP.points], bed: S.bed || null, sel: P.sel }; }
 MP.sendState = () => { if (MP.role === 'client') mpToHost(mySaveState()); };
 // block changes are batched and sent every 50 ms (by key, so different mod lists can't scramble ids)
@@ -67,13 +67,45 @@ function applyBlocks(list, from) {
 const _closeInv = closeInv;
 closeInv = function (noLock) { const k = S.chestKey, arr = chestArr; const r = _closeInv(noLock); if (MP.active && k && arr) mpSend({ t: 'chest', dim: world.dim, k, inv: arr.map(slotOut) }); return r; };
 
+// ---------- smooth movement for other players and mobs (snapshot interpolation) ----------
+// Updates arrive 15 times a second for players and 10 for mobs, unevenly. Instead of chasing the newest one (which
+// jumps whenever a few arrive late and then all at once), each update is kept with the time it was sent, and players
+// and mobs are drawn a short moment in the past, gliding between the two updates around that moment. The delay grows
+// with how uneven the connection is (about 0.1 s on a good one, at most 0.35 s); if updates stop, movement carries on
+// in the same direction for up to 0.15 s and then waits.
+function netSnapReset(o) { o.netBuf = []; o.netOff = null; }
+function netSnap(o, ts, x, y, z, yaw, pitch) {
+  const now = performance.now(); if (!o.netBuf) netSnapReset(o);
+  // the sender's clock in ours: the smallest (arrival - sent) seen lately is the fastest trip
+  let t = now; if (ts != null) { const d = now - ts; if (o.netOff == null || d < o.netOff) o.netOff = d; else o.netOff += Math.min(d - o.netOff, 0.002 * 66); t = ts + o.netOff; }
+  const B = o.netBuf; const last = B[B.length - 1];
+  if (last && t <= last.t) return;
+  if (last) { const gap = t - last.t; o.netGap = o.netGap == null ? gap : o.netGap * 0.9 + gap * 0.1; o.netJit = (o.netJit || 0) * 0.9 + Math.abs(gap - o.netGap) * 0.1;
+    if (Math.hypot(x - last.x, y - last.y, z - last.z) > 8) B.length = 0; } // a teleport: don't glide across the map
+  B.push({ t, x, y, z, yaw, pitch }); if (B.length > 30) B.shift();
+}
+function netInterp(o) {
+  const B = o.netBuf; if (!B || !B.length) return false;
+  const delay = Math.min(350, Math.max(80, (o.netGap || 66) * 1.5 + (o.netJit || 0) * 3));
+  const rt = performance.now() - delay; let a = B[0], b = null;
+  for (let i = 0; i < B.length; i++) { if (B[i].t <= rt) a = B[i]; else { b = B[i]; break; } }
+  const ang = (p, q, f) => { let d = q - p; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return p + d * f; };
+  if (b && b !== a) { const f = Math.max(0, Math.min(1, (rt - a.t) / (b.t - a.t)));
+    o.pos.set(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, a.z + (b.z - a.z) * f); if (a.yaw != null) o.yaw = ang(a.yaw, b.yaw, f); if (a.pitch != null) o.pitch = a.pitch + (b.pitch - a.pitch) * f; }
+  else { const i = B.indexOf(a), p = B[i - 1]; const ex = Math.min(150, rt - a.t);
+    if (p && ex > 0 && a.t > p.t) { const k = ex / (a.t - p.t); o.pos.set(a.x + (a.x - p.x) * k, a.y + (a.y - p.y) * k, a.z + (a.z - p.z) * k); } else o.pos.set(a.x, a.y, a.z);
+    if (a.yaw != null) o.yaw = a.yaw; if (a.pitch != null) o.pitch = a.pitch; }
+  while (B.length > 2 && B[1].t < rt - 1000) B.shift();
+  return true;
+}
+
 // ---------- message handling ----------
 function onPeerMsg(peer, m) {
   switch (m.t) {
     case 'hello': return hostWelcome(peer, m);
     case 'welcome': return clientWelcome(m);
     case 'p': { const id = MP.role === 'host' ? peer.id : m.id; if (id === MP.myId) return; let av = MP.avatars.get(id); if (!av) return;
-      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) av.pos.copy(av.tgt); av.yaw = m.yaw; av.pitch = m.pitch; av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.glide = m.glide; av.elytra = m.ely; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
+      av.tgt.set(m.x, m.y, m.z); if (av.pos.y < -50 || av.dim !== m.dim) { av.pos.copy(av.tgt); netSnapReset(av); } netSnap(av, m.ts, m.x, m.y, m.z, m.yaw, m.pitch); av.dim = m.dim; av.held = m.held; av.sneak = m.sneak; av.swim = m.swim; av.glide = m.glide; av.elytra = m.ely; av.sleeping = m.sleep; av.armor = m.armor || {}; av.dead = m.dead; av.ride = m.ride || 0; av.spec = !!m.spec; if (m.swing) av.swing = 1; av.seen = performance.now();
       if (MP.role === 'host') { m.id = peer.id; mpSendAll(m, true, peer.id); }
       if (MP.role === 'client' && id === 'host') { MP.hostPos = av.tgt; MP.hostDim = m.dim; }
       return; }
@@ -207,7 +239,7 @@ function hostTick(dt) {
     for (const peer of MP.peers.values()) { if (!peer.joined) continue; const av = MP.avatars.get(peer.id); if (!av || av.dim !== world.dim) continue;
       const list = []; for (const m of G.mobs) { if (m.gone || m.isBoss) continue; if (!m.nid) m.nid = ++MP.mobSeq; const d = m.pos.distanceToSquared(av.pos); if (d > 72 * 72) continue;
         list.push([m.nid, m.type, +m.pos.x.toFixed(2), +m.pos.y.toFixed(2), +m.pos.z.toFixed(2), +m.yaw.toFixed(2), (m.dead ? 1 : 0) | (m.hurtT > 0.2 ? 2 : 0) | (m.angry > 0 ? 4 : 0) | (m.burnT > 0 ? 8 : 0), m.size || 0, m.fuse || 0, m.netx ? m.netx() : 0]); }
-      peer.link.send({ t: 'mobs', l: list }, true); } }
+      peer.link.send({ t: 'mobs', ts: Math.round(performance.now()), l: list }, true); } }
   if (MP.timeT >= 3) { MP.timeT = 0; mpSendAll({ t: 'time', time: S.time, day: S.day }); }
   // mob arrows and fireballs can hit remote players too
   for (const a of G.projectiles) { if (a.done || a.owner === 'player') continue; for (const av of MP.avatars.values()) { if (av.dim !== world.dim) continue; if (Math.abs(a.pos.x - av.pos.x) < 0.45 && Math.abs(a.pos.z - av.pos.z) < 0.45 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + 1.9) { const peer = MP.peers.get(av.id); if (peer) peer.link.send({ t: 'hurt', dmg: a.dmg || 3, src: [a.pos.x, a.pos.y, a.pos.z], cause: a.kind === 'arrow' ? 'an arrow' : 'a fireball', kb: 0.6 }); a.done = true; G.scene.remove(a.mesh); } } }
@@ -225,15 +257,15 @@ function clientMobs(m) {
     seen.add(nid); let mob = remoteMobs.get(nid);
     if (!mob) { if (!MOBS[type]) continue; mob = spawnMob(type, x, y, z, Object.assign(size ? { size } : {}, { netx: ex || 0 })); mob.remote = true; mob.nid = nid; mob.tgt = new V3(x, y, z); remoteMobs.set(nid, mob); }
     if (mob.applyNetx) mob.applyNetx(ex || 0);
-    mob.tgt.set(x, y, z); mob.tgtYaw = yaw; mob.angry = fl & 4 ? 1 : 0; if (fl & 2 && mob.hurtT <= 0) mob.hurtT = 0.3; mob.burnT = fl & 8 ? 0.5 : 0; mob.fuse = fuse; mob.lastSeen = performance.now();
+    mob.tgt.set(x, y, z); mob.tgtYaw = yaw; netSnap(mob, m.ts, x, y, z, yaw); mob.angry = fl & 4 ? 1 : 0; if (fl & 2 && mob.hurtT <= 0) mob.hurtT = 0.3; mob.burnT = fl & 8 ? 0.5 : 0; mob.fuse = fuse; mob.lastSeen = performance.now();
     if (fl & 1 && !mob.dead) { mob.dead = true; mob.deadT = 0; }
   }
   for (const [nid, mob] of remoteMobs) if (!seen.has(nid) && performance.now() - (mob.lastSeen || 0) > 1500) { if (!mob.dead) mob.gone = true; remoteMobs.delete(nid); }
 }
 function remoteMobUpdate(m, dt) {
   if (m.dead) { m.update(dt); return; }
-  const prev = m.pos.clone(); m.pos.lerp(m.tgt, Math.min(1, dt * 10)); m.vel.copy(m.pos).sub(prev).divideScalar(Math.max(dt, 1e-3));
-  let dy = (m.tgtYaw || 0) - m.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; m.yaw += dy * Math.min(1, dt * 10);
+  const prev = m.pos.clone(); const buf = netInterp(m); if (!buf) m.pos.lerp(m.tgt, Math.min(1, dt * 10)); m.vel.copy(m.pos).sub(prev).divideScalar(Math.max(dt, 1e-3));
+  if (!buf) { let dy = (m.tgtYaw || 0) - m.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; m.yaw += dy * Math.min(1, dt * 10); }
   m.age += dt; m.hurtT = Math.max(0, m.hurtT - dt); m.lightT = (m.lightT || 0) - dt; if (m.lightT <= 0) { m.lightT = 0.3; m.light = Math.max(G.minLight || 0, world.lightAt(m.pos.x, m.pos.y + 1, m.pos.z, G.daylight)); }
   if (m.animate) m.animate(dt); m.root.position.copy(m.pos); m.root.rotation.y = m.yaw; m.colorize();
 }
