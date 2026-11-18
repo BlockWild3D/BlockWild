@@ -195,8 +195,15 @@ function jmLookTick(m, dt) { // LookAtPlayerGoal + RandomLookAroundGoal, as head
   if (m.chasing && P) { L.kind = 'player'; L.t = Math.max(L.t, 0.1); }
   if (L.kind === 'player' && P) { const e = P.eye(); const dx = e.x - m.pos.x, dz = e.z - m.pos.z, dy = e.y - (m.pos.y + m.h * 0.85); ty = Math.atan2(dx, dz); tp = -Math.atan2(dy, Math.hypot(dx, dz)); }
   else if (L.kind === 'random') { ty = L.ry; tp = 0; } else { ty = m.yaw; tp = 0; }
-  let rel = ty - m.yaw; while (rel > Math.PI) rel -= Math.PI * 2; while (rel < -Math.PI) rel += Math.PI * 2; rel = jmth.clamp(rel, -75 * JM_D2R, 75 * JM_D2R);
-  const k = 1 - Math.pow(0.5, dt * 20); L.yaw += (rel - L.yaw) * k; L.pitch += (jmth.clamp(tp, -40 * JM_D2R, 40 * JM_D2R) - L.pitch) * k;
+  // Minecraft's LookControl: the head has its own direction in the world and turns toward what it looks at by at most
+  // 10 degrees a tick (back toward the body the same way when it looks at nothing), then is kept within 75 degrees of
+  // the body. The head used to be eased relative to the body, so every small turn of the body while walking or being
+  // pushed shook the head with it.
+  const wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+  if (L.wy == null) L.wy = m.yaw + L.yaw;
+  const step = 10 * JM_D2R * dt * 20; L.wy += jmth.clamp(wrap(ty - L.wy), -step, step);
+  const rel = jmth.clamp(wrap(L.wy - m.yaw), -75 * JM_D2R, 75 * JM_D2R); L.wy = m.yaw + rel; L.yaw = rel;
+  const ps = 40 * JM_D2R * dt * 20; L.pitch += jmth.clamp(jmth.clamp(tp, -40 * JM_D2R, 40 * JM_D2R) - L.pitch, -ps, ps);
 }
 function jmState(m, dt) {
   const S = m.jm.S, t = m.t;
