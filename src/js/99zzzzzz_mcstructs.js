@@ -159,7 +159,7 @@ const MCJ = {
       const js = MCJ.order(MCJ.jigs(P.t.loc, P.rot, P.x, P.y, P.z).map(j => Object.assign(j, { weight: 1 })), r).sort((a, b) => b.sp - a.sp);
       for (const J of js) {
         const pool = pools[MCJ.alias(J.pool, al)]; if (!pool) continue; const D = MCJ_DIRS[J.front]; const ax = J.x + D[0], ay = J.y + D[1], az = J.z + D[2];
-        const intoParent = MCJ.inBox(P.box, ax, ay, az); const cont = intoParent ? { b: P.box, list: P.inner } : { b: bounds, list: global };
+        const intoParent = MCJ.inBox(P.box, ax, ay, az); const cont = intoParent ? { b: P.box, list: P.inner } : (P.cont || { b: bounds, list: global }); // like Minecraft: outside its own box a piece's children use the space the piece itself was placed in (a trial spawner below its connector, inside the room)
         const fb = pools[pool.fallback]; let cands = P.depth < size ? MCJ.order(pool.elements, r) : []; if (fb) cands = cands.concat(MCJ.order(fb.elements, r));
         let placed = false; const k = J.y - P.box.y0;
         for (const ce of cands) {
@@ -173,7 +173,7 @@ const MCJ = {
               let k1; if (rigidP && rigidT) k1 = P.box.y0 + j1; else k1 = MCJ.H(J.x, J.z, g) - i1;
               const oy = k1; const cb = MCST.box(t.loc, ox, oy, oz, rr, 0, 0);
               if (!MCJ.inside(cb, cont.b) || cont.list.some(b => MCJ.hit(b, cb))) continue;
-              const C = { t, rot: rr, x: ox, y: oy, z: oz, box: cb, depth: P.depth + 1, inner: [] }; cont.list.push(cb); if (S.use_expansion_hack) MCJ.expand(C, al);
+              const C = { t, rot: rr, x: ox, y: oy, z: oz, box: cb, depth: P.depth + 1, inner: [], cont }; cont.list.push(cb); if (S.use_expansion_hack) MCJ.expand(C, al);
               pieces.push(C); if (C.depth <= size) { let i = queue.length; while (i > 0 && (queue[i - 1].pp || 0) < (T.pp || 0)) i--; C.pp = J.pp; queue.splice(i, 0, C); } placed = true; break;
             }
             if (placed) break;

@@ -73,7 +73,7 @@ function mcaRig(mob, baby) {
   // parents before children
   const order = [], seen = new Set(); const visit = (i) => { if (seen.has(i)) return; seen.add(i); if (bones[i].parent >= 0) visit(bones[i].parent); order.push(i); }; bones.forEach((_, i) => visit(i));
   // resting constants: shared by combined_idle and combined_walk (or whichever exists)
-  const ci = mcaClip(mob, 'combined_idle'), cw = mcaClip(mob, 'combined_walk');
+  const OV = MCA_CLIPOVR[mob] || {}; const ci = mcaClip(mob, 'idle' in OV ? OV.idle : 'combined_idle'), cw = mcaClip(mob, 'walk' in OV ? OV.walk : 'combined_walk');
   const a = mcaConst(ci), bw = mcaConst(cw); const rest = {};
   // with both clips: a channel is resting when it is constant and equal in both; with one: when it's constant there
   const src = ci ? a : bw;
@@ -173,7 +173,7 @@ function mcaMatch(rig, parts, W, mode) {
 }
 // ---------- per mob ----------
 const MCA_FAR = 64;
-const MCA_MODE = {}; // per-skeleton matching mode when the automatic pick is wrong
+const MCA_MODE = { donkey: 'abs', mule: 'abs' }; // per-skeleton matching mode when the automatic pick is wrong
 // bones whose clips can't be carried over (they sit somewhere else in the game's model, or the game moves those
 // parts itself): blaze rods orbit by position from one shared spot, guardian spikes stick out from another layout,
 // the vex's wings are modelled lying another way in the game's model (the game keeps flapping them)
@@ -224,7 +224,12 @@ function mcaInit(m) {
   // nearest matched part
   const matched = (j) => { for (let k = j; k >= 0; k = parts[k].parentIdx) if (bone[k] >= 0) return true; return false; };
   const follow = parts.map(() => -1);
-  parts.forEach((p, j) => { if (matched(j) || !p.ctr) return; let best = -1, bd = 1e9; parts.forEach((q, k) => { if (bone[k] < 0 || !q.ctr) return; const d = q.ctr.distanceTo(p.ctr); if (d < bd) { bd = d; best = k; } }); if (best >= 0 && bd < 0.75) follow[j] = best; });
+  // ...but only when the skeleton agrees: the bone sitting where that part sits must be the matched bone or hang
+  // off it (a pig's still body must not follow its nearest leg)
+  const BIf = mcaBoneInfo(rig, useGeo ? rig.geoW : rig.restW).map(b => b.ctr && b.ctr.clone().applyMatrix4(A.fitM));
+  const partOfBone = new Map(); bone.forEach((i, k) => { if (i >= 0) partOfBone.set(i, k); });
+  parts.forEach((p, j) => { if (matched(j) || !p.ctr) return; let bi = -1, bd = 1e9; BIf.forEach((c, i) => { if (!c) return; const d = c.distanceTo(p.ctr); if (d < bd) { bd = d; bi = i; } });
+    if (bi < 0 || bd > 0.75) return; for (let i = bi; i >= 0; i = rig.bones[i].parent) if (partOfBone.has(i)) { follow[j] = partOfBone.get(i); break; } });
   const order = []; const seen = new Set(); const visit = (j) => { if (seen.has(j)) return; seen.add(j); if (parts[j].parentIdx >= 0) visit(parts[j].parentIdx); if (follow[j] >= 0) visit(follow[j]); order.push(j); }; parts.forEach((_, j) => visit(j));
   // order parts parents first
 
@@ -255,6 +260,7 @@ const mcaSolid = (x, y, z) => { try { return !!SOLID[G.world.get(Math.floor(x), 
 const mcaJuke = (m, r) => { if (typeof JUKE === 'undefined') return false; for (const [, J] of JUKE) { const p = J.pos; if (p && Math.abs(p[0] + 0.5 - m.pos.x) < r && Math.abs(p[1] - m.pos.y) < r && Math.abs(p[2] + 0.5 - m.pos.z) < r) return true; } return false; };
 const MCA_ILLAGER = new Set(['pillager', 'vindicator', 'evoker', 'illusioner', 'witch', 'ravager']);
 const MCA_HORSE = new Set(['horse', 'donkey', 'mule', 'skeleton_horse', 'zombie_horse']);
+const MCA_CLIPOVR = { polar_bear: { walk: 'walk', idle: null }, armadillo: { walk: 'walk', idle: null }, bee: { walk: 'flying', idle: 'flying' }, sniffer: { walk: 'walk' }, dolphin: { idle: null }, magma_cube: { walk: null, idle: null } };
 const MCA_BABYCLIP = ['baby_transform', 'humanoid_big_head', 'wolf_baby_scaling', 'hoglin_baby_scaling', 'scale'];
 // timed behaviours the game doesn't have (all visual: the mob stays put while it does them)
 function mcaBehave(m, M, dt) {
@@ -311,6 +317,9 @@ function mcaState(m, M) {
   const P = (...n) => mcaPick(mob, b ? n.flatMap(x => ['baby_' + x, x.replace(/^(\w+)$/, '$1_baby'), x]) : n);
   let walk = (b && P('walk', 'moving', 'move', 'swim', 'walk_floor')) || mcaPick(mob, ['combined_walk', 'walk', 'move', 'moving']);
   let idle = (b && mcaPick(mob, ['baby_idle', 'baby_idle_floor'])) || mcaPick(mob, ['combined_idle', 'idle']);
+  // combined clips that don't loop (the owner's armadillo / bee / sniffer ones slide into another pose and hold
+  // it) and a few that turn the whole body are swapped for their parts
+  const O = MCA_CLIPOVR[mob]; if (O) { if ('walk' in O) walk = O.walk; if ('idle' in O) idle = O.idle; }
   const st = (n, mode) => n ? { clip: n, mode: mode || 'rep' } : null; const over = []; const ov = (n, opt) => { if (n && mcaHas(mob, n)) over.push(Object.assign({ clip: n }, opt || {})); };
   const water = mcaInWater(m); let s = null;
   // whole-body states
@@ -360,6 +369,9 @@ function mcaState(m, M) {
   if (mob === 'iron_golem' && m.mcaFlower) ov('flower');
   if ((mob === 'nautilus' || mob === 'zombie_nautilus') && sp < 0.5) ov('breathe');
   if (mob === 'ravager' && !m.chasing && sp < 0.2) ov('idle_mouth');
+  if (mob === 'magma_cube' && !m.onGround) ov('move', { w: Math.min(1, Math.abs(m.vel.y) / 5) });
+  if (mob === 'bee') ov('bee_fly_bobbing');
+  if (mob === 'polar_bear' && m.chasing && G.player && G.player.pos.distanceTo(m.pos) < 3.5) ov('move'); // rears up to attack
   if (mob === 'shulker' && (m.open || 0) > 0) ov('move', { w: m.open });
   if (mob === 'creeper' && (m.fuse || 0) > 0) ov('creeper_swelling', { at: Math.min(1, m.fuse / 1.5) });
   if (mob === 'sulfur_cube' && (m.fuse || 0) > 0) { B.fuse0 = Math.max(B.fuse0 || 0, m.fuse); ov('sulfur_cube_swelling', { at: 1 - m.fuse / B.fuse0 }); } else if (mob === 'sulfur_cube') B.fuse0 = 0;
@@ -389,7 +401,7 @@ function mcaTick(m, dt) {
   const S = mcaState(m, M); const sp = Math.hypot(m.vel.x, m.vel.z) + (m.t && m.t.fly ? Math.abs(m.vel.y) * 0.5 : 0);
   const P = {}; // pose: start from rest constants
   for (const b in rig.rest) { P[b] = {}; for (const c in rig.rest[b]) P[b][c] = rig.rest[b][c].slice(); }
-  M.amt += (Math.min(1, sp * 0.4) - M.amt) * Math.min(1, dt * 6);
+  M.amt += (Math.min(1, sp * 0.2) - M.amt) * Math.min(1, dt * 6);
   const flying = m.t && (m.t.fly || m.t.swim); const walkC = mcaClip(M.mob, S.walk), idleC = mcaClip(M.mob, S.idle);
   // a short sequence (rolling up, sitting down, a chest interaction...) holds the body until it ends
   if (M.seq) { M.seq.t += dt; if (M.seq.t >= M.seq.len) { const nx = M.seq.then; M.seq = null; if (nx) mcaSeq(M, nx, { freeze: true }); } }
