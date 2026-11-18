@@ -140,12 +140,23 @@ JM.villager = JM.wandering_trader = { anim(P, S) { jmHeadLook(P, S);
 
 const JM_OFS = { phantom: [0, -1.3125, -0.1875], squid: [0, -0.7, 0], glow_squid: [0, -0.7, 0] };
 const JM_HIDE = { vindicator: ['hat'], evoker: ['hat'], pillager: ['hat'] };
+// does the game's texture fit this Java layer? compare the texture rectangles the two models' faces use
+function jmUVMatch(layerKey, M) {
+  const key = (a, b, c, d) => [Math.round(Math.min(a, c) * 2), Math.round(Math.min(b, d) * 2), Math.round(Math.max(a, c) * 2), Math.round(Math.max(b, d) * 2)].join(',');
+  const have = new Set(); const els = [].concat(M.elements || [], ...(M.layers || []).map(L => L.elements || []));
+  for (const e of els) for (const f in (e.faces || {})) { const uv = e.faces[f] && e.faces[f].uv; if (uv) have.add(key(uv[0], uv[1], uv[2], uv[3])); }
+  if (!have.size) return true;
+  let n = 0, hit = 0; (function walk(d) { for (const cube of d[4]) for (const pg of cube) { let u0 = 1e9, v0 = 1e9, u1 = -1e9, v1 = -1e9; for (let i = 0; i < 20; i += 5) { u0 = Math.min(u0, pg[i + 3]); u1 = Math.max(u1, pg[i + 3]); v0 = Math.min(v0, pg[i + 4]); v1 = Math.max(v1, pg[i + 4]); }
+      if (u1 - u0 < 0.01 || v1 - v0 < 0.01) continue; n++; if (have.has(key(u0, v0, u1, v1))) hit++; } for (const k in d[5]) walk(d[5][k]); })(JAVA_LAYERS[layerKey][2]);
+  jmUVMatch.last = n ? hit / n : 1; return n === 0 || hit / n >= 0.4;
+}
 // ---------- attaching a Java model to a mob ----------
 function jmAttach(m, key) {
   if (!m || !m.t || !m.bbHolder || isClientMPModelOnly(m)) return;
   const base = key.split(':')[0]; const spec = JM[base]; if (!spec) return;
   const layer = jmLayerFor(key); const M = BB_MODELS[key]; if (!layer || !M) return;
   const L = JAVA_LAYERS[layer + '#main']; if (!L || L[0] !== M.w || L[1] !== M.h) return; // the texture has to be laid out for this model
+  if (!jmUVMatch(layer + '#main', M)) return; // same size but laid out for another model (the game's babies are the older style)
   const models = []; const main = jmBuild(layer + '#main', m.bbBase); if (!main) return; models.push(main);
   for (const [nm, lm] of Object.entries(m.bbLayer || {})) { const map = JM_OVERLAY[nm]; const want = map ? map.split('|') : [];
     const plain = key.split(':')[0] + (/:baby$/.test(key) ? '_baby' : ''); let mm = null;
@@ -171,7 +182,7 @@ function jmAttach(m, key) {
   jmPose(m);
 }
 function isClientMPModelOnly(m) { return false; }
-{ const _b = buildBBModel; buildBBModel = function (m, root, key, opt) { const r = _b.apply(this, arguments); try { jmAttach(m, key); } catch (e) { console.warn('java model', key, e); } return r; }; }
+{ const _b = buildBBModel; buildBBModel = function (m, root, key, opt) { if (m) { m.jm = null; m.bbOldGeo = null; } const r = _b.apply(this, arguments); try { jmAttach(m, key); } catch (e) { console.warn('java model', key, e); } return r; }; }
 
 // ---------- the render state ----------
 function jmLookTick(m, dt) { // LookAtPlayerGoal + RandomLookAroundGoal, as head yaw/pitch relative to the body
@@ -315,3 +326,103 @@ let JM_IDS = 1;
     if (ty === 'squid' || ty === 'glow_squid') { // Squid.aiStep
       S.tm = (S.tm || 0) + (S.tsp || 0.1) * ticks; if (S.tm > Math.PI * 2) { S.tm -= Math.PI * 2; if (Math.random() < 0.1) S.tsp = 1 / (Math.random() + 1) * 0.2; }
       S.tentacle = inWater(m, 0.3) ? (S.tm < Math.PI ? jmth.sin((S.tm / Math.PI) ** 2 * Math.PI) * Math.PI * 0.25 : 0) : 0; } }; }
+
+// ---------- keyframe animations (KeyframeAnimation / AnimationChannel) ----------
+// An animation adds keyframed offsets to parts: positions in pixels, rotations in radians, scales as (scale - 1).
+// Between keyframes it eases linearly or with Catmull-Rom; looping ones wrap; walk ones run on the walk animation
+// (applyWalk: time = walk position * 50 ms * f3, weight = min(walk speed * f4, 1)).
+function jmKF(P, name, sec, w) {
+  const A = JAVA_ANIMS[name]; if (!A || w <= 0) return; const [len, loop, bones] = A; const t = loop ? sec % len : sec;
+  for (const bone in bones) { const p = P[bone]; if (!p) continue;
+    for (const [tg, kfs] of bones[bone]) {
+      let n2 = 0; while (n2 < kfs.length && !(t <= kfs[n2][0])) n2++; n2 = Math.max(0, n2 - 1); const n3 = Math.min(kfs.length - 1, n2 + 1);
+      const a = kfs[n2], b = kfs[n3]; const f = n3 !== n2 ? jmth.clamp((t - a[0]) / (b[0] - a[0]), 0, 1) : 0; let v;
+      if (b[3] === 'c') { const p0 = kfs[Math.max(0, n2 - 1)][2], p1 = a[2], p2 = b[2], p3 = kfs[Math.min(kfs.length - 1, n3 + 1)][2]; v = [0, 1, 2].map(i => jmth.catmullrom(f, p0[i], p1[i], p2[i], p3[i]) * w); }
+      else v = [0, 1, 2].map(i => (a[2][i] + (b[1][i] - a[2][i]) * f) * w);
+      if (tg === 'p') { p.x += v[0]; p.y += v[1]; p.z += v[2]; } else if (tg === 'r') { p.xRot += v[0]; p.yRot += v[1]; p.zRot += v[2]; } else if (tg === 's') { p.xScale += v[0]; p.yScale += v[1]; p.zScale += v[2]; }
+    } }
+}
+const jmKFWalk = (P, name, S, f3, f4) => jmKF(P, name, S.wp * 50 * f3 / 1000, Math.min(S.ws * f4, 1));
+// AnimationState: started at a tick, or stopped
+const jmStart = (S, k) => { S.as = S.as || {}; S.as[k] = S.age; };
+const jmStartIf = (S, k) => { S.as = S.as || {}; if (S.as[k] == null) S.as[k] = S.age; };
+const jmStop = (S, k) => { if (S.as) S.as[k] = null; };
+const jmWhen = (S, k, on) => on ? jmStartIf(S, k) : jmStop(S, k);
+const jmApply = (P, S, k, name, speed = 1) => { const st = S.as && S.as[k]; if (st != null) jmKF(P, name, (S.age - st) / 20 * speed, 1); };
+
+JM.warden = { anim(P, S) { P.head.xRot = S.xRot * JM_D2R; P.head.yRot = S.yRot * JM_D2R;
+  const f3 = Math.min(0.5, 3 * S.ws), f4 = S.wp * 0.8662, f5 = jmth.cos(f4), f6 = jmth.sin(f4), f7 = Math.min(0.35, f3);
+  P.head.zRot += 0.3 * f6 * f3; P.head.xRot += 1.2 * jmth.cos(f4 + 1.5707964) * f7; P.body.zRot = 0.1 * f6 * f3; P.body.xRot = f5 * f7;
+  P.left_leg.xRot = f5 * f3; P.right_leg.xRot = jmth.cos(f4 + Math.PI) * f3; P.left_arm.xRot = -(0.8 * f5 * f3); P.left_arm.zRot = 0; P.right_arm.xRot = -(0.8 * f6 * f3); P.right_arm.zRot = 0;
+  P.left_arm.yRot = 0; P.left_arm.z = 1; P.left_arm.x = 13; P.left_arm.y = -13; P.right_arm.yRot = 0; P.right_arm.z = 1; P.right_arm.x = -13; P.right_arm.y = -13;
+  const a = S.age * 0.1, c = jmth.cos(a), s = jmth.sin(a); P.head.zRot += 0.06 * c; P.head.xRot += 0.06 * s; P.body.zRot += 0.025 * s; P.body.xRot += 0.025 * c;
+  const tw = (S.tendril || 0) * Math.cos(S.age * 2.25) * Math.PI * 0.1; P.left_tendril.xRot = tw; P.right_tendril.xRot = -tw;
+  jmApply(P, S, 'attack', 'Warden.WARDEN_ATTACK'); jmApply(P, S, 'boom', 'Warden.WARDEN_SONIC_BOOM'); jmApply(P, S, 'dig', 'Warden.WARDEN_DIG');
+  jmApply(P, S, 'emerge', 'Warden.WARDEN_EMERGE'); jmApply(P, S, 'roar', 'Warden.WARDEN_ROAR'); jmApply(P, S, 'sniff', 'Warden.WARDEN_SNIFF'); } };
+JM.camel = JM.camel_husk = { anim(P, S) { P.head.yRot = jmth.clamp(S.yRot, -30, 30) * JM_D2R; P.head.xRot = jmth.clamp(S.xRot, -25, 45) * JM_D2R;
+  jmKFWalk(P, 'Camel.CAMEL_WALK', S, 2, 2.5); jmApply(P, S, 'sit', 'Camel.CAMEL_SIT'); jmApply(P, S, 'sitPose', 'Camel.CAMEL_SIT_POSE'); jmApply(P, S, 'standup', 'Camel.CAMEL_STANDUP');
+  jmApply(P, S, 'idle', 'Camel.CAMEL_IDLE'); jmApply(P, S, 'dash', 'Camel.CAMEL_DASH'); } };
+JM.sniffer = { anim(P, S) { jmHeadLook(P, S); jmKFWalk(P, S.searching ? 'Sniffer.SNIFFER_SNIFF_SEARCH' : 'Sniffer.SNIFFER_WALK', S, 9, 100);
+  jmApply(P, S, 'dig', 'Sniffer.SNIFFER_DIG'); jmApply(P, S, 'sniffing', 'Sniffer.SNIFFER_LONGSNIFF'); jmApply(P, S, 'rising', 'Sniffer.SNIFFER_STAND_UP'); jmApply(P, S, 'happy', 'Sniffer.SNIFFER_HAPPY'); jmApply(P, S, 'scent', 'Sniffer.SNIFFER_SNIFFSNIFF');
+  if (S.baby) jmKF(P, 'Sniffer.BABY_TRANSFORM', 0, 1); } };
+JM.armadillo = { anim(P, S) {
+  if (S.hiding) { if (P.body.mesh) P.body.mesh.visible = false; P.left_hind_leg.visible = false; P.right_hind_leg.visible = false; P.tail.visible = false; P.cube.visible = true; }
+  else { if (P.body.mesh) P.body.mesh.visible = true; P.cube.visible = false; P.head.xRot = jmth.clamp(S.xRot, -22.5, 25) * JM_D2R; P.head.yRot = jmth.clamp(S.yRot, -32.5, 32.5) * JM_D2R; }
+  jmKFWalk(P, 'Armadillo.ARMADILLO_WALK', S, 16.5, 2.5); jmApply(P, S, 'rollOut', 'Armadillo.ARMADILLO_ROLL_OUT'); jmApply(P, S, 'rollUp', 'Armadillo.ARMADILLO_ROLL_UP'); jmApply(P, S, 'peek', 'Armadillo.ARMADILLO_PEEK'); } };
+JM.frog = { anim(P, S) { jmApply(P, S, 'jump', 'Frog.FROG_JUMP'); jmApply(P, S, 'croak', 'Frog.FROG_CROAK'); jmApply(P, S, 'tongue', 'Frog.FROG_TONGUE');
+  if (S.swimming) jmKFWalk(P, 'Frog.FROG_SWIM', S, 1, 2.5); else jmKFWalk(P, 'Frog.FROG_WALK', S, 1.5, 2.5);
+  jmApply(P, S, 'swimIdle', 'Frog.FROG_IDLE_WATER'); if (P.croaking_body) P.croaking_body.visible = !!(S.as && S.as.croak != null); } };
+JM.breeze = { anim(P, S) { jmApply(P, S, 'idle', 'Breeze.IDLE'); jmApply(P, S, 'shoot', 'Breeze.SHOOT'); jmApply(P, S, 'slide', 'Breeze.SLIDE'); jmApply(P, S, 'slideBack', 'Breeze.SLIDE_BACK');
+  jmApply(P, S, 'inhale', 'Breeze.INHALE'); jmApply(P, S, 'jump', 'Breeze.JUMP'); } };
+JM.bat = { anim(P, S) { if (S.resting) P.head.yRot = S.yRot * JM_D2R; jmApply(P, S, 'fly', 'Bat.BAT_FLYING'); jmApply(P, S, 'rest', 'Bat.BAT_RESTING'); } };
+JM.creaking = { anim(P, S) { jmHeadLook(P, S); if (!S.frozen) jmKFWalk(P, 'Creaking.CREAKING_WALK', S, 1, 1);
+  jmApply(P, S, 'attack', 'Creaking.CREAKING_ATTACK'); jmApply(P, S, 'invul', 'Creaking.CREAKING_INVULNERABLE'); jmApply(P, S, 'death', 'Creaking.CREAKING_DEATH'); } };
+JM.copper_golem = { anim(P, S) { jmHeadLook(P, S);
+  if (!S.holding) jmKFWalk(P, 'CopperGolem.COPPER_GOLEM_WALK', S, 2, 2.5); else { jmKFWalk(P, 'CopperGolem.COPPER_GOLEM_WALK_ITEM', S, 2, 2.5); if (S.ws < 0.05) { P.right_arm.xRot = -1.0471976; P.left_arm.xRot = -1.0471976; P.right_arm.zRot = 0; P.left_arm.zRot = 0; } }
+  jmApply(P, S, 'idle', 'CopperGolem.COPPER_GOLEM_IDLE'); jmApply(P, S, 'getItem', 'CopperGolem.COPPER_GOLEM_CHEST_INTERACTION_NOITEM_GET'); jmApply(P, S, 'getNoItem', 'CopperGolem.COPPER_GOLEM_CHEST_INTERACTION_NOITEM_NOGET');
+  jmApply(P, S, 'dropItem', 'CopperGolem.COPPER_GOLEM_CHEST_INTERACTION_ITEM_DROP'); jmApply(P, S, 'dropNoItem', 'CopperGolem.COPPER_GOLEM_CHEST_INTERACTION_ITEM_NODROP'); } };
+JM.nautilus = JM.zombie_nautilus = { anim(P, S) { if (P.body) { P.body.yRot = S.yRot * JM_D2R; P.body.xRot = S.xRot * JM_D2R; }
+  jmKF(P, 'Nautilus.SWIMMING', (S.wp + S.age / 5) * 50 * 2 / 1000, Math.min((S.ws + 0.2) * 3, 1)); } };
+Object.assign(JM_OVERLAY, { L0: '#wind' });
+// when the keyframe animations start (each entity's setupAnimationStates)
+{ const _st = jmState; jmState = function (m, dt) { _st(m, dt); const S = m.jm.S, ty = m.type, L = (S.last = S.last || {});
+    const rose = (k, v) => { const r = v && !L[k]; L[k] = v; return r; }; const swing = rose('swing', S.attack > 0);
+    if (ty === 'warden') { if (swing) { jmStop(S, 'roar'); jmStart(S, 'attack'); } if (rose('boom', (m.boomT || 0) > 0)) jmStart(S, 'boom'); if (rose('emerge', (m.emergeT || 0) > 0)) jmStart(S, 'emerge');
+      if (rose('dig', (m.digT || 0) > 0)) jmStart(S, 'dig'); if (rose('roar', (m.angry || 0) > 0 || !!m.tgtP)) jmStart(S, 'roar'); if (!m.chasing && Math.random() < 1 - Math.pow(1 - 1 / 400, dt * 20)) jmStart(S, 'sniff'); }
+    if (ty === 'camel' || ty === 'camel_husk') { S.idleT = (S.idleT || 0) - dt * 20; if (S.idleT <= 0) { S.idleT = 80 + Math.random() * 40; jmStart(S, 'idle'); }
+      const sit = !!(m.mcaSit || m.sitting); if (sit) { jmStop(S, 'standup'); jmStop(S, 'dash'); if (!L.sitSince) L.sitSince = S.age; if (S.age - L.sitSince < 40) { jmStartIf(S, 'sit'); jmStop(S, 'sitPose'); } else { jmStop(S, 'sit'); jmStartIf(S, 'sitPose'); } }
+      else { if (L.sitSince) jmStart(S, 'standup'); L.sitSince = 0; jmStop(S, 'sit'); jmStop(S, 'sitPose'); jmWhen(S, 'dash', (m.dashT || 0) > 0); if (S.as && S.as.standup != null && S.age - S.as.standup > 52) jmStop(S, 'standup'); } }
+    if (ty === 'sniffer') { S.searching = !!m.sniffSearch; if (rose('dig', (m.digT || 0) > 0)) jmStart(S, 'dig'); if (!m.digT && Math.random() < 1 - Math.pow(1 - 1 / 600, dt * 20)) jmStart(S, 'scent'); }
+    if (ty === 'armadillo') { const r = (m.rollT || 0) > 0; S.hiding = r && m.rollT >= 1.2; if (rose('roll', r)) { jmStop(S, 'rollOut'); jmStart(S, 'rollUp'); }
+      if (L.rollWas && !r) { jmStop(S, 'rollUp'); jmStart(S, 'rollOut'); } L.rollWas = r; if (r && m.rollT < 1.2) jmStartIf(S, 'peek'); else jmStop(S, 'peek'); }
+    if (ty === 'frog') { S.swimming = inWater(m, 0.3); if (rose('jump', m.vel.y > 2.5)) jmStart(S, 'jump'); if (m.onGround && S.as && S.as.jump != null && S.age - S.as.jump > 4) jmStop(S, 'jump');
+      if (swing) jmStart(S, 'tongue'); if (S.as && S.as.tongue != null && S.age - S.as.tongue > 10) jmStop(S, 'tongue');
+      if (!S.swimming && Math.random() < 1 - Math.pow(1 - 1 / 600, dt * 20)) jmStart(S, 'croak'); if (S.as && S.as.croak != null && S.age - S.as.croak > 90) jmStop(S, 'croak');
+      jmWhen(S, 'swimIdle', S.swimming && S.ws < 0.05); }
+    if (ty === 'breeze') { const moving = S.ws > 0.1 && m.onGround; jmWhen(S, 'idle', !moving); jmWhen(S, 'slide', moving); if (swing || rose('shot', (m.shootT || 0) > 0 && (m.atkCD || 0) > 1.5)) jmStart(S, 'shoot'); if (rose('jump', m.vel.y > 2.5)) jmStart(S, 'jump'); }
+    if (ty === 'bat') { S.resting = !!m.roost; jmWhen(S, 'rest', S.resting); jmWhen(S, 'fly', !S.resting); }
+    if (ty === 'creaking') { S.frozen = !!m.frozen; if (swing) jmStart(S, 'attack'); if (S.as && S.as.attack != null && S.age - S.as.attack > 15) jmStop(S, 'attack');
+      if (rose('hurt', (m.hurtT || 0) > 0) && S.frozen) jmStart(S, 'invul'); if (S.as && S.as.invul != null && S.age - S.as.invul > 8) jmStop(S, 'invul'); }
+    if (ty === 'copper_golem') { S.holding = !!m.cgHold; S.idleT = (S.idleT || 0) - dt * 20; if (S.idleT <= 0 && S.ws < 0.05) { S.idleT = 200 + Math.random() * 200; jmStart(S, 'idle'); }
+      if (rose('cg', (m.cgWait || 0) > 0)) { const had = !!L.hold, has = !!m.cgHold; jmStart(S, !had && has ? 'getItem' : had && !has ? 'dropItem' : had ? 'dropNoItem' : 'getNoItem'); } L.hold = m.cgHold; } }; }
+
+// ---------- third batch ----------
+JM.rabbit = { anim(P, S) { jmHeadLook(P, S); const f = jmth.sin((S.jump || 0) * Math.PI);
+  P.left_haunch.xRot += f * 50 * JM_D2R; P.right_haunch.xRot += f * 50 * JM_D2R; P.left_front_leg.xRot += f * -40 * JM_D2R; P.right_front_leg.xRot += f * -40 * JM_D2R; } };
+JM.goat = { anim(P, S, m) { jmQuadAnim(P, S); if (P.left_horn) P.left_horn.visible = m.hornL !== false; if (P.right_horn) P.right_horn.visible = m.hornR !== false; if (S.ram) P.head.xRot = S.ram; } };
+JM.llama = JM.trader_llama = { anim(P, S, m) { jmQuadAnim(P, S); const c = !!(m.chest || m.hasChest); P.right_chest.visible = c; P.left_chest.visible = c; } };
+JM.turtle = { anim(P, S) { jmQuadAnim(P, S); const f = S.wp, f2 = S.ws;
+  if (S.onLand) { const f5 = f * 5, f6 = jmth.cos(f5), f7 = jmth.cos(f5); P.right_front_leg.yRot = -f6 * 8 * f2; P.left_front_leg.yRot = f6 * 8 * f2; P.right_hind_leg.yRot = -f7 * 3 * f2; P.left_hind_leg.yRot = f7 * 3 * f2; P.right_front_leg.xRot = P.left_front_leg.xRot = P.right_hind_leg.xRot = P.left_hind_leg.xRot = 0; }
+  else { const f8 = jmth.cos(f * 0.6662 * 0.6) * 0.5 * f2; P.right_hind_leg.xRot = f8; P.left_hind_leg.xRot = -f8; P.right_front_leg.zRot = -f8; P.left_front_leg.zRot = f8; }
+  P.egg_belly.visible = !!S.egg; } };
+JM.bee = { anim(P, S) { P.stinger.visible = S.stinger !== false;
+  if (!S.onGround) { const f = S.age * 120.32113 * JM_D2R; P.right_wing.yRot = 0; P.right_wing.zRot = jmth.cos(f) * Math.PI * 0.15; P.left_wing.xRot = P.right_wing.xRot; P.left_wing.yRot = P.right_wing.yRot; P.left_wing.zRot = -P.right_wing.zRot;
+    P.front_legs.xRot = 0.7853982; P.middle_legs.xRot = 0.7853982; P.back_legs.xRot = 0.7853982; }
+  if (!S.angry && !S.onGround) { const f = jmth.cos(S.age * 0.18); P.bone.xRot = 0.1 + f * Math.PI * 0.025; P.left_antenna.xRot = f * Math.PI * 0.03; P.right_antenna.xRot = f * Math.PI * 0.03;
+    P.front_legs.xRot = -f * Math.PI * 0.1 + 0.3926991; P.back_legs.xRot = -f * Math.PI * 0.05 + 0.7853982; P.bone.y -= jmth.cos(S.age * 0.18) * 0.9; }
+  if (S.roll > 0) P.bone.xRot = jmth.rotLerpRad(S.roll, P.bone.xRot, 3.0915928); } };
+{ const _st = jmState; jmState = function (m, dt) { _st(m, dt); const S = m.jm.S, ty = m.type, ticks = Math.max(1e-3, dt * 20);
+    if (ty === 'rabbit') { if (!m.onGround) S.jump = Math.min(1, (S.jump || 0) + ticks / 10); else S.jump = 0; }
+    if (ty === 'turtle') { S.onLand = !inWater(m, 0.3); S.egg = !!m.hasEgg; }
+    if (ty === 'bee') { S.onGround = !!m.onGround && S.ws < 0.05; S.angry = (m.angry || 0) > 0; S.stinger = !m.stung; S.roll = 0; }
+    if (ty === 'goat') { if (S.attack > 0) S.ram = 0.87266463; else S.ram = 0; } }; }
