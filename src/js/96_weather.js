@@ -71,7 +71,7 @@ function lightningAt(x, y, z, o = {}) {
   for (const m of G.mobs.slice()) { if (m.dead || Math.hypot(m.pos.x - x - 0.5, m.pos.z - z - 0.5) > 3.5 || Math.abs(m.pos.y - y) > 4) continue;
     const swap = { pig: 'zombified_piglin', villager: 'witch' }[m.type];
     if (swap && MOBS[swap] && !isClientMP()) { const n = spawnMob(swap, m.pos.x, m.pos.y, m.pos.z); if (n) { n.yaw = m.yaw; n.persistent = m.persistent; } m.dead = true; m.gone = true; if (m.remove) m.remove(); continue; }
-    if (m.type === 'creeper') { m.charged = true; if (m.root) m.root.traverse(o2 => { if (o2.material && o2.material.emissive) o2.material.emissive.setRGB(0.15, 0.3, 0.6); }); }
+    if (m.type === 'creeper') m.charged = true; // drawn with the energy swirl: 99zzzzzzzzzzzzzz_mclayers.js
     if (m.type === 'mooshroom') m.brown = !m.brown;
     m.hurt(5, new V3(x, y, z), 0.5); }
 }

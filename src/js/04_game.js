@@ -71,7 +71,7 @@ class Player {
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; (playerHurtSfx(dmg, cause) || Sfx.play('hurt', 1));
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) applyKnockback(this, src, kb, typeof blastKbResist === 'function' ? blastKbResist(this) : 0);
-    G.shake = Math.max(G.shake, 0.25); updateHearts();
+    mcHurtTilt(this, src); updateHearts();
     if (this.health <= 0) this.die(cause);
   }
   die(cause) {
@@ -772,7 +772,7 @@ function updateHand(dt, light) {
     handGroup.add(handMesh);
   }
   S.swing = Math.max(0, S.swing - dt * 4); const dy = player.yaw - (S.lastYaw ?? player.yaw), dp = player.pitch - (S.lastPitch ?? player.pitch); S.lastYaw = player.yaw; S.lastPitch = player.pitch; S.lagX = clamp(((S.lagX || 0) + dy * 0.6) * Math.exp(-dt * 10), -0.25, 0.25); S.lagY = clamp(((S.lagY || 0) + dp * 0.6) * Math.exp(-dt * 10), -0.25, 0.25);
-  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 1.8;
+  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 0.6 * Math.PI; // Minecraft's walkDist: 0.6 per block, the bob phase is walkDist * pi
   handGroup.position.set(0.48 + Math.cos(S.bob) * 0.012 * bob / 4 - sw * 0.15, -0.42 + Math.abs(Math.sin(S.bob)) * 0.02 * bob / 4 - sw * 0.1, -0.7 - sw * 0.12);
   handGroup.rotation.set(-sw * 0.8 + S.lagY, sw * 0.4 + S.lagX, 0); handGroup.position.x -= S.lagX * 0.3; handGroup.position.y -= S.lagY * 0.3;
   // bow draw pose: bring the bow to the centre, swap to pulled frames, tremble at full draw
@@ -1011,13 +1011,12 @@ function tick(dt) {
   if (typeof mpTick === 'function') mpTick(dt);
   Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
-  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;
-    const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }
+  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
-  camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
+  camera.rotation.set(P.pitch, P.yaw, 0); mcCameraFx(P, dt); // view bobbing and the hurt tilt as Minecraft does them: 99zzzzzzzzzzzzz_mccamera.js
   applyPov(P, dt);
   updateCaveCulling(world, camera.position);
-  const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (S.fov + (sprinting ? 8 : 0)) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
+  const tf = mcFov(P, dt); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = FKIND[eb] === 1 ? B.WATER : FKIND[eb] === 2 ? B.LAVA : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
   updateSky(eyeFluid); if (!S.loading && !S.paused) updateAir(dt, eyeFluid);
