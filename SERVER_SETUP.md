@@ -50,3 +50,57 @@ Only the Client ID goes in the game. Never put the client secret in the game.
 
 - Open `<worker url>/` to see which features are on. It reports `"turn": true` and `"accounts": true` when those are set up.
 - In the game, the host presses **Open to Friends**. The friend types the code under **Multiplayer**. If anything fails, the Multiplayer screen says which step failed.
+
+---
+
+# Dedicated server (a rented machine that hosts your world 24/7)
+
+Normally the player who presses Open to Friends runs the whole world in their browser, so a slow host laptop makes
+everyone lag. The dedicated server runs the game in a hidden browser on a rented Linux machine instead. Nobody has to
+host, the world stays up when you log off, and the join code never changes.
+
+**Machine:** at least 2 CPU cores and **4 GB of memory** (the game uses about 2.2 GB on its own, so a 2 GB plan will crash).
+Ubuntu 22.04 or 24.04. Pick a location close to where you and your friends live.
+
+## Setup (once)
+
+Log in to the machine (`ssh root@YOUR_SERVER_IP`) and run:
+
+```
+apt update && apt install -y git curl
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt install -y nodejs
+git clone https://github.com/BlockWild3D/BlockWild.git
+cd BlockWild/tools/server
+npm install
+npx playwright install --with-deps chromium
+```
+
+## Run it
+
+```
+node server.js --code BLOCK1 --world "Server World"
+```
+
+Wait for `READY code=BLOCK1`, then everyone joins with that code from the normal Join screen. Pick your own 6-character code
+(letters and numbers). Options: `--mode creative`, `--difficulty hard`, `--cheats`, `--max 10`, `--rd 6` (lower = less CPU).
+
+Type into that window to control it: `status`, `/time set day`, `/weather clear`, `/tp Name 0 100 0`, any text to chat, `stop` to save and quit.
+
+## Keep it running after you log out
+
+```
+npm install -g pm2
+pm2 start server.js --name blockwild -- --code BLOCK1 --world "Server World"
+pm2 save && pm2 startup
+```
+
+`pm2 logs blockwild` shows what it's doing. `pm2 restart blockwild` restarts it. After a game update, restart it so it loads the new
+version (players need the same version). Worlds are saved in `tools/server/data`; back that folder up.
+
+## How it works / limits
+
+- The server's own "player" is invisible and rides along with the first player who joined, so the world around that player
+  (mobs, farms, redstone) is simulated on the server. Other players far away from them simulate their own surroundings, the
+  same as with a normal host.
+- Night is skipped when every player is in bed.
