@@ -81,7 +81,7 @@ function pvpReceive(m) {
       // saved while they were inside the reach band, so someone walking in looked like they moved several blocks in one
       // frame: a one-hit kill with a huge knockback)
       const avv = av.nvel && performance.now() - (av.netT || 0) < 500 ? av.nvel : new V3();
-      const speed = (pv.x - avv.x) * dir.x + (pv.z - avv.z) * dir.z; if (speed < SPEAR.dmgSpeed) continue;
+      const speed = (pv.x - avv.x) * dir.x + (pv.y - avv.y) * dir.y + (pv.z - avv.z) * dir.z; if (speed < SPEAR.dmgSpeed) continue; // falling counts, as against mobs
       const key = 'av:' + av.id; const last = C.hits.get(key); if (last != null && C.t - last < 0.5) continue; C.hits.set(key, C.t);
       const kb = (C.stage === 'engaged' || C.stage === 'tired') && speed >= SPEAR.kbSpeed ? Math.min(2.5, 0.6 + (speed - SPEAR.kbSpeed) * 0.12) : 0; // same as against mobs
       pvpHit(av, last == null ? Math.floor(sp.spear.mult * speed) : 0, kb); if (last == null) damageHeld(1);
