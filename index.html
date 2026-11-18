@@ -7029,7 +7029,7 @@ class Player {
     this.hurtCD = 0.5; this.health -= dmg; this.lastHurt = performance.now() / 1000; (playerHurtSfx(dmg, cause) || Sfx.play('hurt', 1));
     const h = $('hurt'); h.style.opacity = 1; setTimeout(() => h.style.opacity = 0, 180);
     if (src) applyKnockback(this, src, kb, typeof blastKbResist === 'function' ? blastKbResist(this) : 0);
-    G.shake = Math.max(G.shake, 0.25); updateHearts();
+    mcHurtTilt(this, src); updateHearts();
     if (this.health <= 0) this.die(cause);
   }
   die(cause) {
@@ -7731,7 +7731,7 @@ function updateHand(dt, light) {
     handGroup.add(handMesh);
   }
   S.swing = Math.max(0, S.swing - dt * 4); const dy = player.yaw - (S.lastYaw ?? player.yaw), dp = player.pitch - (S.lastPitch ?? player.pitch); S.lastYaw = player.yaw; S.lastPitch = player.pitch; S.lagX = clamp(((S.lagX || 0) + dy * 0.6) * Math.exp(-dt * 10), -0.25, 0.25); S.lagY = clamp(((S.lagY || 0) + dp * 0.6) * Math.exp(-dt * 10), -0.25, 0.25);
-  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 1.8;
+  const sw = Math.sin(S.swing * Math.PI); const bob = player.onGround ? Math.hypot(player.vel.x, player.vel.z) : 0; S.bob = (S.bob || 0) + bob * dt * 0.6 * Math.PI; // Minecraft's walkDist: 0.6 per block, the bob phase is walkDist * pi
   handGroup.position.set(0.48 + Math.cos(S.bob) * 0.012 * bob / 4 - sw * 0.15, -0.42 + Math.abs(Math.sin(S.bob)) * 0.02 * bob / 4 - sw * 0.1, -0.7 - sw * 0.12);
   handGroup.rotation.set(-sw * 0.8 + S.lagY, sw * 0.4 + S.lagX, 0); handGroup.position.x -= S.lagX * 0.3; handGroup.position.y -= S.lagY * 0.3;
   // bow draw pose: bring the bow to the centre, swap to pulled frames, tremble at full draw
@@ -7970,13 +7970,12 @@ function tick(dt) {
   if (typeof mpTick === 'function') mpTick(dt);
   Particles.update(dt); if (typeof SpriteFX !== 'undefined') SpriteFX.update(dt); animateTiles(dt, atlasTex); chunkUniforms.time.value = performance.now() / 1000;
   const eye = P.eye(); camera.position.copy(eye);
-  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); const ph = S.bob || 0;
-    const fx = Math.cos(P.yaw), fz = -Math.sin(P.yaw); camera.position.x += fx * Math.sin(ph) * 0.035 * S.vb; camera.position.z += fz * Math.sin(ph) * 0.035 * S.vb; camera.position.y += -Math.abs(Math.cos(ph)) * 0.06 * S.vb; }
+  { const bk = P.onGround && !P.flying ? Math.min(1, Math.hypot(P.vel.x, P.vel.z) / 4.3) : 0; S.vb = (S.vb || 0) + (bk - (S.vb || 0)) * Math.min(1, dt * 8); }
   if (G.shake > 0) { camera.position.x += (Math.random() - 0.5) * G.shake * 0.3; camera.position.y += (Math.random() - 0.5) * G.shake * 0.3; G.shake = Math.max(0, G.shake - dt * 1.5); }
-  camera.rotation.set(P.pitch, P.yaw, Math.sin(S.bob || 0) * 0.006 * (S.vb || 0));
+  camera.rotation.set(P.pitch, P.yaw, 0); mcCameraFx(P, dt); // view bobbing and the hurt tilt as Minecraft does them: 99zzzzzzzzzzzzz_mccamera.js
   applyPov(P, dt);
   updateCaveCulling(world, camera.position);
-  const sprinting = Math.hypot(P.vel.x, P.vel.z) > 5 && S.bowDraw < 0; const tf = (S.fov + (sprinting ? 8 : 0)) * (1 - 0.16 * bowPower()); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
+  const tf = mcFov(P, dt); if (Math.abs(camera.fov - tf) > 0.05) { camera.fov += (tf - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); handCam.fov = camera.fov; handCam.updateProjectionMatrix(); }
   const eb = world.get(Math.floor(eye.x), Math.floor(eye.y + 0.05), Math.floor(eye.z)); const eyeFluid = FKIND[eb] === 1 ? B.WATER : FKIND[eb] === 2 ? B.LAVA : 0;
   show('water', eyeFluid === B.WATER && !S.loading);
   updateSky(eyeFluid); if (!S.loading && !S.paused) updateAir(dt, eyeFluid);
@@ -9353,7 +9352,10 @@ function applyPov(P, dt) {
   if (!third) return false;
   const eye = P.eye(); const d = lookDir(); const back = S.pov === 1 ? -1 : 1;
   const dir = d.clone().multiplyScalar(back); let dist = 4;
-  for (let t = 0.2; t <= 4; t += 0.2) { const q = _camTmp.copy(eye).addScaledVector(dir, t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.max(0.2, t - 0.35); break; } }
+  // Minecraft (Camera.getMaxZoom): 4 blocks back, cut short where any of 8 rays from the corners of a 0.2 block cube
+  // around the eye hits a block, at the distance of that hit
+  for (let c = 0; c < 8; c++) { const ox = (c & 1 ? 1 : -1) * 0.1, oy = (c & 2 ? 1 : -1) * 0.1, oz = (c & 4 ? 1 : -1) * 0.1;
+    for (let t = 0; t <= dist; t += 0.05) { const q = _camTmp.set(eye.x + ox + dir.x * t, eye.y + oy + dir.y * t, eye.z + oz + dir.z * t); if (world.solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) { dist = Math.min(dist, t); break; } } }
   if (myModel) myModel.root.visible = dist > 0.9;
   camera.position.copy(eye).addScaledVector(dir, dist);
   if (S.pov === 1) camera.rotation.set(P.pitch, P.yaw, 0); else camera.rotation.set(-P.pitch, P.yaw + Math.PI, 0);
@@ -19078,7 +19080,7 @@ function lightningAt(x, y, z, o = {}) {
   for (const m of G.mobs.slice()) { if (m.dead || Math.hypot(m.pos.x - x - 0.5, m.pos.z - z - 0.5) > 3.5 || Math.abs(m.pos.y - y) > 4) continue;
     const swap = { pig: 'zombified_piglin', villager: 'witch' }[m.type];
     if (swap && MOBS[swap] && !isClientMP()) { const n = spawnMob(swap, m.pos.x, m.pos.y, m.pos.z); if (n) { n.yaw = m.yaw; n.persistent = m.persistent; } m.dead = true; m.gone = true; if (m.remove) m.remove(); continue; }
-    if (m.type === 'creeper') { m.charged = true; if (m.root) m.root.traverse(o2 => { if (o2.material && o2.material.emissive) o2.material.emissive.setRGB(0.15, 0.3, 0.6); }); }
+    if (m.type === 'creeper') m.charged = true; // drawn with the energy swirl: 99zzzzzzzzzzzzzz_mclayers.js
     if (m.type === 'mooshroom') m.brown = !m.brown;
     m.hurt(5, new V3(x, y, z), 0.5); }
 }
@@ -25288,6 +25290,118 @@ const MAI_WOLF_SHY = new Set(['skeleton', 'stray', 'bogged', 'parched', 'wither_
         const w = G.mobs.find(o => o.type === 'wolf' && !o.dead && !o.tamed && o.pos.distanceTo(this.pos) < 6); if (w) { this.flee = Math.max(this.flee, 1); this.fleeFrom = w; } } }
     if (this.fleeFrom && (this.flee <= 0 || this.fleeFrom.dead)) this.fleeFrom = null;
     return _u.call(this, dt); }; }
+
+// ================= CAMERA EFFECTS, as Minecraft Java's Camera and GameRenderer do them =================
+// Field of view (Camera.calculateFov + AbstractClientPlayer.getFieldOfViewModifier): your FOV setting times a modifier
+// that eases halfway to its target every tick. The modifier is (movement speed / walking speed + 1) / 2, so sprinting
+// (+30% speed) widens the view by 15%, Speed and Slowness change it too; flying multiplies it by 1.1; drawing a bow
+// narrows it by up to 15% (draw time squared, full at 1 second); looking through a spyglass sets it to 0.1. With your
+// eyes under water the view is 6/7 as wide.
+// View bobbing (GameRenderer.bobView): "bob" eases 40% per tick toward your ground speed per tick (capped at 0.1 block)
+// and is zero in the air or swimming; the view shifts sideways by sin(phase) * bob / 2 and down by |cos(phase)| * bob,
+// rolls by sin(phase) * bob * 3 degrees and nods by |cos(phase - 0.2)| * bob * 5 degrees, where the phase is pi times
+// 0.6 per block walked.
+// Getting hurt (GameRenderer.bobHurt): no shake; the view tilts by up to 14 degrees toward the side the hit came from,
+// sin(t^4 * pi) over the half second of hurt time (t running from 1 down to 0).
+const MCCAM = { fovMod: 1, bob: 0, q: new THREE.Quaternion(), qa: new THREE.Quaternion(), qb: new THREE.Quaternion(), v: new V3(), X: new V3(1, 0, 0), Y: new V3(0, 1, 0), Z: new V3(0, 0, 1) };
+function mcFov(P, dt) {
+  let mod;
+  if (S.spyglass) mod = 0.1;
+  else {
+    mod = 1; if (P.flying) mod *= 1.1;
+    let spd = (1 + 0.2 * effLevel('speed')) * Math.max(0, 1 - 0.15 * effLevel('slowness')); if (P.sprinting) spd *= 1.3;
+    mod *= (spd + 1) / 2;
+    if (S.bowDraw >= 0) { const t = clamp(S.bowDraw, 0, 1); mod *= 1 - t * t * 0.15; }
+  }
+  const k = 1 - Math.pow(0.5, dt * 20); MCCAM.fovMod = clamp(MCCAM.fovMod + (mod - MCCAM.fovMod) * k, 0.1, 1.5);
+  if (S.spyglass) MCCAM.fovMod = 0.1; // the spyglass snaps in
+  const e = P.eye(); const wet = FKIND[world.get(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z))] === 1;
+  return S.fov * MCCAM.fovMod * (wet ? 6 / 7 : 1);
+}
+function mcHurtTilt(P, src) {
+  P.hurtTiltAt = performance.now() / 1000;
+  if (!src) { P.hurtDir = Math.random() < 0.5 ? 0 : 180; return; }
+  const f = lookDir(); f.y = 0; if (f.lengthSq() < 1e-6) f.set(0, 0, -1); f.normalize();
+  const dx = src.x - P.pos.x, dz = src.z - P.pos.z; const left = { x: f.z, z: -f.x };
+  const rel = Math.atan2(dx * left.x + dz * left.z, dx * f.x + dz * f.z) * 180 / Math.PI; P.hurtDir = 90 - rel;
+}
+function mcCameraFx(P, dt) {
+  // bob eases toward the ground speed per tick
+  const per = P.onGround && !P.dead && !P.swimming && !P.flying ? Math.min(0.1, Math.hypot(P.vel.x, P.vel.z) / 20) : 0;
+  MCCAM.bob += (per - MCCAM.bob) * (1 - Math.pow(0.6, dt * 20));
+  const ph = -(S.bob || 0), b = MCCAM.bob, D = Math.PI / 180;
+  const roll = Math.sin(ph) * b * 3 * D, nod = Math.abs(Math.cos(ph - 0.2) * b) * 5 * D;
+  const tx = Math.sin(ph) * b * 0.5, ty = -Math.abs(Math.cos(ph) * b);
+  // hurt tilt: 10 ticks of hurt time
+  let tilt = 0; const ht = (performance.now() / 1000 - (P.hurtTiltAt || -9)) / 0.5;
+  if (ht >= 0 && ht < 1 && !P.dead) { const h = 1 - ht; tilt = -Math.sin(h * h * h * h * Math.PI) * 14 * D; }
+  if (!b && !tilt) return;
+  // the effects sit between the camera and the projection: camera = camera * (hurt * bobTranslate * bobRoll * bobNod)^-1
+  const q = MCCAM.q.copy(camera.quaternion);
+  const R = MCCAM.qa.setFromAxisAngle(MCCAM.Z, roll).multiply(MCCAM.qb.setFromAxisAngle(MCCAM.X, nod)); const Ri = R.clone().invert();
+  camera.position.add(MCCAM.v.set(-tx, -ty, 0).applyQuaternion(Ri).applyQuaternion(q));
+  q.multiply(Ri);
+  if (tilt) { const rr = (P.hurtDir || 0) * D; const H = new THREE.Quaternion().setFromAxisAngle(MCCAM.Y, -rr).multiply(new THREE.Quaternion().setFromAxisAngle(MCCAM.Z, tilt)).multiply(new THREE.Quaternion().setFromAxisAngle(MCCAM.Y, rr)); q.multiply(H.invert()); }
+  camera.quaternion.copy(q);
+}
+
+// ================= RENDER LAYERS from Minecraft Java that the game didn't have yet =================
+// Charged creeper (CreeperPowerLayer / EnergySwirlLayer): a second copy of the creeper, 2 pixels bigger on every side,
+// drawn additively at half brightness with a blue swirl texture that scrolls 0.01 of the texture per tick in both
+// directions. (Lightning used to just tint the creeper blue.)
+// Arrows stuck in you (ArrowLayer / StuckInBodyLayer, seen in third person): each arrow that hits you stays in a random
+// spot inside a random body part, pointing a random way; one falls out every (30 - number stuck) seconds.
+
+// ---------- charged creeper swirl ----------
+const SWIRL_TEX = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 32; const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 64, 32); const r = mulberry32(4242);
+  for (let i = 0; i < 12; i++) { const y0 = r() * 48 - 8, w = 1 + r() * 1.5, b = 150 + r() * 105; x.strokeStyle = `rgb(${b * 0.3 | 0},${b * 0.65 | 0},${b | 0})`; x.lineWidth = w;
+    x.beginPath(); for (let k = -1; k <= 2; k++) { x.moveTo(-8 + k * 0, y0 - 8 + k * 32); x.lineTo(72, y0 + 24 + k * 32); } x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; return t; })();
+const SWIRL_MAT = new THREE.MeshBasicMaterial({ map: SWIRL_TEX, color: new THREE.Color(0.5, 0.5, 0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+function swirlAttach(m) {
+  const add = []; m.root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.root.matrixWorld).invert(); const rel = new THREE.Matrix4();
+  m.root.traverse(o => { if (!o.isMesh || o.userData.swirl || o.userData.hasSwirl || !o.geometry || !o.visible) return; add.push(o); });
+  for (const o of add) {
+    const g = o.geometry; g.computeBoundingBox(); const bb = g.boundingBox; const sz = new V3(); bb.getSize(sz); const c = new V3(); bb.getCenter(c);
+    const k = rel.multiplyMatrices(inv, o.matrixWorld).getMaxScaleOnAxis() || 1; const inf = 2 / 16 / k; // 2 pixels on every side, in the mesh's own units
+    const s = new V3(sz.x > 1e-4 ? (sz.x + inf * 2) / sz.x : 1, sz.y > 1e-4 ? (sz.y + inf * 2) / sz.y : 1, sz.z > 1e-4 ? (sz.z + inf * 2) / sz.z : 1);
+    const sw = new THREE.Mesh(g, SWIRL_MAT); sw.scale.copy(s); sw.position.set(c.x * (1 - s.x), c.y * (1 - s.y), c.z * (1 - s.z)); sw.userData.swirl = true; sw.renderOrder = 2;
+    o.add(sw); o.userData.hasSwirl = true;
+  }
+}
+{ const _u = Mob.prototype.update; Mob.prototype.update = function (dt) { const r = _u.apply(this, arguments);
+    if (this.charged && this.root && !this.dead) { this.swirlChk = (this.swirlChk || 0) - dt; if (this.swirlChk <= 0) { this.swirlChk = 1; swirlAttach(this); } }
+    return r; }; }
+{ let t0 = performance.now(); const _ub = updateBoats; updateBoats = function (dt) { const r = _ub.apply(this, arguments); const t = (performance.now() - t0) / 50; SWIRL_TEX.offset.set((t * 0.01) % 1, (t * 0.01) % 1); return r; }; }
+
+// ---------- arrows stuck in you ----------
+function stuckArrowMesh() {
+  const g = new THREE.Group(); const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.5), new THREE.MeshLambertMaterial({ color: 0x6b5232 }));
+  shaft.position.z = -0.25; g.add(shaft);
+  const fl = new THREE.MeshLambertMaterial({ color: 0xe8e8e8, side: THREE.DoubleSide });
+  for (const rz of [0, Math.PI / 2]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.14), fl); f.rotation.set(0, Math.PI / 2, rz); f.position.z = -0.42; g.add(f); }
+  g.traverse(o => { if (o.layers) o.layers.enable(1); }); return g;
+}
+// a part's box, in pixels, relative to its pivot (see makePlayerModel)
+const STUCK_PARTS = [['head', [-4, 0, -4], [4, 8, 4]], ['torso', [-4, 0, -2], [4, 12, 2]], ['armR', [-2, -10, -2], [2, 2, 2]], ['armL', [-2, -10, -2], [2, 2, 2]], ['legR', [-2, -12, -2], [2, 0, 2]], ['legL', [-2, -12, -2], [2, 0, 2]]];
+function placeStuckArrows(model, n) {
+  const A = model.stuck || (model.stuck = []);
+  while (A.length < n) {
+    const r = mulberry32(9001 + A.length * 7919); const pt = STUCK_PARTS[Math.floor(r() * STUCK_PARTS.length)]; const P = model.P[pt[0]]; if (!P) break;
+    const a = stuckArrowMesh(); const lo = pt[1], hi = pt[2];
+    a.position.set((lo[0] + (hi[0] - lo[0]) * r()) * PX, (lo[1] + (hi[1] - lo[1]) * r()) * PX, (lo[2] + (hi[2] - lo[2]) * r()) * PX);
+    const dx = -(r() * 2 - 1), dy = -(r() * 2 - 1), dz = -(r() * 2 - 1); a.lookAt(a.position.x + dx, a.position.y + dy, a.position.z + dz); a.rotateY(Math.PI); // the shaft sticks out the back
+    P.add(a); A.push(a);
+  }
+  A.forEach((a, i) => { a.visible = i < n; });
+}
+{ const _h = Player.prototype.hurt; Player.prototype.hurt = function (dmg, src, cause) { const h0 = this.health; const r = _h.apply(this, arguments);
+    if (cause === 'an arrow' && this.health < h0) this.arrowsIn = Math.min(30, (this.arrowsIn || 0) + 1); return r; }; }
+{ const _ap = applyPov; applyPov = function (P, dt) {
+    const n = P.dead ? 0 : (P.arrowsIn || 0);
+    if (n > 0) { P.arrowT = (P.arrowT == null || P.arrowT <= 0 ? 30 - n : P.arrowT) - dt; if (P.arrowT <= 0) { P.arrowsIn = n - 1; P.arrowT = null; } }
+    const r = _ap.apply(this, arguments); if (typeof myModel !== 'undefined' && myModel) placeStuckArrows(myModel, P.arrowsIn || 0); return r; }; }
 
 </script>
 </body>
