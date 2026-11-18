@@ -15,22 +15,24 @@ function avatarRay(eye, dir, maxT) {
   return best ? { av: best, dist: bt } : null;
 }
 // send a hit to another player (through the host if we are a client)
-function pvpHit(av, dmg, kb, cause, fire) {
+function pvpHit(av, dmg, kb, cause, fire, tip) {
   if (!S.rules.pvp) { toast('PvP is off in this world (/gamerule pvp true)', 1.5); return; }
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName() };
   if (fire > 0) m.fire = fire; // seconds of burning (Fire Aspect, Flame)
+  if (tip) m.tip = tip; // a tipped arrow's potion (an eighth of the potion's time, as in Minecraft)
   if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
   av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6);
   SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 }
 function pvpDeliver(m) { // host: route a hit to its target
   if (m.to === MP.myId || m.to === 'host') return pvpReceive(m);
-  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0 });
+  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0, tip: m.tip || null });
 }
 function pvpReceive(m) {
   if (player.dead || !S.rules.pvp) return;
   const d = S.difficulty; S.difficulty = 'normal'; // players hit as hard on every difficulty
   try { player.hurt(m.dmg, m.src ? new V3(m.src[0], m.src[1], m.src[2]) : null, m.cause, m.kb); } finally { S.difficulty = d; }
+  if (m.tip && typeof POTIONS !== 'undefined' && POTIONS[m.tip] && !player.dead) applyPotion(m.tip, 0.125);
   if (m.fire > 0 && isSurv() && !player.dead) player.fireT = Math.max(player.fireT || 0, Math.min(15, +m.fire));
 }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
@@ -60,7 +62,7 @@ function pvpReceive(m) {
       if (a.done || a.owner !== 'player' || a.kind === 'pearl') continue;
       for (const av of MP.avatars.values()) { if (av.dim !== world.dim || av.dead || av.spec) continue;
         if (Math.abs(a.pos.x - av.pos.x) < 0.4 && Math.abs(a.pos.z - av.pos.z) < 0.4 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + PVP_H(av)) {
-          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0); a.done = true; }
+          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0, a.tip || null); a.done = true; }
           else if (a.kind === 'egg') { pvpHit(av, 0, 0.3); a.done = true; }
           break; }
       }

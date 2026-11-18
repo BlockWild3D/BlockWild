@@ -4,14 +4,16 @@
 // your cage, you lay out your inventory, armour and off-hand the way the kit should be, press K, name it and save.
 // Custom kits are kept in this browser (up to 12) and are sent to friends when picked, so they don't need them saved.
 AR.def = null; AR.editing = false;
-const KITS_BASE = KITS.length; const KIT_STORE = 'blockwild_pvp_kits';
+const KITS_BASE = KITS.length; const KIT_STORE = 'blockwild_pvp_kits'; const KITS_ORIG = KITS.slice(); // built-in kits as shipped, so an edited one can be reset
 function kitDef(kt) { return JSON.parse(JSON.stringify({ name: kt.name, items: kt.items || [], armor: kt.armor || [], off: kt.off || null, slots: kt.slots || null })); }
-function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_STORE) || '[]'); return Array.isArray(a) ? a.filter(k => k && k.name && Array.isArray(k.slots)).slice(0, 12) : []; } catch (e) { return []; } }
+function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_STORE) || '[]'); return Array.isArray(a) ? a.filter(k => k && k.name && Array.isArray(k.slots)).slice(0, 40) : []; } catch (e) { return []; } }
 function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringify(a)); } catch (e) { } }
 function rebuildKits() {
-  KITS.length = KITS_BASE;
+  KITS.length = 0; KITS.push(...KITS_ORIG);
   loadCustomKits().forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
-    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
+    const kt = { k: c.base || 'custom' + i, name: c.name, custom: i, blurb: c.base ? 'Your edited version.' : 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] };
+    const bi = c.base ? KITS.findIndex((x, j) => j < KITS_BASE && x.k === c.base) : -1;
+    if (bi >= 0) { kt.edited = true; KITS[bi] = kt; } else if (!c.base) KITS.push(kt); });
   const el = $('kitPick'); if (el) { const open = S.uiOpen === 'kit'; if (open) closeKitPicker(true); el.remove(); if (open) openKitPicker(); }
 }
 { const _gk = giveKit; giveKit = function (kit) {
@@ -60,17 +62,24 @@ renderLobby = function () {
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(); });
       const g = $('kitGrid'); g.style.maxHeight = '56vh'; g.style.overflowY = 'auto'; g.style.padding = '4px';
       g.querySelectorAll('button').forEach(bt => { const kt = KITS[+bt.dataset.i]; bt.addEventListener('contextmenu', (e) => { e.preventDefault(); kitDelete(KITS[+bt.dataset.i]); });
-        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = 'Delete'; del.title = 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
-          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
+        if (kt && arenaHost()) { const ed = document.createElement('span'); ed.textContent = 'Edit'; ed.title = 'Change what this kit has'; ed.style.cssText = 'position:absolute;left:6px;top:6px;background:#2c5a7a;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer'; bt.style.position = 'relative';
+          ed.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(kt); }); bt.appendChild(ed); }
+        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = kt.edited ? 'Reset' : 'Delete'; del.title = kt.edited ? 'Put this kit back the way it came' : 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
+          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = kt.edited ? 'Reset' : 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
     renderLobby(); return r; }; }
 function kitDelete(kt) { if (!kt || kt.custom == null || !arenaHost()) return; const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a);
-  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
+  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast(kt.edited ? 'Reset the kit "' + kt.name + '"' : 'Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
 // ---- the kit editor ----
-function kitEditStart() {
-  const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return; if (loadCustomKits().length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
+function kitEditStart(from) {
+  const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return;
+  from = from && from.name ? from : null; const ci = (k) => { const c = loadCustomKits()[k.custom]; return c && c.base; };
+  if (!from && loadCustomKits().filter(c => !c.base).length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
+  // editing a kit: a built-in one is saved as your version of it (Reset brings the original back); a custom one is replaced
+  AR.editFrom = from ? { name: from.name, idx: from.custom != null ? from.custom : null, base: from.custom != null ? (ci(from) || null) : from.k } : null;
   closeKitPicker(); AR.editing = true; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('creative'); player.flying = false;
+  if (from) { giveKit(from.slots ? from : kitDef(from)); chatPrint('Editing "' + from.name + '". Change your inventory, armour and off-hand, then press K to save.', '#ff5'); return; }
   chatPrint('Kit editor: open your inventory (E), take what the kit should have, and put armour and the off-hand item in their slots. Press K when it is ready.', '#ff5'); }
-function kitEditEnd() { AR.editing = false; if (S.uiOpen === 'kitsave') S.uiOpen = null; const d = $('kitSave'); if (d) d.style.display = 'none'; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('survival'); player.flying = false; openKitPicker(); }
+function kitEditEnd() { AR.editing = false; AR.editFrom = null; if (S.uiOpen === 'kitsave') S.uiOpen = null; const d = $('kitSave'); if (d) d.style.display = 'none'; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('survival'); player.flying = false; openKitPicker(); }
 function kitMaxEnch(s) {
   const it = ITEMS[s.id]; if (!it || s.ench) return; let e = null;
   if (it.kind === 'armor') { e = { protection: 4, unbreaking: 3, mending: 1 }; if (it.slot === 'feet') e.feather_falling = 4; }
@@ -93,17 +102,19 @@ function kitSaveDialog() {
     const nm = d.querySelector('#kitSaveName'); nm.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') kitSaveNow(); if (e.key === 'Escape') kitSaveClose(); });
     const on = (id, fn) => d.querySelector(id).addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('#kitSaveOk', kitSaveNow); on('#kitSaveBack', kitSaveClose); on('#kitSaveDrop', kitEditEnd); }
+  if (AR.editFrom && !d.querySelector('#kitSaveName').value) d.querySelector('#kitSaveName').value = AR.editFrom.name;
   const n = player.inv.filter(Boolean).length; d.querySelector('#kitSaveInfo').textContent = n ? n + ' item stack' + (n === 1 ? '' : 's') + ' in the kit' : 'Your inventory is empty. Put the kit together first.';
   if (S.uiOpen && S.uiOpen !== 'kitsave') closeInv(true); S.uiOpen = 'kitsave'; for (const kk in keys) keys[kk] = false; mouseL = mouseR = false; d.style.display = 'flex'; releaseLock(); setTimeout(() => d.querySelector('#kitSaveName').focus(), 0);
 }
 function kitSaveClose() { const d = $('kitSave'); if (d) d.style.display = 'none'; if (S.uiOpen === 'kitsave') S.uiOpen = null; requestLock(); }
 function kitSaveNow() {
   const d = $('kitSave'); const all = loadCustomKits(); let name = (d.querySelector('#kitSaveName').value || '').trim().slice(0, 20) || 'Custom ' + (all.length + 1);
-  const taken = (n) => KITS.slice(0, KITS_BASE).some(k => k.name === n) || all.some(k => k.name === n); for (let k = 2; taken(name) && k < 99; k++) name = name.replace(/ \d+$/, '') + ' ' + k;
+  const ef = AR.editFrom; const taken = (n) => (ef && n === ef.name) ? false : KITS_ORIG.some(k => k.name === n && !(ef && ef.base === k.k)) || all.some((k, j) => k.name === n && !(ef && ef.idx === j)); for (let k = 2; taken(name) && k < 99; k++) name = name.replace(/ \d+$/, '') + ' ' + k;
   const max = d.querySelector('#kitSaveMax').checked; const slots = [];
   for (let i = 0; i <= 40; i++) { const s = player.inv[i]; if (!s || !ITEMS[s.id]) continue; const c = Object.assign({}, s); if (max) kitMaxEnch(c); const ex = {}; if (c.ench) ex.ench = c.ench; if (c.pot) ex.pot = c.pot; slots.push([i, ITEMS[s.id].key, s.count, Object.keys(ex).length ? ex : null]); }
   if (!slots.length) { toast('Put something in your inventory first', 2); return; }
-  all.push({ name, slots }); saveCustomKits(all); d.querySelector('#kitSaveName').value = ''; kitEditEnd(); rebuildKits(); const i = KITS.findIndex(k => k.name === name); if (i >= 0) pickKit(i); toast('Saved the kit "' + name + '"', 2);
+  const entry = { name, slots }; if (ef && ef.base) entry.base = ef.base;
+  if (ef && ef.idx != null && all[ef.idx]) all[ef.idx] = entry; else all.push(entry); saveCustomKits(all); d.querySelector('#kitSaveName').value = ''; kitEditEnd(); rebuildKits(); const i = KITS.findIndex(k => k.name === name); if (i >= 0) pickKit(i); toast('Saved the kit "' + name + '"', 2);
 }
 { const _ci = closeInv; closeInv = function (noLock) { if (S.uiOpen === 'kitsave') { kitSaveClose(); return; } return _ci.apply(this, arguments); }; }
 addEventListener('keydown', (e) => { if (e.code === 'KeyK' && AR.editing && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '') && S.rules.arena && !player.dead && (!S.uiOpen || S.uiOpen === 'inv')) { e.preventDefault(); e.stopImmediatePropagation(); kitSaveDialog(); } }, true);

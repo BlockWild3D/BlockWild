@@ -11447,22 +11447,24 @@ function avatarRay(eye, dir, maxT) {
   return best ? { av: best, dist: bt } : null;
 }
 // send a hit to another player (through the host if we are a client)
-function pvpHit(av, dmg, kb, cause, fire) {
+function pvpHit(av, dmg, kb, cause, fire, tip) {
   if (!S.rules.pvp) { toast('PvP is off in this world (/gamerule pvp true)', 1.5); return; }
   const m = { t: 'pvp', to: av.id, dmg: +dmg.toFixed(2), kb: +kb.toFixed(2), src: [+player.pos.x.toFixed(2), +player.pos.y.toFixed(2), +player.pos.z.toFixed(2)], cause: cause || myName() };
   if (fire > 0) m.fire = fire; // seconds of burning (Fire Aspect, Flame)
+  if (tip) m.tip = tip; // a tipped arrow's potion (an eighth of the potion's time, as in Minecraft)
   if (MP.role === 'host') pvpDeliver(m); else mpToHost(m);
   av.hurtT = 0.3; Sfx.at('hurt', av.pos, 0.6);
   SpriteFX.emit('damage', av.pos.x, av.pos.y + 1.2, av.pos.z, 4, { size: 0.25, grav: 6, spd: 1.5, life: 0.5, spread: 0.4 }) || Particles.emit(av.pos.x, av.pos.y + 1.2, av.pos.z, 4, [[0.7, 0.1, 0.1]], 1.5, 0.4, 8, 0.3);
 }
 function pvpDeliver(m) { // host: route a hit to its target
   if (m.to === MP.myId || m.to === 'host') return pvpReceive(m);
-  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0 });
+  const peer = MP.peers.get(m.to); if (peer) peer.link.send({ t: 'pvphurt', dmg: m.dmg, kb: m.kb, src: m.src, cause: m.cause, fire: m.fire || 0, tip: m.tip || null });
 }
 function pvpReceive(m) {
   if (player.dead || !S.rules.pvp) return;
   const d = S.difficulty; S.difficulty = 'normal'; // players hit as hard on every difficulty
   try { player.hurt(m.dmg, m.src ? new V3(m.src[0], m.src[1], m.src[2]) : null, m.cause, m.kb); } finally { S.difficulty = d; }
+  if (m.tip && typeof POTIONS !== 'undefined' && POTIONS[m.tip] && !player.dead) applyPotion(m.tip, 0.125);
   if (m.fire > 0 && isSurv() && !player.dead) player.fireT = Math.max(player.fireT || 0, Math.min(15, +m.fire));
 }
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
@@ -11492,7 +11494,7 @@ function pvpReceive(m) {
       if (a.done || a.owner !== 'player' || a.kind === 'pearl') continue;
       for (const av of MP.avatars.values()) { if (av.dim !== world.dim || av.dead || av.spec) continue;
         if (Math.abs(a.pos.x - av.pos.x) < 0.4 && Math.abs(a.pos.z - av.pos.z) < 0.4 && a.pos.y > av.pos.y && a.pos.y < av.pos.y + PVP_H(av)) {
-          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0); a.done = true; }
+          if (a.kind === 'arrow') { pvpHit(av, a.dmg || 2, 0.6 + (a.punch || 0) * 0.9, myName() + "'s arrow", a.flame ? 5 : 0, a.tip || null); a.done = true; }
           else if (a.kind === 'egg') { pvpHit(av, 0, 0.3); a.done = true; }
           break; }
       }
@@ -20208,7 +20210,9 @@ const KITS = [
   { k: 'sword', name: 'Sword', blurb: 'Diamond sword and armour. Spacing, crits and nothing else.', armor: [['diamond_helmet'], ['diamond_chestplate'], ['diamond_leggings'], ['diamond_boots']], items: [['diamond_sword'], ['steak', 16]] },
   { k: 'axe', name: 'Axe', blurb: 'Axe to break shields, sword, shield, bow and crossbow.', armor: [['diamond_helmet'], ['diamond_chestplate'], ['diamond_leggings'], ['diamond_boots']], items: [['diamond_axe'], ['diamond_sword'], ['crossbow'], ['bow'], ['steak', 16], ['arrow', 12]], off: ['shield'] },
   { k: 'crystal', name: 'Crystal', blurb: 'Obsidian, end crystals, anchors, totems. Fast and explosive.', armor: [['netherite_helmet', KP4], ['netherite_chestplate', KP4], ['netherite_leggings', KBP4], ['netherite_boots', KP4]],
-    items: [['netherite_sword', KSHARP], ['obsidian', 64], ['end_crystal', 64], ['golden_apple', 64], ['ender_pearl', 16], ['respawn_anchor', 32], ['glowstone', 64], ['totem_of_undying'], ['experience_bottle', 64], ['netherite_pickaxe', { efficiency: 5, unbreaking: 3, mending: 1 }], ['obsidian', 64], ['end_crystal', 64], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying']], off: ['totem_of_undying'] },
+    items: [['netherite_sword', KSHARP], ['obsidian', 64], ['end_crystal', 64], ['respawn_anchor', 64], ['glowstone', 64], ['golden_apple', 64], ['ender_pearl', 16], ['crossbow', { multishot: 1, quick_charge: 3, unbreaking: 3 }], ['totem_of_undying'],
+      ['end_crystal', 64], ['end_crystal', 64], ['end_crystal', 64], ['end_crystal', 64], ['end_crystal', 64], ['respawn_anchor', 64], ['respawn_anchor', 64], ['respawn_anchor', 64], ['glowstone', 64], ['glowstone', 64], ['glowstone', 64], ['glowstone', 64],
+      ['obsidian', 64], ['obsidian', 64], ['tipped_arrow', { pot: 'slow_falling', n: 64 }], ['tipped_arrow', { pot: 'slow_falling', n: 64 }], ['experience_bottle', 64], ['netherite_pickaxe', { efficiency: 5, unbreaking: 3, mending: 1 }], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying'], ['totem_of_undying']], off: ['totem_of_undying'] },
   { k: 'spear', name: 'Spear', blurb: 'Netherite spear with Lunge. Charge in, jab, back off.', armor: KNETH, items: [['netherite_spear', KSPEAR], ['netherite_sword', KSHARP], ['golden_apple', 16], ['ender_pearl', 8], ['steak', 16]], off: ['shield'] },
   { k: 'mace', name: 'Mace', blurb: 'Wind charges up, mace down. Density V and Breach mace.', armor: KNETH, items: [['mace', KDENS], ['netherite_sword', KSHARP], ['wind_charge', 64], ['ender_pearl', 16], ['golden_apple', 32], ['mace', { breach: 4, unbreaking: 3 }], ['totem_of_undying'], ['totem_of_undying'], ['steak', 16]], off: ['totem_of_undying'] },
   { k: 'spear_mace', name: 'Spear Mace', blurb: 'Spear to close the gap, mace to finish. Wind charges.', armor: KNETH, items: [['netherite_spear', KSPEAR], ['mace', KDENS], ['wind_charge', 64], ['netherite_sword', KSHARP], ['golden_apple', 32], ['ender_pearl', 16], ['totem_of_undying'], ['steak', 16]], off: ['totem_of_undying'] },
@@ -20310,20 +20314,15 @@ let PVP_AXE = false;
     try { return _ht.apply(this, arguments); } finally { for (const m of hidden) m.isBoss = false; } }; }
 
 // ================= MORE PVP KITS =================
-// UHC, Pot, Neth Pot, SMP and Diamond SMP, as played on Minecraft PvP practice servers. Loadouts are my best
+// UHC, as played on Minecraft PvP practice servers. Loadouts are my best
 // reading of the usual ones; exact contents differ from server to server.
 { const P2 = { protection: 2, unbreaking: 3 }, P3 = { protection: 3, unbreaking: 3 }, S3 = { sharpness: 3, unbreaking: 3 };
   const dia = (e) => [['diamond_helmet', e], ['diamond_chestplate', e], ['diamond_leggings', e], ['diamond_boots', e]];
   const pots = (key, n) => Array.from({ length: n }, () => ['splash_potion', { pot: key }]);
   KITS.push(
-    { k: 'uhc', name: 'UHC', blurb: 'No easy healing. Sword, axe, bow, shield, golden apples, lava and water.', armor: dia(P2), items: [['diamond_sword', S3], ['diamond_axe', { sharpness: 1 }], ['bow', { power: 2 }], ['golden_apple', 12], ['lava_bucket'], ['water_bucket'], ['cobblestone', 64], ['planks', 64], ['arrow', 20], ['steak', 16], ['lava_bucket'], ['water_bucket'], ['diamond_pickaxe', { efficiency: 2 }]], off: ['shield'] },
-    { k: 'pot', name: 'Pot', blurb: 'Diamond gear and a hotbar of splash healing. Heal fast, keep swinging.', armor: dia(P3), items: [['diamond_sword', { sharpness: 4, fire_aspect: 1, unbreaking: 3 }], ['ender_pearl', 16], ['steak', 32], ['potion', { pot: 'swiftness' }], ['potion', { pot: 'strength' }], ...pots('strong_healing', 28), ['potion', { pot: 'swiftness' }], ['potion', { pot: 'strength' }]] },
-    { k: 'neth_pot', name: 'Neth Pot', blurb: 'Netherite, splash healing, totems and golden apples. Long fights.', armor: KNETH, items: [['netherite_sword', KSHARP], ['golden_apple', 64], ['ender_pearl', 16], ['totem_of_undying'], ['potion', { pot: 'swiftness' }], ['potion', { pot: 'strength' }], ['experience_bottle', 64], ...pots('strong_healing', 22), ['totem_of_undying'], ['totem_of_undying']], off: ['totem_of_undying'] },
-    { k: 'smp', name: 'SMP', blurb: 'Survival-server fight: netherite, axe and shield, pearls, gapples, totem.', armor: KNETH, items: [['netherite_sword', KSHARP], ['netherite_axe', { sharpness: 5, unbreaking: 3 }], ['golden_apple', 64], ['ender_pearl', 16], ['totem_of_undying'], ['potion', { pot: 'strength' }], ['potion', { pot: 'swiftness' }], ['experience_bottle', 64], ['steak', 32], ['cobweb', 16], ['water_bucket'], ['totem_of_undying']], off: ['shield'] },
-    { k: 'dia_smp', name: 'Diamond SMP', blurb: 'SMP rules in diamond: axe and shield, gapples, pearls, no totems.', armor: dia({ protection: 4, unbreaking: 3 }), items: [['diamond_sword', KSHARP], ['diamond_axe', { sharpness: 5, unbreaking: 3 }], ['golden_apple', 32], ['ender_pearl', 16], ['potion', { pot: 'strength' }], ['potion', { pot: 'swiftness' }], ['steak', 32], ['cobweb', 16], ['water_bucket'], ['experience_bottle', 64]], off: ['shield'] });
-  KITS.push({ k: 'tnt', name: 'TNT', blurb: 'TNT, flint and steel, a rod to drag it and a Punch bow to launch it. Blast Protection armour.', armor: dia({ blast_protection: 4, unbreaking: 3 }), items: [['diamond_sword', S3], ['tnt', 64], ['flint_and_steel'], ['fishing_rod'], ['bow', { punch: 2, infinity: 1 }], ['golden_apple', 16], ['ender_pearl', 8], ['cobblestone', 64], ['arrow', 64], ['tnt', 64], ['steak', 16]] });
+    { k: 'uhc', name: 'UHC', blurb: 'No easy healing. Sword, axe, bow, shield, golden apples, lava and water.', armor: dia(P2), items: [['diamond_sword', S3], ['diamond_axe', { sharpness: 1 }], ['bow', { power: 2 }], ['golden_apple', 12], ['lava_bucket'], ['water_bucket'], ['cobblestone', 64], ['planks', 64], ['arrow', 20], ['steak', 16], ['lava_bucket'], ['water_bucket'], ['diamond_pickaxe', { efficiency: 2 }]], off: ['shield'] });
   // a stack's third part may carry a potion as well as enchantments
-  const _ks = kitStack; kitStack = function (key, a) { if (a && typeof a === 'object' && a.pot) { const id = IT[key]; return id == null || !POTIONS[a.pot] ? null : { id, count: 1, pot: a.pot }; } return _ks(key, a); };
+  const _ks = kitStack; kitStack = function (key, a) { if (a && typeof a === 'object' && a.pot) { const id = IT[key]; return id == null || !POTIONS[a.pot] ? null : { id, count: Math.max(1, Math.min(a.n || 1, stackMax(id))), pot: a.pot }; } return _ks(key, a); };
   // the picker: five columns for thirteen kits, keys 1-9 for the first nine
   const _ok = openKitPicker; openKitPicker = function () { const fresh = !$('kitPick'); const r = _ok.apply(this, arguments); if (fresh) { const g = $('kitGrid'); g.style.gridTemplateColumns = 'repeat(5,190px)';
       for (const img of g.querySelectorAll('img[data-k]')) { const kt = KITS[+img.closest('button').dataset.i]; const ent = kt.items.find(x => x[0] === img.dataset.k && x[1] && x[1].pot); if (ent) { const s = kitStack(ent[0], ent[1]); if (s && typeof stackIcon === 'function') img.src = stackIcon(s); } } }
@@ -20528,14 +20527,16 @@ function fpFinal(dt) {
 // your cage, you lay out your inventory, armour and off-hand the way the kit should be, press K, name it and save.
 // Custom kits are kept in this browser (up to 12) and are sent to friends when picked, so they don't need them saved.
 AR.def = null; AR.editing = false;
-const KITS_BASE = KITS.length; const KIT_STORE = 'blockwild_pvp_kits';
+const KITS_BASE = KITS.length; const KIT_STORE = 'blockwild_pvp_kits'; const KITS_ORIG = KITS.slice(); // built-in kits as shipped, so an edited one can be reset
 function kitDef(kt) { return JSON.parse(JSON.stringify({ name: kt.name, items: kt.items || [], armor: kt.armor || [], off: kt.off || null, slots: kt.slots || null })); }
-function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_STORE) || '[]'); return Array.isArray(a) ? a.filter(k => k && k.name && Array.isArray(k.slots)).slice(0, 12) : []; } catch (e) { return []; } }
+function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_STORE) || '[]'); return Array.isArray(a) ? a.filter(k => k && k.name && Array.isArray(k.slots)).slice(0, 40) : []; } catch (e) { return []; } }
 function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringify(a)); } catch (e) { } }
 function rebuildKits() {
-  KITS.length = KITS_BASE;
+  KITS.length = 0; KITS.push(...KITS_ORIG);
   loadCustomKits().forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
-    KITS.push({ k: 'custom' + i, name: c.name, custom: i, blurb: 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] }); });
+    const kt = { k: c.base || 'custom' + i, name: c.name, custom: i, blurb: c.base ? 'Your edited version.' : 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] };
+    const bi = c.base ? KITS.findIndex((x, j) => j < KITS_BASE && x.k === c.base) : -1;
+    if (bi >= 0) { kt.edited = true; KITS[bi] = kt; } else if (!c.base) KITS.push(kt); });
   const el = $('kitPick'); if (el) { const open = S.uiOpen === 'kit'; if (open) closeKitPicker(true); el.remove(); if (open) openKitPicker(); }
 }
 { const _gk = giveKit; giveKit = function (kit) {
@@ -20584,17 +20585,24 @@ renderLobby = function () {
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(); });
       const g = $('kitGrid'); g.style.maxHeight = '56vh'; g.style.overflowY = 'auto'; g.style.padding = '4px';
       g.querySelectorAll('button').forEach(bt => { const kt = KITS[+bt.dataset.i]; bt.addEventListener('contextmenu', (e) => { e.preventDefault(); kitDelete(KITS[+bt.dataset.i]); });
-        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = 'Delete'; del.title = 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
-          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
+        if (kt && arenaHost()) { const ed = document.createElement('span'); ed.textContent = 'Edit'; ed.title = 'Change what this kit has'; ed.style.cssText = 'position:absolute;left:6px;top:6px;background:#2c5a7a;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer'; bt.style.position = 'relative';
+          ed.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(kt); }); bt.appendChild(ed); }
+        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = kt.edited ? 'Reset' : 'Delete'; del.title = kt.edited ? 'Put this kit back the way it came' : 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
+          del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = kt.edited ? 'Reset' : 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
     renderLobby(); return r; }; }
 function kitDelete(kt) { if (!kt || kt.custom == null || !arenaHost()) return; const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a);
-  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast('Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
+  if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast(kt.edited ? 'Reset the kit "' + kt.name + '"' : 'Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
 // ---- the kit editor ----
-function kitEditStart() {
-  const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return; if (loadCustomKits().length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
+function kitEditStart(from) {
+  const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return;
+  from = from && from.name ? from : null; const ci = (k) => { const c = loadCustomKits()[k.custom]; return c && c.base; };
+  if (!from && loadCustomKits().filter(c => !c.base).length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
+  // editing a kit: a built-in one is saved as your version of it (Reset brings the original back); a custom one is replaced
+  AR.editFrom = from ? { name: from.name, idx: from.custom != null ? from.custom : null, base: from.custom != null ? (ci(from) || null) : from.k } : null;
   closeKitPicker(); AR.editing = true; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('creative'); player.flying = false;
+  if (from) { giveKit(from.slots ? from : kitDef(from)); chatPrint('Editing "' + from.name + '". Change your inventory, armour and off-hand, then press K to save.', '#ff5'); return; }
   chatPrint('Kit editor: open your inventory (E), take what the kit should have, and put armour and the off-hand item in their slots. Press K when it is ready.', '#ff5'); }
-function kitEditEnd() { AR.editing = false; if (S.uiOpen === 'kitsave') S.uiOpen = null; const d = $('kitSave'); if (d) d.style.display = 'none'; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('survival'); player.flying = false; openKitPicker(); }
+function kitEditEnd() { AR.editing = false; AR.editFrom = null; if (S.uiOpen === 'kitsave') S.uiOpen = null; const d = $('kitSave'); if (d) d.style.display = 'none'; for (let i = 0; i <= 40; i++) player.inv[i] = null; invDirty(); setMode('survival'); player.flying = false; openKitPicker(); }
 function kitMaxEnch(s) {
   const it = ITEMS[s.id]; if (!it || s.ench) return; let e = null;
   if (it.kind === 'armor') { e = { protection: 4, unbreaking: 3, mending: 1 }; if (it.slot === 'feet') e.feather_falling = 4; }
@@ -20617,17 +20625,19 @@ function kitSaveDialog() {
     const nm = d.querySelector('#kitSaveName'); nm.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') kitSaveNow(); if (e.key === 'Escape') kitSaveClose(); });
     const on = (id, fn) => d.querySelector(id).addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('#kitSaveOk', kitSaveNow); on('#kitSaveBack', kitSaveClose); on('#kitSaveDrop', kitEditEnd); }
+  if (AR.editFrom && !d.querySelector('#kitSaveName').value) d.querySelector('#kitSaveName').value = AR.editFrom.name;
   const n = player.inv.filter(Boolean).length; d.querySelector('#kitSaveInfo').textContent = n ? n + ' item stack' + (n === 1 ? '' : 's') + ' in the kit' : 'Your inventory is empty. Put the kit together first.';
   if (S.uiOpen && S.uiOpen !== 'kitsave') closeInv(true); S.uiOpen = 'kitsave'; for (const kk in keys) keys[kk] = false; mouseL = mouseR = false; d.style.display = 'flex'; releaseLock(); setTimeout(() => d.querySelector('#kitSaveName').focus(), 0);
 }
 function kitSaveClose() { const d = $('kitSave'); if (d) d.style.display = 'none'; if (S.uiOpen === 'kitsave') S.uiOpen = null; requestLock(); }
 function kitSaveNow() {
   const d = $('kitSave'); const all = loadCustomKits(); let name = (d.querySelector('#kitSaveName').value || '').trim().slice(0, 20) || 'Custom ' + (all.length + 1);
-  const taken = (n) => KITS.slice(0, KITS_BASE).some(k => k.name === n) || all.some(k => k.name === n); for (let k = 2; taken(name) && k < 99; k++) name = name.replace(/ \d+$/, '') + ' ' + k;
+  const ef = AR.editFrom; const taken = (n) => (ef && n === ef.name) ? false : KITS_ORIG.some(k => k.name === n && !(ef && ef.base === k.k)) || all.some((k, j) => k.name === n && !(ef && ef.idx === j)); for (let k = 2; taken(name) && k < 99; k++) name = name.replace(/ \d+$/, '') + ' ' + k;
   const max = d.querySelector('#kitSaveMax').checked; const slots = [];
   for (let i = 0; i <= 40; i++) { const s = player.inv[i]; if (!s || !ITEMS[s.id]) continue; const c = Object.assign({}, s); if (max) kitMaxEnch(c); const ex = {}; if (c.ench) ex.ench = c.ench; if (c.pot) ex.pot = c.pot; slots.push([i, ITEMS[s.id].key, s.count, Object.keys(ex).length ? ex : null]); }
   if (!slots.length) { toast('Put something in your inventory first', 2); return; }
-  all.push({ name, slots }); saveCustomKits(all); d.querySelector('#kitSaveName').value = ''; kitEditEnd(); rebuildKits(); const i = KITS.findIndex(k => k.name === name); if (i >= 0) pickKit(i); toast('Saved the kit "' + name + '"', 2);
+  const entry = { name, slots }; if (ef && ef.base) entry.base = ef.base;
+  if (ef && ef.idx != null && all[ef.idx]) all[ef.idx] = entry; else all.push(entry); saveCustomKits(all); d.querySelector('#kitSaveName').value = ''; kitEditEnd(); rebuildKits(); const i = KITS.findIndex(k => k.name === name); if (i >= 0) pickKit(i); toast('Saved the kit "' + name + '"', 2);
 }
 { const _ci = closeInv; closeInv = function (noLock) { if (S.uiOpen === 'kitsave') { kitSaveClose(); return; } return _ci.apply(this, arguments); }; }
 addEventListener('keydown', (e) => { if (e.code === 'KeyK' && AR.editing && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '') && S.rules.arena && !player.dead && (!S.uiOpen || S.uiOpen === 'inv')) { e.preventDefault(); e.stopImmediatePropagation(); kitSaveDialog(); } }, true);
