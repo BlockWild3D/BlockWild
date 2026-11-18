@@ -205,6 +205,7 @@ const MCA_SKIPBONE = { blaze: /upperBodyParts/, vex: /Wing/, guardian: /spike/, 
 // resting angles the game sets by hand on parts whose clips already hold them
 const MCA_UNPOSE = { vex: ['right_arm', 'left_arm'] };
 function mcaInit(m) {
+  if (m.jm) { m.mca = null; return; } // drawn and moved by the Java model (99zzzzzzzzzzzzzzzz_javamobs.js)
   const mob = mcaFolder(m.type); m.mca = null; if (!mob || !m.bbHolder || !m.bbParts) return;
   const rig = mcaRig(mob, !!m.baby && !!MCA[mob].gb && /:baby$/.test(m.bbKey || '')); if (!rig) return;
   // resting angles the game added by hand (BB_POSE) are in the owner's clips already
