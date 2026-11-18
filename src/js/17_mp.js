@@ -343,7 +343,9 @@ function renderMpPanel() {
   const b = $('btnOpenLan'); if (!b) return;
   if (MP.role === 'client') { b.style.display = 'none'; $('btnQuit').textContent = 'Disconnect'; $('btnSave').style.display = 'none'; $('mpPanel').innerHTML = 'Playing on a friend\'s world · players: ' + (MP.avatars.size + 1); return; }
   b.style.display = ''; $('btnQuit').textContent = 'Save & Quit to Title'; $('btnSave').style.display = '';
-  if (MP.active) { b.textContent = 'Open to Friends: ' + MP.code; $('mpPanel').innerHTML = 'Code <b style="font-size:26px;letter-spacing:3px;color:#7ef">' + MP.code + '</b> · players online: ' + (MP.avatars.size + 1) + '<br><span style="color:#aaa">Friends open BlockWild, press Multiplayer and type this code.</span>'; }
+  if (MP.active) { b.textContent = 'Open to Friends: ' + MP.code; const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const list = [...MP.peers.values()].filter(p => p.joined).map(p => '<span style="display:inline-flex;align-items:center;gap:6px;background:#2a2a2a;border:2px solid #1c1c1c;padding:2px 4px 2px 10px;margin:3px">' + esc((MP.avatars.get(p.id) || p).name) + '<button data-kick="' + esc(p.id) + '" style="background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-family:inherit;font-size:13px;padding:1px 8px;cursor:pointer">Kick</button></span>').join('');
+    $('mpPanel').innerHTML = 'Code <b style="font-size:26px;letter-spacing:3px;color:#7ef">' + MP.code + '</b> · players online: ' + (MP.avatars.size + 1) + '<br><span style="color:#aaa">Friends open BlockWild, press Multiplayer and type this code.</span>' + (list ? '<div style="margin-top:6px">' + list + '</div>' : ''); }
   else { b.textContent = 'Open to Friends'; $('mpPanel').innerHTML = ''; }
 }
 $('btnOpenLan').addEventListener('click', () => { if (!MP.active) { show('lanOpts', true); } else { try { navigator.clipboard.writeText(MP.code); toast('Code copied', 1.5); } catch (e) { } } });
@@ -354,3 +356,21 @@ $('btnMpBack').addEventListener('click', () => { show('mpScreen', false); show('
 $('btnMpJoin').addEventListener('click', () => joinWorld($('mpCode').value));
 $('mpCode').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') joinWorld($('mpCode').value); });
 addEventListener('beforeunload', () => { if (MP.active) mpShutdown(); });
+
+// ---------- kicking (host): the Kick buttons in the pause menu, or /kick <name> [reason] ----------
+// The kicked player is told why and sent to the title screen; their game does not try to rejoin by itself.
+function mpKick(id, reason) {
+  if (MP.role !== 'host') return false; const peer = MP.peers.get(id); if (!peer) return false; const name = (MP.avatars.get(id) || peer).name;
+  try { peer.link.send({ t: 'kick', reason: String(reason || '').slice(0, 80) }); } catch (e) { }
+  setTimeout(() => { try { peer.link.close(); } catch (e) { } hostPeerGone(peer); }, 400);
+  chatPrint('Kicked ' + name + (reason ? ' (' + reason + ')' : ''), '#ff5'); mpSendAll({ t: 'chat', raw: name + ' was kicked from the game' }, false, id); renderMpPanel(); return true;
+}
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m.t === 'kick' && MP.role === 'client' && peer.id === 'host') { const why = m.reason ? ': ' + m.reason : '';
+      MP.lastCode = null; MP.retries = 99; mpShutdown(); quitToTitle(); show('mpScreen', true); mpStatus('You were kicked from the game' + why); toast('You were kicked from the game' + why, 5); return; }
+    return _on(peer, m); }; }
+{ const pnl = $('mpPanel'); if (pnl) pnl.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-kick]'); if (!b) return; e.preventDefault(); e.stopPropagation(); mpKick(b.dataset.kick); }); }
+if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free: true, run(a) {
+  if (!MP.active || MP.role !== 'host') { chatPrint('Only the host can kick players', '#f66'); return; }
+  const want = String(a[0] || '').toLowerCase(); const p = [...MP.peers.values()].find(x => x.joined && String((MP.avatars.get(x.id) || x).name).toLowerCase() === want);
+  if (!p) { chatPrint('No player called ' + (a[0] || '?') + ' is online', '#f66'); return; } mpKick(p.id, a.slice(1).join(' ')); } };

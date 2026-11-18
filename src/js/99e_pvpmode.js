@@ -98,27 +98,38 @@ function xtalIn(m) {
 // Die and you're back in your cage to pick again. Nothing drops in the arena, mobs don't spawn and it stays midday.
 // The host can put the arena back the way it was with /arena reset. The kits are my own take on the popular PvP
 // practice kits (Sword, Axe, Crystal, Mace and so on), not an official list.
-const AR = { R: 40, Y: SEA + 1, E: 44, feat: null, seed: null };
+const AR = { R: 40, Y: SEA + 1, E: 44, feat: null, seed: null, round: 0 };
+// every round the host moves to the next map: a new layout (the seed moves on) and the next look in this list
+const arB = (k, f) => B[k] != null ? B[k] : f;
+const AR_THEMES = [
+  { name: 'Meadow', top: B.GRASS, sub: B.DIRT, deep: B.STONE, rocks: [B.COBBLESTONE, B.MOSSY_COBBLESTONE, B.STONE], log: B.LOG, leaves: B.LEAVES, flower: B.DANDELION },
+  { name: 'Desert', top: arB('SAND', B.GRASS), sub: arB('SANDSTONE', B.DIRT), deep: arB('SANDSTONE', B.STONE), rocks: [arB('SANDSTONE', B.STONE), arB('SMOOTH_SANDSTONE', B.STONE), arB('CUT_SANDSTONE', B.STONE)], log: arB('CUT_SANDSTONE', B.STONE), leaves: 0, flower: arB('DEAD_BUSH', 0), rocksN: 12, treesN: 6 },
+  { name: 'Snowy Taiga', top: arB('SNOWY_GRASS', B.GRASS), sub: B.DIRT, deep: B.STONE, rocks: [arB('PACKED_ICE', B.STONE), B.STONE, arB('SNOW_BLOCK', B.STONE)], log: arB('SPRUCE_LOG', B.LOG), leaves: arB('SPRUCE_LEAVES', B.LEAVES), flower: 0, treesN: 9 },
+  { name: 'Nether', top: arB('CRIMSON_NYLIUM', B.GRASS), sub: arB('NETHERRACK', B.DIRT), deep: arB('NETHERRACK', B.STONE), rocks: [arB('BLACKSTONE', B.STONE), arB('BASALT', B.STONE), arB('NETHERRACK', B.STONE)], log: arB('CRIMSON_STEM', B.LOG), leaves: arB('NETHER_WART_BLOCK', B.LEAVES), flower: 0, glow: arB('SHROOMLIGHT', 0) },
+  { name: 'The End', top: arB('END_STONE', B.STONE), sub: arB('END_STONE', B.STONE), deep: arB('END_STONE', B.STONE), rocks: [arB('END_STONE_BRICKS', B.STONE), arB('PURPUR_BLOCK', B.STONE), arB('END_STONE', B.STONE)], log: arB('OBSIDIAN', B.STONE), leaves: 0, flower: 0, rocksN: 6, treesN: 7 },
+];
+function arTheme() { return AR_THEMES[((AR.round % AR_THEMES.length) + AR_THEMES.length) % AR_THEMES.length]; }
+function arSeed(w) { return ((w.seed | 0) + AR.round * 7919) | 0; }
 function arenaFeatures(seed) {
-  if (AR.feat && AR.seed === seed) return AR.feat; const F = new Map(); const r = mulberry32((seed ^ 0x5eed) >>> 0); const Y = AR.Y;
+  const T = arTheme(); if (AR.feat && AR.seed === seed && AR.featT === T) return AR.feat; const F = new Map(); const r = mulberry32((seed ^ 0x5eed) >>> 0); const Y = AR.Y;
   const put = (x, y, z, id) => F.set(x + ',' + y + ',' + z, id);
   const pads = arenaSpots(); const clear = (x, z, d) => Math.hypot(x, z) > 9 && pads.every(([px, pz]) => Math.hypot(x - px, z - pz) > d) && Math.abs(x) < AR.R - 5 && Math.abs(z) < AR.R - 5;
   // boulders
-  for (let n = 0, tries = 0; n < 9 && tries < 300; tries++) { const x = Math.round((r() * 2 - 1) * (AR.R - 6)), z = Math.round((r() * 2 - 1) * (AR.R - 6)); if (!clear(x, z, 6)) continue; n++;
+  for (let n = 0, tries = 0; n < (T.rocksN || 9) && tries < 300; tries++) { const x = Math.round((r() * 2 - 1) * (AR.R - 6)), z = Math.round((r() * 2 - 1) * (AR.R - 6)); if (!clear(x, z, 6)) continue; n++;
     const rad = 1.4 + r() * 1.4, hy = 0.7 + r() * 0.5;
-    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) for (let dy = 0; dy <= 4; dy++) { if (Math.hypot(dx, dz, dy / hy) > rad + (r() - 0.5) * 0.6) continue; const v = r(); put(x + dx, Y + dy, z + dz, v < 0.45 ? B.COBBLESTONE : v < 0.75 ? B.MOSSY_COBBLESTONE : B.STONE); } }
+    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) for (let dy = 0; dy <= 4; dy++) { if (Math.hypot(dx, dz, dy / hy) > rad + (r() - 0.5) * 0.6) continue; const v = r(); put(x + dx, Y + dy, z + dz, v < 0.45 ? T.rocks[0] : v < 0.75 ? T.rocks[1] : T.rocks[2]); } }
   // a few trees
-  for (let n = 0, tries = 0; n < 5 && tries < 300; tries++) { const x = Math.round((r() * 2 - 1) * (AR.R - 7)), z = Math.round((r() * 2 - 1) * (AR.R - 7)); if (!clear(x, z, 7)) continue; n++;
-    const h = 4 + ((r() * 3) | 0);
-    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = h - 2; dy <= h + 1; dy++) { const rr = dy >= h ? 1.5 : 2.4; if (Math.hypot(dx, dz) > rr || (Math.abs(dx) === 2 && Math.abs(dz) === 2 && r() < 0.6)) continue; put(x + dx, Y + dy, z + dz, B.LEAVES); }
-    for (let dy = 0; dy < h; dy++) put(x, Y + dy, z, B.LOG); }
-  AR.feat = F; AR.seed = seed; return F;
+  for (let n = 0, tries = 0; n < (T.treesN || 5) && tries < 300; tries++) { const x = Math.round((r() * 2 - 1) * (AR.R - 7)), z = Math.round((r() * 2 - 1) * (AR.R - 7)); if (!clear(x, z, 7)) continue; n++;
+    const h = 4 + ((r() * 3) | 0) + (T.leaves ? 0 : 2);
+    if (T.leaves)     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = h - 2; dy <= h + 1; dy++) { const rr = dy >= h ? 1.5 : 2.4; if (Math.hypot(dx, dz) > rr || (Math.abs(dx) === 2 && Math.abs(dz) === 2 && r() < 0.6)) continue; put(x + dx, Y + dy, z + dz, T.glow && r() < 0.06 ? T.glow : T.leaves); }
+    for (let dy = 0; dy < h; dy++) put(x, Y + dy, z, T.log); }
+  AR.feat = F; AR.seed = seed; AR.featT = T; return F;
 }
 function arenaSpots() { const out = []; for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8; out.push([Math.round(Math.cos(a) * 30), Math.round(Math.sin(a) * 30)]); } return out; }
 const AR_PAD = new Set(); for (const [px, pz] of arenaSpots()) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) AR_PAD.add((px + dx) + ',' + (pz + dz));
 // the block the arena has at x, y, z (before anyone touches it)
 function arenaAt(seed, x, y, z) {
-  const E = AR.E, R = AR.R, Y = AR.Y; if (x < -E || x >= E || z < -E || z >= E) return 0;
+  const E = AR.E, R = AR.R, Y = AR.Y; if (x < -E || x >= E || z < -E || z >= E) return 0; const T = arTheme();
   const f = arenaFeatures(seed).get(x + ',' + y + ',' + z); if (f !== undefined) return f;
   const h = ihash(x, z, 77, seed); const e = Math.min(x + E, E - 1 - x, z + E, E - 1 - z); // 0 on the island's rim
   const depth = Math.min(13, 3 + e * 1.4 + (h & 3)); const wall = (x === -R - 1 || x === R || z === -R - 1 || z === R) && x >= -R - 1 && x <= R && z >= -R - 1 && z <= R;
@@ -127,15 +138,15 @@ function arenaAt(seed, x, y, z) {
     if (corner) { const top = Y + 6; if (y < top) return (h % 7 === 0) ? B.CRACKED_STONE_BRICKS : (h % 5 === 0) ? B.MOSSY_STONE_BRICKS : B.STONE_BRICKS; if (y === top) return (Math.abs(x + 0.5) === R + 0.5 && Math.abs(z + 0.5) === R + 0.5) ? B.LANTERN : ((x + z) & 1) ? B.STONE_BRICK_WALL : 0; return 0; }
     if (wall) { if (y < Y + 3) return ((h >> 3) % 9 === 0) ? B.MOSSY_STONE_BRICKS : ((h >> 3) % 13 === 0) ? B.CRACKED_STONE_BRICKS : (y === Y + 1 && ((x + z) % 12 === 0)) ? B.CHISELED_STONE_BRICKS : B.STONE_BRICKS;
       if (y === Y + 3) return ((x % 10 === 0 && Math.abs(z + 0.5) === R + 0.5) || (z % 10 === 0 && Math.abs(x + 0.5) === R + 0.5)) ? B.LANTERN : B.STONE_BRICK_WALL; return 0; }
-    if (y === Y && !AR_PAD.has(x + ',' + z) && Math.hypot(x, z) > 4 && (h >> 5) % 61 === 0) return B.DANDELION;
+    if (y === Y && !AR_PAD.has(x + ',' + z) && Math.hypot(x, z) > 4 && (h >> 5) % 61 === 0) return T.flower || 0;
     return 0; }
   const d = Y - 1 - y; if (d >= depth) return 0; if (d === depth - 1 && e >= 6) return B.BEDROCK;
-  if (d === 0) { if (AR_PAD.has(x + ',' + z)) return B.SMOOTH_STONE; const rc = Math.hypot(x + 0.5, z + 0.5); if (rc < 3.6) return rc < 1.5 ? B.CHISELED_STONE_BRICKS : B.POLISHED_ANDESITE; return wall || corner ? B.STONE_BRICKS : B.GRASS; }
-  return d < 4 ? B.DIRT : B.STONE;
+  if (d === 0) { if (AR_PAD.has(x + ',' + z)) return B.SMOOTH_STONE; const rc = Math.hypot(x + 0.5, z + 0.5); if (rc < 3.6) return rc < 1.5 ? B.CHISELED_STONE_BRICKS : B.POLISHED_ANDESITE; return wall || corner ? B.STONE_BRICKS : T.top; }
+  return d < 4 ? T.sub : T.deep;
 }
 function arenaChunk(w, cx, cz) {
   const c = new Chunk(cx, cz); const d = c.d; const bx = cx * 16, bz = cz * 16; const E = AR.E;
-  if (bx + 15 >= -E && bx < E && bz + 15 >= -E && bz < E) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) for (let y = AR.Y - 15; y <= AR.Y + 12; y++) { const id = arenaAt(w.seed, bx + x, y, bz + z); if (id) d[(y * 16 + z) * 16 + x] = id; }
+  if (bx + 15 >= -E && bx < E && bz + 15 >= -E && bz < E) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) for (let y = AR.Y - 15; y <= AR.Y + 12; y++) { const id = arenaAt(arSeed(w), bx + x, y, bz + z); if (id) d[(y * 16 + z) * 16 + x] = id; }
   const e = w.edits.get(c.key); if (e) for (const [i, id] of e) d[i] = id;
   c.scanMeta(); w.chunks.set(c.key, c);
   for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) { const n = w.getChunk(cx + dx, cz + dz); if (n) n.dirty = true; }
@@ -246,7 +257,7 @@ function arenaReset() {
   const w = world; if (w.dim !== 'overworld') return 0; let n = 0; const E = AR.E;
   for (const m of G.mobs) if (m.isCrystal && m.placed && !m.dead) m.blastGone();
   for (let x = -E - 2; x < E + 2; x++) for (let z = -E - 2; z < E + 2; z++) { if (!w.getChunk(Math.floor(x / 16), Math.floor(z / 16))) continue;
-    for (let y = AR.Y - 16; y <= AR.Y + 60; y++) { const want = arenaAt(w.seed, x, y, z), have = w.get(x, y, z); if (have !== want) { w.set(x, y, z, want); n++; } } }
+    for (let y = AR.Y - 16; y <= AR.Y + 60; y++) { const want = arenaAt(arSeed(w), x, y, z), have = w.get(x, y, z); if (have !== want) { w.set(x, y, z, want); n++; } } }
   for (const it of G.items) { it.gone = true; it.remove(); } G.items = [];
   if (S.arena && S.arena.spot && S.arena.phase !== 'fight' && S.arena.phase !== 'dead') cageBlocks(S.arena.spot[0], S.arena.spot[1], B.GLASS);
   return n;

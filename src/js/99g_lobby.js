@@ -40,16 +40,16 @@ function arenaMsgIn(peer, m) {
   if (!S.rules.arena) return;
   if (MP.role === 'host') { m.id = peer.id; // never trust the sender's own id; start and end only ever come from the host
     if (m.a === 'kit' || m.a === 'hello') { AR.roster.set(m.id, { name: String(m.name || '?').slice(0, 16), kit: m.k == null ? null : m.k | 0 }); mpSendAll({ t: 'arena', a: 'kit', id: m.id, name: m.name, k: m.k }, false, peer.id);
-      if (m.a === 'hello') peer.link.send({ t: 'arena', a: 'roster', list: [...AR.roster].map(([id, r]) => [id, r.name, r.kit]), live: AR.live, outs: [...AR.outs] }); }
+      if (m.a === 'hello') peer.link.send({ t: 'arena', a: 'roster', list: [...AR.roster].map(([id, r]) => [id, r.name, r.kit]), live: AR.live, outs: [...AR.outs], round: AR.round }); }
     else if (m.a === 'out') { AR.outs.add(m.id); mpSendAll({ t: 'arena', a: 'out', id: m.id }, false, peer.id); arenaCheckEnd(); }
     renderLobby(); return; }
   if (!peer || peer.id !== 'host') return;
   if (m.a === 'kit') AR.roster.set(m.id, { name: m.name, kit: m.k == null ? null : m.k });
   else if (m.a === 'gone') AR.roster.delete(m.id);
   else if (m.a === 'out') AR.outs.add(m.id);
-  else if (m.a === 'roster') { AR.roster = new Map(m.list.map(([id, name, kit]) => [id, { name, kit }])); AR.outs = new Set(m.outs || []); AR.live = !!m.live; if (m.live && S.arena && S.arena.phase === 'cage') arenaSpectate('A round is being played. You are in the next one'); }
+  else if (m.a === 'roster') { AR.roster = new Map(m.list.map(([id, name, kit]) => [id, { name, kit }])); AR.outs = new Set(m.outs || []); AR.live = !!m.live; if (typeof m.round === 'number' && m.round !== AR.round) { AR.round = m.round | 0; arenaNewMap(); } if (m.live && S.arena && S.arena.phase === 'cage') arenaSpectate('A round is being played. You are in the next one'); }
   else if (m.a === 'start') arenaBegin();
-  else if (m.a === 'end') arenaEnd(m.winner);
+  else if (m.a === 'end') { arenaEnd(m.winner); if (typeof m.round === 'number' && m.round !== AR.round) { AR.round = m.round | 0; arenaNewMap(); } }
   renderLobby();
 }
 // a friend leaving counts as out
@@ -68,8 +68,14 @@ function arenaBegin() {
 function arenaCheckEnd() {
   if (!AR.live || !arenaHost()) return; const alive = [...AR.parts].filter(id => AR.roster.has(id) && !AR.outs.has(id));
   if (alive.length > (AR.parts.size > 1 ? 1 : 0)) return;
-  const w = alive.length ? AR.roster.get(alive[0]).name : null; arenaSend({ a: 'end', winner: w }); arenaEnd(w);
-  try { arenaReset(); } catch (e) { console.warn(e); } }
+  const w = alive.length ? AR.roster.get(alive[0]).name : null; AR.round++; arenaSend({ a: 'end', winner: w, round: AR.round }); arenaEnd(w);
+  arenaNewMap(); }
+// a new map for the next round: everyone rebuilds the arena from the same round number, so it matches on every screen
+// The arena's chunks are thrown away and generated again for the new round (rather than changed block by block, which
+// would store every changed block in the save and send them all to anyone who joins).
+function arenaNewMap() { try { arenaRegen(); } catch (e) { console.warn(e); try { arenaReset(); } catch (e2) { } }
+  if (!player.dead && (world.solid(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z)) || world.solid(Math.floor(player.pos.x), Math.floor(player.pos.y + 1), Math.floor(player.pos.z)))) nudgeFree(player);
+  chatPrint('Next map: ' + arTheme().name, '#7ef'); }
 function arenaEnd(winner) { AR.live = false; AR.endT = 3; arenaMsg(winner ? winner + ' wins!' : 'Round over', 3); if (winner) chatPrint(winner + ' won the round', '#ff5'); Sfx.play('levelup', 0.7); renderLobby(); }
 function arenaSpectate(why) { const A = S.arena; if (!A) return; if (A.spot && A.built) cageBlocks(A.spot[0], A.spot[1], 0); A.phase = 'out'; closeKitPicker(); setMode('spectator'); player.pos.set(0.5, AR.Y + 14, 0.5); player.vel.set(0, 0, 0); world.lastCenter = null; toast(why || 'You are out. Watching until the round ends', 4); }
 { const _die = Player.prototype.die; Player.prototype.die = function () { const r = _die.apply(this, arguments);
@@ -146,3 +152,14 @@ var WIND_UP = 1.37;
       if (power === 1.1) { if (!P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) windKnockMC(P, p); } // a player's wind charge: Minecraft's numbers
       else if (d < R && !P.dead && !P.riding && S.mode !== 'spectator' && !(S.arena && S.rules.arena && S.arena.phase !== 'fight')) { const k = (1 - d / R) * 12 * power; const dir = c.sub(p).normalize(); P.vel.x += dir.x * k; P.vel.z += dir.z * k; P.vel.y = Math.max(P.vel.y, (dir.y * k + k * 0.6) * WIND_UP); P.peak = null; } }
     return _on(peer, m); }; }
+
+function arenaRegen() {
+  const w = world; if (!w || w.dim !== 'overworld' || !S.rules.arena) return;
+  for (const m of G.mobs) if (m.isCrystal && m.placed && !m.dead && m.blastGone) m.blastGone();
+  for (const it of G.items) { it.gone = true; it.remove(); } G.items = [];
+  const c0 = Math.floor((-AR.E - 2) / 16), c1 = Math.floor((AR.E + 2) / 16);
+  for (let cx = c0; cx <= c1; cx++) for (let cz = c0; cz <= c1; cz++) { w.edits.delete(ckey(cx, cz)); const c = w.getChunk(cx, cz); if (c) { w.unload(c); arenaChunk(w, cx, cz); } }
+  if (w.fires) for (const [k, [x, y, z]] of [...w.fires]) if (w.get(x, y, z) !== B.FIRE) w.fires.delete(k);
+  w.lastCenter = null;
+  const A = S.arena; if (A && A.spot && A.phase === 'cage') cageBlocks(A.spot[0], A.spot[1], B.GLASS);
+}
