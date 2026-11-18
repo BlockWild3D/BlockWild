@@ -382,6 +382,7 @@ function raycast(o, d, max, fluids) {
   for (let i = 0; i < 64; i++) {
     const id = world.get(x, y, z);
     if (id && SHAPED[id]) { const h = rayShape(o, d, x, y, z, id, max); if (h) return h; }
+    else if (id && fluids === 'source' && BL[id].fluid && FLEVEL[id] !== 0) { } // Minecraft's bucket looks through flowing water to the source
     else if (id && (!BL[id].noTarget || (fluids && BL[id].fluid))) return { x, y, z, id, nx, ny, nz, dist: t, px: o.x + d.x * t, py: o.y + d.y * t, pz: o.z + d.z * t };
     if (tx < ty && tx < tz) { if (tx > max) break; x += sx; t = tx; tx += tdx; nx = -sx; ny = 0; nz = 0; }
     else if (ty < tz) { if (ty > max) break; y += sy; t = ty; ty += tdy; nx = 0; ny = -sy; nz = 0; }
@@ -532,7 +533,7 @@ function useAction(eye, dir) {
     return;
   }
   if (hd.kind === 'bucket') {
-    if (!hd.fluid) { const ft = raycast(eye, dir, 5, true); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
+    if (!hd.fluid) { const ft = raycast(eye, dir, 5, 'source'); if (ft && BL[ft.id].fluid && FLEVEL[ft.id] === 0) { world.set(ft.x, ft.y, ft.z, 0); replaceHeld(ft.id === B.WATER ? IT.water_bucket : IT.lava_bucket); blkPlay(ft.id === B.WATER ? 'snd.item.bucket.fill' : 'snd.item.bucket.fill_lava', 0.8) || Sfx.play('splash', 0.6); S.swing = 1; } return; }
     if (!target) return; const id = hd.fluid === 'water' ? B.WATER : B.LAVA;
     if (placeBlock(target, id)) { if (S.mode !== 'creative') { player.inv[handSlot()] = { id: IT.bucket, count: 1 }; invDirty(); } S.swing = 1; }
     return;
@@ -699,7 +700,10 @@ function updatePlayer(dt) {
   if ((water || lava) && P.hitH && jump) P.vel.y = 6;
   if (P.flying && P.onGround && down) P.flying = false;
   if (S.mode !== 'creative') P.flying = false;
-  if (P.onGround || water || lava || P.flying) { if (P.onGround && P.peak !== null && !water && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
+  // Minecraft resets the fall the moment any part of you is in water, so a water bucket placed just before landing (an "MLG")
+  // saves you. The water check above was made before this frame's move, so check again where you ended up.
+  const wLand = water || inWater(P, 0.02) || inWater(P, 0.9);
+  if (P.onGround || wLand || lava || P.flying) { if (P.onGround && P.peak !== null && !wLand && !P.flying) { const fall = P.peak - P.pos.y; if (fall > 3.4 + effLevel('jump_boost') && S.rules.fallDamage && Math.floor((fall - 3 - effLevel('jump_boost')) * MODS.physics.fallDamage) > 0) { P.hurt(Math.floor((fall - 3) * MODS.physics.fallDamage), null, 'fall damage'); Particles.blockBreak(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z), world.get(Math.floor(P.pos.x), Math.floor(P.pos.y - 0.5), Math.floor(P.pos.z)) || 1, 10); } } P.peak = null; }
   else P.peak = P.peak === null ? P.pos.y : Math.max(P.peak, P.pos.y);
   if (P.pos.y < -64) { if (isSurv()) { P.health = 0; P.die('the void'); } else { P.pos.y = WH + 5; P.vel.set(0, 0, 0); P.flying = true; } }
   if (lava && isSurv()) { P.lavaT += dt; if (Math.random() < dt * 10) SpriteFX.emit('lava', P.pos.x, P.pos.y + 1, P.pos.z, 2, { size: 0.2, grav: 6, spd: 2, life: 0.8, spread: 0.4 }) || Particles.emit(P.pos.x, P.pos.y + 1, P.pos.z, 2, [[1, 0.5, 0.1], [1, 0.8, 0.2]], 1, 0.5, -2, 0.6); if (P.lavaT > 0.5) { P.lavaT = 0; P.hurtCD = 0; P.hurt(4, null, 'lava', 0); } }
