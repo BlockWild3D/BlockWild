@@ -410,6 +410,8 @@ const CONFIG = {
   siteUrl: 'https://blockwild3d.github.io/BlockWild/',
   googleClientId: '617077929021-3n4kk41q3sevnb98ek82e8g54iqm197u.apps.googleusercontent.com',
   serverUrl: 'https://blockwild-server.crossguardstudios.workers.dev',
+  // always-on servers (tools/server) shown as buttons on the Multiplayer screen
+  servers: [{ name: 'PvP Server', code: 'BLOCK1' }],
   mqttBrokers: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'],
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }],
 };
@@ -10003,6 +10005,18 @@ if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free:
   if (!MP.active || MP.role !== 'host') { chatPrint('Only the host can kick players', '#f66'); return; }
   const want = String(a[0] || '').toLowerCase(); const p = [...MP.peers.values()].find(x => x.joined && String((MP.avatars.get(x.id) || x).name).toLowerCase() === want);
   if (!p) { chatPrint('No player called ' + (a[0] || '?') + ' is online', '#f66'); return; } mpKick(p.id, a.slice(1).join(' ')); } };
+
+// ---------- always-on servers: one button each on the Multiplayer screen, with whether it is online ----------
+{ const list = (CONFIG.servers || []).filter(x => x && /^[A-Z0-9]{6}$/.test(x.code));
+  const host = $('btnMpJoin') && $('btnMpJoin').parentNode;
+  if (list.length && host) { const box = document.createElement('div'); box.id = 'mpServers'; box.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;margin:6px 0 4px';
+    for (const sv of list) { const b = document.createElement('button'); b.className = 'mbtn'; b.dataset.code = sv.code; b.innerHTML = sv.name + ' <span style="font-size:13px;color:#aaa">checking…</span>';
+      b.addEventListener('click', () => { $('mpCode').value = sv.code; joinWorld(sv.code); }); box.appendChild(b); }
+    const or = document.createElement('div'); or.className = 'modnote'; or.textContent = '…or join a friend\'s world with their code:'; or.style.marginTop = '4px';
+    const first = host.querySelector('.row') || $('btnMpJoin'); host.insertBefore(box, first); host.insertBefore(or, first);
+    const refresh = async () => { if (!SERVER || !SERVER()) return; for (const b of box.children) { let on = false; try { const r = await fetch(SERVER() + '/room/check?room=' + b.dataset.code); on = !!(await r.json()).open; } catch (e) { }
+      b.querySelector('span').textContent = on ? '● online' : '○ offline'; b.querySelector('span').style.color = on ? '#7e7' : '#e77'; } };
+    { const sc = $('mpScreen'); new MutationObserver(() => { if (!sc.classList.contains('hidden')) refresh(); }).observe(sc, { attributes: true, attributeFilter: ['class'] }); } } }
 
 // ================= CONTROLS SCREEN: rebind keys =================
 let kbWaiting = null, kbBackTo = 'menu';
@@ -25988,7 +26002,7 @@ if (BW_SERVER) {
     const name = (q.get('world') || 'Server World').slice(0, 32);
     const meta = [...Saves.metas.values()].find((m) => m.name === name);
     if (meta) { say('loading world "' + name + '"'); await playWorld(meta.id); }
-    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
+    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: q.get('wmode') === 'pvp' ? 'pvp' : 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
     await until(() => S.started && !S.loading, 300);
     if (q.get('difficulty')) S.difficulty = q.get('difficulty');
     if (q.has('cheats')) S.cheats = q.get('cheats') === '1';
@@ -26047,6 +26061,21 @@ if (BW_SERVER) {
     if (!MP.active && SRV.started && S.started && !S.loading) { say('world closed, reopening'); location.reload(); } }, 60000);
   addEventListener('load', () => setTimeout(SRV.start, 500));
   if (document.readyState === 'complete') setTimeout(SRV.start, 500);
+
+  // ---- PvP arena worlds (wmode=pvp): nobody is the host, so the server runs the rounds. It is not in the lineup
+  // itself; a round starts 5 seconds after at least two players are in their cages and everyone has picked a kit.
+  { const _ec = enterCage; enterCage = function () { const r = _ec.apply(this, arguments); if (typeof AR !== 'undefined') { AR.roster.delete(arenaMe()); try { renderLobby(); } catch (e) { } } return r; }; }
+  SRV.arT = 0; SRV.arHint = 0;
+  SRV.arenaTick = function (dt) {
+    if (!S.rules || !S.rules.arena || typeof AR === 'undefined' || AR.live || !S.arena || S.arena.phase !== 'cage') { SRV.arT = 0; return; }
+    AR.roster.delete(arenaMe());
+    const here = [...MP.peers.values()].filter(p => p.joined).map(p => p.id); const r = here.map(id => AR.roster.get(id));
+    const ready = here.length >= 2 && r.every(x => x && x.kit != null);
+    if (!ready) { SRV.arT = 0; SRV.arHint -= dt; if (here.length && SRV.arHint <= 0) { SRV.arHint = 30; mpSendAll({ t: 'chat', raw: here.length < 2 ? 'Waiting for another player to join the arena...' : 'Press K and pick a kit. The round starts when everyone has one.' }); } return; }
+    if (SRV.arT === 0) mpSendAll({ t: 'chat', raw: 'Everyone has a kit. The round starts in 5 seconds!' });
+    SRV.arT += dt; if (SRV.arT >= 5) { SRV.arT = 0; SRV.arHint = 0; arenaStart(); }
+  };
+  { const _t = SRV.tick; SRV.tick = function (dt) { _t.apply(this, arguments); try { SRV.arenaTick(dt); } catch (e) { console.error(e); } }; }
 }
 
 </script>

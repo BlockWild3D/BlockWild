@@ -374,3 +374,15 @@ if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free:
   if (!MP.active || MP.role !== 'host') { chatPrint('Only the host can kick players', '#f66'); return; }
   const want = String(a[0] || '').toLowerCase(); const p = [...MP.peers.values()].find(x => x.joined && String((MP.avatars.get(x.id) || x).name).toLowerCase() === want);
   if (!p) { chatPrint('No player called ' + (a[0] || '?') + ' is online', '#f66'); return; } mpKick(p.id, a.slice(1).join(' ')); } };
+
+// ---------- always-on servers: one button each on the Multiplayer screen, with whether it is online ----------
+{ const list = (CONFIG.servers || []).filter(x => x && /^[A-Z0-9]{6}$/.test(x.code));
+  const host = $('btnMpJoin') && $('btnMpJoin').parentNode;
+  if (list.length && host) { const box = document.createElement('div'); box.id = 'mpServers'; box.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;margin:6px 0 4px';
+    for (const sv of list) { const b = document.createElement('button'); b.className = 'mbtn'; b.dataset.code = sv.code; b.innerHTML = sv.name + ' <span style="font-size:13px;color:#aaa">checking…</span>';
+      b.addEventListener('click', () => { $('mpCode').value = sv.code; joinWorld(sv.code); }); box.appendChild(b); }
+    const or = document.createElement('div'); or.className = 'modnote'; or.textContent = '…or join a friend\'s world with their code:'; or.style.marginTop = '4px';
+    const first = host.querySelector('.row') || $('btnMpJoin'); host.insertBefore(box, first); host.insertBefore(or, first);
+    const refresh = async () => { if (!SERVER || !SERVER()) return; for (const b of box.children) { let on = false; try { const r = await fetch(SERVER() + '/room/check?room=' + b.dataset.code); on = !!(await r.json()).open; } catch (e) { }
+      b.querySelector('span').textContent = on ? '● online' : '○ offline'; b.querySelector('span').style.color = on ? '#7e7' : '#e77'; } };
+    { const sc = $('mpScreen'); new MutationObserver(() => { if (!sc.classList.contains('hidden')) refresh(); }).observe(sc, { attributes: true, attributeFilter: ['class'] }); } } }

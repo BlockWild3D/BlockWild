@@ -24,7 +24,7 @@ if (BW_SERVER) {
     const name = (q.get('world') || 'Server World').slice(0, 32);
     const meta = [...Saves.metas.values()].find((m) => m.name === name);
     if (meta) { say('loading world "' + name + '"'); await playWorld(meta.id); }
-    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
+    else { say('creating world "' + name + '"'); S.worldId = Saves.newId(); S.worldName = name; startWorld({ v: 4, seed: seedFromText(q.get('seed') || ''), mode: q.get('wmode') === 'pvp' ? 'pvp' : 'creative', cheats: q.get('cheats') === '1', difficulty: q.get('difficulty') || 'normal' }); }
     await until(() => S.started && !S.loading, 300);
     if (q.get('difficulty')) S.difficulty = q.get('difficulty');
     if (q.has('cheats')) S.cheats = q.get('cheats') === '1';
@@ -83,4 +83,19 @@ if (BW_SERVER) {
     if (!MP.active && SRV.started && S.started && !S.loading) { say('world closed, reopening'); location.reload(); } }, 60000);
   addEventListener('load', () => setTimeout(SRV.start, 500));
   if (document.readyState === 'complete') setTimeout(SRV.start, 500);
+
+  // ---- PvP arena worlds (wmode=pvp): nobody is the host, so the server runs the rounds. It is not in the lineup
+  // itself; a round starts 5 seconds after at least two players are in their cages and everyone has picked a kit.
+  { const _ec = enterCage; enterCage = function () { const r = _ec.apply(this, arguments); if (typeof AR !== 'undefined') { AR.roster.delete(arenaMe()); try { renderLobby(); } catch (e) { } } return r; }; }
+  SRV.arT = 0; SRV.arHint = 0;
+  SRV.arenaTick = function (dt) {
+    if (!S.rules || !S.rules.arena || typeof AR === 'undefined' || AR.live || !S.arena || S.arena.phase !== 'cage') { SRV.arT = 0; return; }
+    AR.roster.delete(arenaMe());
+    const here = [...MP.peers.values()].filter(p => p.joined).map(p => p.id); const r = here.map(id => AR.roster.get(id));
+    const ready = here.length >= 2 && r.every(x => x && x.kit != null);
+    if (!ready) { SRV.arT = 0; SRV.arHint -= dt; if (here.length && SRV.arHint <= 0) { SRV.arHint = 30; mpSendAll({ t: 'chat', raw: here.length < 2 ? 'Waiting for another player to join the arena...' : 'Press K and pick a kit. The round starts when everyone has one.' }); } return; }
+    if (SRV.arT === 0) mpSendAll({ t: 'chat', raw: 'Everyone has a kit. The round starts in 5 seconds!' });
+    SRV.arT += dt; if (SRV.arT >= 5) { SRV.arT = 0; SRV.arHint = 0; arenaStart(); }
+  };
+  { const _t = SRV.tick; SRV.tick = function (dt) { _t.apply(this, arguments); try { SRV.arenaTick(dt); } catch (e) { console.error(e); } }; }
 }
