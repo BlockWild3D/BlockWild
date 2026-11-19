@@ -108,10 +108,10 @@ const AR_THEMES = [
   { name: 'Nether', top: arB('CRIMSON_NYLIUM', B.GRASS), sub: arB('NETHERRACK', B.DIRT), deep: arB('NETHERRACK', B.STONE), rocks: [arB('BLACKSTONE', B.STONE), arB('BASALT', B.STONE), arB('NETHERRACK', B.STONE)], log: arB('CRIMSON_STEM', B.LOG), leaves: arB('NETHER_WART_BLOCK', B.LEAVES), flower: 0, glow: arB('SHROOMLIGHT', 0) },
   { name: 'The End', top: arB('END_STONE', B.STONE), sub: arB('END_STONE', B.STONE), deep: arB('END_STONE', B.STONE), rocks: [arB('END_STONE_BRICKS', B.STONE), arB('PURPUR_BLOCK', B.STONE), arB('END_STONE', B.STONE)], log: arB('OBSIDIAN', B.STONE), leaves: 0, flower: 0, rocksN: 6, treesN: 7 },
 ];
-function arTheme() { return AR_THEMES[((AR.round % AR_THEMES.length) + AR_THEMES.length) % AR_THEMES.length]; }
+function arTheme() { if (AR.themeOverride) return AR.themeOverride; return AR_THEMES[((AR.round % AR_THEMES.length) + AR_THEMES.length) % AR_THEMES.length]; }
 function arSeed(w) { return ((w.seed | 0) + AR.round * 7919) | 0; }
 function arenaFeatures(seed) {
-  const T = arTheme(); if (AR.feat && AR.seed === seed && AR.featT === T) return AR.feat; const F = new Map(); const r = mulberry32((seed ^ 0x5eed) >>> 0); const Y = AR.Y;
+  const T = arTheme(); if (AR.feat && AR.seed === seed && AR.featT === T) return AR.feat; // (one cache: duels with several arenas rebuild it when the arena changes) const F = new Map(); const r = mulberry32((seed ^ 0x5eed) >>> 0); const Y = AR.Y;
   const put = (x, y, z, id) => F.set(x + ',' + y + ',' + z, id);
   const pads = arenaSpots(); const clear = (x, z, d) => Math.hypot(x, z) > 9 && pads.every(([px, pz]) => Math.hypot(x - px, z - pz) > d) && Math.abs(x) < AR.R - 5 && Math.abs(z) < AR.R - 5;
   // boulders
