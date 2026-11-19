@@ -105,7 +105,7 @@ function duClientMsg(m) {
 // ---------- on the dedicated server: queues and matches ----------
 function duState() { const queues = {}; for (const [id, key] of DU.q) queues[key] = (queues[key] || 0) + 1; return { t: 'duel', a: 'state', queues, fights: DU.matches.size, r: DU.r.slice() }; }
 function duBroadcast() { mpSendAll(duState()); }
-function duNameOf(id) { const a = MP.avatars.get(id); const p = MP.peers.get(id); return (a && a.name) || (p && p.name) || 'Someone'; }
+function duNameOf(id) { const a = MP.avatars.get(id); const p = MP.peers.get(id); return (a && a.name) || (p && p.name) || (DU.names && DU.names.get(id)) || 'Someone'; }
 function duTryMatch() {
   const byKey = new Map(); for (const [id, key] of DU.q) { if (!byKey.has(key)) byKey.set(key, []); byKey.get(key).push(id); }
   for (const [key, ids] of byKey) { while (ids.length >= 2) {
@@ -128,7 +128,7 @@ if (BW_SERVER) {
         return; }
       return _on.apply(this, arguments); }; }
   // leaving the server loses your duel and takes you out of the queue
-  { const _ra = removeAvatar; removeAvatar = function (id) { const r = _ra.apply(this, arguments); if (MP.role === 'host' && duOn()) { const mt = duMatchOf(id); if (mt) duEnd(mt.k, id, 'left the game'); if (DU.q.delete(id)) duBroadcast(); } return r; }; }
+  { const _ra = removeAvatar; removeAvatar = function (id) { DU.names = DU.names || new Map(); DU.names.set(id, duNameOf(id)); const r = _ra.apply(this, arguments); if (MP.role === 'host' && duOn()) { const mt = duMatchOf(id); if (mt) duEnd(mt.k, id, 'left the game'); if (DU.q.delete(id)) duBroadcast(); } return r; }; }
   // the server rides along with someone who is fighting, so their arena is the part of the world it runs
   SRV.pickFollow = function () { for (const mt of DU.matches.values()) for (const id of mt.p) { const a = MP.avatars.get(id); if (a && !a.dead && duRegion(a.pos.x, a.pos.z) === mt.k) return a; } return null; };
   // a PvP world on the server is always played as duels; the arena that was there before is rebuilt as the hub
