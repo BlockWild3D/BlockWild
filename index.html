@@ -20600,7 +20600,7 @@ function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_
 function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringify(a)); } catch (e) { } }
 function rebuildKits() {
   KITS.length = 0; KITS.push(...KITS_ORIG);
-  (kitAdmin() ? loadCustomKits() : []).forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
+  (kitAdmin() || (typeof duOn === 'function' && duOn()) ? loadCustomKits() : []).forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
     const kt = { k: c.base || 'custom' + i, name: c.name, custom: i, blurb: c.base ? 'Your edited version.' : 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] };
     const bi = c.base ? KITS.findIndex((x, j) => j < KITS_BASE && x.k === c.base) : -1;
     if (bi >= 0) { kt.edited = true; KITS[bi] = kt; } else if (!c.base) KITS.push(kt); });
@@ -26158,22 +26158,40 @@ function duQueue(i) { const kt = KITS[i]; if (!kt || DU.me.phase === 'count' || 
 function duLeave() { if (DU.me.phase !== 'queue') return; DU.me.phase = 'hub'; DU.me.key = null; duSend({ a: 'leave' }); chatPrint('Left the queue', '#aaa'); duRender(); }
 function duMenu() { let el = $('duelMenu');
   if (!el) { el = document.createElement('div'); el.id = 'duelMenu'; el.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(0,0,0,.6);z-index:60';
-    el.innerHTML = '<div style="font-size:34px;color:#fff;text-shadow:2px 2px 0 #333">Duels</div><div id="duelInfo" style="color:#ccc;font-size:14px;text-align:center;max-width:720px"></div><div id="duelGrid" style="display:grid;grid-template-columns:repeat(4,minmax(150px,200px));gap:8px"></div><button id="duelLeave" class="mbtn" style="width:auto;padding:4px 18px">Leave queue</button>';
+    el.innerHTML = '<div style="font-size:34px;color:#fff;text-shadow:2px 2px 0 #333">Duels</div><div id="duelInfo" style="color:#ccc;font-size:14px;text-align:center;max-width:720px"></div><div id="duelGrid" style="display:grid;grid-template-columns:repeat(4,minmax(150px,200px));gap:8px"></div><div style="display:flex;gap:10px"><button id="duelLeave" class="mbtn" style="width:auto;padding:4px 18px">Leave queue</button><button id="duelNewKit" class="mbtn" style="width:auto;padding:4px 18px;display:none">New kit</button></div>';
     document.body.appendChild(el); el.addEventListener('keydown', (e) => e.stopPropagation());
-    $('duelLeave').addEventListener('pointerdown', (e) => { e.preventDefault(); duLeave(); }); }
+    $('duelLeave').addEventListener('pointerdown', (e) => { e.preventDefault(); duLeave(); });
+    $('duelNewKit').addEventListener('pointerdown', (e) => { e.preventDefault(); duEditStart(null); }); }
   S.uiOpen = 'duel'; for (const kk in keys) keys[kk] = false; mouseL = mouseR = false; el.style.display = 'flex'; releaseLock(); duRender(); }
 function duClose(noLock) { const el = $('duelMenu'); if (el) el.style.display = 'none'; if (S.uiOpen === 'duel') S.uiOpen = null; if (!noLock) requestLock(); }
 function duRender() { const el = $('duelMenu'); if (!el || el.style.display === 'none') return; const M = DU.me;
   $('duelInfo').textContent = M.phase === 'queue' ? 'Queued for ' + (KITS.find(k => k.k === M.key) || { name: M.key }).name + '. Waiting for someone to queue the same kit...' : 'Pick a kit to queue for. When someone else queues the same kit, you both go to an arena and fight 1v1. Fights going on: ' + DU.fights + '. Esc closes this, K opens it.';
-  $('duelLeave').style.display = M.phase === 'queue' ? '' : 'none';
+  $('duelLeave').style.display = M.phase === 'queue' ? '' : 'none'; $('duelNewKit').style.display = kitAdmin() && M.phase === 'hub' ? '' : 'none';
   const g = $('duelGrid'); g.innerHTML = '';
   KITS.forEach((kt, i) => { const n = DU.queues[kt.k] || 0, mine = M.phase === 'queue' && M.key === kt.k; const b = document.createElement('button');
     b.style.cssText = 'text-align:left;background:' + (mine ? '#2c5a2c' : '#3b3b3b') + ';border:3px solid ' + (mine ? '#7e7' : '#1c1c1c') + ';color:#fff;padding:8px 10px;cursor:pointer;font-family:inherit';
     b.innerHTML = '<div style="font-size:17px">' + kt.name + '</div><div style="font-size:12px;color:' + (n ? '#ff5' : '#aaa') + '">' + (n ? n + ' in queue' : 'nobody in queue') + '</div>';
-    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (mine) duLeave(); else duQueue(i); }); g.appendChild(b); }); }
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (mine) duLeave(); else duQueue(i); }); g.appendChild(b);
+    if (kitAdmin() && M.phase === 'hub') { b.style.position = 'relative'; const tag = (txt, bg, side, fn) => { const t = document.createElement('span'); t.textContent = txt; t.style.cssText = 'position:absolute;top:4px;' + side + ':4px;background:' + bg + ';border:2px solid #1c1c1c;font-size:11px;padding:0 5px;cursor:pointer';
+        t.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); b.appendChild(t); };
+      tag('Edit', '#2c5a7a', 'right', () => duEditStart(kt));
+      if (kt.custom != null) tag(kt.edited ? 'Reset' : 'Delete', '#8a2a22', 'left', () => { const all = loadCustomKits(); all.splice(kt.custom, 1); saveCustomKits(all); rebuildKits(); duRender(); toast((kt.edited ? 'Reset ' : 'Deleted ') + kt.name, 2); }); } }); }
 { const _ci = closeInv; closeInv = function (noLock) { if (S.uiOpen === 'duel') { duClose(noLock); return; } return _ci.apply(this, arguments); }; }
 addEventListener('keydown', (e) => { if (e.code !== 'KeyK' || !duOn() || player.dead) return; if (S.uiOpen === 'duel') { e.preventDefault(); duClose(); return; }
   if (!S.uiOpen && (DU.me.phase === 'hub' || DU.me.phase === 'queue')) { e.preventDefault(); e.stopImmediatePropagation(); duMenu(); } }, true);
+// ---- kits on a duels server: everyone uses the server's list; only the owner (kitAdmin, 99i) can change it ----
+// The owner edits in the hub: Edit (or New kit) in the Duels menu fills the inventory in Creative, K saves it.
+DU.kits = [];
+{ const _lk = loadCustomKits; loadCustomKits = function () { if (duOn()) return JSON.parse(JSON.stringify(DU.kits)); return _lk.apply(this, arguments); }; }
+{ const _sk = saveCustomKits; saveCustomKits = function (a) { if (duOn()) { DU.kits = a; duSend({ a: 'kits', list: a, email: PROFILE.google ? PROFILE.google.email : null }); return; } return _sk.apply(this, arguments); }; }
+function duEditStart(kt) { if (!kitAdmin()) { toast('Only the owner can make or edit kits', 2); return; } if (DU.me.phase !== 'hub') { toast('Leave the queue first', 2); return; }
+  const c = kt && kt.custom != null ? loadCustomKits()[kt.custom] : null;
+  AR.editFrom = kt ? { name: kt.name, idx: kt.custom != null ? kt.custom : null, base: kt.custom != null ? ((c && c.base) || null) : kt.k } : null;
+  duClose(true); AR.editing = true; DU.me.phase = 'edit'; for (let i = 0; i <= 40; i++) player.inv[i] = null; setMode('creative'); player.flying = false;
+  if (kt) giveKit(kt.slots ? kt : kitDef(kt)); invDirty(); requestLockSoon();
+  chatPrint((kt ? 'Editing "' + kt.name + '". ' : 'New kit. ') + 'Open your inventory (E) to change items, armour and off-hand, then press K to save it for everyone.', '#ff5'); }
+{ const _ke = kitEditEnd; kitEditEnd = function () { if (!duOn()) return _ke.apply(this, arguments);
+    AR.editing = false; AR.editFrom = null; if (S.uiOpen === 'kitsave') S.uiOpen = null; const d = $('kitSave'); if (d) d.style.display = 'none'; duHub(); setTimeout(duMenu, 50); }; }
 // no damage outside your own fight; in the hub you can't break or place (adventure mode)
 { const _h = Player.prototype.hurt; Player.prototype.hurt = function () { if (this === player && duOn() && DU.me.phase !== 'fight') return; return _h.apply(this, arguments); }; }
 // dying in a duel (and not saved by a totem) loses it: no death screen, straight back to the hub
@@ -26182,6 +26200,7 @@ addEventListener('keydown', (e) => { if (e.code !== 'KeyK' || !duOn() || player.
       if (!saved) { if (DU.me.phase === 'fight') { duSend({ a: 'lost', cause: String(cause || '') }); DU.me.phase = 'over'; } duHub('You lost'); return; } }
     return _die.apply(this, arguments); }; }
 function duTick(dt) { if (BW_SERVER || !duOn() || !S.started || S.loading) return; const M = DU.me;
+  if (M.phase === 'edit') { if (player.pos.y < AR.Y - 30 || duRegion(player.pos.x, player.pos.z) !== 0) { player.pos.set(0.5, AR.Y, 0.5); player.vel.set(0, 0, 0); } if (!S.uiOpen) arenaMsg('Kit editor: E for items, K to save', 0, true); }
   if (M.phase === 'hub' || M.phase === 'queue') { if (player.food < 20) player.food = 20; if (S.mode !== 'adventure' && S.mode !== 'spectator') setMode('adventure');
     if (player.pos.y < AR.Y - 30 || duRegion(player.pos.x, player.pos.z) !== 0) duHub();
     DU.hint -= dt; if (DU.hint <= 0 && !S.uiOpen) { DU.hint = 6; arenaMsg('Press K for Duels', 0, true); } }
@@ -26192,9 +26211,10 @@ function duTick(dt) { if (BW_SERVER || !duOn() || !S.started || S.loading) retur
   if (M.phase === 'won') { M.t -= dt; if (M.t <= 0) duHub(); } }
 { const _t = tick; tick = function (dt) { const r = _t.apply(this, arguments); try { duTick(dt); } catch (e) { console.warn(e); } return r; }; }
 // joining: no cage, no round lobby; straight to the hub, and ask the server where things stand
-{ const _fl = finishLoading; finishLoading = function () { if (duOn()) { S.arena = null; DU.me = { phase: 'hub' }; }
+{ const _fl = finishLoading; finishLoading = function () { if (duOn()) { S.arena = null; DU.me = { phase: 'hub' }; } try { rebuildKits(); } catch (e) { } // your own kits again after leaving a server, and the reverse
     const r = _fl.apply(this, arguments); if (duOn() && !BW_SERVER) { player.spawn.set(0.5, AR.Y, 0.5); duHub(); duSend({ a: 'hello' }); chatPrint('Welcome! Press K to pick a kit and queue for a duel.', '#7ef'); } return r; }; }
 function duClientMsg(m) {
+  if (m.a === 'kits') { DU.kits = Array.isArray(m.list) ? m.list : []; rebuildKits(); duRender(); return; }
   if (m.a === 'state') { DU.queues = m.queues || {}; DU.fights = m.fights | 0;
     if (Array.isArray(m.r)) m.r.forEach((v, k) => { if (k > 0 && k <= DU.N && (v | 0) !== DU.r[k]) { DU.r[k] = v | 0; duRegen(k); } }); duRender(); return; }
   if (m.a === 'start') { const k = m.k | 0; if (k < 1 || k > DU.N) return; DU.r[k] = m.r | 0; duRegen(k);
@@ -26227,12 +26247,20 @@ function duMatchOf(id) { for (const mt of DU.matches.values()) if (mt.p.includes
 if (BW_SERVER) {
   { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
       if (m && m.t === 'duel' && MP.role === 'host' && duOn()) { const id = peer.id;
-        if (m.a === 'hello') { peer.link.send(duState()); return; }
+        if (m.a === 'hello') { peer.link.send(duState()); peer.link.send({ t: 'duel', a: 'kits', list: DU.kits }); return; }
+        if (m.a === 'kits') { const nm = String((MP.avatars.get(id) || peer).name || '').toLowerCase(), em = String(m.email || '').toLowerCase();
+          if (!KIT_ADMINS.names.includes(nm) && !KIT_ADMINS.emails.includes(em)) { SRV.say('refused kit change from ' + nm); return; }
+          const ok = (k) => k && typeof k.name === 'string' && Array.isArray(k.slots) && k.slots.length <= 41 && k.slots.every(x => Array.isArray(x) && Number.isInteger(x[0]) && typeof x[1] === 'string');
+          if (!Array.isArray(m.list) || m.list.length > 40 || !m.list.every(ok)) return;
+          DU.kits = m.list.map(k => ({ name: k.name.slice(0, 20), slots: k.slots.slice(0, 41), base: typeof k.base === 'string' ? k.base.slice(0, 24) : undefined }));
+          try { localStorage.setItem('blockwild_server_kits', JSON.stringify(DU.kits)); } catch (e) { } rebuildKits();
+          mpSendAll({ t: 'duel', a: 'kits', list: DU.kits }); SRV.say('kits changed by ' + nm); return; }
         if (m.a === 'queue' && !duMatchOf(id) && /^[a-z0-9_]{1,24}$/.test(String(m.key))) { DU.q.delete(id); DU.q.set(id, String(m.key)); duTryMatch(); return; }
         if (m.a === 'leave') { DU.q.delete(id); duBroadcast(); return; }
         if (m.a === 'lost') { const mt = duMatchOf(id); if (mt) duEnd(mt.k, id, String(m.cause || '').slice(0, 40)); return; }
         return; }
       return _on.apply(this, arguments); }; }
+  try { DU.kits = JSON.parse(localStorage.getItem('blockwild_server_kits') || '[]'); if (!Array.isArray(DU.kits)) DU.kits = []; } catch (e) { DU.kits = []; }
   // leaving the server loses your duel and takes you out of the queue
   { const _ra = removeAvatar; removeAvatar = function (id) { DU.names = DU.names || new Map(); DU.names.set(id, duNameOf(id)); const r = _ra.apply(this, arguments); if (MP.role === 'host' && duOn()) { const mt = duMatchOf(id); if (mt) duEnd(mt.k, id, 'left the game'); if (DU.q.delete(id)) duBroadcast(); } return r; }; }
   // the server rides along with someone who is fighting, so their arena is the part of the world it runs
