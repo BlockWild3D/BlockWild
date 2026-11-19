@@ -26166,6 +26166,10 @@ function duMenu() { let el = $('duelMenu');
 function duClose(noLock) { const el = $('duelMenu'); if (el) el.style.display = 'none'; if (S.uiOpen === 'duel') S.uiOpen = null; if (!noLock) requestLock(); }
 function duRender() { const el = $('duelMenu'); if (!el || el.style.display === 'none') return; const M = DU.me;
   $('duelInfo').textContent = M.phase === 'queue' ? 'Queued for ' + (KITS.find(k => k.k === M.key) || { name: M.key }).name + '. Waiting for someone to queue the same kit...' : 'Pick a kit to queue for. When someone else queues the same kit, you both go to an arena and fight 1v1. Fights going on: ' + DU.fights + '. Esc closes this, K opens it.';
+  { let pl = $('duelPlayers'); if (!pl) { pl = document.createElement('div'); pl.id = 'duelPlayers'; pl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:820px'; el.appendChild(pl); }
+    pl.innerHTML = ''; if (kitAdmin()) for (const [id, a] of MP.avatars) { if (a.spec || id === MP.myId) continue; const t = document.createElement('span'); t.style.cssText = 'background:#2a2a2a;border:2px solid #1c1c1c;color:#fff;padding:2px 4px 2px 10px;font-size:14px';
+      t.textContent = (a.name || 'Player') + ' '; const kb = document.createElement('button'); kb.textContent = 'Kick'; kb.style.cssText = 'background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-family:inherit;font-size:12px;padding:0 8px;cursor:pointer;margin-left:4px';
+      kb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); duSend({ a: 'kick', name: a.name, email: PROFILE.google ? PROFILE.google.email : null }); toast('Kicking ' + a.name, 1.5); }); t.appendChild(kb); pl.appendChild(t); } }
   $('duelLeave').style.display = M.phase === 'queue' ? '' : 'none'; $('duelNewKit').style.display = kitAdmin() && M.phase === 'hub' ? '' : 'none';
   const g = $('duelGrid'); g.innerHTML = '';
   KITS.forEach((kt, i) => { const n = DU.queues[kt.k] || 0, mine = M.phase === 'queue' && M.key === kt.k; const b = document.createElement('button');
@@ -26208,8 +26212,24 @@ function duTick(dt) { if (BW_SERVER || !duOn() || !S.started || S.loading) retur
     if (!world.getChunk(Math.floor(sx / 16), Math.floor(sz / 16)) || !world.solid(sx, AR.Y - 1, sz)) { player.vel.set(0, 0, 0); if (M.t < 1) M.t = 1; } // the arena hasn't loaded here yet: wait for it
     const before = Math.ceil(M.t); M.t -= dt; const now = Math.ceil(M.t); if (M.t <= 0) { M.phase = 'fight'; arenaMsg('Fight!', 1.2); Sfx.play('levelup', 0.6); } else if (now !== before) { arenaMsg(String(now), 0.9); Sfx.play('click', 0.6); } }
   if (M.phase === 'fight' && player.pos.y < AR.Y - 48 && !player.dead) { player.health = 0; player.die('the void'); }
+  duWalls(M);
   if (M.phase === 'won') { M.t -= dt; if (M.t <= 0) duHub(); } }
 { const _t = tick; tick = function (dt) { const r = _t.apply(this, arguments); try { duTick(dt); } catch (e) { console.warn(e); } return r; }; }
+// Invisible walls (like a world border): during a duel you can't get out of your arena (over the wall with an elytra,
+// up into the sky, or with an ender pearl); in the hub you stay on the plaza. Hitting one stops you and ends gliding.
+function duWalls(M) {
+  const P = player; if (P.dead) return; let hit = false;
+  if ((M.phase === 'fight' || M.phase === 'count' || M.phase === 'won') && M.k) {
+    const cx = M.k * DU.GAP, lo = -AR.R + 0.35, hi = AR.R - 0.35, top = AR.Y + 24; let lx = P.pos.x - cx, lz = P.pos.z;
+    if (lx < lo) { lx = lo; if (P.vel.x < 0) P.vel.x = 0; hit = true; } if (lx > hi) { lx = hi; if (P.vel.x > 0) P.vel.x = 0; hit = true; }
+    if (lz < lo) { lz = lo; if (P.vel.z < 0) P.vel.z = 0; hit = true; } if (lz > hi) { lz = hi; if (P.vel.z > 0) P.vel.z = 0; hit = true; }
+    if (P.pos.y > top) { P.pos.y = top; if (P.vel.y > 0) P.vel.y = 0; hit = true; }
+    if (hit) P.pos.set(cx + lx, P.pos.y, lz);
+  } else if (M.phase === 'hub' || M.phase === 'queue' || M.phase === 'edit') {
+    const R = 21.3, d = Math.hypot(P.pos.x - 0.5, P.pos.z - 0.5); if (d > R) { const k = R / d; P.pos.x = 0.5 + (P.pos.x - 0.5) * k; P.pos.z = 0.5 + (P.pos.z - 0.5) * k; P.vel.x *= 0.2; P.vel.z *= 0.2; hit = true; }
+    if (P.pos.y > AR.Y + 20) { P.pos.y = AR.Y + 20; if (P.vel.y > 0) P.vel.y = 0; hit = true; } }
+  if (hit) { if (P.gliding) P.gliding = false; DU.wallT = (DU.wallT || 0) - 1; if (DU.wallT <= 0) { DU.wallT = 40; arenaMsg('You can\'t leave the ' + (M.k ? 'arena' : 'spawn'), 1.2, true); } }
+}
 // joining: no cage, no round lobby; straight to the hub, and ask the server where things stand
 { const _fl = finishLoading; finishLoading = function () { if (duOn()) { S.arena = null; DU.me = { phase: 'hub' }; } try { rebuildKits(); } catch (e) { } // your own kits again after leaving a server, and the reverse
     const r = _fl.apply(this, arguments); if (duOn() && !BW_SERVER) { player.spawn.set(0.5, AR.Y, 0.5); duHub(); duSend({ a: 'hello' }); chatPrint('Welcome! Press K to pick a kit and queue for a duel.', '#7ef'); } return r; }; }
@@ -26248,6 +26268,10 @@ if (BW_SERVER) {
   { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
       if (m && m.t === 'duel' && MP.role === 'host' && duOn()) { const id = peer.id;
         if (m.a === 'hello') { peer.link.send(duState()); peer.link.send({ t: 'duel', a: 'kits', list: DU.kits }); return; }
+        if (m.a === 'kick') { const nm = String((MP.avatars.get(id) || peer).name || '').toLowerCase(), em = String(m.email || '').toLowerCase();
+          if (!KIT_ADMINS.names.includes(nm) && !KIT_ADMINS.emails.includes(em)) { SRV.say('refused kick from ' + nm); return; }
+          const want = String(m.name || '').toLowerCase(); const t = [...MP.peers.values()].find(p => p.joined && p.id !== id && String((MP.avatars.get(p.id) || p).name || '').toLowerCase() === want);
+          if (t) { mpKick(t.id, 'kicked by ' + (MP.avatars.get(id) || peer).name); SRV.say(nm + ' kicked ' + want); } return; }
         if (m.a === 'kits') { const nm = String((MP.avatars.get(id) || peer).name || '').toLowerCase(), em = String(m.email || '').toLowerCase();
           if (!KIT_ADMINS.names.includes(nm) && !KIT_ADMINS.emails.includes(em)) { SRV.say('refused kit change from ' + nm); return; }
           const ok = (k) => k && typeof k.name === 'string' && Array.isArray(k.slots) && k.slots.length <= 41 && k.slots.every(x => Array.isArray(x) && Number.isInteger(x[0]) && typeof x[1] === 'string');
@@ -26272,6 +26296,11 @@ if (BW_SERVER) {
 } else {
   { const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m && m.t === 'duel' && MP.role === 'client' && peer.id === 'host') { if (duOn()) duClientMsg(m); return; } return _on.apply(this, arguments); }; }
 }
+
+// /kick on a duels server: the owner's command goes to the server, which does the kicking
+if (!BW_SERVER && typeof CMDS !== 'undefined' && CMDS.kick) { const _run = CMDS.kick.run; CMDS.kick.run = function (a) {
+    if (MP.active && MP.role === 'client' && duOn()) { if (!kitAdmin()) { chatPrint('Only the owner can kick players', '#f66'); return; } duSend({ a: 'kick', name: String(a[0] || ''), email: PROFILE.google ? PROFILE.google.email : null }); return; }
+    return _run.apply(this, arguments); }; }
 
 </script>
 </body>
