@@ -14,7 +14,7 @@ function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_
 function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringify(a)); } catch (e) { } }
 function rebuildKits() {
   KITS.length = 0; KITS.push(...KITS_ORIG);
-  (kitAdmin() ? loadCustomKits() : []).forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
+  (kitAdmin() || (typeof duOn === 'function' && duOn()) ? loadCustomKits() : []).forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
     const kt = { k: c.base || 'custom' + i, name: c.name, custom: i, blurb: c.base ? 'Your edited version.' : 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] };
     const bi = c.base ? KITS.findIndex((x, j) => j < KITS_BASE && x.k === c.base) : -1;
     if (bi >= 0) { kt.edited = true; KITS[bi] = kt; } else if (!c.base) KITS.push(kt); });
