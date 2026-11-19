@@ -430,7 +430,10 @@ function placeBlock(hit, id) {
   let x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
   if (PLANT[hit.id]) { x = hit.x; y = hit.y; z = hit.z; }
   if (y < 1 || y >= WH) return false;
-  const cur = world.get(x, y, z); if (cur && !BL[cur].fluid && !PLANT[cur]) return false;
+  const cur = world.get(x, y, z); if (cur && !BL[cur].fluid && !PLANT[cur] && !(BL[id].fluid && !SOLID[cur])) return false;
+  // Minecraft's bucket empties into any block that isn't solid (cobwebs, grass, torches...), breaking it as if mined;
+  // before, water could only go into air, so a web where it was aimed (or around your own head) blocked it
+  if (BL[id].fluid && cur && !BL[cur].fluid && !SOLID[cur]) { if (!(FKIND[id] === 1 && world.dim === 'nether')) { const dr = typeof blockDrop === 'function' ? blockDrop(cur, null) : null; if (dr && S.mode !== 'creative') dropItem(dr[0], dr[1], x + 0.5, y + 0.3, z + 0.5, false); } }
   const below = world.get(x, y - 1, z);
   if (BL[id].crop !== undefined && below !== B.FARMLAND) return false;
   if (id === B.SUGAR_CANE) { const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => isWaterId(world.get(x + a, y - 1, z + b))); if (!(below === B.SUGAR_CANE || ((below === B.GRASS || below === B.DIRT || below === B.SAND) && wet))) return false; }
