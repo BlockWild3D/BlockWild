@@ -9,6 +9,7 @@
 //   --world NAME       world to load, created if it doesn't exist (default "Server World")
 //   --seed TEXT        seed for a new world
 //   --mode survival    what joining players get: survival, creative, adventure, spectator
+//   --wmode pvp        make a new world a PvP arena (rounds run by themselves)
 //   --difficulty normal  peaceful, easy, normal, hard
 //   --cheats           allow commands for everyone
 //   --max 10           most players at once
@@ -27,7 +28,7 @@ const args = process.argv.slice(2); const opt = {};
 for (let i = 0; i < args.length; i++) { const a = args[i]; if (!a.startsWith('--')) continue; const k = a.slice(2); const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : '1'; opt[k] = v; }
 const base = opt.url || 'https://blockwild3d.github.io/BlockWild/';
 const q = new URLSearchParams({ server: '1' });
-for (const k of ['code', 'world', 'seed', 'mode', 'difficulty', 'cheats', 'max', 'rd']) if (opt[k] != null) q.set(k, opt[k]);
+for (const k of ['code', 'world', 'seed', 'mode', 'wmode', 'difficulty', 'cheats', 'max', 'rd']) if (opt[k] != null) q.set(k, opt[k]);
 const url = base + (base.includes('?') ? '&' : '?') + q.toString();
 const dataDir = path.resolve(opt.data || path.join(__dirname, 'data'));
 const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);

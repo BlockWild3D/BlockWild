@@ -13,6 +13,8 @@ const CONFIG = {
   siteUrl: 'https://blockwild3d.github.io/BlockWild/',
   googleClientId: '617077929021-3n4kk41q3sevnb98ek82e8g54iqm197u.apps.googleusercontent.com',
   serverUrl: 'https://blockwild-server.crossguardstudios.workers.dev',
+  // always-on servers (tools/server) shown as buttons on the Multiplayer screen
+  servers: [{ name: 'PvP Server', code: 'BLOCK1' }],
   mqttBrokers: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'],
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }],
 };
