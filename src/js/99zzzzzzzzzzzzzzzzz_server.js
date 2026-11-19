@@ -80,6 +80,7 @@ if (BW_SERVER) {
     try { const r = await fetch(SERVER() + '/room/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: MP.code, host: myName() }) }); SRV.renewOk = r.ok ? Date.now() : SRV.renewOk; if (!r.ok) say('code renewal refused: ' + r.status); }
     catch (e) { say('code renewal failed: ' + e.message); } };
   setInterval(SRV.renew, 30000);
+  setInterval(async () => { if (!MP.active) return; try { for (const line of await netPeerReport()) say('net ' + line); } catch (e) { } }, 60000);
   setInterval(() => { const f = SRV.fr; SRV.fr = { n: 0, ms: 0, max: 0 };
     say('alive: ' + (f.n / 60).toFixed(1) + ' ticks/s, avg ' + (f.n ? f.ms / f.n : 0).toFixed(0) + ' ms, worst ' + f.max.toFixed(0) + ' ms | open ' + !!MP.active + ' code ' + MP.code + ' | players ' + [...MP.peers.values()].filter((p) => p.joined).length + ' | renewed ' + (SRV.renewOk ? Math.round((Date.now() - SRV.renewOk) / 1000) + ' s ago' : 'never') + (MP.sig && MP.sig.lastError ? ' | signal error: ' + MP.sig.lastError.message : ''));
     if (!MP.active && SRV.started && S.started && !S.loading) { say('world closed, reopening'); location.reload(); } }, 60000);
