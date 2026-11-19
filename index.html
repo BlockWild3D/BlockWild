@@ -10018,6 +10018,36 @@ if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free:
       b.querySelector('span').textContent = on ? '● online' : '○ offline'; b.querySelector('span').style.color = on ? '#7e7' : '#e77'; } };
     { const sc = $('mpScreen'); new MutationObserver(() => { if (!sc.classList.contains('hidden')) refresh(); }).observe(sc, { attributes: true, attributeFilter: ['class'] }); } } }
 
+// ---------- connection stats: FPS, ping to the host, how often other players' positions arrive, direct or relayed ----------
+// Shown in the top-right corner during multiplayer (F6 hides or shows it; it can also be shown in single player).
+// It tells "my computer is slow" (low FPS) apart from "the connection is slow" (high ping, few updates, relayed).
+const NETS = { on: true, rtt: null, pings: {}, upd: new Map(), relay: null, el: null };
+function netStatsEl() { if (NETS.el) return NETS.el; const d = document.createElement('div'); d.id = 'netStats';
+  d.style.cssText = 'position:fixed;right:10px;top:64px;z-index:20;font-size:13px;line-height:1.35;color:#fff;text-shadow:1px 1px 0 #000;background:rgba(0,0,0,.35);padding:3px 7px;pointer-events:none;text-align:right;white-space:pre';
+  document.body.appendChild(d); return NETS.el = d; }
+addEventListener('keydown', (e) => { if (e.code === 'F6') { e.preventDefault(); NETS.on = !NETS.on; if (!NETS.on && NETS.el) NETS.el.style.display = 'none'; } });
+{ const _on = onPeerMsg; onPeerMsg = function (peer, m) {
+    if (m && m.t === 'ping') { if (MP.role === 'host') try { peer.link.send({ t: 'pong', ts: m.ts }, true); } catch (e) { } return; }
+    if (m && m.t === 'pong') { if (typeof m.ts === 'number') { const r = performance.now() - m.ts; NETS.rtt = NETS.rtt == null ? r : NETS.rtt * 0.6 + r * 0.4; } return; }
+    if (m && m.t === 'p') { const id = MP.role === 'host' ? peer.id : m.id; const u = NETS.upd.get(id) || { n: 0, rate: 0 }; u.n++; NETS.upd.set(id, u); }
+    return _on.apply(this, arguments); }; }
+setInterval(() => { // once a second: count updates, ping the host
+  for (const [id, u] of NETS.upd) { u.rate = u.n; u.n = 0; if (!MP.avatars.has(id)) NETS.upd.delete(id); }
+  if (MP.active && MP.role === 'client') { const h = MP.peers.get('host'); if (h) try { h.link.send({ t: 'ping', ts: performance.now() }, true); } catch (e) { } } }, 1000);
+setInterval(async () => { // every 5 s: is the connection to the host direct, or going through a relay server?
+  NETS.relay = null; if (!MP.active || MP.role !== 'client') return; const h = MP.peers.get('host'); if (!h || !h.link || !h.link.pc) return;
+  try { const st = await h.link.pc.getStats(); let pair = null; st.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) pair = r; });
+    if (pair) { const rc = st.get(pair.remoteCandidateId), lc = st.get(pair.localCandidateId); NETS.relay = (rc && rc.candidateType === 'relay') || (lc && lc.candidateType === 'relay'); } } catch (e) { } }, 5000);
+setInterval(() => { // redraw
+  const el = netStatsEl(); if (!NETS.on || !S.started) { el.style.display = 'none'; return; }
+  const lines = ['FPS ' + (typeof fps === 'number' ? fps : '?')];
+  if (MP.active) {
+    if (MP.role === 'client') { lines.push('Ping ' + (NETS.rtt == null ? '…' : Math.round(NETS.rtt) + ' ms') + (NETS.relay == null ? '' : NETS.relay ? ' · relayed' : ' · direct')); }
+    const others = [...MP.avatars.entries()].filter(([id, a]) => !a.spec && id !== MP.myId);
+    for (const [id, a] of others.slice(0, 4)) { const u = NETS.upd.get(id); lines.push(String(a.name || 'Player').slice(0, 14) + ': ' + (u ? u.rate : 0) + ' updates/s'); }
+  }
+  el.textContent = lines.join('\n'); el.style.display = ''; }, 500);
+
 // ================= CONTROLS SCREEN: rebind keys =================
 let kbWaiting = null, kbBackTo = 'menu';
 function renderControls() {
