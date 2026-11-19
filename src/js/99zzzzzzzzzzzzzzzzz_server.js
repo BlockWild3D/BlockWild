@@ -42,7 +42,9 @@ if (BW_SERVER) {
     SRV.host();
     const joined = [...MP.peers.values()].filter((p) => p.joined);
     // ride along with the first player who joined (and is still here); if they changed dimension, follow them there
-    let av = null; for (const p of joined) { const a = MP.avatars.get(p.id); if (a && a.dim && !a.dead && a.seen && a.netBuf && a.netBuf.length && a.pos.y > -50) { av = a; break; } }
+    const okAv = (a) => a && a.dim && !a.dead && a.seen && a.netBuf && a.netBuf.length && a.pos.y > -50;
+    let av = null; if (SRV.pickFollow) { const a = SRV.pickFollow(joined); if (okAv(a)) av = a; } // e.g. a player who is in a duel
+    if (!av) for (const p of joined) { const a = MP.avatars.get(p.id); if (okAv(a)) { av = a; break; } }
     if (av) {
       if (av.dim !== world.dim) { say('following ' + av.name + ' to ' + av.dim); travelTo(av.dim, { type: 'bed', pos: { x: av.pos.x, y: av.pos.y, z: av.pos.z }, x: Math.floor(av.pos.x), z: Math.floor(av.pos.z) }); return; }
       player.pos.copy(av.pos);
