@@ -26070,13 +26070,32 @@ if (BW_SERVER) {
     if (!S.rules || !S.rules.arena || typeof AR === 'undefined' || AR.live || !S.arena || S.arena.phase !== 'cage') { SRV.arT = 0; return; }
     AR.roster.delete(arenaMe());
     const here = [...MP.peers.values()].filter(p => p.joined).map(p => p.id); const r = here.map(id => AR.roster.get(id));
-    const ready = here.length >= 2 && r.every(x => x && x.kit != null);
-    if (!ready) { SRV.arT = 0; SRV.arHint -= dt; if (here.length && SRV.arHint <= 0) { SRV.arHint = 30; mpSendAll({ t: 'chat', raw: here.length < 2 ? 'Waiting for another player to join the arena...' : 'Press K and pick a kit. The round starts when everyone has one.' }); } return; }
-    if (SRV.arT === 0) mpSendAll({ t: 'chat', raw: 'Everyone has a kit. The round starts in 5 seconds!' });
+    const ready = here.length >= 2 && !!AR.def;
+    if (!ready) { SRV.arT = 0; SRV.arHint -= dt; if (here.length && SRV.arHint <= 0) { SRV.arHint = 30; mpSendAll({ t: 'chat', raw: here.length < 2 ? 'Waiting for another player to join the arena...' : 'Press K and click a kit (anyone can pick it for everyone). The round starts 5 seconds later.' }); } return; }
+    if (SRV.arT === 0) mpSendAll({ t: 'chat', raw: 'Kit: ' + AR.def.name + '. The round starts in 5 seconds!' });
     SRV.arT += dt; if (SRV.arT >= 5) { SRV.arT = 0; SRV.arHint = 0; arenaStart(); }
   };
+  // a player picking a kit picks it for everyone (as the host would); a new pick restarts the 5 second countdown
+  { const _in = arenaMsgIn; arenaMsgIn = function (peer, m) {
+      if (m && m.a === 'suggest' && S.rules && S.rules.arena && !AR.live && S.arena && S.arena.phase === 'cage' && m.def && typeof m.def === 'object') {
+        const d = m.def; AR.def = { name: String(d.name || 'Kit').slice(0, 24), items: Array.isArray(d.items) ? d.items.slice(0, 36) : [], armor: Array.isArray(d.armor) ? d.armor.slice(0, 4) : [], off: d.off || null, slots: Array.isArray(d.slots) ? d.slots.slice(0, 41) : null };
+        S.arena.kit = null; arenaSend({ a: 'pick', def: AR.def }); SRV.arT = 0; mpSendAll({ t: 'chat', raw: ((MP.avatars.get(peer.id) || peer).name || 'Someone') + ' picked the kit: ' + AR.def.name });
+        try { renderLobby(); } catch (e) { } return; }
+      return _in.apply(this, arguments); }; }
   { const _t = SRV.tick; SRV.tick = function (dt) { _t.apply(this, arguments); try { SRV.arenaTick(dt); } catch (e) { console.error(e); } }; }
 }
+
+// ---- on players' screens: in a world hosted by a dedicated server (its host is an invisible spectator), clicking a
+// kit in the PvP lobby picks it for everyone instead of saying "the host picks the kit"
+function srvHosted() { if (typeof MP === 'undefined' || !MP.active || MP.role !== 'client') return false; const h = MP.avatars.get('host'); return !!(h && h.spec); }
+{ const _pk = pickKit; pickKit = function (i) {
+    if (srvHosted() && S.arena && S.arena.phase === 'cage' && !AR.live && KITS[i]) { arenaSend({ a: 'suggest', def: kitDef(KITS[i]) }); toast('Picked ' + KITS[i].name + ' for everyone', 1.5); return; }
+    return _pk.apply(this, arguments); }; }
+{ const _rl = renderLobby; renderLobby = function () { const r = _rl.apply(this, arguments);
+    if (srvHosted()) { const el = $('kitPick'); if (el && el.children[1]) el.children[1].textContent = 'Click a kit to pick it for everyone. The round starts 5 seconds after two players are in. Esc hides this, K brings it back.';
+      const lc = $('lobbyCode'); if (lc && !AR.live) lc.textContent = 'Server match: starts by itself';
+      const lp = $('lobbyPlayers'); if (lp && !AR.def) lp.innerHTML = lp.innerHTML.replace('the host is choosing...', 'nobody has picked yet'); }
+    return r; }; }
 
 </script>
 </body>
