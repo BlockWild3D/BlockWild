@@ -4,13 +4,17 @@
 // your cage, you lay out your inventory, armour and off-hand the way the kit should be, press K, name it and save.
 // Custom kits are kept in this browser (up to 12) and are sent to friends when picked, so they don't need them saved.
 AR.def = null; AR.editing = false;
+// Only the owner can make, edit, reset or delete kits: signed in with Google as htoowilliam123@gmail.com, or named
+// WilliamPVPKing. (The name check is easy to fake, since anyone can type that name; the Google one is not.)
+const KIT_ADMINS = { emails: ['htoowilliam123@gmail.com'], names: ['williampvpking'] };
+function kitAdmin() { try { const g = PROFILE.google; if (g && KIT_ADMINS.emails.includes(String(g.email || '').toLowerCase())) return true; return KIT_ADMINS.names.includes(String(PROFILE.name || '').toLowerCase()); } catch (e) { return false; } }
 const KITS_BASE = KITS.length; const KIT_STORE = 'blockwild_pvp_kits'; const KITS_ORIG = KITS.slice(); // built-in kits as shipped, so an edited one can be reset
 function kitDef(kt) { return JSON.parse(JSON.stringify({ name: kt.name, items: kt.items || [], armor: kt.armor || [], off: kt.off || null, slots: kt.slots || null })); }
 function loadCustomKits() { try { const a = JSON.parse(localStorage.getItem(KIT_STORE) || '[]'); return Array.isArray(a) ? a.filter(k => k && k.name && Array.isArray(k.slots)).slice(0, 40) : []; } catch (e) { return []; } }
 function saveCustomKits(a) { try { localStorage.setItem(KIT_STORE, JSON.stringify(a)); } catch (e) { } }
 function rebuildKits() {
   KITS.length = 0; KITS.push(...KITS_ORIG);
-  loadCustomKits().forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
+  (kitAdmin() ? loadCustomKits() : []).forEach((c, i) => { const at = (n) => { const s = c.slots.find(x => x[0] === n); return [s ? s[1] : null]; };
     const kt = { k: c.base || 'custom' + i, name: c.name, custom: i, blurb: c.base ? 'Your edited version.' : 'Custom kit.', slots: c.slots, items: c.slots.filter(x => x[0] < 36).map(x => [x[1], x[2]]), armor: [at(37), at(38), at(39), at(40)] };
     const bi = c.base ? KITS.findIndex((x, j) => j < KITS_BASE && x.k === c.base) : -1;
     if (bi >= 0) { kt.edited = true; KITS[bi] = kt; } else if (!c.base) KITS.push(kt); });
@@ -58,19 +62,20 @@ renderLobby = function () {
 };
 { const _ok = openKitPicker; openKitPicker = function () {
     if (AR.editing) return; const r = _ok.apply(this, arguments); const st = $('lobbyStart');
-    if (st && !$('lobbyCustom')) { const b = document.createElement('button'); b.id = 'lobbyCustom'; b.style.cssText = st.style.cssText; b.style.background = '#3b3b3b'; b.textContent = 'Make a custom kit'; st.parentNode.insertBefore(b, st);
+    if (st && !$('lobbyCustom') && kitAdmin()) { const b = document.createElement('button'); b.id = 'lobbyCustom'; b.style.cssText = st.style.cssText; b.style.background = '#3b3b3b'; b.textContent = 'Make a custom kit'; st.parentNode.insertBefore(b, st);
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(); });
       const g = $('kitGrid'); g.style.maxHeight = '56vh'; g.style.overflowY = 'auto'; g.style.padding = '4px';
       g.querySelectorAll('button').forEach(bt => { const kt = KITS[+bt.dataset.i]; bt.addEventListener('contextmenu', (e) => { e.preventDefault(); kitDelete(KITS[+bt.dataset.i]); });
-        if (kt && arenaHost()) { const ed = document.createElement('span'); ed.textContent = 'Edit'; ed.title = 'Change what this kit has'; ed.style.cssText = 'position:absolute;left:6px;top:6px;background:#2c5a7a;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer'; bt.style.position = 'relative';
+        if (kt && arenaHost() && kitAdmin()) { const ed = document.createElement('span'); ed.textContent = 'Edit'; ed.title = 'Change what this kit has'; ed.style.cssText = 'position:absolute;left:6px;top:6px;background:#2c5a7a;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer'; bt.style.position = 'relative';
           ed.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); kitEditStart(kt); }); bt.appendChild(ed); }
-        if (kt && kt.custom != null && arenaHost()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = kt.edited ? 'Reset' : 'Delete'; del.title = kt.edited ? 'Put this kit back the way it came' : 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
+        if (kt && kt.custom != null && arenaHost() && kitAdmin()) { bt.style.position = 'relative'; const del = document.createElement('span'); del.textContent = kt.edited ? 'Reset' : 'Delete'; del.title = kt.edited ? 'Put this kit back the way it came' : 'Delete this custom kit'; del.style.cssText = 'position:absolute;right:6px;top:6px;background:#8a2a22;border:2px solid #1c1c1c;color:#fff;font-size:12px;padding:1px 6px;cursor:pointer';
           del.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (del.dataset.sure) kitDelete(kt); else { del.dataset.sure = '1'; del.textContent = 'Sure?'; setTimeout(() => { del.dataset.sure = ''; del.textContent = kt.edited ? 'Reset' : 'Delete'; }, 2500); } }); bt.appendChild(del); } }); }
     renderLobby(); return r; }; }
 function kitDelete(kt) { if (!kt || kt.custom == null || !arenaHost()) return; const a = loadCustomKits(); a.splice(kt.custom, 1); saveCustomKits(a);
   if (AR.def && AR.def.name === kt.name) { AR.def = null; if (S.arena) S.arena.kit = null; arenaSend({ a: 'pick', def: null }); } toast(kt.edited ? 'Reset the kit "' + kt.name + '"' : 'Deleted the kit "' + kt.name + '"', 2); rebuildKits(); }
 // ---- the kit editor ----
 function kitEditStart(from) {
+  if (!kitAdmin()) { toast('Only the owner can make or edit kits', 2); return; }
   const A = S.arena; if (!A || A.phase !== 'cage' || AR.live || !arenaHost()) return;
   from = from && from.name ? from : null; const ci = (k) => { const c = loadCustomKits()[k.custom]; return c && c.base; };
   if (!from && loadCustomKits().filter(c => !c.base).length >= 12) { toast('You already have 12 custom kits. Right-click one to delete it', 3); return; }
