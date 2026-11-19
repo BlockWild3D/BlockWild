@@ -10026,12 +10026,12 @@ if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free:
 // It tells "my computer is slow" (low FPS) apart from "the connection is slow" (high ping, few updates, relayed).
 const NETS = { on: true, rtt: null, pings: {}, upd: new Map(), relay: null, el: null };
 function netStatsEl() { if (NETS.el) return NETS.el; const d = document.createElement('div'); d.id = 'netStats';
-  d.style.cssText = 'position:fixed;right:10px;top:64px;z-index:20;font-size:13px;line-height:1.35;color:#fff;text-shadow:1px 1px 0 #000;background:rgba(0,0,0,.35);padding:3px 7px;pointer-events:none;text-align:right;white-space:pre';
+  d.style.cssText = 'position:fixed;right:10px;bottom:120px;z-index:20;font-size:13px;line-height:1.35;color:#fff;text-shadow:1px 1px 0 #000;background:rgba(0,0,0,.35);padding:3px 7px;pointer-events:none;text-align:right;white-space:pre';
   document.body.appendChild(d); return NETS.el = d; }
 addEventListener('keydown', (e) => { if (e.code === 'F6') { e.preventDefault(); NETS.on = !NETS.on; if (!NETS.on && NETS.el) NETS.el.style.display = 'none'; } });
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
-    if (m && m.t === 'ping') { if (MP.role === 'host') try { peer.link.send({ t: 'pong', ts: m.ts }, true); } catch (e) { } return; }
-    if (m && m.t === 'pong') { if (typeof m.ts === 'number') { const r = performance.now() - m.ts; NETS.rtt = NETS.rtt == null ? r : NETS.rtt * 0.6 + r * 0.4; } return; }
+    if (m && m.t === 'ping') { try { peer.link.send({ t: 'pong', ts: m.ts }, true); } catch (e) { } return; }
+    if (m && m.t === 'pong') { if (typeof m.ts === 'number') { const r = performance.now() - m.ts; if (MP.role === 'host') { peer.appRtt = r; peer.appRttMax = Math.max(peer.appRttMax || 0, r); } else NETS.rtt = NETS.rtt == null ? r : NETS.rtt * 0.6 + r * 0.4; } return; }
     if (m && m.t === 'p') { const id = MP.role === 'host' ? peer.id : m.id; const u = NETS.upd.get(id) || { n: 0, rate: 0 }; u.n++; NETS.upd.set(id, u); }
     return _on.apply(this, arguments); }; }
 setInterval(() => { // once a second: count updates, ping the host
@@ -10040,12 +10040,21 @@ setInterval(() => { // once a second: count updates, ping the host
 setInterval(async () => { // every 5 s: is the connection to the host direct, or going through a relay server?
   NETS.relay = null; if (!MP.active || MP.role !== 'client') return; const h = MP.peers.get('host'); if (!h || !h.link || !h.link.pc) return;
   try { const st = await h.link.pc.getStats(); let pair = null; st.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) pair = r; });
-    if (pair) { const rc = st.get(pair.remoteCandidateId), lc = st.get(pair.localCandidateId); NETS.relay = (rc && rc.candidateType === 'relay') || (lc && lc.candidateType === 'relay'); } } catch (e) { } }, 5000);
+    if (pair) { const rc = st.get(pair.remoteCandidateId), lc = st.get(pair.localCandidateId); NETS.relay = (rc && rc.candidateType === 'relay') || (lc && lc.candidateType === 'relay'); NETS.wire = pair.currentRoundTripTime != null ? pair.currentRoundTripTime * 1000 : null; }
+    NETS.buf = (h.link.rc ? h.link.rc.bufferedAmount : 0) + (h.link.uc ? h.link.uc.bufferedAmount : 0); } catch (e) { } }, 5000);
+// the host (or server) also pings each player, and can see how much it has waiting to send to each of them
+setInterval(() => { if (!MP.active || MP.role !== 'host') return; for (const p of MP.peers.values()) if (p.joined && p.link) try { p.link.send({ t: 'ping', ts: performance.now() }, true); } catch (e) { } }, 2000);
+async function netPeerReport() { const out = []; for (const p of MP.peers.values()) { if (!p.joined || !p.link) continue; let wire = null;
+    try { const st = await p.link.pc.getStats(); st.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected) && r.currentRoundTripTime != null) wire = Math.round(r.currentRoundTripTime * 1000); }); } catch (e) { }
+    const buf = (p.link.rc ? p.link.rc.bufferedAmount : 0) + (p.link.uc ? p.link.uc.bufferedAmount : 0);
+    out.push((MP.avatars.get(p.id) || p).name + ': game ping ' + (p.appRtt != null ? Math.round(p.appRtt) : '?') + ' ms (max ' + Math.round(p.appRttMax || 0) + '), network ' + (wire == null ? '?' : wire + ' ms') + ', waiting to send ' + buf + ' B'); p.appRttMax = 0; }
+  return out; }
 setInterval(() => { // redraw
   const el = netStatsEl(); if (!NETS.on || !S.started) { el.style.display = 'none'; return; }
   const lines = ['FPS ' + (typeof fps === 'number' ? fps : '?')];
   if (MP.active) {
-    if (MP.role === 'client') { lines.push('Ping ' + (NETS.rtt == null ? '…' : Math.round(NETS.rtt) + ' ms') + (NETS.relay == null ? '' : NETS.relay ? ' · relayed' : ' · direct')); }
+    if (MP.role === 'client') { lines.push('Ping ' + (NETS.rtt == null ? '…' : Math.round(NETS.rtt) + ' ms') + (NETS.relay == null ? '' : NETS.relay ? ' · relayed' : ' · direct'));
+      if (NETS.wire != null || NETS.buf) lines.push('Network ' + (NETS.wire == null ? '?' : Math.round(NETS.wire) + ' ms') + ' · queued ' + (NETS.buf || 0) + ' B'); }
     const others = [...MP.avatars.entries()].filter(([id, a]) => !a.spec && id !== MP.myId);
     for (const [id, a] of others.slice(0, 4)) { const u = NETS.upd.get(id); lines.push(String(a.name || 'Player').slice(0, 14) + ': ' + (u ? u.rate : 0) + ' updates/s'); }
   }
@@ -26096,6 +26105,7 @@ if (BW_SERVER) {
     try { const r = await fetch(SERVER() + '/room/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: MP.code, host: myName() }) }); SRV.renewOk = r.ok ? Date.now() : SRV.renewOk; if (!r.ok) say('code renewal refused: ' + r.status); }
     catch (e) { say('code renewal failed: ' + e.message); } };
   setInterval(SRV.renew, 30000);
+  setInterval(async () => { if (!MP.active) return; try { for (const line of await netPeerReport()) say('net ' + line); } catch (e) { } }, 60000);
   setInterval(() => { const f = SRV.fr; SRV.fr = { n: 0, ms: 0, max: 0 };
     say('alive: ' + (f.n / 60).toFixed(1) + ' ticks/s, avg ' + (f.n ? f.ms / f.n : 0).toFixed(0) + ' ms, worst ' + f.max.toFixed(0) + ' ms | open ' + !!MP.active + ' code ' + MP.code + ' | players ' + [...MP.peers.values()].filter((p) => p.joined).length + ' | renewed ' + (SRV.renewOk ? Math.round((Date.now() - SRV.renewOk) / 1000) + ' s ago' : 'never') + (MP.sig && MP.sig.lastError ? ' | signal error: ' + MP.sig.lastError.message : ''));
     if (!MP.active && SRV.started && S.started && !S.loading) { say('world closed, reopening'); location.reload(); } }, 60000);
