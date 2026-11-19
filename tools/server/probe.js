@@ -6,9 +6,11 @@ const { chromium } = require('playwright');
   await p.goto('https://blockwild3d.github.io/BlockWild/?v=' + Date.now(), { waitUntil: 'load', timeout: 120000 });
   await p.waitForFunction(() => typeof joinWorld === 'function', null, { timeout: 120000 });
   await p.evaluate(() => { try { localStorage.setItem('blockwild_name', 'PingProbe'); } catch (e) {}
-    const _on = onPeerMsg; onPeerMsg = function (peer, m) { if (m && m.t === 'pong') console.log('PROBE pong ' + Math.round(performance.now() - m.ts)); if (m && m.t === 'ping') console.log('PROBE got server ping'); return _on.apply(this, arguments); };
-    setInterval(() => console.log('PROBE status ' + (typeof $ === 'function' && $('mpStatus') ? $('mpStatus').textContent : '') + ' active=' + MP.active + ' peers=' + MP.peers.size), 3000);
-    joinWorld('BLOCK1'); });
+    let lag = 0, last = performance.now(); setInterval(() => { const n = performance.now(); lag = Math.max(lag, n - last - 100); last = n; }, 100);
+    const rt = []; onPeerMsg = function (peer, m) { if (m && m.t === 'pong' && m.pr) rt.push(Math.round(performance.now() - m.ts)); else if (m && m.t === 'ping') peer.link.send({ t: 'pong', ts: m.ts }, true); };
+    joinWorld('BLOCK1');
+    let k = 0; const iv = setInterval(() => { const h = MP.peers.get('host'); if (!h) return; h.link.send({ t: 'ping', ts: performance.now(), pr: 1 }, true); h.link.send({ t: 'ping', ts: performance.now(), pr: 1 }, false);
+      if (++k % 6 === 0) { console.log('PROBE rtts ' + rt.join(',') + '  myLag ' + Math.round(lag)); rt.length = 0; lag = 0; } }, 500); });
   await new Promise(r => setTimeout(r, 40000));
   await ctx.close(); process.exit(0);
 })();
