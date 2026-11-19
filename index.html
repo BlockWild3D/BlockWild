@@ -10025,13 +10025,29 @@ if (typeof CMDS !== 'undefined') CMDS.kick = { usage: '<player> [reason]', free:
 // Shown in the top-right corner during multiplayer (F6 hides or shows it; it can also be shown in single player).
 // It tells "my computer is slow" (low FPS) apart from "the connection is slow" (high ping, few updates, relayed).
 const NETS = { on: true, rtt: null, pings: {}, upd: new Map(), relay: null, el: null };
+// What the player's own browser sees, sent to the server every 10 s so it shows up in the server log:
+// - pings: every raw ping this window
+// - late: how much later than usual updates arrive (arrival time minus send time, minus the smallest seen recently).
+//   Big "late" with a small network ping means the browser held the messages, not the internet.
+// - stall: the longest the page's main thread was busy (a 50 ms timer firing late), and the longest gap between frames
+NETS.w = { pings: [], late: [], stall: 0, frame: 0 }; NETS.base = new Map();
+function netDelaySample(src, ts) { const d = performance.now() - ts; let b = NETS.base.get(src); const now = performance.now();
+  if (!b || d < b.min || now - b.t > 20000) { b = { min: d, t: now }; NETS.base.set(src, b); } NETS.w.late.push(d - b.min); }
+{ let lt = performance.now(); setInterval(() => { const n = performance.now(); NETS.w.stall = Math.max(NETS.w.stall, n - lt - 50); lt = n; }, 50); }
+{ let lf = 0; const f = () => { const n = performance.now(); if (lf && S.started) NETS.w.frame = Math.max(NETS.w.frame, n - lf); lf = n; requestAnimationFrame(f); }; if (!BW_SERVER) requestAnimationFrame(f); }
+function netWinSummary() { const W = NETS.w, L = W.late.slice().sort((a, b) => a - b), P = W.pings.slice().sort((a, b) => a - b);
+  const q = (a, k) => a.length ? Math.round(a[Math.min(a.length - 1, Math.floor(a.length * k))]) : null;
+  return { t: 'nstat', fps: typeof fps === 'number' ? fps : 0, ping: q(P, 0.5), pingMax: q(P, 1), late: q(L, 0.5), late90: q(L, 0.9), lateMax: q(L, 1), n: L.length, stall: Math.round(W.stall), frame: Math.round(W.frame), wire: NETS.wire == null ? null : Math.round(NETS.wire), buf: NETS.buf || 0, relay: !!NETS.relay, vis: document.visibilityState }; }
+setInterval(() => { if (!MP.active || MP.role !== 'client') { NETS.w = { pings: [], late: [], stall: 0, frame: 0 }; return; } const s = netWinSummary(); NETS.lastWin = s; NETS.w = { pings: [], late: [], stall: 0, frame: 0 }; mpToHost(s); }, 10000);
 function netStatsEl() { if (NETS.el) return NETS.el; const d = document.createElement('div'); d.id = 'netStats';
   d.style.cssText = 'position:fixed;right:10px;bottom:120px;z-index:20;font-size:13px;line-height:1.35;color:#fff;text-shadow:1px 1px 0 #000;background:rgba(0,0,0,.35);padding:3px 7px;pointer-events:none;text-align:right;white-space:pre';
   document.body.appendChild(d); return NETS.el = d; }
 addEventListener('keydown', (e) => { if (e.code === 'F6') { e.preventDefault(); NETS.on = !NETS.on; if (!NETS.on && NETS.el) NETS.el.style.display = 'none'; } });
 { const _on = onPeerMsg; onPeerMsg = function (peer, m) {
     if (m && m.t === 'ping') { try { peer.link.send({ t: 'pong', ts: m.ts }, true); } catch (e) { } return; }
-    if (m && m.t === 'pong') { if (typeof m.ts === 'number') { const r = performance.now() - m.ts; if (MP.role === 'host') { peer.appRtt = r; peer.appRttMax = Math.max(peer.appRttMax || 0, r); } else NETS.rtt = NETS.rtt == null ? r : NETS.rtt * 0.6 + r * 0.4; } return; }
+    if (m && m.t === 'pong') { if (typeof m.ts === 'number') { const r = performance.now() - m.ts; if (MP.role === 'host') { peer.appRtt = r; peer.appRttMax = Math.max(peer.appRttMax || 0, r); } else { NETS.rtt = NETS.rtt == null ? r : NETS.rtt * 0.6 + r * 0.4; NETS.last = r; NETS.w.pings.push(Math.round(r)); } } return; }
+    if (m && m.t === 'nstat') { if (MP.role === 'host') peer.nstat = m; return; }
+    if (m && typeof m.ts === 'number' && (m.t === 'p' || m.t === 'mobs') && MP.role === 'client') netDelaySample(m.t === 'mobs' ? 'mobs' : m.id, m.ts);
     if (m && m.t === 'p') { const id = MP.role === 'host' ? peer.id : m.id; const u = NETS.upd.get(id) || { n: 0, rate: 0 }; u.n++; NETS.upd.set(id, u); }
     return _on.apply(this, arguments); }; }
 setInterval(() => { // once a second: count updates, ping the host
@@ -10047,6 +10063,7 @@ setInterval(() => { if (!MP.active || MP.role !== 'host') return; for (const p o
 async function netPeerReport() { const out = []; for (const p of MP.peers.values()) { if (!p.joined || !p.link) continue; let wire = null;
     try { const st = await p.link.pc.getStats(); st.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected) && r.currentRoundTripTime != null) wire = Math.round(r.currentRoundTripTime * 1000); }); } catch (e) { }
     const buf = (p.link.rc ? p.link.rc.bufferedAmount : 0) + (p.link.uc ? p.link.uc.bufferedAmount : 0);
+    const c = p.nstat; if (c) out.push((MP.avatars.get(p.id) || p).name + ' (their browser): fps ' + c.fps + ', ping ' + c.ping + ' (max ' + c.pingMax + '), late ' + c.late + '/' + c.late90 + '/' + c.lateMax + ' ms over ' + c.n + ' msgs, freeze ' + c.stall + ' ms, longest frame ' + c.frame + ' ms, network ' + c.wire + ', queued ' + c.buf + ', ' + c.vis);
     out.push((MP.avatars.get(p.id) || p).name + ': game ping ' + (p.appRtt != null ? Math.round(p.appRtt) : '?') + ' ms (max ' + Math.round(p.appRttMax || 0) + '), network ' + (wire == null ? '?' : wire + ' ms') + ', waiting to send ' + buf + ' B'); p.appRttMax = 0; }
   return out; }
 setInterval(() => { // redraw
@@ -10054,7 +10071,8 @@ setInterval(() => { // redraw
   const lines = ['FPS ' + (typeof fps === 'number' ? fps : '?')];
   if (MP.active) {
     if (MP.role === 'client') { lines.push('Ping ' + (NETS.rtt == null ? '…' : Math.round(NETS.rtt) + ' ms') + (NETS.relay == null ? '' : NETS.relay ? ' · relayed' : ' · direct'));
-      if (NETS.wire != null || NETS.buf) lines.push('Network ' + (NETS.wire == null ? '?' : Math.round(NETS.wire) + ' ms') + ' · queued ' + (NETS.buf || 0) + ' B'); }
+      if (NETS.wire != null || NETS.buf) lines.push('Network ' + (NETS.wire == null ? '?' : Math.round(NETS.wire) + ' ms') + ' · queued ' + (NETS.buf || 0) + ' B');
+      const w = NETS.lastWin; if (w) lines.push('Late ' + (w.late ?? '?') + '/' + (w.late90 ?? '?') + ' ms · freeze ' + w.stall + ' ms'); }
     const others = [...MP.avatars.entries()].filter(([id, a]) => !a.spec && id !== MP.myId);
     for (const [id, a] of others.slice(0, 4)) { const u = NETS.upd.get(id); lines.push(String(a.name || 'Player').slice(0, 14) + ': ' + (u ? u.rate : 0) + ' updates/s'); }
   }
